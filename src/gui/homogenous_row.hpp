@@ -1,0 +1,226 @@
+#pragma once
+
+#include <cstddef>
+#include <iterator>
+#include <memory>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include "utility/dereference_iterator.hpp"
+
+namespace xen::gui
+{
+
+/**
+ * @brief A row of components of the same type.
+ *
+ * This container owns the child components.
+ *
+ * @tparam T The type of the child components.
+ */
+template <typename T>
+class HomogenousRow : public juce::Component
+{
+    static_assert(std::is_base_of<juce::Component, T>::value);
+
+  public:
+    using iterator = utility::DereferenceIterator<std::vector<std::unique_ptr<T>>>;
+    using const_iterator =
+        utility::DereferenceIterator<std::vector<std::unique_ptr<T>>>;
+
+    using value_type = typename iterator::value_type;
+
+  public:
+    /**
+     * @brief Create an empty HomogenousRow.
+     *
+     * @param flex The FlexItem to use as the default for each child.
+     */
+    HomogenousRow(juce::FlexItem flex = juce::FlexItem{}) : flex_item_{std::move(flex)}
+    {
+    }
+
+  public:
+    /**
+     * @brief Emplace a child component at the given index.
+     *
+     * @tparam Args The types of the arguments to forward to the child's constructor.
+     *
+     * @param at The index to insert the child at.
+     * @param args The arguments to forward to the child's constructor.
+     * @return A reference to the newly created child.
+     *
+     * @throws std::out_of_range if at is greater than the number of children.
+     */
+    template <typename... Args>
+    auto emplace(std::size_t at, Args &&...args) -> T &
+    {
+        if (at > children_.size())
+        {
+            throw std::out_of_range{"HomogenousRow::emplace: index out of range"};
+        }
+
+        auto child = std::make_unique<T>(std::forward<Args>(args)...);
+        auto &child_ref = *child;
+        children_.emplace(std::next(children_.begin(), at), std::move(child));
+        this->addAndMakeVisible(child_ref);
+        this->resized();
+        return child_ref;
+    }
+
+    /**
+     * @brief Emplace a child component at the end of the row.
+     *
+     * @tparam Args The types of the arguments to forward to the child's constructor.
+     *
+     * @param args The arguments to forward to the child's constructor.
+     * @return A reference to the newly created child.
+     */
+    template <typename... Args>
+    auto emplace_back(Args &&...args) -> T &
+    {
+        return this->emplace(children_.size(), std::forward<Args>(args)...);
+    }
+
+    /**
+     * @brief Insert a child component at the given index.
+     *
+     * @param at The index to insert the child at.
+     * @param child The child to insert.
+     * @return A reference to the newly created child.
+     *
+     * @throws std::out_of_range if at is greater than the number of children.
+     */
+    auto insert(std::size_t at, std::unique_ptr<T> child) -> T &
+    {
+        if (at > children_.size())
+        {
+            throw std::out_of_range{"HomogenousRow::insert: index out of range"};
+        }
+
+        auto &child_ref = *child;
+        children_.emplace(std::next(children_.begin(), at), std::move(child));
+        this->addAndMakeVisible(child_ref);
+        this->resized();
+        return child_ref;
+    }
+
+    /**
+     * @brief Insert a child component at the end of the row.
+     *
+     * @param child The child to insert.
+     * @return A reference to the newly created child.
+     */
+    auto push_back(std::unique_ptr<T> child) -> T &
+    {
+        this->insert(children_.size(), std::move(child));
+    }
+
+    /**
+     * @return The number of children in the row.
+     */
+    [[nodiscard]] auto size() const noexcept -> std::size_t
+    {
+        return children_.size();
+    }
+
+    /**
+     * @return True if the row has no children.
+     */
+    [[nodiscard]] auto empty() const noexcept -> bool
+    {
+        return children_.empty();
+    }
+
+  public:
+    /**
+     * @brief Remove all children from the row.
+     */
+    void clear() noexcept
+    {
+        this->removeAllChildren();
+        children_.clear();
+        this->resized();
+    }
+
+    /**
+     * @brief Remove the child at the given index.
+     *
+     * @param index The index of the child to remove.
+     *
+     * @throws std::out_of_range if index is greater than the number of children.
+     */
+    auto erase(std::size_t index)
+    {
+        if (index >= children_.size())
+        {
+            throw std::out_of_range{"HomogenousRow::erase: index out of range"};
+        }
+
+        auto &child = children_[index];
+        this->removeChildComponent(*child);
+        children_.erase(std::next(children_.begin(), index));
+        this->resized();
+    }
+
+  public:
+    [[nodiscard]] auto begin() -> iterator
+    {
+        return iterator{children_.begin()};
+    }
+
+    [[nodiscard]] auto begin() const -> const_iterator
+    {
+        return const_iterator{children_.begin()};
+    }
+
+    [[nodiscard]] auto cbegin() const -> const_iterator
+    {
+        return const_iterator{children_.cbegin()};
+    }
+
+    [[nodiscard]] auto end() -> iterator
+    {
+        return iterator{children_.end()};
+    }
+
+    [[nodiscard]] auto end() const -> const_iterator
+    {
+        return const_iterator{children_.end()};
+    }
+
+    [[nodiscard]] auto cend() const -> const_iterator
+    {
+        return const_iterator{children_.cend()};
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        auto flex_box = juce::FlexBox{};
+
+        flex_box.flexDirection = juce::FlexBox::Direction::row;
+        flex_box.justifyContent = juce::FlexBox::JustifyContent::flexStart;
+
+        // Add each child component to the FlexBox
+        for (auto &child : children_)
+        {
+            auto item = flex_item_;
+            item.associatedComponent = child.get();
+            flex_box.items.add(std::move(item));
+        }
+
+        flex_box.performLayout(this->getLocalBounds());
+    }
+
+  private:
+    std::vector<std::unique_ptr<T>> children_;
+    juce::FlexItem flex_item_;
+};
+
+} // namespace xen::gui

@@ -16,9 +16,9 @@ juce_add_plugin(XenSequencer
     # ICON_SMALL ...
     COMPANY_NAME "A"                            # Specify the name of the plugin's author
     IS_SYNTH FALSE                              # Is this a synth or an effect?
-    NEEDS_MIDI_INPUT FALSE                      # Does the plugin need midi input?
+    NEEDS_MIDI_INPUT TRUE                       # Does the plugin need midi input?
     NEEDS_MIDI_OUTPUT TRUE                      # Does the plugin need midi output?
-    IS_MIDI_EFFECT TRUE                         # Is this plugin a MIDI effect?
+    IS_MIDI_EFFECT FALSE                        # Is this plugin a MIDI effect?
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE           # Does the editor need keyboard focus?
     COPY_PLUGIN_AFTER_BUILD FALSE               # Should the plugin be installed to a default location after building?
     PLUGIN_MANUFACTURER_CODE Juce               # A four-character manufacturer id with at least one upper-case character
@@ -38,8 +38,9 @@ juce_add_plugin(XenSequencer
 
 target_sources(XenSequencer
     PRIVATE
-        plugin_editor.cpp
-        plugin_processor.cpp
+        src/plugin_editor.cpp
+        src/plugin_processor.cpp
+        src/xen_processor.cpp
 )
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
@@ -55,6 +56,7 @@ target_compile_definitions(XenSequencer
         JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
 # If your target needs extra binary assets, you can add them here. The first argument is the name of
@@ -81,4 +83,9 @@ target_link_libraries(XenSequencer
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+)
+
+target_compile_options(XenSequencer INTERFACE
+  $<$<CXX_COMPILER_ID:MSVC>:/W1>
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
