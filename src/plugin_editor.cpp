@@ -11,10 +11,13 @@ PluginEditor::PluginEditor(XenProcessor &p) : AudioProcessorEditor{&p}, processo
     this->setResizable(true, true);
     this->setResizeLimits(400, 300, 1200, 900);
 
-    this->setSize(400, 300);
-    bpm_box_.set_value(150.f);
-    this->addAndMakeVisible(&bpm_box_);
+    this->setSize(1000, 300);
+
+    this->addAndMakeVisible(&heading_);
+    this->addAndMakeVisible(&phrase_editor_);
     this->addAndMakeVisible(&tuning_box_);
+
+    heading_.set_justification(juce::Justification::centred);
 
     tuning_box_.on_tuning_changed = [](auto const &tuning) {
         (void)tuning;
@@ -32,28 +35,13 @@ PluginEditor::~PluginEditor()
 {
 }
 
-void PluginEditor::paint(juce::Graphics &g)
-{
-    // fill the whole window white
-    g.fillAll(juce::Colours::white);
-
-    // set the current drawing colour to black
-    g.setColour(juce::Colours::black);
-
-    // set the font size and draw text to the screen
-    g.setFont(15.0f);
-
-    g.drawFittedText("XenSequencer", 0, 0, getWidth(), 30, juce::Justification::centred,
-                     1);
-}
-
 void PluginEditor::resized()
 {
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
-    flexbox.alignContent = juce::FlexBox::AlignContent::center;
 
-    flexbox.items.add(juce::FlexItem(bpm_box_).withFlex(1.f));
+    flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
+    flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
     flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
 
     flexbox.performLayout(this->getLocalBounds());

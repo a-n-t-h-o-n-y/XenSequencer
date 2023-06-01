@@ -41,7 +41,8 @@ class HomogenousRow : public juce::Component
      *
      * @param flex The FlexItem to use as the default for each child.
      */
-    HomogenousRow(juce::FlexItem flex = juce::FlexItem{}) : flex_item_{std::move(flex)}
+    HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
+        : flex_item_{std::move(flex)}
     {
     }
 
@@ -57,20 +58,17 @@ class HomogenousRow : public juce::Component
      *
      * @throws std::out_of_range if at is greater than the number of children.
      */
-    template <typename... Args>
+    template <typename Child_t = T, typename... Args>
     auto emplace(std::size_t at, Args &&...args) -> T &
     {
+        static_assert(std::is_base_of<T, Child_t>::value);
+
         if (at > children_.size())
         {
             throw std::out_of_range{"HomogenousRow::emplace: index out of range"};
         }
 
-        auto child = std::make_unique<T>(std::forward<Args>(args)...);
-        auto &child_ref = *child;
-        children_.emplace(std::next(children_.begin(), at), std::move(child));
-        this->addAndMakeVisible(child_ref);
-        this->resized();
-        return child_ref;
+        return this->insert(at, std::make_unique<Child_t>(std::forward<Args>(args)...));
     }
 
     /**
@@ -81,10 +79,10 @@ class HomogenousRow : public juce::Component
      * @param args The arguments to forward to the child's constructor.
      * @return A reference to the newly created child.
      */
-    template <typename... Args>
+    template <typename Child_t = T, typename... Args>
     auto emplace_back(Args &&...args) -> T &
     {
-        return this->emplace(children_.size(), std::forward<Args>(args)...);
+        return this->emplace<Child_t>(children_.size(), std::forward<Args>(args)...);
     }
 
     /**
@@ -105,8 +103,7 @@ class HomogenousRow : public juce::Component
 
         auto &child_ref = *child;
         children_.emplace(std::next(children_.begin(), at), std::move(child));
-        this->addAndMakeVisible(child_ref);
-        this->resized();
+        this->initialize_child(child_ref);
         return child_ref;
     }
 
@@ -118,23 +115,34 @@ class HomogenousRow : public juce::Component
      */
     auto push_back(std::unique_ptr<T> child) -> T &
     {
-        this->insert(children_.size(), std::move(child));
+        return this->insert(children_.size(), std::move(child));
     }
 
     /**
-     * @return The number of children in the row.
+     * Replaces the value at the given index with the given value and returns the old
+     * value from that index.
+     *
+     * This will initialize the new child to be visible and will uninitialize the old
+     * child so it is no longer a part of this Component.
+     *
+     * @param at The index to replace.
+     * @param cell The new value.
+     * @return The old value.
+     *
+     * @throws std::out_of_range if at >= this->size().
      */
-    [[nodiscard]] auto size() const noexcept -> std::size_t
+    auto exchange(std::size_t at, std::unique_ptr<T> cell) -> std::unique_ptr<T>
     {
-        return children_.size();
-    }
+        if (at >= this->size())
+        {
+            throw std::out_of_range{"HomogenousRow::exchange: index out of range"};
+        }
 
-    /**
-     * @return True if the row has no children.
-     */
-    [[nodiscard]] auto empty() const noexcept -> bool
-    {
-        return children_.empty();
+        auto old = std::move(children_[at]);
+        children_[at] = std::move(cell);
+        this->initialize_child(*children_[at]);
+        this->uninitialize_child(*old);
+        return old;
     }
 
   public:
@@ -163,12 +171,63 @@ class HomogenousRow : public juce::Component
         }
 
         auto &child = children_[index];
-        this->removeChildComponent(*child);
+        this->uninitialize_child(*child);
         children_.erase(std::next(children_.begin(), index));
-        this->resized();
+    }
+
+    /**
+     * @brief Return a reference to the child at the given index.
+     *
+     * @param index The index of the child to return.
+     * @return A reference to the child at the given index.
+     *
+     * @throws std::out_of_range if index is greater than the number of children.
+     */
+    auto at(std::size_t index) -> T &
+    {
+        if (index >= children_.size())
+        {
+            throw std::out_of_range{"HomogenousRow::at: index out of range"};
+        }
+
+        return *(children_[index]);
+    }
+
+    /**
+     * @brief Return a const reference to the child at the given index.
+     *
+     * @param index The index of the child to return.
+     * @return A const reference to the child at the given index.
+     *
+     * @throws std::out_of_range if index is greater than the number of children.
+     */
+    auto at(std::size_t index) const -> const T &
+    {
+        if (index >= children_.size())
+        {
+            throw std::out_of_range{"HomogenousRow::at: index out of range"};
+        }
+
+        return *(children_[index]);
     }
 
   public:
+    /**
+     * @return The number of children in the row.
+     */
+    [[nodiscard]] auto size() const noexcept -> std::size_t
+    {
+        return children_.size();
+    }
+
+    /**
+     * @return True if the row has no children.
+     */
+    [[nodiscard]] auto empty() const noexcept -> bool
+    {
+        return children_.empty();
+    }
+
     [[nodiscard]] auto begin() -> iterator
     {
         return iterator{children_.begin()};
@@ -216,6 +275,25 @@ class HomogenousRow : public juce::Component
         }
 
         flex_box.performLayout(this->getLocalBounds());
+    }
+
+  private:
+    /**
+     * @brief Initialize a child component for use in the row.
+     */
+    auto initialize_child(T &child) -> void
+    {
+        this->addAndMakeVisible(child);
+        this->resized();
+    }
+
+    /**
+     * @brief Uninitialize a child component for use in the row.
+     */
+    auto uninitialize_child(T &child) -> void
+    {
+        this->removeChildComponent(&child);
+        this->resized();
     }
 
   private:

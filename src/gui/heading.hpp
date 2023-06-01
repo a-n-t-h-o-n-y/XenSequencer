@@ -2,6 +2,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+namespace xen::gui
+{
+
 /**
  * @brief A Label for displaying a heading.
  */
@@ -26,6 +29,12 @@ class Heading : public juce::Label
     }
 
   public:
+    auto set_justification(juce::Justification just) -> void
+    {
+        this->setJustificationType(just);
+    }
+
+  public:
     /**
      * @brief Set the text to display.
      *
@@ -45,3 +54,5 @@ class Heading : public juce::Label
     int padding_;
     juce::Font font_;
 };
+
+} // namespace xen::gui

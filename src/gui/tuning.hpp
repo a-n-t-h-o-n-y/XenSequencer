@@ -92,7 +92,7 @@ class SplitFloatBox : public juce::Component
         flexbox.items.add(juce::FlexItem{integral_}.withFlex(1.f));
         flexbox.items.add(juce::FlexItem{fractional_}.withFlex(1.f));
 
-        flexbox.performLayout(getLocalBounds().toFloat());
+        flexbox.performLayout(getLocalBounds());
     }
 
     auto paint(juce::Graphics &g) -> void override
@@ -111,7 +111,7 @@ class SplitFloatBox : public juce::Component
         g.drawRect(getLocalBounds(), 1);
 
         // draw an outline around the component with rounded corners
-        // g.drawRoundedRectangle(getLocalBounds().toFloat(), 10, 1);
+        // g.drawRoundedRectangle(getLocalBounds(), 10, 1);
 
         // add border between integral and fractional parts
         auto integralBounds = integral_.getBounds();
@@ -256,52 +256,6 @@ class PlusButton : public juce::TextButton
 };
 
 /**
- * @brief A NumberBox for displaying a the octave interval and label.
- */
-class OctaveBox : public juce::Component
-{
-  public:
-    OctaveBox()
-    {
-        this->addAndMakeVisible(label_);
-        this->addAndMakeVisible(interval_box_);
-    }
-
-  public:
-    /**
-     * @brief Sets the octave interval to the given value.
-     *
-     * Clamps the value to the range [0.f, 10'000.f].
-     *
-     * @param cents The octave interval in cents.
-     */
-    auto reset(float cents) -> void
-    {
-        interval_box_.set_value(cents);
-    }
-
-  public:
-    std::function<void(float)> &on_number_changed = interval_box_.on_number_changed;
-
-  protected:
-    auto resized() -> void override
-    {
-        // use flexbox to layout label on top of interval_box
-        auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::column;
-
-        flexbox.items.add(juce::FlexItem{label_}.withFlex(1.f));
-        flexbox.items.add(juce::FlexItem{interval_box_}.withFlex(1.1f));
-
-        flexbox.performLayout(getLocalBounds());
-    }
-
-  private:
-    Heading label_{"Octave", 5, juce::Font{"Arial", "Bold", 14.f}};
-    IntervalBox interval_box_{0.f};
-};
-
-/**
  * @brief A row of IntervalBoxes, add interval button, and OctaveBox.
  */
 class TuningRow : public juce::Component
@@ -356,7 +310,7 @@ class TuningRow : public juce::Component
     auto reset(sequence::Tuning tuning) -> void
     {
         interval_row_.reset(tuning.intervals);
-        octave_box_.reset(tuning.octave);
+        octave_box_.set_value(tuning.octave);
     }
 
     /**
@@ -400,7 +354,7 @@ class TuningRow : public juce::Component
   private:
     IntervalRow interval_row_;
     PlusButton plus_btn_;
-    OctaveBox octave_box_;
+    IntervalBox octave_box_;
 
     sequence::Tuning tuning_;
 };
@@ -437,12 +391,39 @@ class BottomRow : public juce::Component
     SaveFileButton save_file_btn_{"Save File", "Create a file to save to.", "*.scl"};
 };
 
+class TopRow : public juce::Component
+{
+  public:
+    TopRow()
+    {
+        this->addAndMakeVisible(tuning_heading_);
+        this->addAndMakeVisible(octave_heading_);
+        this->setSize(getWidth(), tuning_heading_.getHeight());
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        auto flexbox = juce::FlexBox{};
+        flexbox.flexDirection = juce::FlexBox::Direction::row;
+
+        flexbox.items.add(juce::FlexItem(tuning_heading_).withFlex(1.f));
+        flexbox.items.add(juce::FlexItem(octave_heading_).withWidth(60.f));
+
+        flexbox.performLayout(getLocalBounds());
+    }
+
+  private:
+    Heading tuning_heading_{"Tuning"};
+    Heading octave_heading_{"Octave", 5, juce::Font{"Arial", "Bold", 14.f}};
+};
+
 class TuningBox : public juce::Component
 {
   public:
     TuningBox()
     {
-        this->addAndMakeVisible(heading_);
+        this->addAndMakeVisible(top_row_);
         this->addAndMakeVisible(tuning_row_);
         this->addAndMakeVisible(bottom_row_);
 
@@ -464,10 +445,10 @@ class TuningBox : public juce::Component
         auto flexbox = juce::FlexBox{};
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(heading_).withHeight(
-            static_cast<float>(heading_.getHeight())));
+        flexbox.items.add(juce::FlexItem(top_row_).withHeight(
+            static_cast<float>(top_row_.getHeight())));
         flexbox.items.add(juce::FlexItem(tuning_row_).withFlex(1.0f));
-        flexbox.items.add(juce::FlexItem(bottom_row_).withFlex(1.0f));
+        flexbox.items.add(juce::FlexItem(bottom_row_).withHeight(30.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }
@@ -477,7 +458,7 @@ class TuningBox : public juce::Component
         tuning_row_.on_tuning_changed;
 
   private:
-    Heading heading_{"Tuning"};
+    TopRow top_row_;
     TuningRow tuning_row_;
     BottomRow bottom_row_;
 };
