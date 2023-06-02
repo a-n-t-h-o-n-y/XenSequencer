@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -7,6 +9,7 @@
 
 #include "homogenous_row.hpp"
 #include "measure.hpp"
+#include "state.hpp"
 
 namespace xen::gui
 {
@@ -17,75 +20,52 @@ namespace xen::gui
 class Phrase : public HomogenousRow<Measure>
 {
   public:
-    Phrase()
-    {
-        // TODO temporary test measures
-        auto const measure1 = [] {
-            namespace seq = sequence;
-            auto m = seq::create_measure({4, 4}, 2);
-            for (auto i = 0; i < (int)m.sequence.cells.size(); ++i)
-            {
-                // if even create a subsequence else create a note
-                if (i % 2 == 0)
-                {
-                    m.sequence.cells[i] = seq::Sequence{{
-                        seq::Note{i, 0.75f, 0.5f, 1.f},
-                        seq::Rest{},
-                        seq::Note{i + 2, 0.75f, 0.25f, 1.f},
-                    }};
-                }
-                else
-                {
-                    m.sequence.cells[i] = seq::Note{i, 0.75f, 1.f, 1.f};
-                }
-            }
-            return m;
-        }();
-
-        auto const measure2 = [] {
-            namespace seq = sequence;
-            auto m = seq::create_measure({2, 4}, 1);
-            for (auto i = 0; i < (int)m.sequence.cells.size(); ++i)
-            {
-                m.sequence.cells[i] = seq::Sequence{{
-                    seq::Note{i, 0.75f, 0.5f, 0.8f},
-                    seq::Rest{},
-                    seq::Note{i + 2, 0.75f, 0.25f, 0.1f},
-                }};
-            }
-            return m;
-        }();
-
-        this->set({
-            measure1,
-            measure2,
-        });
-    }
-
-  public:
     auto set(sequence::Phrase const &phrase) -> void
     {
         this->HomogenousRow<Measure>::clear();
 
         for (auto const &measure : phrase)
         {
-            this->emplace_back(measure);
+            auto &measure_display = this->emplace_back(measure);
+
+            measure_display.on_update = [this] {
+                if (this->on_update)
+                {
+                    this->on_update();
+                }
+            };
         }
     }
 
-  protected:
-    auto paint(juce::Graphics &g) -> void override
+    [[nodiscard]] auto get_phrase() const -> sequence::Phrase
     {
-        (void)g;
-        // set the current drawing color
-        // g.setColour(juce::Colours::white);
+        auto phrase = sequence::Phrase{};
 
-        // // draw an outline around the component
-        // g.drawRect(getLocalBounds(), 1);
+        for (auto const &measure : *this)
+        {
+            phrase.push_back(measure.get_measure());
+        }
+
+        return phrase;
     }
 
-  private:
-    sequence::Phrase phrase_;
+  public:
+    /**
+     * @brief Called when the phrase is updated.
+     */
+    std::function<void()> on_update;
+
+  protected:
+    auto paintOverChildren(juce::Graphics &g) -> void override
+    {
+        g.setColour(juce::Colours::white);
+
+        auto const bounds = getLocalBounds();
+        auto const right_x = (float)bounds.getRight();
+
+        g.drawLine(right_x, (float)bounds.getY(), right_x, (float)bounds.getBottom(),
+                   1);
+    }
 };
 
 } // namespace xen::gui

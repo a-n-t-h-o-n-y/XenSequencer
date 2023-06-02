@@ -31,7 +31,7 @@ class HomogenousRow : public juce::Component
   public:
     using iterator = utility::DereferenceIterator<std::vector<std::unique_ptr<T>>>;
     using const_iterator =
-        utility::DereferenceIterator<std::vector<std::unique_ptr<T>>>;
+        utility::DereferenceConstIterator<std::vector<std::unique_ptr<T>>>;
 
     using value_type = typename iterator::value_type;
 
@@ -41,8 +41,9 @@ class HomogenousRow : public juce::Component
      *
      * @param flex The FlexItem to use as the default for each child.
      */
-    HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
-        : flex_item_{std::move(flex)}
+    HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f),
+                  bool paint_borders = false)
+        : flex_item_{std::move(flex)}, paint_borders_{paint_borders}
     {
     }
 
@@ -145,6 +146,12 @@ class HomogenousRow : public juce::Component
         return old;
     }
 
+    auto add_borders(bool paint_borders) noexcept -> void
+    {
+        paint_borders_ = paint_borders;
+        this->repaint();
+    }
+
   public:
     /**
      * @brief Remove all children from the row.
@@ -235,12 +242,12 @@ class HomogenousRow : public juce::Component
 
     [[nodiscard]] auto begin() const -> const_iterator
     {
-        return const_iterator{children_.begin()};
+        return const_iterator(children_.begin());
     }
 
     [[nodiscard]] auto cbegin() const -> const_iterator
     {
-        return const_iterator{children_.cbegin()};
+        return const_iterator(children_.cbegin());
     }
 
     [[nodiscard]] auto end() -> iterator
@@ -250,12 +257,12 @@ class HomogenousRow : public juce::Component
 
     [[nodiscard]] auto end() const -> const_iterator
     {
-        return const_iterator{children_.end()};
+        return const_iterator(children_.end());
     }
 
     [[nodiscard]] auto cend() const -> const_iterator
     {
-        return const_iterator{children_.cend()};
+        return const_iterator(children_.cend());
     }
 
   protected:
@@ -275,6 +282,20 @@ class HomogenousRow : public juce::Component
         }
 
         flex_box.performLayout(this->getLocalBounds());
+    }
+
+    void paintOverChildren(juce::Graphics &g) override
+    {
+        if (paint_borders_)
+        {
+            g.setColour(juce::Colours::white);
+
+            for (int i = 1; i < children_.size(); ++i)
+            {
+                auto x = children_[i]->getX() - 1;
+                g.drawLine((float)x, 0, (float)x, (float)this->getHeight(), 1);
+            }
+        }
     }
 
   private:
@@ -299,6 +320,7 @@ class HomogenousRow : public juce::Component
   private:
     std::vector<std::unique_ptr<T>> children_;
     juce::FlexItem flex_item_;
+    bool paint_borders_;
 };
 
 } // namespace xen::gui

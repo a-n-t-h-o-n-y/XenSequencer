@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -31,6 +33,11 @@ class TimeSignature : public juce::Label
         this->setText(text, juce::dontSendNotification);
     }
 
+    [[nodiscard]] auto get_time_signature() const -> sequence::TimeSignature
+    {
+        return time_sig_;
+    }
+
   protected:
     auto paint(juce::Graphics &g) -> void override
     {
@@ -47,24 +54,51 @@ class TimeSignature : public juce::Label
     sequence::TimeSignature time_sig_;
 };
 
-// TODO - a sequence and time signature.
 class Measure : public juce::Component
 {
   public:
-    Measure(sequence::Measure const &measure) : measure_{measure}
+    Measure(sequence::Measure const &measure)
     {
         this->addAndMakeVisible(time_sig_);
         this->addAndMakeVisible(sequence_);
 
-        this->set(measure_);
+        this->set(measure);
     }
 
   public:
     auto set(sequence::Measure const &measure) -> void
     {
+        // TODO if you allow the time signature to be edited, then connect to its
+        // on_update signal.
         time_sig_.set(measure.time_signature);
+
         sequence_.set(measure.sequence);
+        sequence_.on_update = [this] {
+            if (this->on_update)
+            {
+                this->on_update();
+            }
+        };
+
+        if (this->on_update)
+        {
+            this->on_update();
+        }
     }
+
+    [[nodiscard]] auto get_measure() const -> sequence::Measure
+    {
+        return sequence::Measure{
+            sequence_.get_sequence(),
+            time_sig_.get_time_signature(),
+        };
+    }
+
+  public:
+    /**
+     * @brief Called when the measure is updated.
+     */
+    std::function<void()> on_update;
 
   protected:
     auto resized() -> void override
@@ -77,9 +111,6 @@ class Measure : public juce::Component
 
         flexbox.performLayout(getLocalBounds());
     }
-
-  private:
-    sequence::Measure measure_;
 
   private:
     TimeSignature time_sig_;

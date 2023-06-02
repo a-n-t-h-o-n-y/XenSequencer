@@ -439,6 +439,17 @@ class TuningBox : public juce::Component
         };
     }
 
+  public:
+    auto set_tuning(sequence::Tuning tuning) -> void
+    {
+        tuning_row_.reset(tuning);
+    }
+
+    [[nodiscard]] auto get_tuning() const -> sequence::Tuning
+    {
+        return tuning_row_.tuning();
+    }
+
   protected:
     auto resized() -> void override
     {

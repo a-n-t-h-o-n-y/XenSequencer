@@ -81,7 +81,7 @@ class DereferenceConstIterator
     using const_iterator_type = typename Container::const_iterator;
 
     using value_type = typename std::remove_reference<
-        decltype(*std::declval<Container>().begin())>::type;
+        decltype(**std::declval<Container>().begin())>::type;
     using pointer = const value_type *;
     using reference = const value_type &;
     using iterator_category = typename const_iterator_type::iterator_category;

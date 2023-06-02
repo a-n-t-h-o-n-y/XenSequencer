@@ -35,16 +35,17 @@ struct State
     for (auto i = 0; i < 4; ++i)
     {
         auto measure = seq::create_measure(seq::TimeSignature{4, 4});
-        measure.sequence = seq::generate::full(4, seq::Note{0, 0.8f, 0.f, 0.8f});
+        measure.sequence = seq::generate::full(4, seq::Note{0, 1.0, 0.f, 0.8f});
+        measure.sequence = seq::modify::randomize_velocity(measure.sequence, 0.f, 1.f);
         if (i % 2 != 0)
         {
             measure.sequence =
                 seq::modify::randomize_intervals(measure.sequence, -20, 20);
 
             measure.sequence.cells[3] = seq::Sequence{{
-                seq::Note{5, 0.75f, 0.f, 1.f},
+                seq::Note{5, 0.75f * (i / 2.f), 0.f, 1.f},
                 seq::Rest{},
-                seq::Note{10, 0.75f, 0.f, 1.f},
+                seq::Note{10, 0.5f * (i / 2.f), 0.f, 1.f},
             }};
         }
         phrase.push_back(measure);

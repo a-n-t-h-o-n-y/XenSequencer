@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -19,6 +21,17 @@ class PhraseEditor : public juce::Component
         this->addAndMakeVisible(phrase_);
     }
 
+  public:
+    auto set_phrase(sequence::Phrase const &phrase) -> void
+    {
+        phrase_.set(phrase);
+    }
+
+    [[nodiscard]] auto get_phrase() -> sequence::Phrase
+    {
+        return phrase_.get_phrase();
+    }
+
   protected:
     auto resized() -> void override
     {
@@ -34,6 +47,9 @@ class PhraseEditor : public juce::Component
   private:
     Heading heading_{"Phrase Editor"};
     Phrase phrase_;
+
+  public:
+    std::function<void()> &on_phrase_update = phrase_.on_update;
 };
 
 } // namespace xen::gui

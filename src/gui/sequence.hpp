@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <variant>
 
 #include <juce_core/juce_core.h>
@@ -33,6 +36,15 @@ class Cell : public juce::Component
      */
     std::function<void(sequence::Cell const &, std::size_t)> on_split_request;
 
+    /**
+     * @brief Callback for when the cell is updated.
+     *
+     * This is used by derived classes to notify of changes to the sequencer. These
+     * events should eventually cause a sequence::Sequence and sequence::Phrase to be
+     * generated and sent to the audio processor.
+     */
+    std::function<void()> on_update;
+
   protected:
     auto mouseDoubleClick(juce::MouseEvent const &) -> void override
     {
@@ -52,7 +64,7 @@ class Rest : public Cell
         this->addMouseListener(this, true);
 
         this->addAndMakeVisible(label_);
-        label_.setFont(juce::Font{"Arial", "Bold", 14.f});
+        label_.setFont(juce::Font{"Arial", "Normal", 14.f});
         label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
     }
 
@@ -68,29 +80,85 @@ class Rest : public Cell
         label_.setBounds(getLocalBounds());
     }
 
-    auto paint(juce::Graphics &g) -> void override
+    auto paintOverChildren(juce::Graphics &g) -> void override
     {
-        // set the current drawing color
         g.setColour(juce::Colours::white);
 
-        // draw an outline around the component
-        g.drawRect(getLocalBounds(), 1);
+        auto const bounds = getLocalBounds();
+        auto const left_x = (float)bounds.getX();
+
+        g.drawLine(left_x, (float)bounds.getY(), left_x, (float)bounds.getBottom(), 1);
     }
 
   private:
-    juce::Label label_{"Rest", "Rest"};
+    juce::Label label_{"R", "R"};
+};
+
+class NoteInterval : public juce::Component
+{
+  public:
+    NoteInterval(int interval, int tuning_length, float velocity)
+        : interval_{interval}, tuning_length_{tuning_length}
+    {
+        // Called explicity to generate color
+        this->set_velocity(velocity);
+    }
+
+  public:
+    auto set_interval(int interval)
+    {
+        interval_ = interval;
+        this->repaint();
+    }
+
+    auto set_tuning_length(int tuning_length)
+    {
+        tuning_length_ = tuning_length;
+        this->repaint();
+    }
+
+    auto set_velocity(float vel) -> void
+    {
+        velocity_ = std::clamp(vel, 0.f, 1.f);
+        bg_color_ = NoteInterval::get_color(juce::Colour{0xFFFF5B00}, velocity_);
+        this->repaint();
+    }
+
+  protected:
+    auto paint(juce::Graphics &g) -> void override
+    {
+        g.fillAll(bg_color_);
+    }
+
+  private:
+    [[nodiscard]] static auto get_color(juce::Colour base_color, float velocity)
+        -> juce::Colour
+    {
+        auto const brightness = std::lerp(0.2f, 1.f, velocity);
+        return base_color.withBrightness(brightness);
+    }
+
+  private:
+    int interval_;
+    int tuning_length_;
+    float velocity_;
+
+    juce::Colour bg_color_;
 };
 
 class Note : public Cell
 {
   public:
-    explicit Note(sequence::Note note) : note_(note)
+    // TODO should take a Tuning or tuning size in constructor
+    explicit Note(sequence::Note note)
+        : note_(note), interval_box_{note.interval, 12, note.velocity}
     {
         this->addMouseListener(this, true);
 
-        this->addAndMakeVisible(label_);
-        label_.setFont(juce::Font{"Arial", "Bold", 14.f});
-        label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::blue);
+        this->addAndMakeVisible(interval_box_);
+
+        // label_.setFont(juce::Font{"Arial", "Bold", 14.f});
+        // label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::blue);
     }
 
   public:
@@ -99,34 +167,34 @@ class Note : public Cell
         return note_;
     }
 
-    // TODO signal saying to split into x pieces, emitting note_ data, as a
-    // sequence::Cell probably
   protected:
     auto resized() -> void override
     {
-        label_.setBounds(getLocalBounds());
+        // TODO use delay and gate to set bounds
+        interval_box_.setBounds(this->getLocalBounds());
     }
 
-    auto paint(juce::Graphics &g) -> void override
+    auto paintOverChildren(juce::Graphics &g) -> void override
     {
-        // set the current drawing color
         g.setColour(juce::Colours::white);
 
-        // draw an outline around the component
-        g.drawRect(getLocalBounds(), 1);
+        auto const bounds = getLocalBounds();
+        auto const left_x = (float)bounds.getX();
+
+        g.drawLine(left_x, (float)bounds.getY(), left_x, (float)bounds.getBottom(), 1);
     }
 
   private:
     sequence::Note note_;
 
   private:
-    juce::Label label_{"Note", "Note"};
+    NoteInterval interval_box_;
 };
 
-class Sequence : public Cell
+class SubSequence : public Cell
 {
   public:
-    explicit Sequence(sequence::Sequence sequence = {})
+    explicit SubSequence(sequence::Sequence sequence = {})
     {
         this->addAndMakeVisible(cells_);
 
@@ -136,21 +204,36 @@ class Sequence : public Cell
   public:
     [[nodiscard]] auto get_cell_data() const -> sequence::Cell override
     {
-        // TODO generate by iterating over children.
-        return {};
+        auto seq = sequence::Sequence{};
+        for (auto const &cell : cells_)
+        {
+            seq.cells.push_back(cell.get_cell_data());
+        }
+        return seq;
     }
 
     /**
-     * @brief Set the Sequence's data with a sequence::Sequence.
+     * @brief Set the SubSequence's data with a sequence::Sequence.
      */
-    auto set(sequence::Sequence const &sequence) -> void
+    auto set(sequence::Sequence const &sequence, bool clear = true) -> void
     {
-        cells_.clear();
-
-        for (auto i = 0; i < sequence.cells.size(); ++i)
+        if (clear)
         {
-            Cell &new_cell = this->push_back_cell(sequence.cells[i]);
+            cells_.clear();
+        }
+
+        auto i = cells_.size();
+        for (auto const &cell : sequence.cells)
+        {
+            Cell &new_cell = this->push_back_cell(cell);
             this->attach_to_split_request_signal(new_cell, i);
+            this->attach_to_update_signal(new_cell);
+            ++i;
+        }
+
+        if (this->Cell::on_update)
+        {
+            this->Cell::on_update();
         }
     }
 
@@ -180,7 +263,7 @@ class Sequence : public Cell
                     return std::make_unique<Note>(note);
                 },
                 [this](sequence::Sequence const &seq) -> std::unique_ptr<Cell> {
-                    return std::make_unique<Sequence>(seq);
+                    return std::make_unique<SubSequence>(seq);
                 },
             },
             cell));
@@ -205,25 +288,104 @@ class Sequence : public Cell
             {
                 return;
             }
-            auto new_seq = std::make_unique<::xen::gui::Sequence>();
-            ::xen::gui::Sequence &new_seq_ref = *new_seq;
+            // this newly created sequence might not have any signals attached
+            // its that this is a child of *this and usually the child's signal
+            // is assigned a lambda to trigger the parent's signal, but that doesn't
+            // happen here.
+            auto new_seq = std::make_unique<::xen::gui::SubSequence>();
+            ::xen::gui::SubSequence &new_seq_ref = *new_seq;
+            this->attach_to_update_signal(new_seq_ref);
 
             auto original_cell = cells_.exchange(index, std::move(new_seq));
             ::xen::gui::Cell &original_cell_ref = *original_cell;
 
             new_seq_ref.cells_.push_back(std::move(original_cell));
             new_seq_ref.attach_to_split_request_signal(original_cell_ref, 0);
+            new_seq_ref.attach_to_update_signal(original_cell_ref);
 
-            for (auto i = 1; i < count; ++i)
+            auto const duplicates = [&] {
+                auto x = sequence::Sequence{};
+                for (auto i = 1; i < count; ++i)
+                    x.cells.push_back(cell);
+                return x;
+            }();
+            new_seq_ref.set(duplicates, false);
+        };
+    }
+
+    /**
+     * @brief Attach to the update signal of a child Cell so this will emit its own
+     * update signal.
+     *
+     * @param cell The Cell to attach to.
+     */
+    auto attach_to_update_signal(::xen::gui::Cell &cell) -> void
+    {
+        cell.on_update = [this] {
+            if (this->Cell::on_update)
             {
-                auto &new_gui_cell = new_seq_ref.push_back_cell(cell);
-                new_seq_ref.attach_to_split_request_signal(new_gui_cell, i);
+                this->Cell::on_update();
             }
         };
     }
 
   private:
     HomogenousRow<Cell> cells_;
+};
+
+class Sequence : public juce::Component
+{
+  public:
+    explicit Sequence(sequence::Sequence sequence = {}) : sub_sequence_{}
+    {
+        this->addAndMakeVisible(sub_sequence_);
+        this->set(sequence);
+    }
+
+  public:
+    auto set(sequence::Sequence const &sequence) -> void
+    {
+        sub_sequence_.set(sequence);
+        sub_sequence_.on_update = [this] {
+            if (this->on_update)
+            {
+                this->on_update();
+            }
+        };
+    }
+
+    /**
+     * @brief Convinience wrapper around get_cell_data which returns a
+     * sequence::Sequence instead of sequence::Cell.
+     *
+     * @return sequence::Sequence The sequence::Sequence data.
+     */
+    [[nodiscard]] auto get_sequence() const -> sequence::Sequence
+    {
+        sequence::Cell data = sub_sequence_.get_cell_data();
+        if (std::holds_alternative<sequence::Sequence>(data))
+        {
+            return std::get<sequence::Sequence>(data);
+        }
+        else
+        {
+            throw std::logic_error{"Sequence::get_sequence() called on a "
+                                   "Sequence that does not contain a "
+                                   "sequence::Sequence."};
+        }
+    }
+
+  public:
+    std::function<void()> on_update;
+
+  protected:
+    auto resized() -> void override
+    {
+        sub_sequence_.setBounds(this->getLocalBounds());
+    }
+
+  private:
+    SubSequence sub_sequence_;
 };
 
 } // namespace xen::gui

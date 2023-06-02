@@ -22,6 +22,8 @@ XenProcessor::XenProcessor()
                            "Base Frequency", // parameter name
                            juce::NormalisableRange<float>(20.f, 20'000.f, 1.f, 0.2f),
                            440.f)); // default value
+
+    this->thread_safe_update(demo_state());
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -44,22 +46,30 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         return;
     }
 
+    // Take copies for thread safety
+    auto state_copy = State{};
+    {
+        auto const lock = std::lock_guard{state_mutex_};
+        state_copy = state_;
+    }
+
     // Check if MIDI needs to be rendered
-    auto const bpm =
+    auto const bpm_daw =
         position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
     // : throw std::runtime_error{"BPM is not valid"};
-    if (state_.sample_rate != this->getSampleRate() || state_.bpm != bpm ||
-        *(this->base_frequency_) != state_.base_frequency)
+
+    if (state_copy.sample_rate != this->getSampleRate() || state_copy.bpm != bpm_daw ||
+        state_copy.base_frequency != *(this->base_frequency_))
     {
-        state_.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-        state_.bpm = bpm;
-        state_.base_frequency = *(this->base_frequency_);
-        rendered_ = render_to_midi(state_to_timeline(state_));
+        state_copy.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
+        state_copy.bpm = bpm_daw;
+        state_copy.base_frequency = *(this->base_frequency_);
+        this->thread_safe_update(state_copy);
     }
 
     // Find current MIDI events to send according to PlayHead position
-    auto const samples_in_phrase =
-        sequence::samples_count(state_.phrase, state_.sample_rate, state_.bpm);
+    auto const samples_in_phrase = sequence::samples_count(
+        state_copy.phrase, state_copy.sample_rate, state_copy.bpm);
 
     auto const [begin, end] = [&] {
         auto const current_sample =
@@ -73,13 +83,33 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }();
 
-    auto new_midi_buffer = find_subrange(rendered_, begin, end, samples_in_phrase);
+    auto rendered_copy = juce::MidiBuffer{};
+    {
+        auto const lock = std::lock_guard{rendered_mutex_};
+        rendered_copy = rendered_;
+    }
+    auto new_midi_buffer = find_subrange(rendered_copy, begin, end, samples_in_phrase);
     midi_messages.swapWith(new_midi_buffer);
 }
 
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 {
-    return new PluginEditor{*this};
+    return new PluginEditor{*this, state_};
+}
+
+auto XenProcessor::thread_safe_render() -> void
+{
+    auto midi = render_to_midi(state_to_timeline(state_));
+    {
+        auto const lock = std::lock_guard{rendered_mutex_};
+        rendered_ = std::move(midi);
+    }
+}
+
+auto XenProcessor::thread_safe_assign_state(State state) -> void
+{
+    auto const lock = std::lock_guard{state_mutex_};
+    state_ = std::move(state);
 }
 
 } // namespace xen
