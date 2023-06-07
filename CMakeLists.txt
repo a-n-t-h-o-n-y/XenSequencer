@@ -41,6 +41,7 @@ target_sources(XenSequencer
         src/plugin_editor.cpp
         src/plugin_processor.cpp
         src/xen_processor.cpp
+        src/gui/sequence.cpp
 )
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer

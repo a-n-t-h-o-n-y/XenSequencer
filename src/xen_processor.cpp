@@ -15,7 +15,7 @@
 namespace xen
 {
 
-XenProcessor::XenProcessor()
+XenProcessor::XenProcessor() : state_{init_state()}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
                            "base_frequency", // parameter ID
@@ -23,7 +23,7 @@ XenProcessor::XenProcessor()
                            juce::NormalisableRange<float>(20.f, 20'000.f, 1.f, 0.2f),
                            440.f)); // default value
 
-    this->thread_safe_update(demo_state());
+    this->thread_safe_update(state_);
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,

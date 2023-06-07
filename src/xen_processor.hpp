@@ -36,9 +36,7 @@ class XenProcessor : public PluginProcessor
     auto thread_safe_assign_state(State state) -> void;
 
   private:
-    // TODO create an 'init' state, which is a single 4/4 measure of rests with
-    // resolution 1. in the future you can change this to be an empty phrase maybe
-    State state_ = demo_state();
+    State state_ = init_state();
     std::mutex state_mutex_;
 
     juce::MidiBuffer rendered_ = render_to_midi(state_to_timeline(state_));
