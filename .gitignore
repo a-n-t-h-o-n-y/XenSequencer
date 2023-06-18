@@ -1,3 +1,4 @@
 .vscode/
 build/
 tags
+.DS_Store
