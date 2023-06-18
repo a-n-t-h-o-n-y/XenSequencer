@@ -70,7 +70,7 @@ struct State
 {
     namespace seq = sequence;
     return {
-        seq::Phrase{seq::create_measure(seq::TimeSignature{4, 4})},
+        seq::Phrase{seq::create_measure(seq::TimeSignature{7, 9})},
         seq::Tuning{
             {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
             1200,

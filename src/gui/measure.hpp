@@ -54,6 +54,68 @@ class TimeSignature : public juce::Label
     sequence::TimeSignature time_sig_;
 };
 
+class Ruler : public juce::Component
+{
+  public:
+    Ruler(sequence::TimeSignature const &time_sig = {4, 4}) : time_sig_{time_sig}
+    {
+    }
+
+  public:
+    auto set(sequence::TimeSignature const &time_sig) -> void
+    {
+        time_sig_ = time_sig;
+        this->repaint();
+    }
+
+  protected:
+    auto paint(juce::Graphics &g) -> void override
+    {
+        // set the current drawing color
+        g.setColour(juce::Colours::white);
+        g.fillAll(juce::Colours::darkgrey);
+
+        // get the bounds of the component
+        auto const bounds = getLocalBounds();
+
+        auto const beat_width = (float)bounds.getWidth() / time_sig_.numerator;
+
+        for (auto i = 2; i >= -3; --i)
+        {
+            auto const beats = std::pow(2, i);
+            auto const px_length = beats * beat_width;
+            auto const height =
+                scaleValue((float)i, -3.f, 2.f, 0.1f, 1.f) * bounds.getHeight();
+
+            for (auto j = 0; (float)j < ((float)time_sig_.numerator / beats); ++j)
+            {
+                auto const x = px_length * j;
+                auto const y = bounds.getY();
+                g.drawRect(x, y + bounds.getHeight() - height, 1.f, height, 1.f);
+            }
+        }
+    }
+
+  private:
+    sequence::TimeSignature time_sig_;
+
+  private:
+    [[nodiscard]] static auto scaleValue(float input, float inputMin, float inputMax,
+                                         float outputMin, float outputMax) -> float
+    {
+        if (input < inputMin || input > inputMax)
+        {
+            throw std::invalid_argument(
+                "Input must be within the specified input range.");
+        }
+        // scale input to 0-1 range
+        auto const t = (input - inputMin) / (inputMax - inputMin);
+
+        // use lerp to scale this to the output range
+        return std::lerp(outputMin, outputMax, t);
+    }
+};
+
 class Measure : public juce::Component
 {
   public:
@@ -61,6 +123,7 @@ class Measure : public juce::Component
     {
         this->addAndMakeVisible(time_sig_);
         this->addAndMakeVisible(sequence_);
+        this->addAndMakeVisible(ruler_);
 
         this->set(measure);
     }
@@ -71,6 +134,7 @@ class Measure : public juce::Component
         // TODO if you allow the time signature to be edited, then connect to its
         // on_update signal.
         time_sig_.set(measure.time_signature);
+        ruler_.set(measure.time_signature);
 
         sequence_.set(measure.sequence);
         sequence_.on_update = [this] {
@@ -108,6 +172,7 @@ class Measure : public juce::Component
 
         flexbox.items.add(juce::FlexItem{time_sig_}.withHeight(20.f));
         flexbox.items.add(juce::FlexItem{sequence_}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{ruler_}.withHeight(20.f));
 
         flexbox.performLayout(getLocalBounds());
     }
@@ -115,6 +180,7 @@ class Measure : public juce::Component
   private:
     TimeSignature time_sig_;
     Sequence sequence_;
+    Ruler ruler_;
 };
 
 } // namespace xen::gui

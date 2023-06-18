@@ -11,7 +11,6 @@
 namespace xen::gui
 {
 
-// TODO
 class PhraseEditor : public juce::Component
 {
   public:

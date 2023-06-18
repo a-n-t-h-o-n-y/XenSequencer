@@ -167,9 +167,9 @@ class Rest : public Cell
         this->addMouseListener(this, true);
 
         this->addAndMakeVisible(label_);
-        // TODO center text
         label_.setFont(juce::Font{"Arial", "Normal", 14.f}.boldened());
         label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
+        label_.setJustificationType(juce::Justification::centred);
     }
 
   public:
@@ -225,7 +225,6 @@ class NoteInterval : public juce::Component
     }
 
   protected:
-    // TODO touch up
     auto paint(juce::Graphics &g) -> void override
     {
         g.fillAll(bg_color_);
@@ -259,8 +258,6 @@ class NoteInterval : public juce::Component
         auto const line_y_position = interval_text_y_position + text_height + padding;
         auto const tuning_length_text_y_position = line_y_position + padding;
         auto const line_start_x = padding;
-
-        // TODO what if padding is > width?
         auto const line_end_x = getWidth() - padding;
 
         // draw the interval text
@@ -537,23 +534,16 @@ class SubSequence : public Cell
             {
                 return;
             }
-            // this newly created sequence might not have any signals attached
-            // its that this is a child of *this and usually the child's signal
-            // is assigned a lambda to trigger the parent's signal, but that doesn't
-            // happen here., *this has been deleted.
+
             auto new_seq = std::make_unique<::xen::gui::SubSequence>();
             ::xen::gui::SubSequence &new_seq_ref = *new_seq;
             this->attach_to_update_signal(new_seq_ref);
 
             auto original_cell = cells_.exchange(index, std::move(new_seq));
 
-            // TODO  probably more elegant way to do this
-            auto const duplicates = [&] {
-                auto x = sequence::Sequence{};
-                for (auto i = 0; i < count; ++i)
-                    x.cells.push_back(cell);
-                return x;
-            }();
+            auto const duplicates = sequence::Sequence{
+                std::vector(count, cell),
+            };
             new_seq_ref.set(duplicates, false);
             original_cell.reset();
             // Warning: Do not call anything after this, *this has been deleted.
