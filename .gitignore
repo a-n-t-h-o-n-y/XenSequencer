@@ -1,4 +1,4 @@
 .vscode/
-build/
+build*/
 tags
 .DS_Store
