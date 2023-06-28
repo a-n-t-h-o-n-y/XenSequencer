@@ -178,7 +178,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
         this->clear();
         intervals_ = std::move(intervals);
 
-        for (auto index = 0; index < intervals_.size(); ++index)
+        for (auto index = std::size_t{0}; index < intervals_.size(); ++index)
         {
             this->emplace_back(intervals_[index]).on_number_changed =
                 [this, index](float cents) {
@@ -207,7 +207,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
             throw std::out_of_range{"IntervalRow::insert: at > intervals_.size()"};
         }
         auto next = intervals_;
-        next.insert(std::next(std::begin(next), at), 0.f);
+        next.insert(std::next(std::begin(next), (std::ptrdiff_t)at), 0.f);
         this->reset(std::move(next));
     }
 
@@ -224,7 +224,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
             throw std::out_of_range{"IntervalRow::erase: at >= intervals_.size()"};
         }
         auto next = intervals_;
-        next.erase(std::next(std::begin(next), at));
+        next.erase(std::next(std::begin(next), (std::ptrdiff_t)at));
         this->reset(std::move(next));
     }
 

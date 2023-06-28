@@ -44,7 +44,8 @@ auto Cell::mouseUp(juce::MouseEvent const &event) -> void
 {
     if (this->is_dragging() && event.mods.isRightButtonDown() && this->on_split_request)
     {
-        this->on_split_request(this->get_cell_data(), split_preview_ + 1);
+        this->on_split_request(this->get_cell_data(),
+                               (std::size_t)(split_preview_ + 1));
         return;
     }
 

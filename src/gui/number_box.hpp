@@ -123,8 +123,8 @@ class NumberBox : public juce::Component
 
         // Calculate the factor
         float const factor = [&] {
-            auto factor = e.mods.isCtrlDown() ? 0.1f : 1.0f;
-            return e.mods.isShiftDown() ? factor * 10.f : factor;
+            auto fac = e.mods.isCtrlDown() ? 0.1f : 1.0f;
+            return e.mods.isShiftDown() ? fac * 10.f : fac;
         }();
 
         // Call increment() with factor * distance

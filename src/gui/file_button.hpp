@@ -21,7 +21,7 @@ class LoadFileButton : public juce::TextButton
                    juce::String const &file_pattern)
         : juce::TextButton{text}
     {
-        this->onClick = [=] {
+        this->onClick = [=, this] {
             auto chooser = juce::FileChooser{dialog_text, {}, file_pattern};
 
             if (chooser.browseForFileToOpen())
@@ -50,7 +50,7 @@ class SaveFileButton : public juce::TextButton
                    juce::String const &file_pattern)
         : juce::TextButton{text}
     {
-        this->onClick = [=] {
+        this->onClick = [=, this] {
             auto chooser = juce::FileChooser{dialog_text, {}, file_pattern};
 
             if (chooser.browseForFileToSave(true))

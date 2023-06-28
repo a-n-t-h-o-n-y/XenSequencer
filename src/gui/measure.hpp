@@ -84,12 +84,12 @@ class Ruler : public juce::Component
         {
             auto const beats = std::pow(2, i);
             auto const px_length = beats * beat_width;
-            auto const height =
-                scaleValue((float)i, -3.f, 2.f, 0.1f, 1.f) * bounds.getHeight();
+            auto const height = (float)(scaleValue((float)i, -3.f, 2.f, 0.1f, 1.f) *
+                                        bounds.getHeight());
 
             for (auto j = 0; (float)j < ((float)time_sig_.numerator / beats); ++j)
             {
-                auto const x = px_length * j;
+                auto const x = (float)(px_length * j);
                 auto const y = bounds.getY();
                 g.drawRect(x, y + bounds.getHeight() - height, 1.f, height, 1.f);
             }

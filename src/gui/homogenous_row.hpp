@@ -103,7 +103,8 @@ class HomogenousRow : public juce::Component
         }
 
         auto &child_ref = *child;
-        children_.emplace(std::next(children_.begin(), at), std::move(child));
+        children_.emplace(std::next(children_.begin(), (std::ptrdiff_t)at),
+                          std::move(child));
         this->initialize_child(child_ref);
         return child_ref;
     }
@@ -290,7 +291,7 @@ class HomogenousRow : public juce::Component
         {
             g.setColour(juce::Colours::white);
 
-            for (int i = 1; i < children_.size(); ++i)
+            for (auto i = std::size_t{1}; i < children_.size(); ++i)
             {
                 auto x = children_[i]->getX() - 1;
                 g.drawLine((float)x, 0, (float)x, (float)this->getHeight(), 1);

@@ -73,6 +73,7 @@ class Cell : public juce::Component
 
         auto const bounds = getLocalBounds();
         auto const left_x = (float)bounds.getX();
+        auto const right_x = (float)bounds.getRight();
 
         g.drawLine(left_x, (float)bounds.getY(), left_x, (float)bounds.getBottom(), 1);
 
@@ -81,9 +82,6 @@ class Cell : public juce::Component
         {
             g.setColour(juce::Colours::grey);
 
-            auto const bounds = getLocalBounds();
-            auto const left_x = (float)bounds.getX();
-            auto const right_x = (float)bounds.getRight();
             auto const width = right_x - left_x;
             auto const interval = width / (split_preview_ + 1);
 
@@ -500,19 +498,19 @@ class SubSequence : public Cell
      */
     auto push_back_cell(sequence::Cell const &cell) -> ::xen::gui::Cell &
     {
-        return cells_.push_back(std::visit(
-            sequence::utility::overload{
-                [this](sequence::Rest const &rest) -> std::unique_ptr<Cell> {
-                    return std::make_unique<Rest>(rest);
-                },
-                [this](sequence::Note const &note) -> std::unique_ptr<Cell> {
-                    return std::make_unique<Note>(note);
-                },
-                [this](sequence::Sequence const &seq) -> std::unique_ptr<Cell> {
-                    return std::make_unique<SubSequence>(seq);
-                },
-            },
-            cell));
+        return cells_.push_back(
+            std::visit(sequence::utility::overload{
+                           [](sequence::Rest const &rest) -> std::unique_ptr<Cell> {
+                               return std::make_unique<Rest>(rest);
+                           },
+                           [](sequence::Note const &note) -> std::unique_ptr<Cell> {
+                               return std::make_unique<Note>(note);
+                           },
+                           [](sequence::Sequence const &seq) -> std::unique_ptr<Cell> {
+                               return std::make_unique<SubSequence>(seq);
+                           },
+                       },
+                       cell));
     }
 
     /**

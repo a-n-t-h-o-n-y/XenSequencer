@@ -55,7 +55,7 @@ namespace xen
                 },
             },
             event);
-        buffer.addEvent(midi, sample);
+        buffer.addEvent(midi, (int)sample);
     }
     return buffer;
 }

@@ -18,7 +18,7 @@ namespace xen
 XenProcessor::XenProcessor() : state_{init_state()}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
-                           "base_frequency", // parameter ID
+                           juce::ParameterID{"base_frequency", 1},
                            "Base Frequency", // parameter name
                            juce::NormalisableRange<float>(20.f, 20'000.f, 1.f, 0.2f),
                            440.f)); // default value
@@ -76,10 +76,10 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             position->getTimeInSamples()
                 ? *(position->getTimeInSamples())
                 : throw std::runtime_error{"Sample position is not valid"};
-        auto const begin = current_sample % samples_in_phrase;
+        auto const beg = current_sample % samples_in_phrase;
         return std::pair{
-            static_cast<int>(begin),
-            static_cast<int>((begin + buffer.getNumSamples()) % samples_in_phrase),
+            static_cast<int>(beg),
+            static_cast<int>((beg + buffer.getNumSamples()) % samples_in_phrase),
         };
     }();
 
@@ -88,7 +88,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         auto const lock = std::lock_guard{rendered_mutex_};
         rendered_copy = rendered_;
     }
-    auto new_midi_buffer = find_subrange(rendered_copy, begin, end, samples_in_phrase);
+    auto new_midi_buffer = find_subrange(rendered_copy, begin, end, (int)samples_in_phrase);
     midi_messages.swapWith(new_midi_buffer);
 }
 
