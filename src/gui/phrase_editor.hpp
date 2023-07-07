@@ -31,6 +31,11 @@ class PhraseEditor : public juce::Component
         return phrase_.get_phrase();
     }
 
+    auto set_tuning_length(std::size_t length) -> void
+    {
+        phrase_.set_tuning_length(length);
+    }
+
   protected:
     auto resized() -> void override
     {
@@ -45,6 +50,11 @@ class PhraseEditor : public juce::Component
 
   private:
     Heading heading_{"Phrase Editor"};
+    // TODO
+    // add 'add measure' button here. It should have a time sig editor and
+    // plus button and emit a measure when the plus button is pressed.
+    // (create_measure is called by it and passes the measure to be added to the
+    // state cache_)
     Phrase phrase_;
 
   public:

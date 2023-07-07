@@ -15,17 +15,21 @@
 #include <sequence/sequence.hpp>
 #include <sequence/utility.hpp>
 
+#include "focusable_component.hpp"
 #include "homogenous_row.hpp"
 
 namespace xen::gui
 {
 
-class Cell : public juce::Component
+class Cell : public FocusableComponent
 {
   public:
     [[nodiscard]] virtual auto get_cell_data() const -> sequence::Cell = 0;
 
   public:
+    // Signals - Do not assign to these, they are already assigned, instead call
+    // them as a function if needed.
+
     /**
      * @brief Callback for when a split request is made.
      *
@@ -57,6 +61,31 @@ class Cell : public juce::Component
      */
     std::function<void(std::unique_ptr<Cell>)> on_cell_swap_request;
 
+  public:
+    /**
+     * @brief An abstract increment function that is used by keyboard input.
+     *
+     * Any positive or negative amount can be passed to this function.
+     *
+     * @param amount The amount to increment by.
+     */
+    virtual auto increment_interval(int amount) -> void = 0;
+
+    virtual auto increment_octave(int amount) -> void = 0;
+
+    virtual auto increment_delay(float amount) -> void = 0;
+
+    virtual auto increment_gate(float amount) -> void = 0;
+
+    virtual auto increment_velocity(float amount) -> void = 0;
+
+    virtual auto set_tuning_length(std::size_t length) -> void = 0;
+
+    /**
+     * @brief This should flip between cell types, rest to note and note to rest.
+     */
+    virtual auto flip_cell() -> void = 0;
+
   protected:
     auto emit_on_update() -> void
     {
@@ -77,7 +106,7 @@ class Cell : public juce::Component
 
         g.drawLine(left_x, (float)bounds.getY(), left_x, (float)bounds.getBottom(), 1);
 
-        // draw split_preview_ count vertical lines evenly  between the start and end
+        // draw split_preview_ count vertical lines evenly between the start and end
         if (dragging_ && split_preview_ != 0)
         {
             g.setColour(juce::Colours::grey);
@@ -91,6 +120,85 @@ class Cell : public juce::Component
                 g.drawLine(x, (float)bounds.getY(), x, (float)bounds.getBottom(), 1);
             }
         }
+        this->FocusableComponent::paint(g);
+    }
+
+    auto keyPressed(juce::KeyPress const &key) -> bool override
+    {
+        // TODO probably use a switch statement here instead though maybe can't use
+        // multiple checks there..
+
+        { // Enter Key
+            if (key.isKeyCode(juce::KeyPress::returnKey))
+            {
+                this->flip_cell();
+                return true;
+            }
+        }
+
+        if (key.getModifiers().isAltDown())
+        {
+            { // gate
+                auto const gate =
+                    key.isKeyCode(juce::KeyPress::leftKey)
+                        ? -0.01f
+                        : (key.isKeyCode(juce::KeyPress::rightKey) ? 0.01f : 0.0f);
+                auto const multiplier = key.getModifiers().isShiftDown() ? 3 : 1;
+                this->increment_gate(gate * multiplier);
+                if (gate != 0.f)
+                {
+                    return true;
+                }
+            }
+            { // velocity
+                auto const velocity =
+                    key.isKeyCode(juce::KeyPress::downKey)
+                        ? -0.01f
+                        : (key.isKeyCode(juce::KeyPress::upKey) ? 0.01f : 0.0f);
+                auto const multiplier = key.getModifiers().isShiftDown() ? 3 : 1;
+                this->increment_velocity(velocity * multiplier);
+                if (velocity != 0.f)
+                {
+                    return true;
+                }
+            }
+        }
+
+        { // Interval
+            auto const interval =
+                key.isKeyCode(juce::KeyPress::upKey)
+                    ? 1
+                    : (key.isKeyCode(juce::KeyPress::downKey) ? -1 : 0);
+            if (key.getModifiers().isShiftDown())
+            {
+                this->increment_octave(interval);
+            }
+            else
+            {
+                this->increment_interval(interval);
+            }
+            if (interval != 0)
+            {
+                return true;
+            }
+        }
+
+        { // delay
+            auto const delay =
+                key.isKeyCode(juce::KeyPress::leftKey)
+                    ? -0.01f
+                    : (key.isKeyCode(juce::KeyPress::rightKey) ? 0.01f : 0.0f);
+            auto const multiplier = key.getModifiers().isShiftDown() ? 3 : 1;
+            this->increment_delay(delay * multiplier);
+            if (delay != 0.f)
+            {
+                return true;
+            }
+        }
+
+        // TODO key input for split preview then commit to split
+
+        return FocusableComponent::keyPressed(key);
     }
 
     [[nodiscard]] auto is_dragging() const -> bool
@@ -151,6 +259,17 @@ class Cell : public juce::Component
         }
     }
 
+  protected:
+    auto set_split_preview(int count) -> void
+    {
+        if (count == split_preview_)
+        {
+            return;
+        }
+        split_preview_ = count;
+        this->repaint();
+    }
+
   private:
     bool dragging_ = false;
     juce::Point<float> drag_start_position_;
@@ -176,6 +295,33 @@ class Rest : public Cell
         return sequence::Rest{};
     }
 
+  public:
+    auto increment_interval(int) -> void override
+    {
+    }
+
+    auto increment_octave(int) -> void override
+    {
+    }
+
+    auto increment_delay(float) -> void override
+    {
+    }
+
+    auto increment_gate(float) -> void override
+    {
+    }
+
+    auto increment_velocity(float) -> void override
+    {
+    }
+
+    auto flip_cell() -> void override;
+
+    auto set_tuning_length(std::size_t) -> void override
+    {
+    }
+
   protected:
     auto resized() -> void override
     {
@@ -191,7 +337,7 @@ class Rest : public Cell
 class NoteInterval : public juce::Component
 {
   public:
-    NoteInterval(int interval, int tuning_length, float velocity)
+    NoteInterval(int interval, std::size_t tuning_length, float velocity)
         : interval_{interval}, tuning_length_{tuning_length}
     {
         // Called explicity to generate color
@@ -205,7 +351,7 @@ class NoteInterval : public juce::Component
         this->repaint();
     }
 
-    auto set_tuning_length(int tuning_length)
+    auto set_tuning_length(std::size_t tuning_length)
     {
         if (tuning_length_ == tuning_length)
         {
@@ -213,6 +359,11 @@ class NoteInterval : public juce::Component
         }
         tuning_length_ = tuning_length;
         this->repaint();
+    }
+
+    auto get_tuning_length() const -> std::size_t
+    {
+        return tuning_length_;
     }
 
     auto set_velocity(float vel) -> void
@@ -223,57 +374,7 @@ class NoteInterval : public juce::Component
     }
 
   protected:
-    auto paint(juce::Graphics &g) -> void override
-    {
-        g.fillAll(bg_color_);
-
-        // define text and line characteristics
-        auto const font = juce::Font{16.f}.boldened();
-        g.setFont(font);
-
-        auto const text_color = juce::Colours::black;
-        auto const line_thickness = 2.f;
-        auto const padding = 10;
-
-        auto const [adjusted_interval, octave] =
-            NoteInterval::get_interval_and_octave(interval_, tuning_length_);
-
-        auto const interval_text = juce::String(adjusted_interval);
-        auto const octave_text =
-            (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-
-        // calculate text and line positions
-        auto const text_width_1 = font.getStringWidth(interval_text);
-        auto const text_width_2 = font.getStringWidth(octave_text);
-        auto const text_height = font.getHeight();
-
-        // total height of drawn content
-        auto const total_height = 2 * text_height + 2 * padding;
-
-        // starting y position to center the content
-        auto const start_y_position = (getHeight() - total_height) / 2;
-        auto const interval_text_y_position = start_y_position;
-        auto const line_y_position = interval_text_y_position + text_height + padding;
-        auto const tuning_length_text_y_position = line_y_position + padding;
-        auto const line_start_x = padding;
-        auto const line_end_x = getWidth() - padding;
-
-        // draw the interval text
-        g.drawText(interval_text, (getWidth() - text_width_1) / 2,
-                   (int)interval_text_y_position, text_width_1, (int)text_height,
-                   juce::Justification::centred);
-
-        // draw the horizontal line
-        g.setColour(juce::Colours::grey);
-        g.drawLine(line_start_x, line_y_position, (float)line_end_x, line_y_position,
-                   line_thickness);
-
-        // draw the tuning length text below the line
-        g.setColour(text_color);
-        g.drawText(octave_text, (getWidth() - text_width_2) / 2,
-                   (int)tuning_length_text_y_position, text_width_2, (int)text_height,
-                   juce::Justification::centred);
-    }
+    auto paint(juce::Graphics &g) -> void override;
 
   private:
     [[nodiscard]] static auto get_color(juce::Colour base_color, float velocity)
@@ -283,20 +384,22 @@ class NoteInterval : public juce::Component
         return base_color.withBrightness(brightness);
     }
 
-    [[nodiscard]] static auto get_interval_and_octave(int interval, int tuning_length)
+    [[nodiscard]] static auto get_interval_and_octave(int interval,
+                                                      std::size_t tuning_length)
         -> std::pair<int, int>
     {
-        auto octave = interval / tuning_length;
+        auto octave = interval / (int)tuning_length;
         if (interval >= 0)
         {
             // For positive interval, use simple division and modulo operations
-            return std::make_pair(interval % tuning_length, octave);
+            return std::make_pair(interval % (int)tuning_length, octave);
         }
         else
         {
             // For negative interval, calculate the adjusted interval and octave
             int adjusted_interval =
-                (tuning_length - (-interval) % tuning_length) % tuning_length;
+                ((int)tuning_length + (interval % (int)tuning_length)) %
+                (int)tuning_length;
 
             if (adjusted_interval != 0)
             {
@@ -311,7 +414,7 @@ class NoteInterval : public juce::Component
 
   private:
     int interval_;
-    int tuning_length_;
+    std::size_t tuning_length_;
     float velocity_;
 
     juce::Colour bg_color_;
@@ -321,8 +424,9 @@ class Note : public Cell
 {
   public:
     // TODO should take a Tuning or tuning size in constructor
-    explicit Note(sequence::Note note)
-        : note_(note), interval_box_{note.interval, 12, note.velocity}
+    // currently hardcoded as 12, below.
+    explicit Note(sequence::Note note, std::size_t tuning_length)
+        : note_(note), interval_box_{note.interval, tuning_length, note.velocity}
     {
         this->addMouseListener(this, true);
 
@@ -330,12 +434,6 @@ class Note : public Cell
     }
 
   public:
-    // auto increment_interval(int amount) -> void
-    // {
-    //     interval_box_.set_interval(note_.interval += amount);
-    //     this->emit_on_update();
-    // }
-
     auto set_interval(int interval) -> void
     {
         interval = std::clamp(interval, -100, 100);
@@ -344,17 +442,6 @@ class Note : public Cell
             return;
         }
         interval_box_.set_interval(note_.interval = interval);
-        this->emit_on_update();
-    }
-
-    auto increment_velocity(float amount) -> void
-    {
-        auto const velocity = std::clamp(note_.velocity + amount, 0.f, 1.f);
-        if (note_.velocity == velocity)
-        {
-            return;
-        }
-        interval_box_.set_velocity(note_.velocity = velocity);
         this->emit_on_update();
     }
 
@@ -370,13 +457,6 @@ class Note : public Cell
         this->emit_on_update();
     }
 
-    // auto increment_delay(float amount) -> void
-    // {
-    //     note_.delay += amount;
-    //     this->resized();
-    //     this->emit_on_update();
-    // }
-
     auto set_gate(float gate) -> void
     {
         gate = std::clamp(gate, 0.01f, 1.f);
@@ -389,22 +469,59 @@ class Note : public Cell
         this->emit_on_update();
     }
 
-    // auto increment_gate(float amount) -> void
-    // {
-    //     note_.gate += amount;
-    //     this->resized();
-    //     this->emit_on_update();
-    // }
-
-    auto set_tuning_length(int tuning_length) -> void
-    {
-        interval_box_.set_tuning_length(tuning_length);
-    }
-
   public:
     [[nodiscard]] auto get_cell_data() const -> sequence::Cell override
     {
         return note_;
+    }
+
+  public:
+    auto increment_interval(int amount) -> void override
+    {
+        this->set_interval(note_.interval + amount);
+    }
+
+    auto increment_octave(int amount) -> void override
+    {
+        this->set_interval(note_.interval +
+                           (amount * (int)interval_box_.get_tuning_length()));
+    }
+
+    auto increment_delay(float amount) -> void override
+    {
+        this->set_delay(note_.delay + amount);
+    }
+
+    auto increment_gate(float amount) -> void override
+    {
+        this->set_gate(note_.gate + amount);
+    }
+
+    auto increment_velocity(float amount) -> void override
+    {
+        auto const velocity = std::clamp(note_.velocity + amount, 0.f, 1.f);
+        if (note_.velocity == velocity)
+        {
+            return;
+        }
+        interval_box_.set_velocity(note_.velocity = velocity);
+        this->emit_on_update();
+    }
+
+    auto flip_cell() -> void override
+    {
+        if (this->on_cell_swap_request)
+        {
+            // Warning: This call will delete *this, do not access any data, or do
+            // anything after this call!
+            this->on_cell_swap_request(std::make_unique<Rest>(sequence::Rest{}));
+            return;
+        }
+    }
+
+    auto set_tuning_length(std::size_t tuning_length) -> void override
+    {
+        interval_box_.set_tuning_length(tuning_length);
     }
 
   protected:
@@ -481,6 +598,64 @@ class SubSequence : public Cell
         this->emit_on_update();
     }
 
+  public:
+    auto increment_interval(int amount) -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.increment_interval(amount);
+        }
+    }
+
+    auto increment_octave(int amount) -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.increment_octave(amount);
+        }
+    }
+
+    auto increment_delay(float amount) -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.increment_delay(amount);
+        }
+    }
+
+    auto increment_gate(float amount) -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.increment_gate(amount);
+        }
+    }
+
+    auto increment_velocity(float amount) -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.increment_velocity(amount);
+        }
+    }
+
+    auto flip_cell() -> void override
+    {
+        for (auto &cell : cells_)
+        {
+            cell.flip_cell();
+        }
+    }
+
+    auto set_tuning_length(std::size_t tuning_length) -> void override
+    {
+        tuning_length_ = tuning_length;
+        for (auto &cell : cells_)
+        {
+            cell.set_tuning_length(tuning_length);
+        }
+    }
+
   protected:
     auto resized() -> void override
     {
@@ -503,8 +678,8 @@ class SubSequence : public Cell
                            [](sequence::Rest const &rest) -> std::unique_ptr<Cell> {
                                return std::make_unique<Rest>(rest);
                            },
-                           [](sequence::Note const &note) -> std::unique_ptr<Cell> {
-                               return std::make_unique<Note>(note);
+                           [this](sequence::Note const &note) -> std::unique_ptr<Cell> {
+                               return std::make_unique<Note>(note, tuning_length_);
                            },
                            [](sequence::Sequence const &seq) -> std::unique_ptr<Cell> {
                                return std::make_unique<SubSequence>(seq);
@@ -537,12 +712,19 @@ class SubSequence : public Cell
             ::xen::gui::SubSequence &new_seq_ref = *new_seq;
             this->attach_to_update_signal(new_seq_ref);
 
+            bool const had_focus = cells_.at(index).hasKeyboardFocus(false);
+
             auto original_cell = cells_.exchange(index, std::move(new_seq));
 
             auto const duplicates = sequence::Sequence{
                 std::vector(count, cell),
             };
             new_seq_ref.set(duplicates, false);
+            if (had_focus)
+            {
+                new_seq_ref.grabKeyboardFocus();
+            }
+
             original_cell.reset();
             // Warning: Do not call anything after this, *this has been deleted.
         };
@@ -563,11 +745,18 @@ class SubSequence : public Cell
     {
         cell.on_cell_swap_request = [this, index](std::unique_ptr<Cell> new_cell) {
             this->attach_to_all_signals(*new_cell, index);
+            bool const had_focus = cells_.at(index).hasKeyboardFocus(false);
+            auto &new_cell_ref = *new_cell;
 
             auto to_delete = cells_.exchange(index, std::move(new_cell));
 
             // Explicit call here because not using set(...);
             this->emit_on_update();
+
+            if (had_focus)
+            {
+                new_cell_ref.grabKeyboardFocus();
+            }
 
             to_delete.reset();
             // Warning: Do not add any code below!
@@ -583,6 +772,7 @@ class SubSequence : public Cell
 
   private:
     HomogenousRow<Cell> cells_;
+    std::size_t tuning_length_;
 };
 
 class Sequence : public juce::Component
@@ -625,6 +815,11 @@ class Sequence : public juce::Component
                                    "Sequence that does not contain a "
                                    "sequence::Sequence."};
         }
+    }
+
+    auto set_tuning_length(std::size_t length) -> void
+    {
+        sub_sequence_.set_tuning_length(length);
     }
 
   public:

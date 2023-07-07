@@ -28,6 +28,7 @@ PluginEditor::PluginEditor(XenProcessor &p, State const &state)
     tuning_box_.on_tuning_changed = [this](auto const &tuning) {
         cache_.tuning = tuning;
         processor_ref_.thread_safe_update(cache_);
+        phrase_editor_.set_tuning_length(tuning.intervals.size());
     };
 
     phrase_editor_.on_phrase_update = [this] {

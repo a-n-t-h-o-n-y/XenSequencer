@@ -158,6 +158,11 @@ class Measure : public juce::Component
         };
     }
 
+    auto set_tuning_length(std::size_t length) -> void
+    {
+        sequence_.set_tuning_length(length);
+    }
+
   public:
     /**
      * @brief Called when the measure is updated.

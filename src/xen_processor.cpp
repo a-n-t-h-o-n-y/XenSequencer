@@ -1,7 +1,5 @@
 #include "xen_processor.hpp"
 
-#include <cassert> //temp
-
 #include <cstdint>
 #include <utility>
 
@@ -88,7 +86,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         auto const lock = std::lock_guard{rendered_mutex_};
         rendered_copy = rendered_;
     }
-    auto new_midi_buffer = find_subrange(rendered_copy, begin, end, (int)samples_in_phrase);
+    auto new_midi_buffer =
+        find_subrange(rendered_copy, begin, end, (int)samples_in_phrase);
     midi_messages.swapWith(new_midi_buffer);
 }
 

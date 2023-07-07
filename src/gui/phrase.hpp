@@ -48,6 +48,14 @@ class Phrase : public HomogenousRow<Measure>
         return phrase;
     }
 
+    auto set_tuning_length(std::size_t length) -> void
+    {
+        for (auto &measure : *this)
+        {
+            measure.set_tuning_length(length);
+        }
+    }
+
   public:
     /**
      * @brief Called when the phrase is updated.
