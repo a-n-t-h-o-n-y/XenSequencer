@@ -6,6 +6,7 @@
 #include "gui/phrase_editor.hpp"
 #include "gui/tuning.hpp"
 #include "state.hpp"
+// TODO delete this file
 
 namespace xen
 {

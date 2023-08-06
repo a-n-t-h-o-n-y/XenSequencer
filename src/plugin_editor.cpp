@@ -1,6 +1,7 @@
 #include "plugin_editor.hpp"
 #include "xen_processor.hpp"
 
+// TODO delete this file
 namespace xen
 {
 
@@ -29,7 +30,7 @@ PluginEditor::PluginEditor(XenProcessor &p, State const &state)
         cache_.tuning = tuning;
         processor_ref_.thread_safe_update(cache_);
         phrase_editor_.set_tuning_length(tuning.intervals.size());
-    };
+    };thread_safe_update
 
     phrase_editor_.on_phrase_update = [this] {
         cache_.phrase = phrase_editor_.get_phrase();

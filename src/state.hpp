@@ -16,10 +16,20 @@ struct State
 {
     sequence::Phrase phrase;
     sequence::Tuning tuning;
-    float bpm;
-    std::uint32_t sample_rate;
     float base_frequency;
 };
+
+/**
+ * @brief The state of the DAW.
+ */
+struct DAWState
+{
+    float bpm = 0.f;
+    std::uint32_t sample_rate = 0;
+};
+
+// bpm = 120.f,
+// sample rate = 44'100,
 
 /**
  * @brief Generates a demo state for testing.
@@ -60,8 +70,6 @@ struct State
             {0, 200, 400, 500, 700, 900, 1100},
             1200,
         },
-        120.f,
-        44'100,
         440.f,
     };
 }
@@ -75,8 +83,6 @@ struct State
             {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
             1200,
         },
-        120.f,
-        44'100,
         440.f,
     };
 }

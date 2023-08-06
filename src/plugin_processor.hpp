@@ -3,6 +3,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <sequence/sequence.hpp>
 
+#include "command_core.hpp"
+
 namespace xen
 {
 

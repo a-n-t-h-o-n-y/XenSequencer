@@ -249,9 +249,10 @@ class Cell : public FocusableComponent
         if (std::abs(units) > buffer)
         {
             units = units > 0 ? units - buffer : units + buffer;
-            return static_cast<int>(
-                units > 0 ? std::floor((units * multiplier) / units_per_increment)
-                          : std::ceil((units * multiplier) / units_per_increment));
+            return static_cast<int>(units > 0 ? std::floor(((float)units * multiplier) /
+                                                           (float)units_per_increment)
+                                              : std::ceil(((float)units * multiplier) /
+                                                          (float)units_per_increment));
         }
         else
         {

@@ -3,6 +3,7 @@ project(XenSequencer VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 20)
 
+add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE)
 
@@ -40,9 +41,9 @@ juce_add_plugin(XenSequencer
 
 target_sources(XenSequencer
     PRIVATE
-        src/plugin_editor.cpp
         src/plugin_processor.cpp
         src/xen_processor.cpp
+        src/xen_editor.cpp
         src/gui/sequence.cpp
 )
 
@@ -80,6 +81,7 @@ target_compile_definitions(XenSequencer
 target_link_libraries(XenSequencer
     PRIVATE
         # AudioPluginData           # If we'd created a binary data target, we'd link to it here
+        signals-light
         sequencer
         juce::juce_audio_utils
     PUBLIC
