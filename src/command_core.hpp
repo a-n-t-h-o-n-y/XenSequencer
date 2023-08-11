@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "state.hpp"
+#include "timeline.hpp"
+
 namespace xen
 {
 
@@ -21,6 +24,7 @@ namespace xen
  *
  *  Constraints for a valid Command object:
  *  - Name must be an alpha-only string with no spaces and all lowercase.
+ *  - Signature must not be an empty string.
  *  - Documentation must not be an empty string.
  *  - Function must be a valid callable object.
  */
@@ -29,11 +33,15 @@ struct Command
     /// The unique name of the command.
     std::string name;
 
+    /// The function signature, show all command name and all parameters.
+    std::string signature;
+
     /// The documentation string of the command.
     std::string documentation;
 
     /// The function that is called when the command is executed.
-    std::function<std::string(std::vector<std::string> const &)> function;
+    std::function<std::string(Timeline<State> &, std::vector<std::string> const &)>
+        function;
 };
 
 /**
@@ -44,6 +52,22 @@ struct Command
  */
 class CommandCore
 {
+  public:
+    explicit CommandCore(Timeline<State> &tl) : timeline_{tl}
+    {
+        add_command(
+            Command{"help", "help", "Prints this help message.",
+                    [this](Timeline<State> &, std::vector<std::string> const &) {
+                        auto help_message = std::string{"Available commands:\n"};
+                        for (auto const &[name, command] : commands)
+                        {
+                            help_message += name + " - " + command.documentation +
+                                            "\n" + command.signature + "\n\n";
+                        }
+                        return help_message;
+                    }});
+    }
+
   public:
     /**
      *  Adds a command to the system.
@@ -63,6 +87,12 @@ class CommandCore
         {
             throw std::invalid_argument("Command name must be an alpha-only, all "
                                         "lowercase string with no spaces.");
+        }
+
+        // Validate signature
+        if (cmd.signature.empty())
+        {
+            throw std::invalid_argument("Command signature cannot be an empty string.");
         }
 
         // Validate documentation
@@ -89,10 +119,10 @@ class CommandCore
     }
 
     /**
-     *  Tries to match a command based on the provided input.
+     *  Tries to match a command to its signature based on the provided substring input.
      *
      *  @param input The input string.
-     *  @return The documentation string of the matched command or nullopt if no
+     *  @return The signature string of the matched command or nullopt if no
      *          command matches, only returns non null if there is a single match.
      */
     [[nodiscard]] auto match_command(std::string const &input) const
@@ -109,7 +139,7 @@ class CommandCore
 
         if (matches.size() == 1)
         {
-            return commands.at(matches[0]).documentation;
+            return commands.at(matches[0]).signature;
         }
 
         return std::nullopt;
@@ -124,8 +154,8 @@ class CommandCore
      */
     [[nodiscard]] auto execute_command(std::string const &input) const -> std::string
     {
-        std::istringstream iss(input);
-        std::string command_name;
+        auto iss = std::istringstream{input};
+        auto command_name = std::string{};
         std::getline(iss, command_name, ' ');
 
         auto it = commands.find(command_name);
@@ -134,19 +164,21 @@ class CommandCore
             throw std::runtime_error("Command not found");
         }
 
-        std::vector<std::string> params;
-        std::string param;
+        auto params = std::vector<std::string>{};
+        auto param = std::string{};
         while (std::getline(iss, param, ' '))
         {
             params.push_back(param);
         }
 
-        return it->second.function(params);
+        return it->second.function(timeline_, params);
     }
 
   private:
     /// Map of command names to Command objects
     std::map<std::string, Command> commands;
+
+    Timeline<State> &timeline_;
 };
 
 } // namespace xen

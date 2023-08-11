@@ -1,28 +1,28 @@
 #include "xen_processor.hpp"
 
+#include <chrono>
 #include <cstdint>
+#include <stdexcept>
 #include <utility>
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <sequence/measure.hpp>
 
 #include "midi.hpp"
 #include "xen_editor.hpp"
 
-#include <sequence/measure.hpp>
-
 namespace xen
 {
 
-XenProcessor::XenProcessor() : timeline_{init_state()}
+XenProcessor::XenProcessor()
+    : timeline_{init_state()}, command_core_{timeline_}, plugin_state_{init_state()},
+      last_rendered_time_{}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
                            juce::ParameterID{"base_frequency", 1},
                            "Base Frequency", // parameter name
                            juce::NormalisableRange<float>(20.f, 20'000.f, 1.f, 0.2f),
                            440.f)); // default value
-
-    timeline_.add_state(init_state());
-    // this->thread_safe_update(state_);
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -45,47 +45,26 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         return;
     }
 
-    // Take copies for thread safety
-    // auto state_copy = timeline_.get_state();
-    // auto state_copy = State{};
-    // {
-    //     auto const lock = std::lock_guard{state_mutex_};
-    //     state_copy = state_;
-    // }
-
-    // : throw std::runtime_error{"BPM is not valid"};
-
-    // if sample rate, bpm, or base frequency has changed, update state and rerender
-    // midi. You do this here and you do it on GUI state updates.
-    // if (state_copy.sample_rate != this->getSampleRate() || state_copy.bpm != bpm_daw
-    // ||
-    //     state_copy.base_frequency != *(this->base_frequency_))
-    // {
-    //     state_copy.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-    //     state_copy.bpm = bpm_daw;
-    //     state_copy.base_frequency = *(this->base_frequency_);
-    //     this->thread_safe_update(state_copy);
-    // }
-
     // Check if MIDI needs to be rendered because of DAW or GUI changes.
     auto const bpm_daw =
         position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
 
-    // TODO can this be removed so it is only called if update is needed?
-    auto const state = timeline_.get_state();
-
-    if (daw_state_.sample_rate != this->getSampleRate() || daw_state_.bpm != bpm_daw ||
-        render_needed_)
+    // Separate if statements prevent State copies on BPM changes.
+    if (timeline_.get_last_update_time() > last_rendered_time_)
     {
-        render_needed_ = false;
+        plugin_state_ = timeline_.get_state();
+        this->render();
+    }
+    if (daw_state_.bpm != bpm_daw || daw_state_.sample_rate != this->getSampleRate())
+    {
         daw_state_.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
         daw_state_.bpm = bpm_daw;
-        rendered_ = render_to_midi(state_to_timeline(daw_state_, state));
+        this->render();
     }
 
     // Find current MIDI events to send according to PlayHead position
-    auto const samples_in_phrase =
-        sequence::samples_count(state.phrase, daw_state_.sample_rate, daw_state_.bpm);
+    auto const samples_in_phrase = sequence::samples_count(
+        plugin_state_.phrase, daw_state_.sample_rate, daw_state_.bpm);
 
     auto const [begin, end] = [&] {
         auto const current_sample =
@@ -99,11 +78,6 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }();
 
-    // auto rendered_copy = juce::MidiBuffer{};
-    // {
-    //     auto const lock = std::lock_guard{rendered_mutex_};
-    //     rendered_copy = rendered_;
-    // }
     auto new_midi_buffer = find_subrange(rendered_, begin, end, (int)samples_in_phrase);
     midi_messages.swapWith(new_midi_buffer);
 }
@@ -113,15 +87,11 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
     return new XenEditor{*this};
 }
 
-// auto XenProcessor::thread_safe_render(DAWState const &daw_state, State const &state)
-//     -> void
-// {
-//     auto midi = render_to_midi(state_to_timeline(daw_state, state));
-//     {
-//         auto const lock = std::lock_guard{rendered_mutex_};
-//         rendered_ = std::move(midi);
-//     }
-// }
+auto XenProcessor::render() -> void
+{
+    rendered_ = render_to_midi(state_to_timeline(daw_state_, plugin_state_));
+    last_rendered_time_ = std::chrono::high_resolution_clock::now();
+}
 
 } // namespace xen
 

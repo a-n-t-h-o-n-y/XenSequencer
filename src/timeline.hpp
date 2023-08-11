@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+#include <chrono>
 #include <mutex>
 #include <vector>
 
@@ -29,7 +31,9 @@ class Timeline
     sl::Signal<void(State)> state_changed;
 
   public:
-    explicit Timeline(State state) : history_{std::move(state)}, current_state_index_{0}
+    explicit Timeline(State state)
+        : history_{std::move(state)}, current_state_index_{0},
+          last_update_time_{std::chrono::high_resolution_clock::now()}
     {
     }
 
@@ -41,7 +45,7 @@ class Timeline
      */
     auto add_state(State state) -> void
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock{mutex_};
 
         if (current_state_index_ + 1 < history_.size())
         {
@@ -50,6 +54,7 @@ class Timeline
         history_.push_back(std::move(state));
         ++current_state_index_;
         state_changed.emit(history_[current_state_index_]);
+        last_update_time_ = std::chrono::high_resolution_clock::now();
     }
 
     /**
@@ -58,7 +63,7 @@ class Timeline
      */
     [[nodiscard]] auto get_state() const -> State
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock{mutex_};
 
         assert(!history_.empty());
         return history_[current_state_index_];
@@ -70,13 +75,14 @@ class Timeline
      */
     auto undo() -> bool
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock{mutex_};
 
         if (current_state_index_ == 0)
         {
             return false;
         }
         state_changed.emit(history_[--current_state_index_]);
+        last_update_time_ = std::chrono::high_resolution_clock::now();
         return true;
     }
 
@@ -86,20 +92,34 @@ class Timeline
      */
     auto redo() -> bool
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock{mutex_};
 
         if (current_state_index_ + 1 < history_.size())
         {
             state_changed.emit(history_[++current_state_index_]);
+            last_update_time_ = std::chrono::high_resolution_clock::now();
             return true;
         }
         return false;
+    }
+
+    /**
+     * @brief Get the time of the last update.
+     * @return The time of the last update.
+     * @note This function is thread-safe.
+     */
+    [[nodiscard]] auto get_last_update_time() const
+        -> std::chrono::high_resolution_clock::time_point
+    {
+        std::lock_guard<std::mutex> lock{mutex_};
+        return last_update_time_;
     }
 
   private:
     mutable std::mutex mutex_;
     std::vector<State> history_;
     size_t current_state_index_;
+    std::chrono::high_resolution_clock::time_point last_update_time_;
 };
 
 } // namespace xen
