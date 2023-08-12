@@ -3,10 +3,12 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+// #include "heading.hpp"
+// #include "phrase_editor.hpp"
+// #include "tuning.hpp"
+#include "../command_core.hpp"
 #include "../state.hpp"
-// #include "gui/heading.hpp"
-// #include "gui/phrase_editor.hpp"
-// #include "gui/tuning.hpp"
+#include "command_bar.hpp"
 
 namespace xen::gui
 {
@@ -14,12 +16,15 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    PluginWindow()
+    explicit PluginWindow(CommandCore &command_core) : command_bar_{command_core}
     {
+        // TODO on keyboard (:) set focus to command bar componenet
+
         // TODO
         // this->addAndMakeVisible(&heading_);
         // this->addAndMakeVisible(&phrase_editor_);
         // this->addAndMakeVisible(&tuning_box_);
+        this->addAndMakeVisible(&command_bar_);
 
         // heading_.set_justification(juce::Justification::centred);
 
@@ -61,6 +66,7 @@ class PluginWindow : public juce::Component
     // gui::Heading heading_{"XenSequencer"};
     // gui::PhraseEditor phrase_editor_;
     // gui::TuningBox tuning_box_;
+    gui::CommandBar command_bar_;
 };
 
-} // namespace xen
+} // namespace xen::gui

@@ -16,6 +16,11 @@ namespace xen
 class XenProcessor : public PluginProcessor
 {
   public:
+    DAWState daw_state;
+    Timeline<State> timeline;
+    CommandCore command_core;
+
+  public:
     XenProcessor();
 
   protected:
@@ -30,10 +35,6 @@ class XenProcessor : public PluginProcessor
     auto render() -> void;
 
   private:
-    DAWState daw_state_;
-    Timeline<State> timeline_;
-    CommandCore command_core_;
-
     State plugin_state_; // Convenience variable, not necessary but saves cycles
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;

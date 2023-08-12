@@ -53,19 +53,27 @@ struct Command
 class CommandCore
 {
   public:
-    explicit CommandCore(Timeline<State> &tl) : timeline_{tl}
+    explicit CommandCore(Timeline<State> &t) : timeline_{t}
     {
-        add_command(
-            Command{"help", "help", "Prints this help message.",
-                    [this](Timeline<State> &, std::vector<std::string> const &) {
-                        auto help_message = std::string{"Available commands:\n"};
-                        for (auto const &[name, command] : commands)
-                        {
-                            help_message += name + " - " + command.documentation +
-                                            "\n" + command.signature + "\n\n";
-                        }
-                        return help_message;
-                    }});
+        this->add_command({"help", "help", "Prints this help message.",
+                           [this](Timeline<State> &, std::vector<std::string> const &) {
+                               auto help_message = std::string{"Available commands:\n"};
+                               for (auto const &[name, command] : commands)
+                               {
+                                   help_message += name + " - " +
+                                                   command.documentation + "\n" +
+                                                   command.signature + "\n\n";
+                               }
+                               return help_message;
+                           }});
+        this->add_command({"undo", "undo", "Undo the last command.",
+                           [](Timeline<State> &tl, std::vector<std::string> const &) {
+                               return tl.undo() ? "Undo Successful" : "Can't Undo";
+                           }});
+        this->add_command({"redo", "redo", "Redo the last command.",
+                           [](Timeline<State> &tl, std::vector<std::string> const &) {
+                               return tl.redo() ? "Redo Successful" : "Can't Redo";
+                           }});
     }
 
   public:
@@ -161,7 +169,7 @@ class CommandCore
         auto it = commands.find(command_name);
         if (it == commands.end())
         {
-            throw std::runtime_error("Command not found");
+            throw std::runtime_error("Command '" + command_name + "' not found");
         }
 
         auto params = std::vector<std::string>{};

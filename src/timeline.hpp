@@ -28,7 +28,7 @@ class Timeline
      * This signal is emitted whenever a new state is added to the timeline or the
      * current state is changed. The signal carries the new state as an argument.
      */
-    sl::Signal<void(State)> state_changed;
+    sl::Signal<void(State const &)> state_changed;
 
   public:
     explicit Timeline(State state)

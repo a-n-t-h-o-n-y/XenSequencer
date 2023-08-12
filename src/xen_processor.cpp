@@ -15,7 +15,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline_{init_state()}, command_core_{timeline_}, plugin_state_{init_state()},
+    : timeline{init_state()}, command_core{timeline}, plugin_state_{init_state()},
       last_rendered_time_{}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
@@ -50,21 +50,21 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
 
     // Separate if statements prevent State copies on BPM changes.
-    if (timeline_.get_last_update_time() > last_rendered_time_)
+    if (timeline.get_last_update_time() > last_rendered_time_)
     {
-        plugin_state_ = timeline_.get_state();
+        plugin_state_ = timeline.get_state();
         this->render();
     }
-    if (daw_state_.bpm != bpm_daw || daw_state_.sample_rate != this->getSampleRate())
+    if (daw_state.bpm != bpm_daw || daw_state.sample_rate != this->getSampleRate())
     {
-        daw_state_.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-        daw_state_.bpm = bpm_daw;
+        daw_state.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
+        daw_state.bpm = bpm_daw;
         this->render();
     }
 
     // Find current MIDI events to send according to PlayHead position
     auto const samples_in_phrase = sequence::samples_count(
-        plugin_state_.phrase, daw_state_.sample_rate, daw_state_.bpm);
+        plugin_state_.phrase, daw_state.sample_rate, daw_state.bpm);
 
     auto const [begin, end] = [&] {
         auto const current_sample =
@@ -89,7 +89,7 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 
 auto XenProcessor::render() -> void
 {
-    rendered_ = render_to_midi(state_to_timeline(daw_state_, plugin_state_));
+    rendered_ = render_to_midi(state_to_timeline(daw_state, plugin_state_));
     last_rendered_time_ = std::chrono::high_resolution_clock::now();
 }
 

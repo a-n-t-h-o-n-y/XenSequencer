@@ -1,17 +1,22 @@
 #include "xen_editor.hpp"
+
+#include "state.hpp"
 #include "xen_processor.hpp"
 
 namespace xen
 {
 
-XenEditor::XenEditor(XenProcessor &p) : AudioProcessorEditor{p}, processor_ref_{p}
+XenEditor::XenEditor(XenProcessor &p)
+    : AudioProcessorEditor{p}, plugin_window_{p.command_core}
 {
     this->setResizable(true, true);
     this->setSize(1000, 300);
     this->setResizeLimits(400, 300, 1200, 900);
 
     this->addAndMakeVisible(&plugin_window_);
-    // TODO hook up signal from processor.timeline_ state changed to call update(state)
+
+    p.timeline.state_changed.connect(
+        [this](State const &state) { this->update(state); });
 }
 
 auto XenEditor::update(State const &state) -> void
@@ -23,7 +28,7 @@ auto XenEditor::update(State const &state) -> void
 
 void XenEditor::resized()
 {
-    plugin_window_.setBounds(getLocalBounds());
+    plugin_window_.setBounds(this->getLocalBounds());
 }
 
 } // namespace xen

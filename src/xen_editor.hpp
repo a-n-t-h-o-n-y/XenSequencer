@@ -4,6 +4,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "command_core.hpp"
 #include "gui/plugin_window.hpp"
 #include "state.hpp"
 
@@ -23,8 +24,6 @@ class XenEditor : public juce::AudioProcessorEditor
 
   private:
     gui::PluginWindow plugin_window_;
-
-    XenProcessor &processor_ref_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(XenEditor)
 };
