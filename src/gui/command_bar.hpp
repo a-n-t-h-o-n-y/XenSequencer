@@ -9,6 +9,8 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <signals_light/signal.hpp>
+
 #include "../command_core.hpp"
 
 namespace xen::gui
@@ -137,7 +139,7 @@ class CommandInput : public juce::TextEditor
   public:
     CommandInput()
     {
-
+        this->setWantsKeyboardFocus(true);
         this->setMultiLine(false, false);
         this->setReturnKeyStartsNewLine(false);
         this->setEscapeAndReturnKeysConsumed(true);
@@ -145,6 +147,12 @@ class CommandInput : public juce::TextEditor
         this->setColour(juce::TextEditor::backgroundColourId,
                         juce::Colours::transparentWhite);
         this->setColour(juce::TextEditor::textColourId, juce::Colours::white);
+    }
+
+  protected:
+    auto focusGained(FocusChangeType) -> void override
+    {
+        this->setText("");
     }
 
   public:
@@ -174,9 +182,14 @@ class CommandInput : public juce::TextEditor
 class CommandBar : public juce::Component
 {
   public:
+    sl::Signal<void()> on_escape_request;
+
+  public:
     explicit CommandBar(CommandCore &command_core)
         : command_core_{command_core}, command_history_{}
     {
+        this->setWantsKeyboardFocus(true);
+
         this->addAndMakeVisible(ghost_text_);
         ghost_text_.setMultiLine(false, false);
         ghost_text_.setReadOnly(true);
@@ -188,7 +201,10 @@ class CommandBar : public juce::Component
         this->addAndMakeVisible(command_input_);
         command_input_.onReturnKey = [this] { this->do_send_command(); };
         command_input_.onTextChange = [this] { this->do_autocomplete(); };
-        command_input_.onEscapeKey = [this] { this->do_escape(); };
+        command_input_.onEscapeKey = [this] {
+            command_input_.setText("");
+            this->do_escape();
+        };
         command_input_.onTabKey = [this] {
             this->do_tab_press();
             return true;
@@ -210,6 +226,12 @@ class CommandBar : public juce::Component
         command_input_.setBounds(0, 0, getWidth(), getHeight());
     }
 
+    auto focusGained(FocusChangeType) -> void override
+    {
+        // Forward focus to child component
+        command_input_.grabKeyboardFocus();
+    }
+
   private:
     /**
      * @brief Sends a command string to the command core and display the result.
@@ -226,8 +248,9 @@ class CommandBar : public juce::Component
         }
         catch (std::exception const &e)
         {
-            command_input_.setText(e.what());
+            command_input_.setText(std::string{"Exception! "} + e.what());
         }
+        this->do_escape();
     }
 
     /**
@@ -266,8 +289,7 @@ class CommandBar : public juce::Component
 
     auto do_escape() -> void
     {
-        // TODO set focus elsewhere
-        command_input_.setText("");
+        on_escape_request();
     }
 
     auto do_history_next() -> void
@@ -303,8 +325,6 @@ class CommandBar : public juce::Component
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
     CommandHistory command_history_;
-
-    // static constexpr auto bar_height_ = 25;
 };
 
 } // namespace xen::gui

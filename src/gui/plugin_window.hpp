@@ -4,7 +4,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "heading.hpp"
-// #include "phrase_editor.hpp"
+#include "phrase_editor.hpp"
 // #include "tuning.hpp"
 #include "../command_core.hpp"
 #include "../state.hpp"
@@ -22,11 +22,17 @@ class PluginWindow : public juce::Component
 
         // TODO
         this->addAndMakeVisible(&heading_);
-        // this->addAndMakeVisible(&phrase_editor_);
+        this->addAndMakeVisible(&phrase_editor_);
         // this->addAndMakeVisible(&tuning_box_);
         this->addAndMakeVisible(&command_bar_);
 
-        // heading_.set_justification(juce::Justification::centred);
+        heading_.set_justification(juce::Justification::centred);
+
+        phrase_editor_.on_command_bar_request.connect(
+            [this] { command_bar_.grabKeyboardFocus(); });
+
+        command_bar_.on_escape_request.connect(
+            [this] { phrase_editor_.grabKeyboardFocus(); });
 
         // tuning_box_.on_tuning_changed = [this](auto const &tuning) {
         //     cache_.tuning = tuning;
@@ -55,7 +61,7 @@ class PluginWindow : public juce::Component
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
         flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
-        // flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
+        flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
         flexbox.items.add(juce::FlexItem(command_bar_).withHeight(25.f));
 
@@ -65,7 +71,7 @@ class PluginWindow : public juce::Component
   private:
     // TODO - child components
     gui::Heading heading_{"XenSequencer"};
-    // gui::PhraseEditor phrase_editor_;
+    gui::PhraseEditor phrase_editor_;
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
 };
