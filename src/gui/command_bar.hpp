@@ -185,7 +185,7 @@ class CommandBar : public juce::Component
     sl::Signal<void()> on_escape_request;
 
   public:
-    explicit CommandBar(CommandCore &command_core)
+    explicit CommandBar(XenCommandCore &command_core)
         : command_core_{command_core}, command_history_{}
     {
         this->setWantsKeyboardFocus(true);
@@ -321,7 +321,7 @@ class CommandBar : public juce::Component
     }
 
   private:
-    CommandCore &command_core_;
+    XenCommandCore &command_core_;
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
     CommandHistory command_history_;

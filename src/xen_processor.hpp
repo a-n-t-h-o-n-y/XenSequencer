@@ -5,10 +5,10 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include "command_core.hpp"
+#include "xen_command_core.hpp"
 #include "plugin_processor.hpp"
 #include "state.hpp"
-#include "timeline.hpp"
+#include "xen_timeline.hpp"
 
 namespace xen
 {
@@ -17,8 +17,8 @@ class XenProcessor : public PluginProcessor
 {
   public:
     DAWState daw_state;
-    Timeline<State> timeline;
-    CommandCore command_core;
+    XenTimeline timeline;
+    XenCommandCore command_core;
 
   public:
     XenProcessor();

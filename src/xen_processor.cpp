@@ -15,7 +15,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline{init_state()}, command_core{timeline}, plugin_state_{init_state()},
+    : timeline{init_state(), {}}, command_core{timeline}, plugin_state_{init_state()},
       last_rendered_time_{}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
@@ -52,7 +52,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // Separate if statements prevent State copies on BPM changes.
     if (timeline.get_last_update_time() > last_rendered_time_)
     {
-        plugin_state_ = timeline.get_state();
+        plugin_state_ = timeline.get_state().first;
         this->render();
     }
     if (daw_state.bpm != bpm_daw || daw_state.sample_rate != this->getSampleRate())

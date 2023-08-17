@@ -10,8 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "state.hpp"
-#include "timeline.hpp"
+#include "xen_timeline.hpp"
 
 namespace xen
 {
@@ -40,7 +39,7 @@ struct Command
     std::string documentation;
 
     /// The function that is called when the command is executed.
-    std::function<std::string(Timeline<State> &, std::vector<std::string> const &)>
+    std::function<std::string(XenTimeline &, std::vector<std::string> const &)>
         function;
 };
 
@@ -53,10 +52,10 @@ struct Command
 class CommandCore
 {
   public:
-    explicit CommandCore(Timeline<State> &t) : timeline_{t}
+    explicit CommandCore(XenTimeline &t) : timeline_{t}
     {
         this->add_command({"help", "help", "Prints this help message.",
-                           [this](Timeline<State> &, std::vector<std::string> const &) {
+                           [this](XenTimeline &, std::vector<std::string> const &) {
                                auto help_message = std::string{"Available commands:\n"};
                                for (auto const &[name, command] : commands)
                                {
@@ -65,14 +64,6 @@ class CommandCore
                                                    command.signature + "\n\n";
                                }
                                return help_message;
-                           }});
-        this->add_command({"undo", "undo", "Undo the last command.",
-                           [](Timeline<State> &tl, std::vector<std::string> const &) {
-                               return tl.undo() ? "Undo Successful" : "Can't Undo";
-                           }});
-        this->add_command({"redo", "redo", "Redo the last command.",
-                           [](Timeline<State> &tl, std::vector<std::string> const &) {
-                               return tl.redo() ? "Redo Successful" : "Can't Redo";
                            }});
     }
 
@@ -186,7 +177,7 @@ class CommandCore
     /// Map of command names to Command objects
     std::map<std::string, Command> commands;
 
-    Timeline<State> &timeline_;
+    XenTimeline &timeline_;
 };
 
 } // namespace xen

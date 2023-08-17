@@ -17,7 +17,7 @@ class XenEditor : public juce::AudioProcessorEditor
     explicit XenEditor(XenProcessor &);
 
   public:
-    auto update(State const &) -> void;
+    auto update(State const &, SelectedState const &) -> void;
 
   protected:
     auto resized() -> void override;

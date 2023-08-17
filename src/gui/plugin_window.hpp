@@ -16,7 +16,7 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    explicit PluginWindow(CommandCore &command_core) : command_bar_{command_core}
+    explicit PluginWindow(XenCommandCore &command_core) : command_bar_{command_core}
     {
         // TODO on keyboard (:) set focus to command bar componenet
 
@@ -47,7 +47,7 @@ class PluginWindow : public juce::Component
     }
 
   public:
-    auto update(State const &) -> void
+    auto update(State const &, SelectedState const &) -> void
     {
         // TODO
         // tuning_box_.set_tuning(cache_.tuning);

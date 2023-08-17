@@ -15,13 +15,15 @@ XenEditor::XenEditor(XenProcessor &p)
 
     this->addAndMakeVisible(&plugin_window_);
 
-    p.timeline.state_changed.connect(
-        [this](State const &state) { this->update(state); });
+    p.timeline.on_state_change.connect(
+        [this](State const &state, SelectedState const &selected) {
+            this->update(state, selected);
+        });
 }
 
-auto XenEditor::update(State const &state) -> void
+auto XenEditor::update(State const &state, SelectedState const &selected) -> void
 {
-    plugin_window_.update(state);
+    plugin_window_.update(state, selected);
 
     // TODO set base frequency?
 }
