@@ -20,8 +20,8 @@ class CommandBarKeyListener : public juce::KeyListener
     {
     }
 
-    auto keyPressed(juce::KeyPress const &key, juce::Component * /*component*/)
-        -> bool override
+  protected:
+    auto keyPressed(juce::KeyPress const &key, juce::Component *) -> bool override
     {
         if (key.getTextCharacter() == ':')
         {
@@ -40,11 +40,21 @@ class PhraseEditor : public juce::Component
   public:
     sl::Signal<void()> on_command_bar_request;
 
+    Phrase phrase;
+
   public:
-    PhraseEditor() : keyListener(on_command_bar_request)
+    PhraseEditor() : keyListener{on_command_bar_request}
     {
+        this->addAndMakeVisible(phrase);
+
         this->setWantsKeyboardFocus(true);
         this->addKeyListener(&keyListener);
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        phrase.setBounds(this->getLocalBounds());
     }
 
   private:

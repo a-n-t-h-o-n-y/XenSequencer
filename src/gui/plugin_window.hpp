@@ -18,11 +18,9 @@ class PluginWindow : public juce::Component
   public:
     explicit PluginWindow(XenCommandCore &command_core) : command_bar_{command_core}
     {
-        // TODO on keyboard (:) set focus to command bar componenet
-
-        // TODO
         this->addAndMakeVisible(&heading_);
         this->addAndMakeVisible(&phrase_editor_);
+        // TODO
         // this->addAndMakeVisible(&tuning_box_);
         this->addAndMakeVisible(&command_bar_);
 
@@ -33,25 +31,16 @@ class PluginWindow : public juce::Component
 
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
-
-        // tuning_box_.on_tuning_changed = [this](auto const &tuning) {
-        //     cache_.tuning = tuning;
-        //     processor_ref_.thread_safe_update(cache_);
-        //     phrase_editor_.set_tuning_length(tuning.intervals.size());
-        // };
-
-        // phrase_editor_.on_phrase_update = [this] {
-        //     cache_.phrase = phrase_editor_.get_phrase();
-        //     processor_ref_.thread_safe_update(cache_);
-        // };
     }
 
   public:
-    auto update(State const &, SelectedState const &) -> void
+    auto update(State const &state, SelectedState const &) -> void
     {
+        phrase_editor_.phrase.set(state.phrase, state);
+        // TODO then use selected state to select the selected cell
+
         // TODO
-        // tuning_box_.set_tuning(cache_.tuning);
-        // phrase_editor_.set_phrase(cache_.phrase);
+        // tuning_box_.set_tuning(state.tuning);
     }
 
   protected:

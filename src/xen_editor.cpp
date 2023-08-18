@@ -19,6 +19,10 @@ XenEditor::XenEditor(XenProcessor &p)
         [this](State const &state, SelectedState const &selected) {
             this->update(state, selected);
         });
+
+    // Initialize GUI
+    auto const [state, selected] = p.timeline.get_state();
+    plugin_window_.update(state, selected);
 }
 
 auto XenEditor::update(State const &state, SelectedState const &selected) -> void
