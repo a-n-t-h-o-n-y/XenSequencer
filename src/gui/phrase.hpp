@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -13,23 +14,38 @@
 namespace xen::gui
 {
 
-class Phrase : public HomogenousRow<Measure>
+class Phrase : public juce::Component
 {
   public:
-    Phrase() : HomogenousRow<Measure>{juce::FlexItem{}.withFlex(1.f), true}
+    auto set(sequence::Phrase const &phrase, State const &state,
+             SelectedState const &selected) -> void
     {
+
+        measure_ptr_.reset();
+        measure_ptr_ = std::make_unique<Measure>(phrase[selected.measure], state);
+        this->addAndMakeVisible(*measure_ptr_);
+        this->resized();
     }
 
-  public:
-    auto set(sequence::Phrase const &phrase, State const &state) -> void
+    auto select(SelectedState const &selected) -> void
     {
-        this->HomogenousRow<Measure>::clear();
-
-        for (auto const &measure : phrase)
+        if (measure_ptr_)
         {
-            this->emplace_back(measure, state);
+            measure_ptr_->select(selected.cell);
         }
     }
+
+  protected:
+    auto resized() -> void override
+    {
+        if (measure_ptr_)
+        {
+            measure_ptr_->setBounds(this->getLocalBounds());
+        }
+    }
+
+  private:
+    std::unique_ptr<Measure> measure_ptr_{nullptr};
 };
 
 // TODO possibly add the ability to have a count of visible measures and a starting

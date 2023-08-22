@@ -1,8 +1,11 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
 #include <variant>
+#include <vector>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -17,6 +20,37 @@ namespace xen::gui
 
 class Cell : public juce::Component
 {
+  public:
+    auto make_selected() -> void
+    {
+        selected_ = true;
+    }
+
+    virtual auto select_child(std::vector<std::size_t> const &indices) -> void
+    {
+        if (indices.empty())
+        {
+            this->make_selected();
+        }
+        else
+        {
+            throw std::runtime_error(
+                "Invalid index or unexpected type encountered in traversal.");
+        }
+    }
+
+  protected:
+    auto paintOverChildren(juce::Graphics &g) -> void override
+    {
+        if (selected_)
+        {
+            g.setColour(juce::Colours::yellow);
+            g.drawRect(getLocalBounds(), 3);
+        }
+    }
+
+  private:
+    bool selected_ = false;
 };
 
 class Rest : public Cell
@@ -79,34 +113,6 @@ class NoteInterval : public juce::Component
         return {adjusted_interval, octave};
     }
 
-    // [[nodiscard]] static auto get_interval_and_octave(int interval,
-    //                                                   std::size_t tuning_length)
-    //     -> std::pair<int, int>
-    // {
-    //     auto octave = interval / (int)tuning_length;
-    //     if (interval >= 0)
-    //     {
-    //         // For positive interval, use simple division and modulo operations
-    //         return std::make_pair(interval % (int)tuning_length, octave);
-    //     }
-    //     else
-    //     {
-    //         // For negative interval, calculate the adjusted interval and octave
-    //         int adjusted_interval =
-    //             ((int)tuning_length + (interval % (int)tuning_length)) %
-    //             (int)tuning_length;
-
-    //         if (adjusted_interval != 0)
-    //         {
-    //             // Adjust Octave for negative intervals, the first negative octave is
-    //             // -1, not zero.
-    //             --octave;
-    //         }
-
-    //         return std::make_pair(adjusted_interval, octave);
-    //     }
-    // }
-
   private:
     int interval_;
     std::size_t tuning_length_;
@@ -148,10 +154,22 @@ class Sequence : public Cell
   public:
     explicit Sequence(sequence::Sequence const &seq, State const &state);
 
+  public:
+    auto select_child(std::vector<std::size_t> const &indices) -> void override
+    {
+        if (indices.empty())
+        {
+            this->make_selected();
+            return;
+        }
+
+        cells_.at(indices[0])
+            .select_child(std::vector(std::next(indices.cbegin()), indices.cend()));
+    }
+
   protected:
     auto resized() -> void override
     {
-
         cells_.setBounds(this->getLocalBounds());
     }
 

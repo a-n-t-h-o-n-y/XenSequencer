@@ -28,56 +28,21 @@ struct State
  */
 struct SelectedState
 {
-    std::size_t measure = 0;
-    std::vector<std::size_t> cell = {0};
+    /// The index of the currently selected Measure in the current Phrase.
+    std::size_t measure;
+
+    /// The index of the currently selected Cell in the current Measure.
+    std::vector<std::size_t> cell{};
 };
 
 /**
- * @brief Returns a reference to the selected Cell based on the given index vector.
- * @param cells The top-level vector of Cells to navigate.
- * @param indices A vector containing the indices to navigate through the nested
- * structure.
- * @return Cell& Reference to the selected Cell.
- * @exception std::runtime_error If an index is out of bounds or if an invalid index
- * is provided for a non-Sequence Cell.
+ * @brief The state of the auxiliary controls in the plugin, for Timeline use.
  */
-[[nodiscard]] inline auto get_selected_cell(State &state, SelectedState const &selected)
-    -> sequence::Cell &
+struct AuxState
 {
-    std::vector<sequence::Cell> *current_level =
-        &(state.phrase[selected.measure].sequence.cells);
-
-    for (auto i = 0u; i < selected.cell.size(); ++i)
-    {
-        auto index = selected.cell[i];
-
-        if (index >= current_level->size())
-        {
-            throw std::runtime_error("Index out of bounds");
-        }
-
-        if (i + 1 < selected.cell.size())
-        {
-            // Expecting Sequence type if there are more indices to follow
-            auto &cell = (*current_level)[index];
-            if (std::holds_alternative<sequence::Sequence>(cell))
-            {
-                current_level = &std::get<sequence::Sequence>(cell).cells;
-            }
-            else
-            {
-                throw std::runtime_error("Expected a Sequence");
-            }
-        }
-        else
-        {
-            // Last index in the indices vector; return the reference to the Cell
-            return (*current_level)[index];
-        }
-    }
-
-    throw std::runtime_error("No valid Cell found");
-}
+    SelectedState selected;
+    // TODO enum for input mode
+};
 
 /**
  * @brief The state of the DAW.
@@ -118,17 +83,17 @@ struct DAWState
     for (auto i = 0; i < 2; ++i)
     {
         auto measure = seq::create_measure(seq::TimeSignature{4, 4});
-        measure.sequence = seq::generate::full(4, seq::Note{0, 1.0, 0.f, 0.8f});
-        measure.sequence = seq::modify::randomize_intervals(measure.sequence, -40, 40);
-        measure.sequence = seq::modify::randomize_velocity(measure.sequence, 0.f, 1.f);
-        measure.sequence = seq::modify::randomize_delay(measure.sequence, 0.f, 0.1f);
-        measure.sequence = seq::modify::randomize_gate(measure.sequence, 0.9f, 1.f);
-        if (i % 2 != 0)
-        {
-            measure.sequence =
-                seq::modify::randomize_intervals(measure.sequence, -20, 20);
+        measure.cell = seq::generate::full(4, seq::Note{0, 1.0, 0.f, 0.8f});
 
-            measure.sequence.cells[3] = seq::Sequence{{
+        measure.cell = seq::modify::randomize_intervals(measure.cell, -40, 40);
+        measure.cell = seq::modify::randomize_velocity(measure.cell, 0.f, 1.f);
+        measure.cell = seq::modify::randomize_delay(measure.cell, 0.f, 0.1f);
+        measure.cell = seq::modify::randomize_gate(measure.cell, 0.9f, 1.f);
+        if (i % 2 != 1)
+        {
+            measure.cell = seq::modify::randomize_intervals(measure.cell, -20, 20);
+
+            std::get<sequence::Sequence>(measure.cell).cells[3] = seq::Sequence{{
                 seq::Note{5, 0.75f * (i / 2.f), 0.f, 0.3f},
                 seq::Rest{},
                 seq::Note{10, 0.5f * (i / 2.f), 0.25f, 1.f},

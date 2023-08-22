@@ -31,6 +31,11 @@ class Timeline
      */
     sl::Signal<void(State const &, AuxiliaryState const &)> on_state_change;
 
+    /**
+     * @brief A signal emitted when the auxiliary state of the timeline changes.
+     */
+    sl::Signal<void(State const &, AuxiliaryState const &)> on_aux_change;
+
   public:
     explicit Timeline(State state, AuxiliaryState aux)
         : history_{{std::move(state), std::move(aux)}}, current_state_index_{0},
@@ -87,6 +92,7 @@ class Timeline
         // Update aux state to reflect undo
         auxiliary_state_ = history_[current_state_index_].second;
         this->emit_state_change();
+        this->emit_aux_change();
         return true;
     }
 
@@ -105,6 +111,7 @@ class Timeline
             // Update aux state to reflect redo
             auxiliary_state_ = history_[current_state_index_].second;
             this->emit_state_change();
+            this->emit_aux_change();
             last_update_time_ = std::chrono::high_resolution_clock::now();
             return true;
         }
@@ -133,6 +140,7 @@ class Timeline
     {
         std::lock_guard<std::mutex> lock{mutex_};
         auxiliary_state_ = std::move(aux);
+        this->emit_aux_change();
     }
 
     /**
@@ -152,6 +160,11 @@ class Timeline
         on_state_change.emit(history_[current_state_index_].first,
                              history_[current_state_index_].second);
         last_update_time_ = std::chrono::high_resolution_clock::now();
+    }
+
+    auto emit_aux_change() -> void
+    {
+        on_aux_change.emit(history_[current_state_index_].first, auxiliary_state_);
     }
 
   private:

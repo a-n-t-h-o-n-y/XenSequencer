@@ -13,19 +13,44 @@
 namespace xen::gui
 {
 
-class CommandBarKeyListener : public juce::KeyListener
+class CommandKeyListener : public juce::KeyListener
 {
   public:
-    CommandBarKeyListener(sl::Signal<void()> &signal) : on_command_bar_request(signal)
+    CommandKeyListener(sl::Signal<void()> &on_bar_sig,
+                       sl::Signal<void(std::string const &)> &on_command_sig)
+        : on_command_bar_request(on_bar_sig), on_command(on_command_sig)
     {
     }
 
   protected:
     auto keyPressed(juce::KeyPress const &key, juce::Component *) -> bool override
     {
-        if (key.getTextCharacter() == ':')
+        // TODO you could create a separate class for this that lets you define
+        // keypresses and command strings.
+        auto const kc = key.getKeyCode();
+        if (kc == ':')
         {
             on_command_bar_request();
+            return true;
+        }
+        else if (kc == 'j' || kc == juce::KeyPress::downKey)
+        {
+            on_command("movedown");
+            return true;
+        }
+        else if (kc == 'k' || kc == juce::KeyPress::upKey)
+        {
+            on_command("moveup");
+            return true;
+        }
+        else if (kc == 'h' || kc == juce::KeyPress::leftKey)
+        {
+            on_command("moveleft");
+            return true;
+        }
+        else if (kc == 'l' || kc == juce::KeyPress::rightKey)
+        {
+            on_command("moveright");
             return true;
         }
         return false;
@@ -33,6 +58,7 @@ class CommandBarKeyListener : public juce::KeyListener
 
   private:
     sl::Signal<void()> &on_command_bar_request;
+    sl::Signal<void(std::string const &)> &on_command;
 };
 
 class PhraseEditor : public juce::Component
@@ -40,10 +66,12 @@ class PhraseEditor : public juce::Component
   public:
     sl::Signal<void()> on_command_bar_request;
 
+    sl::Signal<void(std::string const &)> on_command;
+
     Phrase phrase;
 
   public:
-    PhraseEditor() : keyListener{on_command_bar_request}
+    PhraseEditor() : keyListener{on_command_bar_request, on_command}
     {
         this->addAndMakeVisible(phrase);
 
@@ -58,7 +86,7 @@ class PhraseEditor : public juce::Component
     }
 
   private:
-    CommandBarKeyListener keyListener;
+    CommandKeyListener keyListener;
 };
 
 // class PhraseEditor : public juce::Component

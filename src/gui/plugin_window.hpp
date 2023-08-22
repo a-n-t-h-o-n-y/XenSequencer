@@ -16,7 +16,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    explicit PluginWindow(XenCommandCore &command_core) : command_bar_{command_core}
+    explicit PluginWindow(XenCommandCore &command_core)
+        : command_bar_{command_core}, command_core_{command_core}
     {
         this->addAndMakeVisible(&heading_);
         this->addAndMakeVisible(&phrase_editor_);
@@ -31,13 +32,19 @@ class PluginWindow : public juce::Component
 
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
+
+        phrase_editor_.on_command.connect([this](std::string const &command) {
+            // TODO should this send the message to the command bar? but selection etc..
+            // shouldn't display?
+            command_core_.execute_command(command);
+        });
     }
 
   public:
-    auto update(State const &state, SelectedState const &) -> void
+    auto update(State const &state, AuxState const &aux) -> void
     {
-        phrase_editor_.phrase.set(state.phrase, state);
-        // TODO then use selected state to select the selected cell
+        phrase_editor_.phrase.set(state.phrase, state, aux.selected);
+        phrase_editor_.phrase.select(aux.selected);
 
         // TODO
         // tuning_box_.set_tuning(state.tuning);
@@ -63,6 +70,7 @@ class PluginWindow : public juce::Component
     gui::PhraseEditor phrase_editor_;
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
+    CommandCore &command_core_;
 };
 
 } // namespace xen::gui

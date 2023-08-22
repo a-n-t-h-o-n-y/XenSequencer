@@ -16,18 +16,22 @@ XenEditor::XenEditor(XenProcessor &p)
     this->addAndMakeVisible(&plugin_window_);
 
     p.timeline.on_state_change.connect(
-        [this](State const &state, SelectedState const &selected) {
-            this->update(state, selected);
-        });
+        [this](State const &state, AuxState const &aux) { this->update(state, aux); });
+
+    p.timeline.on_aux_change.connect([this](State const &state, AuxState const &aux) {
+        // TODO you could have code that only modifies the selected cell instead of
+        // repainting the entire sequence
+        this->update(state, aux);
+    });
 
     // Initialize GUI
-    auto const [state, selected] = p.timeline.get_state();
-    plugin_window_.update(state, selected);
+    auto const [state, aux] = p.timeline.get_state();
+    plugin_window_.update(state, aux);
 }
 
-auto XenEditor::update(State const &state, SelectedState const &selected) -> void
+auto XenEditor::update(State const &state, AuxState const &aux) -> void
 {
-    plugin_window_.update(state, selected);
+    plugin_window_.update(state, aux);
 
     // TODO set base frequency?
 }

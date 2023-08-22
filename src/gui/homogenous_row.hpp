@@ -48,6 +48,16 @@ class HomogenousRow : public juce::Component
     }
 
   public:
+    [[nodiscard]] auto get_children() const -> const std::vector<std::unique_ptr<T>> &
+    {
+        return children_;
+    }
+
+    [[nodiscard]] auto get_children() -> std::vector<std::unique_ptr<T>> &
+    {
+        return children_;
+    }
+
     /**
      * @brief Emplace a child component at the given index.
      *
