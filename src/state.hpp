@@ -10,6 +10,8 @@
 #include <sequence/modify.hpp>
 #include <sequence/tuning.hpp>
 
+#include "input_mode.hpp"
+
 namespace xen
 {
 
@@ -41,7 +43,7 @@ struct SelectedState
 struct AuxState
 {
     SelectedState selected;
-    // TODO enum for input mode
+    InputMode input_mode = InputMode::Movement;
 };
 
 /**

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
@@ -15,7 +16,8 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline{init_state(), {}}, command_core{timeline}, plugin_state_{init_state()},
+    : timeline{init_state(), {}}, copy_buffer{std::nullopt},
+      command_core{timeline, copy_buffer}, plugin_state_{init_state()},
       last_rendered_time_{}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
