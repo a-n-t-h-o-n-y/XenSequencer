@@ -101,6 +101,57 @@ class XenCommandCore : public CommandCore
                                return "Duplicated.";
                            }});
 
+        this->add_command({"mode", "mode [name]", "Change the current input mode.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [mode_str] = validate_args<std::string>(args);
+                               auto const mode = parse_input_mode(mode_str);
+                               auto aux = tl.get_aux_state();
+                               aux.input_mode = mode;
+                               tl.set_aux_state(aux);
+                               return "Changed mode to '" + args[0] + "'.";
+                           }});
+
+        this->add_command({"note", "note [interval] [velocity=0.8] [delay=0] [gate=1]",
+                           "Change the current Cell to a Note.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               // TODO either specify arg types and count in the command
+                               // object and specify defaults as well, then have the
+                               // lambda take diff args, or do it all here every time.
+                               // add_command<args...>() or add_command(args<...>(),
+                               // ...)
+                               // would be nice to have defaults auto added in.
+                               auto const [interval] = validate_args<int>(args); // temp
+                               auto const aux = tl.get_aux_state();
+                               auto [state, _] = tl.get_state();
+                               auto &cell =
+                                   get_selected_cell(state.phrase, aux.selected);
+                               cell = sequence::modify::note(interval, 0.8f, 0.f, 1.f);
+                               tl.add_state(state);
+                               return "Added note.";
+                           }});
+
+        this->add_command({"rest", "rest", "Change the current Cell to a Rest.",
+                           [](XenTimeline &tl, std::vector<std::string> const &) {
+                               auto const aux = tl.get_aux_state();
+                               auto [state, _] = tl.get_state();
+                               auto &cell =
+                                   get_selected_cell(state.phrase, aux.selected);
+                               cell = sequence::modify::rest();
+                               tl.add_state(state);
+                               return "Added rest.";
+                           }});
+
+        this->add_command({"flip", "flip", "Flip the current Cell between Cell types.",
+                           [](XenTimeline &tl, std::vector<std::string> const &) {
+                               auto const aux = tl.get_aux_state();
+                               auto [state, _] = tl.get_state();
+                               auto &cell =
+                                   get_selected_cell(state.phrase, aux.selected);
+                               cell = sequence::modify::flip(cell);
+                               tl.add_state(state);
+                               return "Flipped.";
+                           }});
+
         // this->add_command(
         //     {"randomizetest", "randomizetest", "Randomize the current sequence.",
         //      [](XenTimeline &tl, std::vector<std::string> const &) {
