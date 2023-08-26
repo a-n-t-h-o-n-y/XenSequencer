@@ -83,15 +83,46 @@ namespace xen
  *
  * @param head The root sequence.
  * @param selected The current selection indices.
+ * @return Pointer to the parent of the selected Cell, or nullptr if the selection
+ * is at the top level.
+ *
+ * @throws std::runtime_error If any index is out of bounds.
+ * @throws std::bad_variant_access If parent is not a Sequence.
+ */
+[[nodiscard]] inline auto get_parent_of_selected(sequence::Phrase &phrase,
+                                                 SelectedState const &selected)
+    -> sequence::Cell *
+{
+    if (selected.cell.empty())
+    {
+        return nullptr;
+    }
+
+    sequence::Cell *current_cell = &phrase[selected.measure].cell;
+
+    for (std::size_t i = 0; i + 1 < selected.cell.size(); ++i)
+    {
+        current_cell =
+            &(std::get<sequence::Sequence>(*current_cell).cells[selected.cell[i]]);
+    }
+
+    return current_cell;
+}
+
+/**
+ * Utility to get the parent Sequence of the currently selected Cell.
+ *
+ * @param head The root sequence.
+ * @param selected The current selection indices.
  * @return Pointer to the parent of the selected Cell, or nullptr if the selection is
  * at the top level.
  *
  * @throws std::runtime_error If any index is out of bounds.
  * @throws std::bad_variant_access If parent is not a Sequence.
  */
-[[nodiscard]] inline auto get_parent_of_selected(sequence::Phrase const &phrase,
-                                                 SelectedState const &selected)
-    -> sequence::Sequence const *
+[[nodiscard]] inline auto get_parent_of_selected_const(sequence::Phrase const &phrase,
+                                                       SelectedState const &selected)
+    -> sequence::Cell const *
 {
     if (selected.cell.empty())
     {
@@ -106,7 +137,29 @@ namespace xen
             &(std::get<sequence::Sequence>(*current_cell).cells[selected.cell[i]]);
     }
 
-    return &(std::get<sequence::Sequence>(*current_cell));
+    return current_cell;
+}
+
+/**
+ * Utility to get the number of siblings of the currently selected Cell.
+ *
+ * This count is the total number of child cells of the selected cell's parent.
+ * This includes the selected cell itself.
+ *
+ * @param phrase The root sequence.
+ * @param selected The current selection indices.
+ * @return The number of siblings of the selected Cell.
+ */
+[[nodiscard]] inline auto get_sibling_count(sequence::Phrase const &phrase,
+                                            SelectedState const &selected)
+    -> std::size_t
+{
+    sequence::Cell const *parent = get_parent_of_selected_const(phrase, selected);
+    if (parent == nullptr)
+    {
+        throw std::runtime_error("Cannot get sibling count of top-level Cell.");
+    }
+    return std::get<sequence::Sequence>(*parent).cells.size();
 }
 
 /**
@@ -121,29 +174,29 @@ namespace xen
 {
     using namespace sequence::utility;
 
-    return std::visit(
-        overload{
-            [&](sequence::Note const &) { return selected; },
-            [&](sequence::Rest const &) { return selected; },
-            [&](sequence::Sequence const &) {
-                if (selected.cell.empty()) // Change Measure
-                {
-                    selected.measure = (selected.measure > 0) ? selected.measure - 1
-                                                              : phrase.size() - 1;
-                }
-                else // Change Cell
-                {
-                    auto const parent_cells_size =
-                        get_parent_of_selected(phrase, selected)->cells.size();
+    return std::visit(overload{
+                          [&](sequence::Note const &) { return selected; },
+                          [&](sequence::Rest const &) { return selected; },
+                          [&](sequence::Sequence const &) {
+                              if (selected.cell.empty()) // Change Measure
+                              {
+                                  selected.measure = (selected.measure > 0)
+                                                         ? selected.measure - 1
+                                                         : phrase.size() - 1;
+                              }
+                              else // Change Cell
+                              {
+                                  auto const parent_cells_size =
+                                      get_sibling_count(phrase, selected);
 
-                    selected.cell.back() = (selected.cell.back() > 0)
-                                               ? selected.cell.back() - 1
-                                               : parent_cells_size - 1;
-                }
-                return selected;
-            },
-        },
-        phrase[selected.measure].cell);
+                                  selected.cell.back() = (selected.cell.back() > 0)
+                                                             ? selected.cell.back() - 1
+                                                             : parent_cells_size - 1;
+                              }
+                              return selected;
+                          },
+                      },
+                      phrase[selected.measure].cell);
 }
 
 /**
@@ -158,31 +211,31 @@ namespace xen
 {
     using namespace sequence::utility;
 
-    return std::visit(
-        overload{
-            [&](sequence::Note const &) { return selected; },
-            [&](sequence::Rest const &) { return selected; },
-            [&](sequence::Sequence const &) {
-                if (selected.cell.empty()) // Change Measure
-                {
-                    selected.measure = (selected.measure + 1 < phrase.size())
-                                           ? selected.measure + 1
-                                           : 0;
-                }
-                else // Change Cell
-                {
-                    auto const parent_cells_size =
-                        get_parent_of_selected(phrase, selected)->cells.size();
+    return std::visit(overload{
+                          [&](sequence::Note const &) { return selected; },
+                          [&](sequence::Rest const &) { return selected; },
+                          [&](sequence::Sequence const &) {
+                              if (selected.cell.empty()) // Change Measure
+                              {
+                                  selected.measure =
+                                      (selected.measure + 1 < phrase.size())
+                                          ? selected.measure + 1
+                                          : 0;
+                              }
+                              else // Change Cell
+                              {
+                                  auto const parent_cells_size =
+                                      get_sibling_count(phrase, selected);
 
-                    selected.cell.back() =
-                        (selected.cell.back() + 1 < parent_cells_size)
-                            ? selected.cell.back() + 1
-                            : 0;
-                }
-                return selected;
-            },
-        },
-        phrase[selected.measure].cell);
+                                  selected.cell.back() =
+                                      (selected.cell.back() + 1 < parent_cells_size)
+                                          ? selected.cell.back() + 1
+                                          : 0;
+                              }
+                              return selected;
+                          },
+                      },
+                      phrase[selected.measure].cell);
 }
 
 /**

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "util.hpp"
 #include "xen_timeline.hpp"
 
 namespace xen
@@ -124,9 +125,10 @@ class CommandCore
      *  @return The signature string of the matched command or nullopt if no
      *          command matches, only returns non null if there is a single match.
      */
-    [[nodiscard]] auto match_command(std::string const &input) const
+    [[nodiscard]] auto match_command(std::string input) const
         -> std::optional<std::string>
     {
+        input = to_lower(input);
         auto matches = std::vector<std::string>{};
         for (auto const &[name, command] : commands)
         {
@@ -156,8 +158,9 @@ class CommandCore
         auto iss = std::istringstream{input};
         auto command_name = std::string{};
         std::getline(iss, command_name, ' ');
+        auto const command_name_lower = to_lower(command_name);
 
-        auto it = commands.find(command_name);
+        auto it = commands.find(command_name_lower);
         if (it == commands.end())
         {
             throw std::runtime_error("Command '" + command_name + "' not found");

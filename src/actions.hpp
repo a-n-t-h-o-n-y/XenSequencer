@@ -72,7 +72,7 @@ namespace xen::action
     auto &selected = get_selected_cell(state.phrase, aux.selected);
     // FIXME if the copy buffer is not a sequence and the selected cell is the top
     // level, then this will silently fail because you don't have a use case where the
-    // top level is not a sequence.
+    // top level is not a sequence, for things like movement.
     selected = *copy_buffer;
     return state;
 }
@@ -87,7 +87,7 @@ namespace xen::action
     auto &selected = get_selected_cell(state.phrase, aux.selected);
     // FIXME if the copy buffer is not a sequence and the selected cell is the top
     // level, then this will silently fail because you don't have a use case where the
-    // top level is not a sequence.
+    // top level is not a sequence, for things like movement.
     selected = buffer;
     return {aux, state};
 }

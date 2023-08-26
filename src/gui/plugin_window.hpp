@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream> //temp
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -36,7 +38,7 @@ class PluginWindow : public juce::Component
         phrase_editor_.on_command.connect([this](std::string const &command) {
             // TODO should this send the message to the command bar? but selection etc..
             // shouldn't display?
-            command_core_.execute_command(command);
+            std::cerr << command_core_.execute_command(command) << std::endl;
         });
     }
 
@@ -65,12 +67,14 @@ class PluginWindow : public juce::Component
     }
 
   private:
-    // TODO - child components
     gui::Heading heading_{"XenSequencer"};
     gui::PhraseEditor phrase_editor_;
+    // TODO
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
     CommandCore &command_core_;
+    // TODO hold a const reference to the timeline for key combos access to current aux
+    // mode
 };
 
 } // namespace xen::gui

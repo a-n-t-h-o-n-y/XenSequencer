@@ -28,9 +28,30 @@ class CommandKeyListener : public juce::KeyListener
         // TODO you could create a separate class for this that lets you define
         // keypresses and command strings.
         auto const kc = key.getKeyCode();
+        auto const modifiers = key.getModifiers();
         if (kc == ':')
         {
             on_command_bar_request();
+            return true;
+        }
+        else if (kc == 'c' && modifiers.isCtrlDown())
+        {
+            on_command("copy");
+            return true;
+        }
+        else if (kc == 'x' && modifiers.isCtrlDown())
+        {
+            on_command("cut");
+            return true;
+        }
+        else if (kc == 'v' && modifiers.isCtrlDown())
+        {
+            on_command("paste");
+            return true;
+        }
+        else if (kc == 'd' && modifiers.isCtrlDown())
+        {
+            on_command("duplicate");
             return true;
         }
         else if (kc == 'j' || kc == juce::KeyPress::downKey)
@@ -53,6 +74,31 @@ class CommandKeyListener : public juce::KeyListener
             on_command("moveright");
             return true;
         }
+        else if (kc == 'm')
+        {
+            on_command("mode movement");
+            return true;
+        }
+        else if (kc == 'n')
+        {
+            on_command("mode note");
+            return true;
+        }
+        else if (kc == 'v')
+        {
+            on_command("mode velocity");
+            return true;
+        }
+        else if (kc == 'd')
+        {
+            on_command("mode delay");
+            return true;
+        }
+        else if (kc == 'g')
+        {
+            on_command("mode gate");
+            return true;
+        }
         return false;
     }
 
@@ -71,12 +117,12 @@ class PhraseEditor : public juce::Component
     Phrase phrase;
 
   public:
-    PhraseEditor() : keyListener{on_command_bar_request, on_command}
+    PhraseEditor() : key_listener_{on_command_bar_request, on_command}
     {
         this->addAndMakeVisible(phrase);
 
         this->setWantsKeyboardFocus(true);
-        this->addKeyListener(&keyListener);
+        this->addKeyListener(&key_listener_);
     }
 
   protected:
@@ -86,7 +132,7 @@ class PhraseEditor : public juce::Component
     }
 
   private:
-    CommandKeyListener keyListener;
+    CommandKeyListener key_listener_;
 };
 
 // class PhraseEditor : public juce::Component

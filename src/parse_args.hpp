@@ -5,22 +5,33 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+
+#include "util.hpp"
 
 namespace xen
 {
 
-[[nodiscard]] inline auto to_lower(std::string const &x) -> std::string
+template <typename T>
+struct always_false : std::false_type
 {
-    auto result = std::string{};
-    std::transform(std::cbegin(x), std::cend(x), std::back_inserter(result), ::tolower);
-    return result;
-}
+};
 
 [[nodiscard]] inline auto parse_int(std::string const &x) -> std::optional<int>
 {
     try
     {
-        return std::stoi(x);
+        auto pos = std::size_t{0};
+
+        auto const result = std::stoi(x, &pos);
+
+        // This verifies the entire string was parsed.
+        if (pos != x.size())
+        {
+            return std::nullopt;
+        }
+
+        return result;
     }
     catch (std::invalid_argument const &)
     {
@@ -32,11 +43,94 @@ namespace xen
     }
 }
 
-[[nodiscard]] inline auto parse_float(std::string const &x) -> std::optional<float>
+template <typename T = std::size_t>
+[[nodiscard]] inline auto parse_unsigned(std::string const &x) -> std::optional<T>
 {
+    static_assert(std::is_unsigned_v<T>, "T must be unsigned.");
+
+    if (x.find('-') != std::string::npos)
+    {
+        return std::nullopt;
+    }
+
     try
     {
-        return std::stof(x);
+        auto pos = std::size_t{0};
+        auto result = T{0};
+
+        if constexpr (sizeof(T) == sizeof(unsigned))
+        {
+            result = std::stoul(x, &pos);
+        }
+        else if (sizeof(T) == sizeof(unsigned short))
+        {
+            result = std::stoul(x, &pos);
+        }
+        else if constexpr (sizeof(T) == sizeof(unsigned long))
+        {
+            result = std::stoul(x, &pos);
+        }
+        else if constexpr (sizeof(T) == sizeof(unsigned long long))
+        {
+            result = std::stoull(x, &pos);
+        }
+        else
+        {
+            static_assert(always_false<T>::value, "Unsupported size_t.");
+        }
+
+        // This verifies the entire string was parsed.
+        if (pos != x.size())
+        {
+            return std::nullopt;
+        }
+
+        return result;
+    }
+    catch (std::invalid_argument const &)
+    {
+        return std::nullopt;
+    }
+    catch (std::out_of_range const &)
+    {
+        return std::nullopt;
+    }
+}
+
+template <typename T = float>
+[[nodiscard]] inline auto parse_float(std::string const &x) -> std::optional<T>
+{
+    static_assert(std::is_floating_point_v<T>, "T must be floating point.");
+
+    try
+    {
+        auto pos = std::size_t{0};
+        auto result = T{0};
+
+        if constexpr (sizeof(T) == sizeof(float))
+        {
+            result = std::stof(x, &pos);
+        }
+        else if constexpr (sizeof(T) == sizeof(double))
+        {
+            result = std::stod(x, &pos);
+        }
+        else if constexpr (sizeof(T) == sizeof(long double))
+        {
+            result = std::stold(x, &pos);
+        }
+        else
+        {
+            static_assert(always_false<T>::value, "Unsupported float.");
+        }
+
+        // This verifies the entire string was parsed.
+        if (pos != x.size())
+        {
+            return std::nullopt;
+        }
+
+        return result;
     }
     catch (std::invalid_argument const &)
     {
@@ -69,11 +163,6 @@ namespace xen
 {
     return to_lower(x);
 }
-
-template <typename T>
-struct always_false : std::false_type
-{
-};
 
 template <typename T>
 [[nodiscard]] inline auto parse(std::string const &x) -> T
@@ -109,6 +198,15 @@ template <typename T>
     {
         return parse_string(x);
     }
+    else if constexpr (std::is_unsigned_v<T>)
+    {
+        auto const result = parse_unsigned<T>(x);
+        if (!result.has_value())
+        {
+            throw std::invalid_argument{"Invalid unsigned: " + x};
+        }
+        return result.value();
+    }
     else
     {
         static_assert(always_false<T>::value, "Unsupported type.");
@@ -116,20 +214,21 @@ template <typename T>
 }
 
 template <typename... T, std::size_t... I>
-[[nodiscard]] inline auto validate_args_impl(std::vector<std::string> const &args,
-                                             std::index_sequence<I...>)
+[[nodiscard]] inline auto extract_args_impl(std::vector<std::string> const &args,
+                                            std::index_sequence<I...>)
 {
     return std::tuple{parse<T>(args.at(I))...};
 }
 
+// TODO rename to extract_args
 template <typename... T>
-[[nodiscard]] inline auto validate_args(std::vector<std::string> const &args)
+[[nodiscard]] inline auto extract_args(std::vector<std::string> const &args)
 {
     if (args.size() != sizeof...(T))
     {
         throw std::invalid_argument{"Invalid number of arguments."};
     }
-    return validate_args_impl<T...>(args, std::index_sequence_for<T...>{});
+    return extract_args_impl<T...>(args, std::index_sequence_for<T...>{});
 }
 
 } // namespace xen
