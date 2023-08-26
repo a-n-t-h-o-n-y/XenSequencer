@@ -2,12 +2,18 @@
 
 #include <optional>
 
+#include <sequence/modify.hpp>
+
+#include "input_mode.hpp"
 #include "selection.hpp"
 #include "state.hpp"
 #include "timeline.hpp"
 
 namespace xen::action
 {
+
+// These can throw exceptions with error messages and those will be displayed to the
+// user
 
 [[nodiscard]] inline auto move_left(XenTimeline const &tl) -> AuxState
 {
@@ -47,7 +53,7 @@ namespace xen::action
     return get_selected_cell_const(state.phrase, aux.selected);
 }
 
-[[nodiscard]] inline auto cut(XenTimeline &tl) -> std::pair<sequence::Cell, State>
+[[nodiscard]] inline auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, State>
 {
     auto const buffer = ::xen::action::copy(tl);
 
@@ -59,7 +65,7 @@ namespace xen::action
     return {buffer, state};
 }
 
-[[nodiscard]] inline auto paste(XenTimeline &tl,
+[[nodiscard]] inline auto paste(XenTimeline const &tl,
                                 std::optional<sequence::Cell> const &copy_buffer)
     -> std::optional<State>
 {
@@ -77,7 +83,7 @@ namespace xen::action
     return state;
 }
 
-[[nodiscard]] inline auto duplicate(XenTimeline &tl) -> std::pair<AuxState, State>
+[[nodiscard]] inline auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, State>
 {
     auto const buffer = ::xen::action::copy(tl);
     auto const aux = ::xen::action::move_right(tl);
@@ -90,6 +96,156 @@ namespace xen::action
     // top level is not a sequence, for things like movement.
     selected = buffer;
     return {aux, state};
+}
+
+[[nodiscard]] inline auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
+{
+    auto aux = tl.get_aux_state();
+    aux.input_mode = mode;
+    return aux;
+}
+
+[[nodiscard]] inline auto note(XenTimeline const &tl, int interval, float velocity,
+                               float delay, float gate) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::note(interval, velocity, delay, gate);
+    return state;
+}
+
+[[nodiscard]] inline auto rest(XenTimeline const &tl) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::rest();
+    return state;
+}
+
+[[nodiscard]] inline auto flip(XenTimeline const &tl) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::flip(cell);
+    return state;
+}
+
+[[nodiscard]] inline auto split(XenTimeline const &tl, std::size_t count) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::repeat(cell, count);
+    return state;
+}
+
+[[nodiscard]] inline auto extract(XenTimeline const &tl) -> std::pair<State, AuxState>
+{
+    auto aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    sequence::Cell *parent = get_parent_of_selected(state.phrase, aux.selected);
+    if (parent == nullptr)
+    {
+        throw std::runtime_error{"Can't extract top level Cell."};
+    }
+
+    *parent = get_selected_cell(state.phrase, aux.selected);
+    return {state, action::move_up(tl)};
+}
+
+[[nodiscard]] inline auto shift_note(XenTimeline const &tl, int amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::shift_pitch(cell, amount);
+    return state;
+}
+
+[[nodiscard]] inline auto shift_note_octave(XenTimeline const &tl, int amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    auto const tuning_length = state.tuning.intervals.size();
+    cell = sequence::modify::shift_pitch(cell, amount * (int)tuning_length);
+    return state;
+}
+
+[[nodiscard]] inline auto shift_velocity(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::shift_velocity(cell, amount);
+    return state;
+}
+
+[[nodiscard]] inline auto shift_delay(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::shift_delay(cell, amount);
+    return state;
+}
+
+[[nodiscard]] inline auto shift_gate(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::shift_gate(cell, amount);
+    return state;
+}
+
+[[nodiscard]] inline auto set_note(XenTimeline const &tl, int interval) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::set_pitch(cell, interval);
+    return state;
+}
+
+[[nodiscard]] inline auto set_note_octave(XenTimeline const &tl, int octave) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto const tuning_length = state.tuning.intervals.size();
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::set_octave(cell, octave, tuning_length);
+    return state;
+}
+
+[[nodiscard]] inline auto set_velocity(XenTimeline const &tl, float velocity) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::set_velocity(cell, velocity);
+    return state;
+}
+
+[[nodiscard]] inline auto set_delay(XenTimeline const &tl, float delay) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::set_delay(cell, delay);
+    return state;
+}
+
+[[nodiscard]] inline auto set_gate(XenTimeline const &tl, float gate) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto &cell = get_selected_cell(state.phrase, aux.selected);
+    cell = sequence::modify::set_gate(cell, gate);
+    return state;
 }
 
 } // namespace xen::action

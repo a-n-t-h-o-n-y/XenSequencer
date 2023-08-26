@@ -105,78 +105,43 @@ class XenCommandCore : public CommandCore
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
                                auto const [mode_str] = extract_args<std::string>(args);
                                auto const mode = parse_input_mode(mode_str);
-                               auto aux = tl.get_aux_state();
-                               aux.input_mode = mode;
-                               tl.set_aux_state(aux);
+                               tl.set_aux_state(action::set_mode(tl, mode));
                                return "Changed mode to '" + args[0] + "'.";
                            }});
 
-        this->add_command({"note", "note [interval] [velocity=0.8] [delay=0] [gate=1]",
+        this->add_command({"note",
+                           "note [interval=0] [velocity=0.8] [delay=0] [gate=1]",
                            "Change the current Cell to a Note.",
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
-                               // TODO either specify arg types and count in the command
-                               // object and specify defaults as well, then have the
-                               // lambda take diff args, or do it all here every time.
-                               // add_command<args...>() or add_command(args<...>(),
-                               // ...)
-                               // would be nice to have defaults auto added in.
-                               auto const [interval] = extract_args<int>(args); // temp
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::note(interval, 0.8f, 0.f, 1.f);
-                               tl.add_state(state);
+                               // TODO specify all args
+                               auto const [interval] = extract_args<int>(args);
+                               tl.add_state(action::note(tl, interval, 0.8f, 0.f, 1.f));
                                return "Added note.";
                            }});
 
         this->add_command({"rest", "rest", "Change the current Cell to a Rest.",
                            [](XenTimeline &tl, std::vector<std::string> const &) {
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::rest();
-                               tl.add_state(state);
+                               tl.add_state(action::rest(tl));
                                return "Added rest.";
                            }});
 
         this->add_command({"flip", "flip", "Flip the current Cell between Cell types.",
                            [](XenTimeline &tl, std::vector<std::string> const &) {
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::flip(cell);
-                               tl.add_state(state);
+                               tl.add_state(action::flip(tl));
                                return "Flipped.";
                            }});
 
         this->add_command({"split", "split [count=2]", "Split the current Cell.",
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
                                auto const [count] = extract_args<std::size_t>(args);
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::repeat(cell, count);
-                               tl.add_state(state);
+                               tl.add_state(action::split(tl, count));
                                return "Split.";
                            }});
 
         this->add_command({"extract", "extract", "Replace parent with selected child.",
                            [](XenTimeline &tl, std::vector<std::string> const &) {
-                               auto aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               sequence::Cell *parent =
-                                   get_parent_of_selected(state.phrase, aux.selected);
-                               if (parent == nullptr)
-                               {
-                                   return "Can't extract top level Cell.";
-                               }
-
-                               *parent = get_selected_cell(state.phrase, aux.selected);
-                               tl.set_aux_state(action::move_up(tl));
+                               auto [state, aux] = action::extract(tl);
+                               tl.set_aux_state(aux);
                                tl.add_state(state);
                                return "Extracted.";
                            }});
@@ -185,12 +150,7 @@ class XenCommandCore : public CommandCore
                            "Shift the current Note by a number of intervals.",
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
                                auto const [amount] = extract_args<int>(args);
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::shift_pitch(cell, amount);
-                               tl.add_state(state);
+                               tl.add_state(action::shift_note(tl, amount));
                                return "Shifted.";
                            }});
 
@@ -198,52 +158,72 @@ class XenCommandCore : public CommandCore
                            "Shift the current Note's velocity.",
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
                                auto const [amount] = extract_args<float>(args);
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               cell = sequence::modify::shift_velocity(cell, amount);
-                               tl.add_state(state);
+                               tl.add_state(action::shift_velocity(tl, amount));
                                return "Shifted.";
                            }});
 
-        this->add_command(
-            {"shiftdelay", "shiftDelay [amount]", "Shift the current Note's delay.",
-             [](XenTimeline &tl, std::vector<std::string> const &args) {
-                 auto const [amount] = extract_args<float>(args);
-                 auto const aux = tl.get_aux_state();
-                 auto [state, _] = tl.get_state();
-                 auto &cell = get_selected_cell(state.phrase, aux.selected);
-                 cell = sequence::modify::shift_delay(cell, amount);
-                 tl.add_state(state);
-                 return "Shifted.";
-             }});
+        this->add_command({"shiftdelay", "shiftDelay [amount]",
+                           "Shift the current Note's delay.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<float>(args);
+                               tl.add_state(action::shift_delay(tl, amount));
+                               return "Shifted.";
+                           }});
 
-        this->add_command(
-            {"shiftgate", "shiftGate [amount]", "Shift the current Note's gate.",
-             [](XenTimeline &tl, std::vector<std::string> const &args) {
-                 auto const [amount] = extract_args<float>(args);
-                 auto const aux = tl.get_aux_state();
-                 auto [state, _] = tl.get_state();
-                 auto &cell = get_selected_cell(state.phrase, aux.selected);
-                 cell = sequence::modify::shift_gate(cell, amount);
-                 tl.add_state(state);
-                 return "Shifted.";
-             }});
+        this->add_command({"shiftgate", "shiftGate [amount]",
+                           "Shift the current Note's gate.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<float>(args);
+                               tl.add_state(action::shift_gate(tl, amount));
+                               return "Shifted.";
+                           }});
 
         this->add_command({"shiftnoteoctave", "shiftNoteOctave [amount]",
                            "Shift the current Note's octave.",
                            [](XenTimeline &tl, std::vector<std::string> const &args) {
                                auto const [amount] = extract_args<int>(args);
-                               auto const aux = tl.get_aux_state();
-                               auto [state, _] = tl.get_state();
-                               auto &cell =
-                                   get_selected_cell(state.phrase, aux.selected);
-                               auto const tuning_length = state.tuning.intervals.size();
-                               cell = sequence::modify::shift_pitch(
-                                   cell, amount * (int)tuning_length);
-                               tl.add_state(state);
+                               tl.add_state(action::shift_note_octave(tl, amount));
                                return "Shifted.";
+                           }});
+
+        this->add_command({"setnote", "setNote [interval]",
+                           "Set a Note's interval to the specified amount.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [interval] = extract_args<int>(args);
+                               tl.add_state(action::set_note(tl, interval));
+                               return "Set.";
+                           }});
+
+        this->add_command({"setnoteoctave", "setNoteOctave [amount]",
+                           "Set a Note's octave to the specified amount.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<int>(args);
+                               tl.add_state(action::set_note_octave(tl, amount));
+                               return "Set.";
+                           }});
+
+        this->add_command({"setvelocity", "setVelocity [amount]",
+                           "Set a Note's velocity to the specified amount.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<float>(args);
+                               tl.add_state(action::set_velocity(tl, amount));
+                               return "Set.";
+                           }});
+
+        this->add_command({"setdelay", "setDelay [amount]",
+                           "Set a Note's delay to the specified amount.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<float>(args);
+                               tl.add_state(action::set_delay(tl, amount));
+                               return "Set.";
+                           }});
+
+        this->add_command({"setgate", "setGate [amount]",
+                           "Set a Note's gate to the specified amount.",
+                           [](XenTimeline &tl, std::vector<std::string> const &args) {
+                               auto const [amount] = extract_args<float>(args);
+                               tl.add_state(action::set_gate(tl, amount));
+                               return "Set.";
                            }});
 
         // this->add_command(
