@@ -1,11 +1,11 @@
 #pragma once
 
-#include <algorithm>
-#include <cctype>
+#include <cstddef>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "util.hpp"
 
@@ -220,7 +220,6 @@ template <typename... T, std::size_t... I>
     return std::tuple{parse<T>(args.at(I))...};
 }
 
-// TODO rename to extract_args
 template <typename... T>
 [[nodiscard]] inline auto extract_args(std::vector<std::string> const &args)
 {

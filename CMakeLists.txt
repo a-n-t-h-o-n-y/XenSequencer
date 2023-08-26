@@ -41,9 +41,16 @@ juce_add_plugin(XenSequencer
 
 target_sources(XenSequencer
     PRIVATE
+        src/actions.cpp
+        src/input_mode.cpp
         src/plugin_processor.cpp
+        src/command_core.cpp
+        src/midi.cpp
+        src/selection.cpp
+        src/util.cpp
         src/xen_processor.cpp
         src/xen_editor.cpp
+        src/xen_command_core.cpp
         src/gui/sequence.cpp
 )
 

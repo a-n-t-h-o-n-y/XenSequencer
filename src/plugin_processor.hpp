@@ -12,8 +12,8 @@ class PluginProcessor : public juce::AudioProcessor
 {
   public:
     PluginProcessor();
-    ~PluginProcessor() override;
 
+  public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 

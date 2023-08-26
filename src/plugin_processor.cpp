@@ -1,5 +1,4 @@
 #include "plugin_processor.hpp"
-#include "plugin_editor.hpp"
 
 namespace xen
 {
@@ -13,10 +12,6 @@ PluginProcessor::PluginProcessor()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)
 #endif
       )
-{
-}
-
-PluginProcessor::~PluginProcessor()
 {
 }
 

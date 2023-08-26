@@ -6,6 +6,7 @@
 #include <variant>
 #include <vector>
 
+#include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
 #include <sequence/modify.hpp>
 #include <sequence/tuning.hpp>
