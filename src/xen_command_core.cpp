@@ -221,6 +221,13 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
                            return "Set.";
                        }});
 
+    this->add_command({"focus", "focus [name]", "Focus on a specific Phrase.",
+                       [this](XenTimeline &tl, std::vector<std::string> const &args) {
+                           auto const [name] = extract_args<std::string>(args);
+                           this->on_focus_change_request(name);
+                           return "Focused on '" + name + "'.";
+                       }});
+
     // this->add_command(
     //     {"randomizetest", "randomizetest", "Randomize the current sequence.",
     //      [](XenTimeline &tl, std::vector<std::string> const &) {

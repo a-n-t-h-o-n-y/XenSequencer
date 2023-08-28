@@ -1,16 +1,18 @@
 #pragma once
 
 #include <iostream> //temp
+#include <stdexcept>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "../command_core.hpp"
+#include "../key_core.hpp"
+#include "../state.hpp"
+#include "command_bar.hpp"
 #include "heading.hpp"
 #include "phrase_editor.hpp"
 // #include "tuning.hpp"
-#include "../command_core.hpp"
-#include "../state.hpp"
-#include "command_bar.hpp"
 
 namespace xen::gui
 {
@@ -29,8 +31,8 @@ class PluginWindow : public juce::Component
 
         heading_.set_justification(juce::Justification::centred);
 
-        phrase_editor_.on_command_bar_request.connect(
-            [this] { command_bar_.grabKeyboardFocus(); });
+        // phrase_editor_.on_command_bar_request.connect(
+        //     [this] { command_bar_.grabKeyboardFocus(); });
 
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
@@ -39,6 +41,26 @@ class PluginWindow : public juce::Component
             // TODO should this send the message to the command bar? but selection etc..
             // shouldn't display?
             std::cerr << command_core_.execute_command(command) << std::endl;
+        });
+
+        command_core_.on_focus_change_request.connect([this](std::string const &name) {
+            if (name == "commandbar")
+            {
+                command_bar_.grabKeyboardFocus();
+            }
+            else if (name == "phraseeditor")
+            {
+                phrase_editor_.grabKeyboardFocus();
+            }
+            else if (name == "tuningbox")
+            {
+                // TODO
+                // tuning_box_.grabKeyboardFocus();
+            }
+            else
+            {
+                throw std::runtime_error("invalid focus change request");
+            }
         });
     }
 
@@ -50,6 +72,20 @@ class PluginWindow : public juce::Component
 
         // TODO
         // tuning_box_.set_tuning(state.tuning);
+    }
+
+    auto set_key_listeners(std::map<std::string, KeyConfigListener> &listeners) -> void
+    {
+        phrase_editor_.addKeyListener(&listeners.at("phraseeditor"));
+        listeners.at("phraseeditor")
+            .on_command.connect([this](std::string const &command) {
+                // TODO should this send the message to the command bar? but
+                // selection etc.. shouldn't display?
+                std::cerr << command_core_.execute_command(command) << std::endl;
+            });
+
+        // TODO
+        // tuning_box_.addKeyListener(listeners["tuningbox"]);
     }
 
   protected:
@@ -72,9 +108,7 @@ class PluginWindow : public juce::Component
     // TODO
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
-    CommandCore &command_core_;
-    // TODO hold a const reference to the timeline for key combos access to current aux
-    // mode
+    XenCommandCore &command_core_;
 };
 
 } // namespace xen::gui

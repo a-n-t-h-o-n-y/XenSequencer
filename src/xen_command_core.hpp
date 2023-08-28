@@ -5,6 +5,7 @@
 #include <variant>
 
 #include <sequence/sequence.hpp>
+#include <signals_light/signal.hpp>
 
 #include "command_core.hpp"
 #include "xen_timeline.hpp"
@@ -17,6 +18,9 @@ namespace xen
  */
 class XenCommandCore : public CommandCore
 {
+  public:
+    sl::Signal<void(std::string const &)> on_focus_change_request;
+
   public:
     explicit XenCommandCore(XenTimeline &t, std::optional<sequence::Cell> &copy_buffer);
 

@@ -42,6 +42,7 @@ juce_add_plugin(XenSequencer
 target_sources(XenSequencer
     PRIVATE
         src/actions.cpp
+        src/key_core.cpp
         src/input_mode.cpp
         src/plugin_processor.cpp
         src/command_core.cpp

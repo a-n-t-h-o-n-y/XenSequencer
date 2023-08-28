@@ -11,7 +11,7 @@
 
 #include <signals_light/signal.hpp>
 
-#include "../command_core.hpp"
+#include "../xen_command_core.hpp"
 
 namespace xen::gui
 {
