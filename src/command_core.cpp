@@ -60,13 +60,13 @@ auto CommandCore::match_command(std::string input) const
     {
         if (name.rfind(input, 0) == 0)
         { // input is a prefix of name
-            matches.push_back(command->get_name());
+            matches.push_back(name);
         }
     }
 
     if (matches.size() == 1)
     {
-        return commands_.at(matches[0])->get_signature_display();
+        return commands_.at(matches.front())->get_signature_display();
     }
 
     return std::nullopt;

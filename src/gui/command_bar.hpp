@@ -283,14 +283,15 @@ class CommandBar : public juce::Component
     auto do_tab_press() -> void
     {
         auto const input = command_input_.getText().toStdString();
-        auto const completion = command_core_.match_command(input);
+        auto const signature = command_core_.match_command(input);
 
-        if (completion)
+        if (signature && input.size() <= signature->name.size())
         {
-            auto const autoCompleteText = input + completion->name;
+            auto const autoCompleteText = signature->name;
             command_input_.setText(autoCompleteText,
                                    juce::NotificationType::dontSendNotification);
             ghost_text_.clear();
+            this->do_autocomplete();
         }
     }
 
