@@ -16,13 +16,13 @@ namespace xen
  * @param phrase The Phrase to select from.
  * @param indices A vector containing the indices to navigate through the nested
  * structure to the selected cell.
- * @return Cell& Reference to the selected Cell.
+ * @return Cell* Pointer to the selected Cell.
  *
  * @exception std::runtime_error If an index is out of bounds or if an invalid index
  * is provided for a non-Sequence Cell.
  */
 [[nodiscard]] auto get_selected_cell(sequence::Phrase &phrase,
-                                     SelectedState const &selected) -> sequence::Cell &;
+                                     SelectedState const &selected) -> sequence::Cell *;
 
 /**
  * @brief Returns a reference to the selected Cell based on the given index vector.
@@ -30,14 +30,14 @@ namespace xen
  * @param phrase The Phrase to select from.
  * @param indices A vector containing the indices to navigate through the nested
  * structure to the selected cell.
- * @return Cell const& Reference to the selected Cell.
+ * @return Cell const* Const Pointer to the selected Cell.
  *
  * @exception std::runtime_error If an index is out of bounds or if an invalid index
  * is provided for a non-Sequence Cell.
  */
 [[nodiscard]] auto get_selected_cell_const(sequence::Phrase const &phrase,
                                            SelectedState const &selected)
-    -> sequence::Cell const &;
+    -> sequence::Cell const *;
 
 /**
  * Utility to get the parent Sequence of the currently selected Cell.

@@ -136,11 +136,14 @@ class Timeline
      * @note This function is thread-safe and does not update the last update time or
      * emit the on_state_change signal.
      */
-    auto set_aux_state(AuxiliaryState aux) -> void
+    auto set_aux_state(AuxiliaryState aux, bool emit_change = true) -> void
     {
         std::lock_guard<std::mutex> lock{mutex_};
         auxiliary_state_ = std::move(aux);
-        this->emit_aux_change();
+        if (emit_change)
+        {
+            this->emit_aux_change();
+        }
     }
 
     /**

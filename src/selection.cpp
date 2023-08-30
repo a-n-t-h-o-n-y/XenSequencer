@@ -12,8 +12,12 @@ namespace xen
 {
 
 auto get_selected_cell(sequence::Phrase &phrase, SelectedState const &selected)
-    -> sequence::Cell &
+    -> sequence::Cell *
 {
+    if (phrase.empty())
+    {
+        return nullptr;
+    }
     // Start with the top-level Cell in the specified measure
     auto *current_cell = &phrase[selected.measure].cell;
 
@@ -30,12 +34,17 @@ auto get_selected_cell(sequence::Phrase &phrase, SelectedState const &selected)
         }
     }
 
-    return *current_cell;
+    return current_cell;
 }
 
 auto get_selected_cell_const(sequence::Phrase const &phrase,
-                             SelectedState const &selected) -> sequence::Cell const &
+                             SelectedState const &selected) -> sequence::Cell const *
 {
+    if (phrase.empty())
+    {
+        return nullptr;
+    }
+
     // Start with the top-level Cell in the specified measure
     sequence::Cell const *current_cell = &phrase[selected.measure].cell;
 
@@ -52,7 +61,7 @@ auto get_selected_cell_const(sequence::Phrase const &phrase,
         }
     }
 
-    return *current_cell;
+    return current_cell;
 }
 
 auto get_parent_of_selected(sequence::Phrase &phrase, SelectedState const &selected)
@@ -176,9 +185,9 @@ auto move_up(SelectedState selected) -> SelectedState
 
 auto move_down(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
 {
-    auto const &selected_cell = get_selected_cell_const(phrase, selected);
+    auto const *selected_cell = get_selected_cell_const(phrase, selected);
 
-    if (std::holds_alternative<sequence::Sequence>(selected_cell))
+    if (selected_cell && std::holds_alternative<sequence::Sequence>(*selected_cell))
     {
         selected.cell.push_back(0);
     }

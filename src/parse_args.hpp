@@ -2,10 +2,13 @@
 
 #include <cstddef>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include <sequence/time_signature.hpp>
 
 #include "util.hpp"
 
@@ -159,6 +162,40 @@ template <typename T = float>
     return to_lower(x);
 }
 
+/**
+ * @brief Parses a string into a TimeSignature.
+ *
+ * @param x The input string, formatted as "x/y" or "x".
+ * @return A TimeSignature object containing the parsed numerator and denominator.
+ * @throws std::invalid_argument if the string is not in the correct format.
+ */
+[[nodiscard]] inline auto parse_time_signature(std::string const &x)
+    -> sequence::TimeSignature
+{
+    auto ss = std::istringstream{x};
+    auto numerator = unsigned{};
+    auto denominator = unsigned{1}; // Default to 1 if not present
+
+    if (!(ss >> numerator))
+    {
+        throw std::invalid_argument(
+            "Invalid time signature format: Couldn't parse numerator: " + x);
+    }
+
+    // Check for the '/' character
+    if (ss.peek() == '/')
+    {
+        ss.ignore(); // Skip the '/' character
+        if (!(ss >> denominator))
+        {
+            throw std::invalid_argument(
+                "Invalid time signature format: Couldn't parse denominator: " + x);
+        }
+    }
+
+    return sequence::TimeSignature{numerator, denominator};
+}
+
 template <typename T>
 [[nodiscard]] auto parse(std::string const &x) -> T
 {
@@ -203,6 +240,10 @@ template <typename T>
     else if constexpr (std::is_same_v<T, std::string>)
     {
         return parse_string(x);
+    }
+    else if constexpr (std::is_same_v<T, sequence::TimeSignature>)
+    {
+        return parse_time_signature(x);
     }
     else
     {

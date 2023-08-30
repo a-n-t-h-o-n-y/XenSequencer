@@ -5,6 +5,8 @@
 #include <tuple>
 #include <vector>
 
+#include <sequence/time_signature.hpp>
+
 #include "util.hpp"
 
 namespace xen
@@ -49,25 +51,29 @@ template <typename T>
 {
     if constexpr (std::is_floating_point_v<T>)
     {
-        return "float";
+        return "Float";
     }
     else if constexpr (std::is_same_v<T, bool>)
     {
-        return "bool";
+        return "Bool";
     }
     else if constexpr (std::is_same_v<T, int>)
     {
-        return "int";
+        return "Int";
     }
     else if constexpr (std::is_same_v<T, unsigned short> ||
                        std::is_same_v<T, unsigned int> ||
                        std::is_same_v<T, std::size_t>)
     {
-        return "unsigned";
+        return "Unsigned";
     }
     else if constexpr (std::is_same_v<T, std::string>)
     {
-        return "string";
+        return "String";
+    }
+    else if constexpr (std::is_same_v<T, sequence::TimeSignature>)
+    {
+        return "TimeSignature";
     }
     else
     {
@@ -86,7 +92,7 @@ template <typename T>
 auto arg_info_to_string(ArgInfo<T> const &arg) -> std::string
 {
     auto os = std::ostringstream{};
-    os << arg.name;
+    os << type_name<T>() << ": " << arg.name;
 
     // Default Value
     if (arg.default_value.has_value())

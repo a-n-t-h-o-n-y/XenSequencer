@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <sequence/sequence.hpp>
+#include <sequence/time_signature.hpp>
 
 #include "actions.hpp"
 #include "command.hpp"
@@ -52,14 +53,24 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
     }));
 
     add(cmd("copy", "Copy the current selection.", [this](XenTimeline &tl) {
-        copy_buffer_ = action::copy(tl);
-        return "Copied.";
+        auto copy = action::copy(tl);
+        if (copy.has_value())
+        {
+            copy_buffer_ = std::move(*copy);
+            return "Copied.";
+        }
+        return "Nothing to copy.";
     }));
 
     add(cmd("cut", "Cut the current selection.", [this](XenTimeline &tl) {
-        auto [buffer, state] = action::cut(tl);
+        auto cut = action::cut(tl);
+        if (!cut.has_value())
+        {
+            return "Nothing to cut.";
+        }
+        auto &[buffer, state] = *cut;
         tl.add_state(std::move(state));
-        copy_buffer_ = buffer;
+        copy_buffer_ = std::move(buffer);
         return "Cut.";
     }));
 
@@ -77,7 +88,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
     add(cmd("duplicate", "Duplicate the current selection to the right.",
             [](XenTimeline &tl) {
                 auto [aux, state] = action::duplicate(tl);
-                tl.set_aux_state(std::move(aux));
+                tl.set_aux_state(std::move(aux), false);
                 tl.add_state(std::move(state));
                 return "Duplicated.";
             }));
@@ -120,7 +131,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
 
     add(cmd("extract", "Extract the current Cell.", [](XenTimeline &tl) {
         auto [state, aux] = action::extract(tl);
-        tl.set_aux_state(aux);
+        tl.set_aux_state(aux, false);
         tl.add_state(state);
         return "Extracted.";
     }));
@@ -205,7 +216,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         },
         ArgInfo<float>{"amount", 1.f}));
 
-    this->add(cmd(
+    add(cmd(
         "focus", "Focus on a specific Phrase.",
         [this](auto &, std::string const &name) {
             this->on_focus_change_request(name);
@@ -213,21 +224,29 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         },
         ArgInfo<std::string>{"component"}));
 
+    add(cmd(
+        "addMeasure", "Add a measure to the end of the Phrase.",
+        [](XenTimeline &tl, sequence::TimeSignature const &ts) {
+            auto [aux, state] = action::add_measure(tl, ts);
+            tl.set_aux_state(std::move(aux), false);
+            tl.add_state(std::move(state));
+            return "Added measure.";
+        },
+        ArgInfo<sequence::TimeSignature>("duration", {{4, 4}})));
+
+    add(cmd("delete", "Delete the current Cell or Measure.", [](XenTimeline &tl) {
+        auto [aux, state] =
+            action::delete_cell(tl.get_aux_state(), tl.get_state().first);
+        tl.set_aux_state(aux, false);
+        tl.add_state(state);
+        return "Deleted.";
+    }));
+
     add(cmd("demo", "Overwrite current state with demo state.", [](XenTimeline &tl) {
-        tl.set_aux_state({{0, {}}}); // Manually reset selection on overwrite
+        tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
         tl.add_state(demo_state());
         return "Demo state loaded.";
     }));
-
-    // this->add_command(
-    //     {"randomizetest", "randomizetest", "Randomize the current sequence.",
-    //      [](XenTimeline &tl, std::vector<std::string> const &) {
-    //          auto const aux = tl.get_aux_state();
-    //          auto [state, _] = tl.get_state();
-    //          sequence::Cell &cell = get_selected_cell(state.phrase,
-    //          aux.selected); cell = sequence::modify::randomize_intervals(cell,
-    //          -12, 12); tl.add_state(state); return "Randomized.";
-    //      }});
 }
 
 } // namespace xen

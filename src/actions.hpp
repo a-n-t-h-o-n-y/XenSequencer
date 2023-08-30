@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <sequence/sequence.hpp>
+#include <sequence/time_signature.hpp>
 
 #include "input_mode.hpp"
 #include "selection.hpp"
@@ -22,9 +23,10 @@ namespace xen::action
 
 [[nodiscard]] auto move_down(XenTimeline const &tl) -> AuxState;
 
-[[nodiscard]] auto copy(XenTimeline const &tl) -> sequence::Cell;
+[[nodiscard]] auto copy(XenTimeline const &tl) -> std::optional<sequence::Cell>;
 
-[[nodiscard]] auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, State>;
+[[nodiscard]] auto cut(XenTimeline const &tl)
+    -> std::optional<std::pair<sequence::Cell, State>>;
 
 [[nodiscard]] auto paste(XenTimeline const &tl,
                          std::optional<sequence::Cell> const &copy_buffer)
@@ -64,5 +66,10 @@ namespace xen::action
 [[nodiscard]] auto set_delay(XenTimeline const &tl, float delay) -> State;
 
 [[nodiscard]] auto set_gate(XenTimeline const &tl, float gate) -> State;
+
+[[nodiscard]] auto add_measure(XenTimeline const &tl, sequence::TimeSignature ts)
+    -> std::pair<AuxState, State>;
+
+[[nodiscard]] auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>;
 
 } // namespace xen::action

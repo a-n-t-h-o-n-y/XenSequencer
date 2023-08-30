@@ -20,8 +20,11 @@ class Phrase : public juce::Component
     auto set(sequence::Phrase const &phrase, State const &state,
              SelectedState const &selected) -> void
     {
-
         measure_ptr_.reset();
+        if (phrase.empty())
+        {
+            return;
+        }
         measure_ptr_ = std::make_unique<Measure>(phrase[selected.measure], state);
         this->addAndMakeVisible(*measure_ptr_);
         this->resized();
