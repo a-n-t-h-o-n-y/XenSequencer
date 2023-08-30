@@ -43,34 +43,38 @@ namespace
 
 using namespace xen;
 
+auto const get_code = [](auto letter) {
+    return juce::KeyPress::createFromDescription(letter).getKeyCode();
+};
+
 auto const key_map = std::unordered_map<std::string, int>{
     // Letters
-    {"a", 'a'},
-    {"b", 'b'},
-    {"c", 'c'},
-    {"d", 'd'},
-    {"e", 'e'},
-    {"f", 'f'},
-    {"g", 'g'},
-    {"h", 'h'},
-    {"i", 'i'},
-    {"j", 'j'},
-    {"k", 'k'},
-    {"l", 'l'},
-    {"m", 'm'},
-    {"n", 'n'},
-    {"o", 'o'},
-    {"p", 'p'},
-    {"q", 'q'},
-    {"r", 'r'},
-    {"s", 's'},
-    {"t", 't'},
-    {"u", 'u'},
-    {"v", 'v'},
-    {"w", 'w'},
-    {"x", 'x'},
-    {"y", 'y'},
-    {"z", 'z'},
+    {"a", get_code("a")},
+    {"b", get_code("b")},
+    {"c", get_code("c")},
+    {"d", get_code("d")},
+    {"e", get_code("e")},
+    {"f", get_code("f")},
+    {"g", get_code("g")},
+    {"h", get_code("h")},
+    {"i", get_code("i")},
+    {"j", get_code("j")},
+    {"k", get_code("k")},
+    {"l", get_code("l")},
+    {"m", get_code("m")},
+    {"n", get_code("n")},
+    {"o", get_code("o")},
+    {"p", get_code("p")},
+    {"q", get_code("q")},
+    {"r", get_code("r")},
+    {"s", get_code("s")},
+    {"t", get_code("t")},
+    {"u", get_code("u")},
+    {"v", get_code("v")},
+    {"w", get_code("w")},
+    {"x", get_code("x")},
+    {"y", get_code("y")},
+    {"z", get_code("z")},
     // Function Keys
     {"f1", juce::KeyPress::F1Key},
     {"f2", juce::KeyPress::F2Key},
@@ -85,28 +89,28 @@ auto const key_map = std::unordered_map<std::string, int>{
     {"f11", juce::KeyPress::F11Key},
     {"f12", juce::KeyPress::F12Key},
     // SymbolKeys
-    {"`", '`'},
-    {"~", '`'},
-    {"-", '-'},
-    {"_", '-'},
-    {"=", '='},
-    {"+", '='},
-    {"[", '['},
-    {"{", '['},
-    {"]", ']'},
-    {"}", ']'},
-    {";", ';'},
-    {":", ';'},
-    {"'", '\''},
-    {"\"", '\''},
-    {"\\", '\\'},
-    {"|", '\\'},
-    {",", ','},
-    {"<", ','},
-    {".", '.'},
-    {">", '.'},
-    {"/", '/'},
-    {"?", '/'},
+    {"`", get_code("`")},
+    {"~", get_code("~")},
+    {"-", get_code("-")},
+    {"_", get_code("_")},
+    {"=", get_code("=")},
+    {"+", get_code("+")},
+    {"[", get_code("[")},
+    {"{", get_code("{")},
+    {"]", get_code("]")},
+    {"}", get_code("}")},
+    {";", get_code(";")},
+    {":", get_code(":")},
+    {"'", get_code("'")},
+    {"\"", get_code("\"")},
+    {"\\", get_code("\\")},
+    {"|", get_code("|")},
+    {",", get_code(",")},
+    {"<", get_code("<")},
+    {".", get_code(".")},
+    {">", get_code(">")},
+    {"/", get_code("/")},
+    {"?", get_code("?")},
     // ControlKeys
     {"escape", juce::KeyPress::escapeKey},
     {"enter", juce::KeyPress::returnKey},
@@ -214,11 +218,6 @@ auto const key_map = std::unordered_map<std::string, int>{
             }
         }
     }
-
-    // Change case of key_code based on shift modifier
-    key_code = modifiers.testFlags(juce::ModifierKeys::shiftModifier)
-                   ? keyboard_toupper(key_code)
-                   : keyboard_tolower(key_code);
 
     return KeyConfig{mode, juce::KeyPress(key_code, modifiers, 0), command};
 }

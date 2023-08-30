@@ -53,17 +53,15 @@ auto CommandCore::add(std::unique_ptr<CommandBase> cmd) -> void
 auto CommandCore::match_command(std::string input) const
     -> std::optional<SignatureDisplay>
 {
+    if (input.empty())
+    {
+        return std::nullopt;
+    }
     input = to_lower(input);
     auto const input_name = input.substr(0, input.find(' '));
     auto matches = std::vector<std::string>{};
     for (auto const &[name, command] : commands_)
     {
-        // if input_name == name - as many trailing spaces as you want
-
-        // if input_name != name - its still not the full command - trailing spaces
-        // matter, so its not a match if trailing spaces if it already had params then
-        // it'd be a full match
-
         if (input_name == name)
         {
             matches.push_back(name);

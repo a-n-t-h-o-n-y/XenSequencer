@@ -98,7 +98,7 @@ PhraseEditor:
   "[g] + Cmd + ArrowUp": "shiftGate +0.01"
 
   # Misc
-  "d": "delete"
+  "delete": "delete"
 
 # TuningBox
 
