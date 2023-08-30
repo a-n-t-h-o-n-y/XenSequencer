@@ -4,86 +4,69 @@
 #include <functional>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "signature.hpp"
 #include "util.hpp"
 #include "xen_timeline.hpp"
 
 namespace xen
 {
 
-CommandCore::CommandCore(XenTimeline &t) : timeline_{t}
+CommandCore::CommandCore(XenTimeline &tl) : timeline_{tl}
 {
-    this->add_command({"help", "help", "Prints this help message.",
-                       [this](XenTimeline &, std::vector<std::string> const &) {
-                           auto help_message = std::string{"Available commands:\n"};
-                           for (auto const &[name, command] : commands)
-                           {
-                               help_message += name + " - " + command.documentation +
-                                               "\n" + command.signature + "\n\n";
-                           }
-                           return help_message;
-                       }});
+    // TODO rewrite help command and figure out if it is worth displaying in-plugin
+
+    // this->add(cmd("help", "Prints all commands.", [this](XenTimeline &) {
+    //     auto help_message = std::string{"Available commands:\n"};
+    //     //   for (auto const &[name, command] : commands_)
+    //     //   {
+    //     //   help_message += command->get_name() + " - " +
+    //     //   }
+    //     return help_message;
+    // }));
 }
 
-auto CommandCore::add_command(Command const &cmd) -> void
+auto CommandCore::add(std::unique_ptr<CommandBase> cmd) -> void
 {
-    // Validate command name
-    if (cmd.name.empty() ||
-        !std::all_of(std::cbegin(cmd.name), std::cend(cmd.name), ::isalpha) ||
-        !std::all_of(std::cbegin(cmd.name), std::cend(cmd.name), ::islower))
+    if (!cmd)
     {
-        throw std::invalid_argument("Command name must be an alpha-only, all "
-                                    "lowercase string with no spaces.");
+        throw std::invalid_argument("Command cannot be null.");
     }
 
-    // Validate signature
-    if (cmd.signature.empty())
-    {
-        throw std::invalid_argument("Command signature cannot be an empty string.");
-    }
-
-    // Validate documentation
-    if (cmd.documentation.empty())
-    {
-        throw std::invalid_argument("Command documentation cannot be an empty string.");
-    }
-
-    // Validate function
-    if (!cmd.function)
-    {
-        throw std::invalid_argument("Command function cannot be null.");
-    }
+    auto name = to_lower(cmd->get_name());
 
     // Check if command already exists
-    if (commands.find(cmd.name) != std::cend(commands))
+    if (commands_.find(name) != std::cend(commands_))
     {
         throw std::runtime_error("Command with the same name already exists.");
     }
 
-    // Add command to map
-    commands[cmd.name] = cmd;
+    commands_.emplace(std::move(name), std::move(cmd));
 }
 
-auto CommandCore::match_command(std::string input) const -> std::optional<std::string>
+auto CommandCore::match_command(std::string input) const
+    -> std::optional<SignatureDisplay>
 {
     input = to_lower(input);
+    input = input.substr(0, input.find(' '));
     auto matches = std::vector<std::string>{};
-    for (auto const &[name, command] : commands)
+    for (auto const &[name, command] : commands_)
     {
         if (name.rfind(input, 0) == 0)
         { // input is a prefix of name
-            matches.push_back(name);
+            matches.push_back(command->get_name());
         }
     }
 
     if (matches.size() == 1)
     {
-        return commands.at(matches[0]).signature;
+        return commands_.at(matches[0])->get_signature_display();
     }
 
     return std::nullopt;
@@ -96,20 +79,20 @@ auto CommandCore::execute_command(std::string const &input) const -> std::string
     std::getline(iss, command_name, ' ');
     auto const command_name_lower = to_lower(command_name);
 
-    auto it = commands.find(command_name_lower);
-    if (it == commands.end())
+    auto it = commands_.find(command_name_lower);
+    if (it == commands_.end())
     {
         throw std::runtime_error("Command '" + command_name + "' not found");
     }
 
     auto params = std::vector<std::string>{};
     auto param = std::string{};
-    while (std::getline(iss, param, ' '))
+    while (iss >> param)
     {
         params.push_back(param);
     }
 
-    return it->second.function(timeline_, params);
+    return it->second->execute(timeline_, params);
 }
 
 } // namespace xen

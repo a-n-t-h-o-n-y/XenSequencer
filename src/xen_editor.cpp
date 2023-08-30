@@ -2,6 +2,7 @@
 
 #include "key_core.hpp"
 #include "state.hpp"
+#include "user_directory.hpp"
 #include "xen_processor.hpp"
 
 namespace xen
@@ -29,8 +30,8 @@ XenEditor::XenEditor(XenProcessor &p)
     auto const [state, aux] = p.timeline.get_state();
     plugin_window_.update(state, aux);
 
-    // TODO Figure out the default location of this file and create this file.
-    this->update_key_listeners("key_config.yml");
+    // TODO wrap with try block and figure out how to display error
+    this->update_key_listeners(get_keybinding_file().getFullPathName().toStdString());
 }
 
 auto XenEditor::update(State const &state, AuxState const &aux) -> void
@@ -45,9 +46,9 @@ void XenEditor::resized()
     plugin_window_.setBounds(this->getLocalBounds());
 }
 
-auto XenEditor::update_key_listeners(std::string const &filename) -> void
+auto XenEditor::update_key_listeners(std::string const &filepath) -> void
 {
-    key_config_listeners_ = build_key_listeners("key_config.yml", processor_.timeline);
+    key_config_listeners_ = build_key_listeners(filepath, processor_.timeline);
     plugin_window_.set_key_listeners(key_config_listeners_);
 }
 

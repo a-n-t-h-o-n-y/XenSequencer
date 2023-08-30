@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <iterator>
 #include <optional>
@@ -15,14 +16,6 @@
 
 namespace xen::gui
 {
-
-// TODO the nullopt isn't because there is no history,
-// there is a default implicit item, which is the current
-// buffer of text, and when it is empty it is nullopt and
-// when the index == size it is nullopt, which is the same
-// when it is empty, so that is a nice way to check.
-// so return nullopt when index == size and allow redo to increment
-// up to size, which is an invalid index,
 
 /**
  * @brief A class that stores a history of commands.
@@ -259,12 +252,26 @@ class CommandBar : public juce::Component
     auto do_autocomplete() -> void
     {
         auto const input = command_input_.getText().toStdString();
-        auto const completion = command_core_.match_command(input);
+        auto const signature = command_core_.match_command(input);
 
-        if (completion)
+        if (signature)
         {
-            auto const autoCompleteText = input + completion->substr(input.size());
-            ghost_text_.setText(autoCompleteText,
+            auto const arg_count = count_words(input) - 1;
+
+            auto autocomplete_text =
+                input.size() > signature->name.size() ? input : signature->name;
+
+            if (input.back() != ' ')
+            {
+                autocomplete_text += ' ';
+            }
+            // Add remaining untyped arguments
+            for (auto i = arg_count; i < signature->arguments.size(); ++i)
+            {
+                autocomplete_text += signature->arguments[i] + ' ';
+            }
+
+            ghost_text_.setText(autocomplete_text,
                                 juce::NotificationType::dontSendNotification);
         }
         else
@@ -280,7 +287,7 @@ class CommandBar : public juce::Component
 
         if (completion)
         {
-            auto const autoCompleteText = input + completion->substr(input.size());
+            auto const autoCompleteText = input + completion->name;
             command_input_.setText(autoCompleteText,
                                    juce::NotificationType::dontSendNotification);
             ghost_text_.clear();
@@ -318,6 +325,38 @@ class CommandBar : public juce::Component
             // TODO use saved typing buffer
             command_input_.setText("");
         }
+    }
+
+    /**
+     * @brief Counts the number of words in a string.
+     *
+     * @param input_str The string to count words in.
+     * @return The number of words.
+     */
+    [[nodiscard]] static auto count_words(std::string const &input_str) -> std::size_t
+    {
+        auto word_count = std::size_t{0};
+        auto word_start = std::cbegin(input_str);
+        auto const word_end = std::cend(input_str);
+
+        while (word_start != word_end)
+        {
+            // Skip leading whitespaces
+            word_start = std::find_if_not(word_start, word_end, ::isspace);
+
+            if (word_start == word_end)
+            {
+                break;
+            }
+
+            // Find the end of the current word
+            auto next_space = std::find_if(word_start, word_end, ::isspace);
+
+            ++word_count;
+            word_start = next_space;
+        }
+
+        return word_count;
     }
 
   private:

@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.15)
 project(XenSequencer VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE)
+add_subdirectory(external/yaml-cpp)
 
 # `juce_add_plugin` adds a static library target with the name passed as the first argument
 # (AudioPluginExample here). This target is a normal CMake target, but has a lot of extra properties set
@@ -45,6 +47,7 @@ target_sources(XenSequencer
         src/key_core.cpp
         src/input_mode.cpp
         src/plugin_processor.cpp
+        src/command.cpp
         src/command_core.cpp
         src/midi.cpp
         src/selection.cpp
@@ -52,6 +55,7 @@ target_sources(XenSequencer
         src/xen_processor.cpp
         src/xen_editor.cpp
         src/xen_command_core.cpp
+        src/user_directory.cpp
         src/gui/sequence.cpp
 )
 
@@ -71,27 +75,21 @@ target_compile_definitions(XenSequencer
         JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
-# If your target needs extra binary assets, you can add them here. The first argument is the name of
-# a new static library target that will include all the binary resources. There is an optional
-# `NAMESPACE` argument that can specify the namespace of the generated binary data class. Finally,
-# the SOURCES argument should be followed by a list of source files that should be built into the
-# static library. These source files can be of any kind (wav data, images, fonts, icons etc.).
-# Conversion to binary-data will happen when your target is built.
-
-# juce_add_binary_data(AudioPluginData SOURCES ...)
-
-# `target_link_libraries` links libraries and JUCE modules to other libraries or executables. Here,
-# we're linking our executable target to the `juce::juce_audio_utils` module. Inter-module
-# dependencies are resolved automatically, so `juce_core`, `juce_events` and so on will also be
-# linked automatically. If we'd generated a binary data target above, we would need to link to it
-# here too. This is a standard CMake command.
+# Add keys.yml as a binary resource
+juce_add_binary_data(EmbedKeys
+    HEADER_NAME "embed_keys.hpp"
+    NAMESPACE embed_keys
+    SOURCES
+        keys.yml
+)
 
 target_link_libraries(XenSequencer
     PRIVATE
-        # AudioPluginData           # If we'd created a binary data target, we'd link to it here
         signals-light
         sequencer
         juce::juce_audio_utils
+        yaml-cpp
+        EmbedKeys
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

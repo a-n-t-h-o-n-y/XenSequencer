@@ -1,7 +1,10 @@
 #include "key_core.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -9,6 +12,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <yaml-cpp/yaml.h>
+
+#include "util.hpp"
 
 namespace juce
 {
@@ -36,6 +41,107 @@ auto operator<(juce::KeyPress const &lhs, juce::KeyPress const &rhs) -> bool
 namespace
 {
 
+using namespace xen;
+
+auto const key_map = std::unordered_map<std::string, int>{
+    // Letters
+    {"a", 'a'},
+    {"b", 'b'},
+    {"c", 'c'},
+    {"d", 'd'},
+    {"e", 'e'},
+    {"f", 'f'},
+    {"g", 'g'},
+    {"h", 'h'},
+    {"i", 'i'},
+    {"j", 'j'},
+    {"k", 'k'},
+    {"l", 'l'},
+    {"m", 'm'},
+    {"n", 'n'},
+    {"o", 'o'},
+    {"p", 'p'},
+    {"q", 'q'},
+    {"r", 'r'},
+    {"s", 's'},
+    {"t", 't'},
+    {"u", 'u'},
+    {"v", 'v'},
+    {"w", 'w'},
+    {"x", 'x'},
+    {"y", 'y'},
+    {"z", 'z'},
+    // Function Keys
+    {"f1", juce::KeyPress::F1Key},
+    {"f2", juce::KeyPress::F2Key},
+    {"f3", juce::KeyPress::F3Key},
+    {"f4", juce::KeyPress::F4Key},
+    {"f5", juce::KeyPress::F5Key},
+    {"f6", juce::KeyPress::F6Key},
+    {"f7", juce::KeyPress::F7Key},
+    {"f8", juce::KeyPress::F8Key},
+    {"f9", juce::KeyPress::F9Key},
+    {"f10", juce::KeyPress::F10Key},
+    {"f11", juce::KeyPress::F11Key},
+    {"f12", juce::KeyPress::F12Key},
+    // SymbolKeys
+    {"`", '`'},
+    {"~", '`'},
+    {"-", '-'},
+    {"_", '-'},
+    {"=", '='},
+    {"+", '='},
+    {"[", '['},
+    {"{", '['},
+    {"]", ']'},
+    {"}", ']'},
+    {";", ';'},
+    {":", ';'},
+    {"'", '\''},
+    {"\"", '\''},
+    {"\\", '\\'},
+    {"|", '\\'},
+    {",", ','},
+    {"<", ','},
+    {".", '.'},
+    {">", '.'},
+    {"/", '/'},
+    {"?", '/'},
+    // ControlKeys
+    {"escape", juce::KeyPress::escapeKey},
+    {"enter", juce::KeyPress::returnKey},
+    {"spacebar", juce::KeyPress::spaceKey},
+    {"backspace", juce::KeyPress::backspaceKey},
+    {"delete", juce::KeyPress::deleteKey},
+    // NavigationKeys
+    {"arrowup", juce::KeyPress::upKey},
+    {"arrowdown", juce::KeyPress::downKey},
+    {"arrowleft", juce::KeyPress::leftKey},
+    {"arrowright", juce::KeyPress::rightKey},
+    {"pageup", juce::KeyPress::pageUpKey},
+    {"pagedown", juce::KeyPress::pageDownKey},
+    {"home", juce::KeyPress::homeKey},
+    {"end", juce::KeyPress::endKey},
+    // Numpad
+    {"numpad0", juce::KeyPress::numberPad0},
+    {"numpad1", juce::KeyPress::numberPad1},
+    {"numpad2", juce::KeyPress::numberPad2},
+    {"numpad3", juce::KeyPress::numberPad3},
+    {"numpad4", juce::KeyPress::numberPad4},
+    {"numpad5", juce::KeyPress::numberPad5},
+    {"numpad6", juce::KeyPress::numberPad6},
+    {"numpad7", juce::KeyPress::numberPad7},
+    {"numpad8", juce::KeyPress::numberPad8},
+    {"numpad9", juce::KeyPress::numberPad9},
+    {"numpad+", juce::KeyPress::numberPadAdd},
+    {"numpad-", juce::KeyPress::numberPadSubtract},
+    {"numpad*", juce::KeyPress::numberPadMultiply},
+    {"numpad/", juce::KeyPress::numberPadDivide},
+    {"numpad.", juce::KeyPress::numberPadDelete},
+    // SpecialKeys
+    {"insert", juce::KeyPress::insertKey},
+};
+
 /** @brief Parses the given YAML node to a KeyConfig
  *
  *  @param key_combo_str The key combination string
@@ -45,6 +151,76 @@ namespace
 [[nodiscard]] auto parse_key_config(std::string const &key_combo_str,
                                     std::string const &command) -> KeyConfig
 {
+    static const auto mode_map = std::unordered_map<char, InputMode>{
+        {'m', InputMode::Movement}, {'n', InputMode::Note}, {'v', InputMode::Velocity},
+        {'d', InputMode::Delay},    {'g', InputMode::Gate},
+    };
+
+    // Convert to lowercase for case-insensitivity
+    auto key_combo_lower = key_combo_str;
+    std::transform(std::cbegin(key_combo_lower), std::cend(key_combo_lower),
+                   std::begin(key_combo_lower), ::tolower);
+    key_combo_lower.erase(std::remove_if(std::begin(key_combo_lower),
+                                         std::end(key_combo_lower), ::isspace),
+                          std::end(key_combo_lower));
+
+    auto mode = std::optional<InputMode>{};
+    auto modifiers = juce::ModifierKeys{};
+
+    // Extract optional mode from key_combo_lower
+    if (key_combo_lower.front() == '[')
+    {
+        auto const closing_bracket = key_combo_lower.find(']');
+        if (closing_bracket != std::string::npos)
+        {
+            auto const mode_char = key_combo_lower[1];
+            auto it = mode_map.find(mode_char);
+            if (it != std::end(mode_map))
+            {
+                mode = it->second;
+            }
+            else
+            {
+                throw std::invalid_argument("Invalid mode specified: " +
+                                            std::string(1, mode_char));
+            }
+            key_combo_lower.erase(0, closing_bracket + 1);
+        }
+    }
+
+    // Remaining keys after mode is extracted
+    auto ss = std::stringstream{key_combo_lower};
+    auto key = std::string{};
+    int key_code = 0;
+
+    while (std::getline(ss, key, '+'))
+    {
+        if (key == "shift")
+            modifiers = modifiers.withFlags(juce::ModifierKeys::shiftModifier);
+        else if (key == "alt")
+            modifiers = modifiers.withFlags(juce::ModifierKeys::altModifier);
+        else if (key == "cmd")
+            modifiers = modifiers.withFlags(juce::ModifierKeys::commandModifier);
+        else if (!key.empty())
+        {
+            auto const it = key_map.find(key);
+            if (it != std::cend(key_map))
+            {
+                key_code = it->second;
+            }
+            else
+            {
+                throw std::invalid_argument("Invalid key specified: " + key);
+            }
+        }
+    }
+
+    // Change case of key_code based on shift modifier
+    key_code = modifiers.testFlags(juce::ModifierKeys::shiftModifier)
+                   ? keyboard_toupper(key_code)
+                   : keyboard_tolower(key_code);
+
+    return KeyConfig{mode, juce::KeyPress(key_code, modifiers, 0), command};
 }
 
 /** @brief Parses a YAML file into a collection of KeyCore objects.
@@ -53,15 +229,17 @@ namespace
  *  @return A map of KeyCore objects, one for each component.
  */
 [[nodiscard]] auto parse_key_config_from_file(std::string const &filepath)
-    -> std::unordered_map<std::string, xen::KeyCore>
+    -> std::unordered_map<std::string, KeyCore>
 {
-    auto root = YAML::LoadFile(file_path);
+    auto root = YAML::LoadFile(filepath);
 
     auto component_to_keycore = std::unordered_map<std::string, KeyCore>{};
 
     for (auto const &component : root)
     {
-        auto const component_name = component.first.as<std::string>();
+        auto component_name = component.first.as<std::string>();
+        std::transform(std::cbegin(component_name), std::cend(component_name),
+                       std::begin(component_name), ::tolower);
         auto const &key_mappings = component.second;
 
         auto configs = std::vector<KeyConfig>{};
@@ -75,11 +253,13 @@ namespace
             configs.push_back(config);
         }
 
-        if (component_to_keycore.find(component_name) != component_to_keycore.end())
+        auto const [_, inserted] =
+            component_to_keycore.try_emplace(component_name, KeyCore{configs});
+
+        if (!inserted)
         {
             throw std::runtime_error{"Duplicate component name in key config file."};
         }
-        component_to_keycore[component_name] = KeyCore{configs};
     }
 
     return component_to_keycore;
@@ -110,10 +290,10 @@ auto KeyCore::find_action(const juce::KeyPress &key, InputMode mode) const
 {
     // Check mode-sensitive actions first
     auto it_mode = mode_sensitive_actions_.find(mode);
-    if (it_mode != mode_sensitive_actions_.end())
+    if (it_mode != std::end(mode_sensitive_actions_))
     {
         auto it_key = it_mode->second.find(key);
-        if (it_key != it_mode->second.end())
+        if (it_key != std::end(it_mode->second))
         {
             return it_key->second;
         }
@@ -121,7 +301,7 @@ auto KeyCore::find_action(const juce::KeyPress &key, InputMode mode) const
 
     // Check mode-independent actions
     auto it_key = mode_independent_actions_.find(key);
-    if (it_key != mode_independent_actions_.end())
+    if (it_key != std::end(mode_independent_actions_))
     {
         return it_key->second;
     }
@@ -145,77 +325,18 @@ auto KeyConfigListener::keyPressed(juce::KeyPress const &key, juce::Component *)
     return false;
 }
 
-auto build_key_listeners(std::string const & /*filename*/, XenTimeline const &tl)
+auto build_key_listeners(std::string const &filepath, XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>
 {
-    // TODO build up each keycore from filename.
-    // TODO add command to give focus to command bar.
-    auto phrase_key_core = KeyCore{{
-        {std::nullopt, juce::KeyPress{'h'}, "moveleft"},
-        {std::nullopt, juce::KeyPress{juce::KeyPress::leftKey}, "moveleft"},
-        {std::nullopt, juce::KeyPress{'l'}, "moveright"},
-        {std::nullopt, juce::KeyPress{juce::KeyPress::rightKey}, "moveright"},
+    auto key_cores = parse_key_config_from_file(filepath);
+    auto result = std::map<std::string, KeyConfigListener>{};
 
-        {InputMode::Movement, juce::KeyPress{'j'}, "movedown"},
-        {InputMode::Movement, juce::KeyPress{juce::KeyPress::downKey}, "movedown"},
-        {InputMode::Movement, juce::KeyPress{'k'}, "moveup"},
-        {InputMode::Movement, juce::KeyPress{juce::KeyPress::upKey}, "moveup"},
+    for (auto &[component_name, key_core] : key_cores)
+    {
+        result.try_emplace(component_name, KeyConfigListener{std::move(key_core), tl});
+    }
 
-        {InputMode::Note, juce::KeyPress{'j'}, "shiftnote -1"},
-        {InputMode::Note, juce::KeyPress{'J', juce::ModifierKeys::shiftModifier, 0},
-         "shiftoctave -1"},
-        {InputMode::Note, juce::KeyPress{juce::KeyPress::downKey}, "shiftnote -1"},
-        {InputMode::Note,
-         juce::KeyPress{juce::KeyPress::downKey, juce::ModifierKeys::shiftModifier, 0},
-         "shiftoctave -1"},
-        {InputMode::Note, juce::KeyPress{'k'}, "shiftnote +1"},
-        {InputMode::Note, juce::KeyPress{'K', juce::ModifierKeys::shiftModifier, 0},
-         "shiftoctave +1"},
-        {InputMode::Note, juce::KeyPress{juce::KeyPress::upKey}, "shiftnote +1"},
-        {InputMode::Note,
-         juce::KeyPress{juce::KeyPress::upKey, juce::ModifierKeys::shiftModifier, 0},
-         "shiftoctave +1"},
-
-        // TODO shift and ctrl modifiers
-        // TODO look into cmd/ctrl for cross platform, doesn't seem simple
-        {InputMode::Velocity, juce::KeyPress{'j'}, "shiftvelocity -0.05"},
-        {InputMode::Velocity, juce::KeyPress{juce::KeyPress::downKey},
-         "shiftvelocity -0.05"},
-        {InputMode::Velocity, juce::KeyPress{'k'}, "shiftvelocity 0.05"},
-        {InputMode::Velocity, juce::KeyPress{juce::KeyPress::upKey},
-         "shiftvelocity 0.05"},
-
-        {InputMode::Delay, juce::KeyPress{'j'}, "shiftdelay -0.05"},
-        {InputMode::Delay, juce::KeyPress{juce::KeyPress::downKey}, "shiftdelay -0.05"},
-        {InputMode::Delay, juce::KeyPress{'k'}, "shiftdelay 0.05"},
-        {InputMode::Delay, juce::KeyPress{juce::KeyPress::upKey}, "shiftdelay 0.05"},
-
-        {InputMode::Gate, juce::KeyPress{'j'}, "shiftgate -0.05"},
-        {InputMode::Gate, juce::KeyPress{juce::KeyPress::downKey}, "shiftgate -0.05"},
-        {InputMode::Gate, juce::KeyPress{'k'}, "shiftgate 0.05"},
-        {InputMode::Gate, juce::KeyPress{juce::KeyPress::upKey}, "shiftgate 0.05"},
-
-        {std::nullopt, juce::KeyPress{'m'}, "mode movement"},
-        {std::nullopt, juce::KeyPress{'n'}, "mode note"},
-        {std::nullopt, juce::KeyPress{'v'}, "mode velocity"},
-        {std::nullopt, juce::KeyPress{'d'}, "mode delay"},
-        {std::nullopt, juce::KeyPress{'g'}, "mode gate"},
-
-        {std::nullopt, juce::KeyPress{':', juce::ModifierKeys::shiftModifier, 0},
-         "focus commandbar"},
-
-        {std::nullopt, juce::KeyPress{'c', juce::ModifierKeys::ctrlModifier, 0},
-         "copy"},
-        {std::nullopt, juce::KeyPress{'x', juce::ModifierKeys::ctrlModifier, 0}, "cut"},
-        {std::nullopt, juce::KeyPress{'v', juce::ModifierKeys::ctrlModifier, 0},
-         "paste"},
-        {std::nullopt, juce::KeyPress{'d', juce::ModifierKeys::ctrlModifier, 0},
-         "duplicate"},
-    }};
-    return {{"phraseeditor", KeyConfigListener{phrase_key_core, tl}}};
-    // TODO Tuning Box
-    // TODO Command Bar.. but this will only be escape etc..? can this be clean? it
-    // already handles its own.
+    return result;
 }
 
 } // namespace xen

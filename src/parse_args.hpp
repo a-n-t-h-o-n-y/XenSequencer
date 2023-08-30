@@ -12,11 +12,6 @@
 namespace xen
 {
 
-template <typename T>
-struct always_false : std::false_type
-{
-};
-
 [[nodiscard]] inline auto parse_int(std::string const &x) -> std::optional<int>
 {
     try
@@ -44,7 +39,7 @@ struct always_false : std::false_type
 }
 
 template <typename T = std::size_t>
-[[nodiscard]] inline auto parse_unsigned(std::string const &x) -> std::optional<T>
+[[nodiscard]] auto parse_unsigned(std::string const &x) -> std::optional<T>
 {
     static_assert(std::is_unsigned_v<T>, "T must be unsigned.");
 
@@ -98,7 +93,7 @@ template <typename T = std::size_t>
 }
 
 template <typename T = float>
-[[nodiscard]] inline auto parse_float(std::string const &x) -> std::optional<T>
+[[nodiscard]] auto parse_float(std::string const &x) -> std::optional<T>
 {
     static_assert(std::is_floating_point_v<T>, "T must be floating point.");
 
@@ -165,20 +160,11 @@ template <typename T = float>
 }
 
 template <typename T>
-[[nodiscard]] inline auto parse(std::string const &x) -> T
+[[nodiscard]] auto parse(std::string const &x) -> T
 {
-    if constexpr (std::is_same_v<T, int>)
+    if constexpr (std::is_floating_point_v<T>)
     {
-        auto const result = parse_int(x);
-        if (!result.has_value())
-        {
-            throw std::invalid_argument{"Invalid integer: " + x};
-        }
-        return result.value();
-    }
-    else if constexpr (std::is_same_v<T, float>)
-    {
-        auto const result = parse_float(x);
+        auto const result = parse_float<T>(x);
         if (!result.has_value())
         {
             throw std::invalid_argument{"Invalid float: " + x};
@@ -194,11 +180,18 @@ template <typename T>
         }
         return result.value();
     }
-    else if constexpr (std::is_same_v<T, std::string>)
+    else if constexpr (std::is_same_v<T, int>)
     {
-        return parse_string(x);
+        auto const result = parse_int(x);
+        if (!result.has_value())
+        {
+            throw std::invalid_argument{"Invalid integer: " + x};
+        }
+        return result.value();
     }
-    else if constexpr (std::is_unsigned_v<T>)
+    else if constexpr (std::is_same_v<T, unsigned short> ||
+                       std::is_same_v<T, unsigned int> ||
+                       std::is_same_v<T, std::size_t>)
     {
         auto const result = parse_unsigned<T>(x);
         if (!result.has_value())
@@ -207,21 +200,28 @@ template <typename T>
         }
         return result.value();
     }
+    else if constexpr (std::is_same_v<T, std::string>)
+    {
+        return parse_string(x);
+    }
     else
     {
         static_assert(always_false<T>::value, "Unsupported type.");
     }
 }
 
+// TODO you no longer need this, so delete it.
 template <typename... T, std::size_t... I>
-[[nodiscard]] inline auto extract_args_impl(std::vector<std::string> const &args,
-                                            std::index_sequence<I...>)
+[[nodiscard]] auto extract_args_impl(std::vector<std::string> const &args,
+                                     std::index_sequence<I...>) -> std::tuple<T...>
 {
     return std::tuple{parse<T>(args.at(I))...};
 }
 
+// TODO you no longer need this, so delete it.
 template <typename... T>
-[[nodiscard]] inline auto extract_args(std::vector<std::string> const &args)
+[[nodiscard]] auto extract_args(std::vector<std::string> const &args)
+    -> std::tuple<T...>
 {
     if (args.size() != sizeof...(T))
     {
