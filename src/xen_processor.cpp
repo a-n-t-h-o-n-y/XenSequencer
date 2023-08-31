@@ -68,6 +68,12 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     auto const samples_in_phrase = sequence::samples_count(
         plugin_state_.phrase, daw_state.sample_rate, daw_state.bpm);
 
+    // Empty Phrase - No MIDI
+    if (samples_in_phrase == 0)
+    {
+        return;
+    }
+
     auto const [begin, end] = [&] {
         auto const current_sample =
             position->getTimeInSamples()
