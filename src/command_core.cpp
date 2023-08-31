@@ -67,7 +67,7 @@ auto CommandCore::match_command(std::string input) const
             matches.push_back(name);
         }
         // input is a prefix of name
-        else if (input.back() != ' ' && name.rfind(input_name, 0) == 0)
+        else if (input.find(' ') == std::string::npos && name.rfind(input_name, 0) == 0)
         {
             matches.push_back(name);
         }

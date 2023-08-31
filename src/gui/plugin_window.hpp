@@ -101,7 +101,7 @@ class PluginWindow : public juce::Component
         flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
-        flexbox.items.add(juce::FlexItem(command_bar_).withHeight(25.f));
+        flexbox.items.add(juce::FlexItem(command_bar_).withHeight(23.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }

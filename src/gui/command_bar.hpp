@@ -210,6 +210,11 @@ class CommandBar : public juce::Component
             this->do_history_previous();
             return true;
         };
+
+        auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,
+                                     juce::Font::plain};
+        command_input_.setFont(font);
+        ghost_text_.setFont(font);
     }
 
   protected:
@@ -258,8 +263,18 @@ class CommandBar : public juce::Component
         {
             auto const arg_count = count_words(input) - 1;
 
-            auto autocomplete_text =
-                input.size() > signature->name.size() ? input : signature->name;
+            auto autocomplete_text = [&] {
+                if (input.size() > signature->name.size())
+                {
+                    return input;
+                }
+                else
+                {
+                    auto name = signature->name;
+                    name.replace(0, input.size(), input.size(), ' ');
+                    return name;
+                }
+            }();
 
             if (input.back() != ' ')
             {
@@ -287,7 +302,7 @@ class CommandBar : public juce::Component
 
         if (signature && input.size() <= signature->name.size())
         {
-            auto const autoCompleteText = signature->name;
+            auto const autoCompleteText = signature->name + " ";
             command_input_.setText(autoCompleteText,
                                    juce::NotificationType::dontSendNotification);
             ghost_text_.clear();
