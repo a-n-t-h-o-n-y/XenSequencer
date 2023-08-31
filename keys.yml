@@ -17,7 +17,7 @@ PhraseEditor:
   "g": "mode gate"
 
   # Focus
-  "Shift + ;": "focus commandbar"
+  "Shift + :": "focus commandbar"
 
   # Copy/Paste, etc...
   "Cmd + c": "copy"
@@ -44,9 +44,9 @@ PhraseEditor:
   "[n] + ArrowUp": "shiftNote +1"
 
   # ShiftOctave
-  "[n] + Shift + J": "shiftOctave -1"
+  "[n] + Shift + j": "shiftOctave -1"
   "[n] + Shift + ArrowDown": "shiftOctave -1"
-  "[n] + Shift + K": "shiftOctave +1"
+  "[n] + Shift + k": "shiftOctave +1"
   "[n] + Shift + ArrowUp": "shiftOctave +1"
 
   # ShiftVelocity

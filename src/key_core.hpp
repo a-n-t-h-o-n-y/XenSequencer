@@ -60,8 +60,14 @@ class KeyCore
         -> std::optional<std::string>;
 
   private:
-    std::map<InputMode, std::map<juce::KeyPress, std::string>> mode_sensitive_actions_;
-    std::map<juce::KeyPress, std::string> mode_independent_actions_;
+    struct KeyAction
+    {
+        juce::KeyPress key;
+        std::string action;
+    };
+
+    std::map<InputMode, std::vector<KeyAction>> mode_sensitive_actions_;
+    std::vector<KeyAction> mode_independent_actions_;
 };
 
 class KeyConfigListener : public juce::KeyListener

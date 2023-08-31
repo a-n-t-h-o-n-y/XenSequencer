@@ -15,29 +15,6 @@
 
 #include "util.hpp"
 
-namespace juce
-{
-
-auto operator<(juce::KeyPress const &lhs, juce::KeyPress const &rhs) -> bool
-{
-    auto const lhs_key = lhs.getKeyCode();
-    auto const rhs_key = rhs.getKeyCode();
-    if (lhs_key < rhs_key)
-    {
-        return true;
-    }
-    if (lhs_key > rhs_key)
-    {
-        return false;
-    }
-
-    auto const lhs_mods = lhs.getModifiers().getRawFlags();
-    auto const rhs_mods = rhs.getModifiers().getRawFlags();
-    return lhs_mods < rhs_mods;
-}
-
-} // namespace juce
-
 namespace
 {
 
@@ -275,11 +252,12 @@ KeyCore::KeyCore(std::vector<KeyConfig> const &configs)
     {
         if (config.mode)
         {
-            mode_sensitive_actions_[*config.mode][config.keypress] = config.command;
+            mode_sensitive_actions_[*config.mode].emplace_back(config.keypress,
+                                                               config.command);
         }
         else
         {
-            mode_independent_actions_[config.keypress] = config.command;
+            mode_independent_actions_.emplace_back(config.keypress, config.command);
         }
     }
 }
@@ -288,21 +266,27 @@ auto KeyCore::find_action(const juce::KeyPress &key, InputMode mode) const
     -> std::optional<std::string>
 {
     // Check mode-sensitive actions first
-    auto it_mode = mode_sensitive_actions_.find(mode);
-    if (it_mode != std::end(mode_sensitive_actions_))
+    auto const it_mode = mode_sensitive_actions_.find(mode);
+    if (it_mode != std::cend(mode_sensitive_actions_))
     {
-        auto it_key = it_mode->second.find(key);
-        if (it_key != std::end(it_mode->second))
+        auto &actions = it_mode->second;
+
+        auto const it_key = std::ranges::find_if(
+            actions, [key](auto const &x) { return x.key == key; });
+
+        if (it_key != std::cend(actions))
         {
-            return it_key->second;
+            return it_key->action;
         }
     }
 
     // Check mode-independent actions
-    auto it_key = mode_independent_actions_.find(key);
+    auto const it_key = std::ranges::find_if(
+        mode_independent_actions_, [key](auto const &x) { return x.key == key; });
+
     if (it_key != std::end(mode_independent_actions_))
     {
-        return it_key->second;
+        return it_key->action;
     }
 
     return std::nullopt;
