@@ -17,17 +17,17 @@ namespace xen::gui
 class Phrase : public juce::Component
 {
   public:
-    auto set(sequence::Phrase const &phrase, State const &state,
-             SelectedState const &selected) -> void
+    auto set(State const &state, SelectedState const &selected) -> void
     {
         measure_ptr_.reset();
-        if (phrase.empty())
+        auto const &phrase = state.phrase;
+        if (!phrase.empty())
         {
-            return;
+            auto const &selected_measure = phrase[selected.measure];
+            measure_ptr_ = std::make_unique<Measure>(selected_measure, state);
+            this->addAndMakeVisible(*measure_ptr_);
+            this->resized();
         }
-        measure_ptr_ = std::make_unique<Measure>(phrase[selected.measure], state);
-        this->addAndMakeVisible(*measure_ptr_);
-        this->resized();
     }
 
     auto select(SelectedState const &selected) -> void

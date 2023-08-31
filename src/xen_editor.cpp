@@ -17,14 +17,16 @@ XenEditor::XenEditor(XenProcessor &p)
 
     this->addAndMakeVisible(&plugin_window_);
 
-    p.timeline.on_state_change.connect(
-        [this](State const &state, AuxState const &aux) { this->update(state, aux); });
+    {
+        auto slot_update = sl::Slot<void(State const &, AuxState const &)>{
+            [this](State const &state, AuxState const &aux) {
+                this->update(state, aux);
+            }};
+        slot_update.track(lifetime_);
 
-    p.timeline.on_aux_change.connect([this](State const &state, AuxState const &aux) {
-        // TODO you could have code that only modifies the selected cell instead of
-        // repainting the entire sequence
-        this->update(state, aux);
-    });
+        p.timeline.on_state_change.connect(slot_update);
+        p.timeline.on_aux_change.connect(slot_update);
+    }
 
     // Initialize GUI
     auto const [state, aux] = p.timeline.get_state();

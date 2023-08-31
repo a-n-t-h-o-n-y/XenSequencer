@@ -5,6 +5,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <signals_light/signal.hpp>
 
 #include "../command_core.hpp"
 #include "../key_core.hpp"
@@ -43,31 +44,34 @@ class PluginWindow : public juce::Component
             std::cerr << command_core_.execute_command(command) << std::endl;
         });
 
-        command_core_.on_focus_change_request.connect([this](std::string const &name) {
-            if (name == "commandbar")
-            {
-                command_bar_.grabKeyboardFocus();
-            }
-            else if (name == "phraseeditor")
-            {
-                phrase_editor_.grabKeyboardFocus();
-            }
-            else if (name == "tuningbox")
-            {
-                // TODO
-                // tuning_box_.grabKeyboardFocus();
-            }
-            else
-            {
-                throw std::runtime_error("invalid focus change request");
-            }
-        });
+        auto slot_change_focus =
+            sl::Slot<void(std::string const &)>{[this](std::string const &name) {
+                if (name == "commandbar")
+                {
+                    command_bar_.grabKeyboardFocus();
+                }
+                else if (name == "phraseeditor")
+                {
+                    phrase_editor_.grabKeyboardFocus();
+                }
+                else if (name == "tuningbox")
+                {
+                    // TODO
+                    // tuning_box_.grabKeyboardFocus();
+                }
+                else
+                {
+                    throw std::runtime_error("invalid focus change request");
+                }
+            }};
+        slot_change_focus.track(lifetime_);
+        command_core_.on_focus_change_request.connect(slot_change_focus);
     }
 
   public:
     auto update(State const &state, AuxState const &aux) -> void
     {
-        phrase_editor_.phrase.set(state.phrase, state, aux.selected);
+        phrase_editor_.phrase.set(state, aux.selected);
         phrase_editor_.phrase.select(aux.selected);
 
         // TODO
@@ -109,6 +113,7 @@ class PluginWindow : public juce::Component
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
     XenCommandCore &command_core_;
+    sl::Lifetime lifetime_;
 };
 
 } // namespace xen::gui
