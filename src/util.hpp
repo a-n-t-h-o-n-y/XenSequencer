@@ -37,4 +37,23 @@ struct always_false : std::false_type
 {
 };
 
+/**
+ * @brief Reads the content of a text file into a std::string.
+ *
+ * @param filepath Path of the text file to read.
+ * @return std::string Contents of the text file.
+ * @throws std::runtime_error Thrown if file cannot be read.
+ */
+[[nodiscard]] auto read_file_to_string(std::string const &filepath) -> std::string;
+
+/**
+ * @brief Writes a std::string to a text file.
+ *
+ * @param filepath Path of the text file to write.
+ * @param content Content to write to the text file.
+ * @throws std::runtime_error Thrown if file cannot be written to.
+ */
+auto write_string_to_file(std::string const &filepath, std::string const &content)
+    -> void;
+
 } // namespace xen

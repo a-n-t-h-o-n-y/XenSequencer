@@ -72,4 +72,8 @@ namespace xen::action
 
 [[nodiscard]] auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>;
 
+auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
+
+[[nodiscard]] auto load_state(std::string const &filepath) -> State;
+
 } // namespace xen::action

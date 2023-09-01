@@ -5,12 +5,16 @@
 #include <iterator>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include <sequence/modify.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
+
+#include "serialize_state.hpp"
+#include "util.hpp"
 
 namespace xen::action
 {
@@ -374,6 +378,18 @@ auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>
     }
 
     return {aux, state};
+}
+
+auto save_state(XenTimeline const &tl, std::string const &filepath) -> void
+{
+    auto const json_str = serialize(tl.get_state().first);
+    write_string_to_file(filepath, json_str);
+}
+
+auto load_state(std::string const &filepath) -> State
+{
+    auto const json_str = read_file_to_string(filepath);
+    return deserialize(json_str);
 }
 
 } // namespace xen::action

@@ -242,6 +242,25 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         return "Deleted.";
     }));
 
+    add(cmd(
+        "save", "Save the current state to a file.",
+        [](XenTimeline &tl, std::string const &filepath) {
+            action::save_state(tl, filepath);
+            return "Saved to '" + filepath + "'.";
+        },
+        ArgInfo<std::string>{"filepath"}));
+
+    add(cmd(
+        "load", "Load State from a file.",
+        [](XenTimeline &tl, std::string const &filepath) {
+            tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
+            tl.add_state(action::load_state(filepath));
+            return "Loaded from '" + filepath + "'.";
+        },
+        ArgInfo<std::string>{"filepath"}));
+
+    // Temporary ----------------------------------------------------------------
+
     add(cmd("demo", "Overwrite current state with demo state.", [](XenTimeline &tl) {
         tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
         tl.add_state(demo_state());
