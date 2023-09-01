@@ -44,9 +44,10 @@ class CommandHistory
      */
     auto add_command(std::string const &command) -> void
     {
+        // First truncate history if needed
         if (current_index_ != history_.size())
         {
-            history_.resize(current_index_);
+            history_.resize(++current_index_);
         }
 
         if (history_.empty() || command != history_.back())
