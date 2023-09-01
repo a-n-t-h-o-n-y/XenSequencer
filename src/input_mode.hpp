@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iosfwd>
 #include <string>
 
 namespace xen
@@ -16,6 +17,10 @@ enum class InputMode
     Delay,
     Gate,
 };
+
+auto operator<<(std::ostream &os, InputMode mode) -> std::ostream &;
+
+auto operator>>(std::istream &is, InputMode &mode) -> std::istream &;
 
 [[nodiscard]] auto parse_input_mode(std::string const &str) -> InputMode;
 

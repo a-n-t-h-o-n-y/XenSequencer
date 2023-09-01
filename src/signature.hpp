@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -8,6 +9,7 @@
 
 #include <sequence/time_signature.hpp>
 
+#include "input_mode.hpp"
 #include "util.hpp"
 
 namespace xen
@@ -75,6 +77,14 @@ template <typename T>
     else if constexpr (std::is_same_v<T, sequence::TimeSignature>)
     {
         return "TimeSignature";
+    }
+    else if constexpr (std::is_same_v<T, InputMode>)
+    {
+        return "InputMode";
+    }
+    else if constexpr (std::is_same_v<T, std::filesystem::path>)
+    {
+        return "Filepath";
     }
     else
     {

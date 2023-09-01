@@ -15,6 +15,53 @@
 #include "util.hpp"
 #include "xen_timeline.hpp"
 
+namespace
+{
+
+/**
+ * @brief Splits a string into parameters, considering quotes.
+ *
+ * @param iss Input stringstream containing the string to split.
+ * @return std::vector<std::string> List of parameters.
+ */
+[[nodiscard]] auto split_parameters(std::istringstream &iss) -> std::vector<std::string>
+{
+    auto params = std::vector<std::string>{};
+    auto param = std::string{};
+    auto inside_quotes = false;
+
+    while (iss.peek() != std::istringstream::traits_type::eof())
+    {
+        auto ch = static_cast<char>(iss.get());
+
+        if (ch == ' ' && !inside_quotes)
+        {
+            if (!param.empty())
+            {
+                params.push_back(param);
+                param.clear();
+            }
+        }
+        else if (ch == '"')
+        {
+            inside_quotes = !inside_quotes;
+        }
+        else
+        {
+            param += ch;
+        }
+    }
+
+    if (!param.empty())
+    {
+        params.push_back(param);
+    }
+
+    return params;
+}
+
+} // namespace
+
 namespace xen
 {
 
@@ -105,12 +152,7 @@ auto CommandCore::execute_command(std::string const &input) const -> std::string
         throw std::runtime_error("Command '" + command_name + "' not found");
     }
 
-    auto params = std::vector<std::string>{};
-    auto param = std::string{};
-    while (iss >> param)
-    {
-        params.push_back(param);
-    }
+    auto const params = split_parameters(iss);
 
     return it->second->execute(timeline_, params);
 }

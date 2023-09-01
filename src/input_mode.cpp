@@ -1,59 +1,81 @@
 #include "input_mode.hpp"
 
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
 #include "parse_args.hpp"
+#include "util.hpp"
 
 namespace xen
 {
 
-auto parse_input_mode(std::string const &str) -> InputMode
+auto operator<<(std::ostream &os, InputMode mode) -> std::ostream &
 {
-    if (str == "movement")
+    switch (mode)
     {
-        return InputMode::Movement;
+    case InputMode::Movement:
+        return os << "movement";
+    case InputMode::Note:
+        return os << "note";
+    case InputMode::Velocity:
+        return os << "velocity";
+    case InputMode::Delay:
+        return os << "delay";
+    case InputMode::Gate:
+        return os << "gate";
+    default:
+        throw std::invalid_argument{"Invalid input mode: " +
+                                    std::to_string(static_cast<int>(mode))};
     }
-    else if (str == "note")
+}
+
+auto operator>>(std::istream &is, InputMode &mode) -> std::istream &
+{
+    auto str = std::string{};
+    is >> str;
+    auto lower_str = to_lower(str);
+
+    if (lower_str == "movement")
     {
-        return InputMode::Note;
+        mode = InputMode::Movement;
     }
-    else if (str == "velocity")
+    else if (lower_str == "note")
     {
-        return InputMode::Velocity;
+        mode = InputMode::Note;
     }
-    else if (str == "delay")
+    else if (lower_str == "velocity")
     {
-        return InputMode::Delay;
+        mode = InputMode::Velocity;
     }
-    else if (str == "gate")
+    else if (lower_str == "delay")
     {
-        return InputMode::Gate;
+        mode = InputMode::Delay;
+    }
+    else if (lower_str == "gate")
+    {
+        mode = InputMode::Gate;
     }
     else
     {
         throw std::invalid_argument{"Invalid input mode: " + str};
     }
+    return is;
+}
+
+auto parse_input_mode(std::string const &str) -> InputMode
+{
+    auto is = std::istringstream{str};
+    auto mode = InputMode{};
+    is >> mode;
+    return mode;
 }
 
 auto to_string(InputMode mode) -> std::string
 {
-    switch (mode)
-    {
-    case InputMode::Movement:
-        return "movement";
-    case InputMode::Note:
-        return "note";
-    case InputMode::Velocity:
-        return "velocity";
-    case InputMode::Delay:
-        return "delay";
-    case InputMode::Gate:
-        return "gate";
-    default:
-        throw std::invalid_argument{"Invalid input mode: " +
-                                    std::to_string(static_cast<int>(mode))};
-    }
+    auto os = std::ostringstream{};
+    os << mode;
+    return os.str();
 }
 
 } // namespace xen

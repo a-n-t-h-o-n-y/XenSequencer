@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -10,6 +11,7 @@
 
 #include <sequence/time_signature.hpp>
 
+#include "input_mode.hpp"
 #include "util.hpp"
 
 namespace xen
@@ -159,7 +161,7 @@ template <typename T = float>
 
 [[nodiscard]] inline auto parse_string(std::string const &x) -> std::string
 {
-    return to_lower(x);
+    return x;
 }
 
 /**
@@ -173,27 +175,13 @@ template <typename T = float>
     -> sequence::TimeSignature
 {
     auto ss = std::istringstream{x};
-    auto numerator = unsigned{};
-    auto denominator = unsigned{1}; // Default to 1 if not present
-
-    if (!(ss >> numerator))
+    auto ts = sequence::TimeSignature{};
+    ss >> ts;
+    if (!ss.eof())
     {
-        throw std::invalid_argument(
-            "Invalid time signature format: Couldn't parse numerator: " + x);
+        throw std::invalid_argument{"Invalid time signature format: " + x};
     }
-
-    // Check for the '/' character
-    if (ss.peek() == '/')
-    {
-        ss.ignore(); // Skip the '/' character
-        if (!(ss >> denominator))
-        {
-            throw std::invalid_argument(
-                "Invalid time signature format: Couldn't parse denominator: " + x);
-        }
-    }
-
-    return sequence::TimeSignature{numerator, denominator};
+    return ts;
 }
 
 template <typename T>
@@ -245,30 +233,18 @@ template <typename T>
     {
         return parse_time_signature(x);
     }
+    else if constexpr (std::is_same_v<T, InputMode>)
+    {
+        return parse_input_mode(x);
+    }
+    else if constexpr (std::is_same_v<T, std::filesystem::path>)
+    {
+        return std::filesystem::path{x};
+    }
     else
     {
         static_assert(always_false<T>::value, "Unsupported type.");
     }
-}
-
-// TODO you no longer need this, so delete it.
-template <typename... T, std::size_t... I>
-[[nodiscard]] auto extract_args_impl(std::vector<std::string> const &args,
-                                     std::index_sequence<I...>) -> std::tuple<T...>
-{
-    return std::tuple{parse<T>(args.at(I))...};
-}
-
-// TODO you no longer need this, so delete it.
-template <typename... T>
-[[nodiscard]] auto extract_args(std::vector<std::string> const &args)
-    -> std::tuple<T...>
-{
-    if (args.size() != sizeof...(T))
-    {
-        throw std::invalid_argument{"Invalid number of arguments."};
-    }
-    return extract_args_impl<T...>(args, std::index_sequence_for<T...>{});
 }
 
 } // namespace xen

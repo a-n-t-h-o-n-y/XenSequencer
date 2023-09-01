@@ -1,5 +1,6 @@
 #include "xen_command_core.hpp"
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <utility>
@@ -11,6 +12,7 @@
 
 #include "actions.hpp"
 #include "command.hpp"
+#include "input_mode.hpp"
 #include "parse_args.hpp"
 #include "selection.hpp"
 #include "xen_timeline.hpp"
@@ -95,12 +97,11 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
 
     add(cmd(
         "mode", "Change the current input mode.",
-        [](XenTimeline &tl, std::string const &mode_str) {
-            auto const mode = parse_input_mode(mode_str);
+        [](XenTimeline &tl, InputMode mode) {
             tl.set_aux_state(action::set_mode(tl, mode));
-            return "Changed mode to '" + mode_str + "'.";
+            return "Changed mode to '" + to_string(mode) + "'.";
         },
-        ArgInfo<std::string>{"mode"}));
+        ArgInfo<InputMode>{"mode"}));
 
     add(cmd(
         "note", "Change the current Cell to a Note.",
@@ -248,7 +249,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
             action::save_state(tl, filepath);
             return "Saved to '" + filepath + "'.";
         },
-        ArgInfo<std::string>{"filepath"}));
+        ArgInfo<std::filesystem::path>{"filepath"}));
 
     add(cmd(
         "load", "Load State from a file.",
@@ -257,7 +258,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
             tl.add_state(action::load_state(filepath));
             return "Loaded from '" + filepath + "'.";
         },
-        ArgInfo<std::string>{"filepath"}));
+        ArgInfo<std::filesystem::path>{"filepath"}));
 
     // Temporary ----------------------------------------------------------------
 
