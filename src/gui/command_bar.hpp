@@ -181,6 +181,7 @@ class CommandBar : public juce::Component
 {
   public:
     sl::Signal<void()> on_escape_request;
+    sl::Signal<void(std::string const &)> on_command_response;
 
   public:
     explicit CommandBar(XenCommandCore &command_core)
@@ -197,11 +198,15 @@ class CommandBar : public juce::Component
         ghost_text_.setWantsKeyboardFocus(false);
 
         this->addAndMakeVisible(command_input_);
-        command_input_.onReturnKey = [this] { this->do_send_command(); };
+        command_input_.onReturnKey = [this] {
+            this->do_send_command();
+            this->clear();
+            this->close();
+        };
         command_input_.onTextChange = [this] { this->do_autocomplete(); };
         command_input_.onEscapeKey = [this] {
-            command_input_.setText("");
-            this->do_escape();
+            this->clear();
+            this->close();
         };
         command_input_.onTabKey = [this] {
             this->do_tab_press();
@@ -222,11 +227,38 @@ class CommandBar : public juce::Component
         ghost_text_.setFont(font);
     }
 
+  public:
+    auto clear() -> void
+    {
+        command_input_.setText("");
+        ghost_text_.setText("");
+    }
+
+    /**
+     * Opens the command bar by making it visible and grabing keyboard focus.
+     */
+    auto open() -> void
+    {
+        this->setVisible(true);
+        this->grabKeyboardFocus();
+        this->getParentComponent()->resized();
+    }
+
+    /**
+     * Closes the command bar by making it invisible and releasing keyboard focus.
+     */
+    auto close() -> void
+    {
+        this->do_escape();
+        this->setVisible(false);
+        this->getParentComponent()->resized();
+    }
+
   protected:
     auto resized() -> void override
     {
-        ghost_text_.setBounds(0, 0, getWidth(), getHeight());
-        command_input_.setBounds(0, 0, getWidth(), getHeight());
+        ghost_text_.setBounds(0, 0, this->getWidth(), this->getHeight());
+        command_input_.setBounds(0, 0, this->getWidth(), this->getHeight());
     }
 
     auto focusGained(FocusChangeType) -> void override
@@ -246,14 +278,13 @@ class CommandBar : public juce::Component
         command_history_.add_command(command);
         try
         {
-            auto const result = command_core_.execute_command(command);
-            command_input_.setText(result);
+            auto const message = command_core_.execute_command(command);
+            this->on_command_response(message);
         }
         catch (std::exception const &e)
         {
-            command_input_.setText(std::string{"Exception! "} + e.what());
+            this->on_command_response(std::string{"Exception! "} + e.what());
         }
-        this->do_escape();
     }
 
     /**

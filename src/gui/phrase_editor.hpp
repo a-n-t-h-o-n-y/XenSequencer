@@ -16,8 +16,6 @@ namespace xen::gui
 class PhraseEditor : public juce::Component
 {
   public:
-    sl::Signal<void()> on_command_bar_request;
-
     sl::Signal<void(std::string const &)> on_command;
 
     Phrase phrase;

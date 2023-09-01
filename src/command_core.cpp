@@ -90,6 +90,8 @@ auto CommandCore::get_matched_command(std::string input) const -> CommandBase co
     return nullptr;
 }
 
+// TODO have returned message be labeled with enum for type. (info, warning, error,
+// none)
 auto CommandCore::execute_command(std::string const &input) const -> std::string
 {
     auto iss = std::istringstream{input};

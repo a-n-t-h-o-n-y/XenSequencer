@@ -57,6 +57,10 @@ target_sources(XenSequencer
         src/xen_command_core.cpp
         src/user_directory.cpp
         src/gui/sequence.cpp
+
+        src/gui/plugin_window.hpp
+        src/gui/command_bar.hpp
+        src/gui/status_bar.hpp
 )
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer

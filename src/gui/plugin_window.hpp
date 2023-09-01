@@ -13,6 +13,7 @@
 #include "command_bar.hpp"
 #include "heading.hpp"
 #include "phrase_editor.hpp"
+#include "status_bar.hpp"
 // #include "tuning.hpp"
 
 namespace xen::gui
@@ -24,16 +25,19 @@ class PluginWindow : public juce::Component
     explicit PluginWindow(XenCommandCore &command_core)
         : command_bar_{command_core}, command_core_{command_core}
     {
-        this->addAndMakeVisible(&heading_);
-        this->addAndMakeVisible(&phrase_editor_);
+        this->addAndMakeVisible(heading_);
+        this->addAndMakeVisible(phrase_editor_);
         // TODO
-        // this->addAndMakeVisible(&tuning_box_);
-        this->addAndMakeVisible(&command_bar_);
+        // this->addAndMakeVisible(tuning_box_);
+        this->addChildComponent(command_bar_);
+        command_bar_.setVisible(false);
+        this->addAndMakeVisible(status_bar_);
 
         heading_.set_justification(juce::Justification::centred);
 
-        // phrase_editor_.on_command_bar_request.connect(
-        //     [this] { command_bar_.grabKeyboardFocus(); });
+        command_bar_.on_command_response.connect([this](std::string const &response) {
+            status_bar_.message_display.set_info(response);
+        });
 
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
@@ -48,7 +52,7 @@ class PluginWindow : public juce::Component
             sl::Slot<void(std::string const &)>{[this](std::string const &name) {
                 if (name == "commandbar")
                 {
-                    command_bar_.grabKeyboardFocus();
+                    command_bar_.open();
                 }
                 else if (name == "phraseeditor")
                 {
@@ -73,6 +77,8 @@ class PluginWindow : public juce::Component
     {
         phrase_editor_.phrase.set(state, aux.selected);
         phrase_editor_.phrase.select(aux.selected);
+
+        status_bar_.mode_display.set(aux.input_mode);
 
         // TODO
         // tuning_box_.set_tuning(state.tuning);
@@ -101,7 +107,12 @@ class PluginWindow : public juce::Component
         flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
-        flexbox.items.add(juce::FlexItem(command_bar_).withHeight(23.f));
+        if (command_bar_.isVisible())
+        {
+            flexbox.items.add(juce::FlexItem(command_bar_).withHeight(23.f));
+        }
+        flexbox.items.add(
+            juce::FlexItem(status_bar_).withHeight(ModeDisplay::preferred_size));
 
         flexbox.performLayout(this->getLocalBounds());
     }
@@ -112,6 +123,8 @@ class PluginWindow : public juce::Component
     // TODO
     // gui::TuningBox tuning_box_;
     gui::CommandBar command_bar_;
+    gui::StatusBar status_bar_;
+
     XenCommandCore &command_core_;
     sl::Lifetime lifetime_;
 };
