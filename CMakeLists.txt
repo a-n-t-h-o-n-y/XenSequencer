@@ -8,6 +8,7 @@ add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE)
 add_subdirectory(external/yaml-cpp)
+add_subdirectory(external/json)
 
 # `juce_add_plugin` adds a static library target with the name passed as the first argument
 # (AudioPluginExample here). This target is a normal CMake target, but has a lot of extra properties set
@@ -44,23 +45,57 @@ juce_add_plugin(XenSequencer
 target_sources(XenSequencer
     PRIVATE
         src/actions.cpp
-        src/key_core.cpp
-        src/input_mode.cpp
-        src/plugin_processor.cpp
         src/command.cpp
         src/command_core.cpp
+        src/input_mode.cpp
+        src/key_core.cpp
         src/midi.cpp
+        src/plugin_processor.cpp
         src/selection.cpp
-        src/util.cpp
-        src/xen_processor.cpp
-        src/xen_editor.cpp
-        src/xen_command_core.cpp
         src/user_directory.cpp
-        src/gui/sequence.cpp
+        src/util.cpp
+        src/xen_command_core.cpp
+        src/xen_editor.cpp
+        src/xen_processor.cpp
+        src/actions.hpp
+        src/command.hpp
+        src/command_core.hpp
+        src/input_mode.hpp
+        src/key_core.hpp
+        src/midi.hpp
+        src/parse_args.hpp
+        src/plugin_processor.hpp
+        src/selection.hpp
+        src/serialize_state.cpp
+        src/serialize_state.hpp
+        src/signature.hpp
+        src/state.hpp
+        src/timeline.hpp
+        src/user_directory.hpp
+        src/util.hpp
+        src/xen_command_core.hpp
+        src/xen_editor.hpp
+        src/xen_processor.hpp
+        src/xen_timeline.hpp
 
-        src/gui/plugin_window.hpp
+        src/gui/sequence.cpp
         src/gui/command_bar.hpp
+        src/gui/custom_look_and_feel.hpp
+        src/gui/file_button.hpp
+        src/gui/focusable_component.hpp
+        src/gui/heading.hpp
+        src/gui/homogenous_row.hpp
+        src/gui/mantissa_box.hpp
+        src/gui/measure.hpp
+        src/gui/number_box.hpp
+        src/gui/phrase.hpp
+        src/gui/phrase_editor.hpp
+        src/gui/plugin_window.hpp
+        src/gui/sequence.hpp
         src/gui/status_bar.hpp
+        src/gui/tuning.hpp
+
+        src/gui/utility/dereference_iterator.hpp
 )
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
@@ -93,6 +128,7 @@ target_link_libraries(XenSequencer
         sequencer
         juce::juce_audio_utils
         yaml-cpp
+        nlohmann_json::nlohmann_json
         EmbedKeys
     PUBLIC
         juce::juce_recommended_config_flags
