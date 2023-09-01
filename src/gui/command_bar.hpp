@@ -149,11 +149,6 @@ class CommandInput : public juce::TextEditor
     }
 
   protected:
-    auto focusGained(FocusChangeType) -> void override
-    {
-        this->setText("");
-    }
-
     auto keyPressed(juce::KeyPress const &key) -> bool override
     {
         if (key == juce::KeyPress::tabKey && onTabKey)
@@ -204,10 +199,7 @@ class CommandBar : public juce::Component
             this->close();
         };
         command_input_.onTextChange = [this] { this->do_autocomplete(); };
-        command_input_.onEscapeKey = [this] {
-            this->clear();
-            this->close();
-        };
+        command_input_.onEscapeKey = [this] { this->close(); };
         command_input_.onTabKey = [this] {
             this->do_tab_press();
             return true;
