@@ -37,15 +37,24 @@ class CommandCore
     auto add(std::unique_ptr<CommandBase> cmd) -> void;
 
     /**
-     *  Tries to match a command to its signature based on the provided
-     *  substring input.
+     *  Tries to match a partial command name to its signature string.
      *
      *  @param input The input string.
      *  @return The SignatureDisplay of the matched command or nullopt if no
      *  command matches, only returns non null if there is a single match.
      */
-    [[nodiscard]] auto match_command(std::string input) const
+    [[nodiscard]] auto get_matched_signature(std::string const &input) const
         -> std::optional<SignatureDisplay>;
+
+    /**
+     *  Tries to match a partial command name to its Command object.
+     *
+     *  @param input The input string.
+     *  @return The CommandBase Pointer of the matched command or nullptr if no
+     *  command matches, only returns non null if there is a single match.
+     */
+    [[nodiscard]] auto get_matched_command(std::string input) const
+        -> CommandBase const *;
 
     /**
      *  Executes a command.

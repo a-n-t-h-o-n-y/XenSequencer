@@ -142,13 +142,18 @@ class CommandInput : public juce::TextEditor
         this->setColour(juce::TextEditor::textColourId, juce::Colours::white);
     }
 
+  public:
+    [[nodiscard]] auto is_cursor_at_end() const -> bool
+    {
+        return this->getCaretPosition() == this->getText().length();
+    }
+
   protected:
     auto focusGained(FocusChangeType) -> void override
     {
         this->setText("");
     }
 
-  public:
     auto keyPressed(juce::KeyPress const &key) -> bool override
     {
         if (key == juce::KeyPress::tabKey && onTabKey)
@@ -257,7 +262,7 @@ class CommandBar : public juce::Component
     auto do_autocomplete() -> void
     {
         auto const input = command_input_.getText().toStdString();
-        auto const signature = command_core_.match_command(input);
+        auto const signature = command_core_.get_matched_signature(input);
 
         if (signature)
         {
@@ -297,13 +302,41 @@ class CommandBar : public juce::Component
 
     auto do_tab_press() -> void
     {
-        auto const input = command_input_.getText().toStdString();
-        auto const signature = command_core_.match_command(input);
-
-        if (signature && input.size() <= signature->name.size())
+        if (!command_input_.is_cursor_at_end())
         {
-            auto const autoCompleteText = signature->name + " ";
-            command_input_.setText(autoCompleteText,
+            return;
+        }
+
+        auto const input = command_input_.getText().toStdString();
+        auto const signature = command_core_.get_matched_signature(input);
+
+        if (signature)
+        {
+            auto completed_text = std::string{};
+
+            if (input.size() <= signature->name.size())
+            {
+                completed_text += signature->name + " ";
+            }
+            else
+            {
+                completed_text += input;
+
+                auto const arg_count = count_words(input) - 1;
+                if (input.back() == ' ' && arg_count < signature->arguments.size())
+                {
+                    CommandBase const *command =
+                        command_core_.get_matched_command(input);
+
+                    if (command)
+                    {
+                        auto const values = command->get_default_arg_strings();
+                        completed_text += values[arg_count] + " ";
+                    }
+                }
+            }
+
+            command_input_.setText(completed_text,
                                    juce::NotificationType::dontSendNotification);
             ghost_text_.clear();
             this->do_autocomplete();

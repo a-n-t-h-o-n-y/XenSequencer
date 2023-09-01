@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -139,6 +140,29 @@ auto generate_signature(std::string const &name, ArgInfos<Args...> const &arg_in
     -> SignatureDisplay
 {
     return generate_signature(name, arg_infos, std::index_sequence_for<Args...>());
+}
+
+template <typename T>
+[[nodiscard]] auto optional_to_string(std::optional<T> const &opt) -> std::string
+{
+    if (opt.has_value())
+    {
+        auto ss = std::stringstream{};
+        ss << *opt;
+        return ss.str();
+    }
+    return "";
+}
+
+template <typename... Args>
+[[nodiscard]] auto collect_default_args(ArgInfos<Args...> const &arg_infos)
+    -> std::vector<std::string>
+{
+    auto collect_fn = [](const auto &...args) {
+        return std::vector<std::string>{optional_to_string(args.default_value)...};
+    };
+
+    return std::apply(collect_fn, arg_infos);
 }
 
 } // namespace xen

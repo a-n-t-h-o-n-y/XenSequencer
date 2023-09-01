@@ -27,6 +27,8 @@ class CommandBase
     [[nodiscard]] virtual auto get_name() const -> std::string = 0;
     [[nodiscard]] virtual auto get_description() const -> std::string = 0;
     [[nodiscard]] virtual auto get_signature_display() const -> SignatureDisplay = 0;
+    [[nodiscard]] virtual auto get_default_arg_strings() const
+        -> std::vector<std::string> = 0;
 
   public:
     [[nodiscard]] virtual auto execute(XenTimeline &tl,
@@ -92,20 +94,25 @@ class Command : public CommandBase
     }
 
   public:
-    [[nodiscard]] virtual auto get_name() const -> std::string override
+    [[nodiscard]] auto get_name() const -> std::string override
     {
         return name_;
     }
 
-    [[nodiscard]] virtual auto get_description() const -> std::string override
+    [[nodiscard]] auto get_description() const -> std::string override
     {
         return description_;
     }
 
-    [[nodiscard]] virtual auto get_signature_display() const
-        -> SignatureDisplay override
+    [[nodiscard]] auto get_signature_display() const -> SignatureDisplay override
     {
         return generate_signature(name_, arg_infos_);
+    }
+
+    [[nodiscard]] auto get_default_arg_strings() const
+        -> std::vector<std::string> override
+    {
+        return collect_default_args(arg_infos_);
     }
 
   private:
@@ -196,13 +203,5 @@ auto cmd(std::string name, std::string description, ActionFn action,
         std::move(name), std::move(description), std::move(tuple_args),
         std::move(action));
 }
-
-// inline void testthing()
-// {
-//     cmd(
-//         "split", "split a cell into multiple copies of itself.",
-//         [](auto &, int i, auto s) { return s + std::to_string(i); },
-//         ArgInfo<int>{"one"}, ArgInfo<std::string>("a string"));
-// }
 
 } // namespace xen

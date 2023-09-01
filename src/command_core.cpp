@@ -50,12 +50,22 @@ auto CommandCore::add(std::unique_ptr<CommandBase> cmd) -> void
     commands_.emplace(std::move(name), std::move(cmd));
 }
 
-auto CommandCore::match_command(std::string input) const
+auto CommandCore::get_matched_signature(std::string const &input) const
     -> std::optional<SignatureDisplay>
+{
+    CommandBase const *command = get_matched_command(input);
+    if (command)
+    {
+        return command->get_signature_display();
+    }
+    return std::nullopt;
+}
+
+auto CommandCore::get_matched_command(std::string input) const -> CommandBase const *
 {
     if (input.empty())
     {
-        return std::nullopt;
+        return nullptr;
     }
     input = to_lower(input);
     auto const input_name = input.substr(0, input.find(' '));
@@ -75,10 +85,9 @@ auto CommandCore::match_command(std::string input) const
 
     if (matches.size() == 1)
     {
-        return commands_.at(matches.front())->get_signature_display();
+        return commands_.at(matches.front()).get();
     }
-
-    return std::nullopt;
+    return nullptr;
 }
 
 auto CommandCore::execute_command(std::string const &input) const -> std::string
