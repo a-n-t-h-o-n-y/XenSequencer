@@ -106,7 +106,7 @@ class MessageDisplay : public juce::Component
     }
 
   public:
-    auto set_info(std::string const &text) -> void
+    auto set_success(std::string const &text) -> void
     {
         label_.setColour(juce::Label::textColourId, juce::Colours::white);
         label_.setText(text, juce::dontSendNotification);

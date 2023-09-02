@@ -25,33 +25,33 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
     : CommandCore{t}, copy_buffer_{copy_buffer}
 {
     add(cmd("undo", "Undo the last command.", [](XenTimeline &tl) {
-        return tl.undo() ? "Undo Successful" : "Can't Undo ";
+        return tl.undo() ? msuccess("Undo Successful") : mwarning("Can't Undo");
     }));
 
     add(cmd("redo", "Redo the last command.", [](XenTimeline &tl) {
-        return tl.redo() ? "Redo Successful" : "Can't Redo";
+        return tl.redo() ? msuccess("Redo Successful") : mwarning("Can't Redo");
     }));
 
     add(cmd("moveLeft", "Move the selection left.", [](XenTimeline &tl) {
         tl.set_aux_state(action::move_left(tl));
-        return "Moved left.";
+        return msuccess("Moved left.");
     }));
 
     add(cmd("moveRight", "Move the selection right.", [](XenTimeline &tl) {
         tl.set_aux_state(action::move_right(tl));
-        return "Moved right.";
+        return msuccess("Moved right.");
     }));
 
     add(cmd("moveUp", "Move the selection up.", [](XenTimeline &tl) {
         tl.set_aux_state(action::move_up(tl));
         // TODO message depending on if moved or hit ceiling
-        return "Moved up.";
+        return msuccess("Moved up.");
     }));
 
     add(cmd("moveDown", "Move the selection down.", [](XenTimeline &tl) {
         tl.set_aux_state(action::move_down(tl));
         // TODO message depending on if moved or hit floor
-        return "Moved down.";
+        return msuccess("Moved down.");
     }));
 
     add(cmd("copy", "Copy the current selection.", [this](XenTimeline &tl) {
@@ -59,21 +59,21 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         if (copy.has_value())
         {
             copy_buffer_ = std::move(*copy);
-            return "Copied.";
+            return msuccess("Copied.");
         }
-        return "Nothing to copy.";
+        return mwarning("Nothing to copy.");
     }));
 
     add(cmd("cut", "Cut the current selection.", [this](XenTimeline &tl) {
         auto cut = action::cut(tl);
         if (!cut.has_value())
         {
-            return "Nothing to cut.";
+            return mwarning("Nothing to cut.");
         }
         auto &[buffer, state] = *cut;
         tl.add_state(std::move(state));
         copy_buffer_ = std::move(buffer);
-        return "Cut.";
+        return msuccess("Cut.");
     }));
 
     add(cmd("paste", "Paste the copied Cell to the current selection.",
@@ -82,9 +82,9 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
                 if (result.has_value())
                 {
                     tl.add_state(*result);
-                    return "Pasted.";
+                    return msuccess("Pasted.");
                 }
-                return "Nothing to paste.";
+                return mwarning("Nothing to paste.");
             }));
 
     add(cmd("duplicate", "Duplicate the current selection to the right.",
@@ -92,14 +92,14 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
                 auto [aux, state] = action::duplicate(tl);
                 tl.set_aux_state(std::move(aux), false);
                 tl.add_state(std::move(state));
-                return "Duplicated.";
+                return msuccess("Duplicated.");
             }));
 
     add(cmd(
         "mode", "Change the current input mode.",
         [](XenTimeline &tl, InputMode mode) {
             tl.set_aux_state(action::set_mode(tl, mode));
-            return "Changed mode to '" + to_string(mode) + "'.";
+            return msuccess("Changed mode to '" + to_string(mode) + "'.");
         },
         ArgInfo<InputMode>{"mode"}));
 
@@ -107,26 +107,26 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "note", "Change the current Cell to a Note.",
         [](XenTimeline &tl, int interval, float velocity, float delay, float gate) {
             tl.add_state(action::note(tl, interval, velocity, delay, gate));
-            return "Added note.";
+            return msuccess("Added note.");
         },
         ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
         ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}));
 
     add(cmd("rest", "Change the current Cell to a Rest.", [](XenTimeline &tl) {
         tl.add_state(action::rest(tl));
-        return "Added rest.";
+        return msuccess("Added rest.");
     }));
 
     add(cmd("flip", "Flip the current Cell between Cell types.", [](XenTimeline &tl) {
         tl.add_state(action::flip(tl));
-        return "Flipped.";
+        return msuccess("Flipped.");
     }));
 
     add(cmd(
         "split", "Split the current Cell.",
         [](XenTimeline &tl, std::size_t count) {
             tl.add_state(action::split(tl, count));
-            return "Split.";
+            return msuccess("Split.");
         },
         ArgInfo<std::size_t>{"count", 2}));
 
@@ -134,14 +134,14 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         auto [state, aux] = action::extract(tl);
         tl.set_aux_state(aux, false);
         tl.add_state(state);
-        return "Extracted.";
+        return msuccess("Extracted.");
     }));
 
     add(cmd(
         "shiftNote", "Shift the current Note by a number of intervals.",
         [](XenTimeline &tl, int amount) {
             tl.add_state(action::shift_note(tl, amount));
-            return "Shifted.";
+            return msuccess("Shifted.");
         },
         ArgInfo<int>{"amount", 1}));
 
@@ -149,7 +149,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "shiftOctave", "Shift the current Note's octave.",
         [](XenTimeline &tl, int amount) {
             tl.add_state(action::shift_note_octave(tl, amount));
-            return "Shifted.";
+            return msuccess("Shifted.");
         },
         ArgInfo<int>{"amount", 1}));
 
@@ -157,7 +157,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "shiftVelocity", "Shift the current Note's velocity.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::shift_velocity(tl, amount));
-            return "Shifted.";
+            return msuccess("Shifted.");
         },
         ArgInfo<float>{"amount", 0.1f}));
 
@@ -165,7 +165,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "shiftDelay", "Shift the current Note's delay.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::shift_delay(tl, amount));
-            return "Shifted.";
+            return msuccess("Shifted.");
         },
         ArgInfo<float>{"amount", 0.1f}));
 
@@ -173,7 +173,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "shiftGate", "Shift the current Note's gate.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::shift_gate(tl, amount));
-            return "Shifted.";
+            return msuccess("Shifted.");
         },
         ArgInfo<float>{"amount", 0.1f}));
 
@@ -181,7 +181,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "setNote", "Set the current Note's interval.",
         [](XenTimeline &tl, int interval) {
             tl.add_state(action::set_note(tl, interval));
-            return "Set.";
+            return msuccess("Set.");
         },
         ArgInfo<int>{"interval", 0}));
 
@@ -189,7 +189,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "setOctave", "Set the current Note's octave.",
         [](XenTimeline &tl, int amount) {
             tl.add_state(action::set_note_octave(tl, amount));
-            return "Set.";
+            return msuccess("Set.");
         },
         ArgInfo<int>{"amount", 0}));
 
@@ -197,7 +197,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "setVelocity", "Set the current Note's velocity.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::set_velocity(tl, amount));
-            return "Set.";
+            return msuccess("Set.");
         },
         ArgInfo<float>{"amount", 0.8f}));
 
@@ -205,7 +205,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "setDelay", "Set the current Note's delay.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::set_delay(tl, amount));
-            return "Set.";
+            return msuccess("Set.");
         },
         ArgInfo<float>{"amount", 0.f}));
 
@@ -213,7 +213,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "setGate", "Set the current Note's gate.",
         [](XenTimeline &tl, float amount) {
             tl.add_state(action::set_gate(tl, amount));
-            return "Set.";
+            return msuccess("Set.");
         },
         ArgInfo<float>{"amount", 1.f}));
 
@@ -221,7 +221,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         "focus", "Focus on a specific Phrase.",
         [this](auto &, std::string const &name) {
             this->on_focus_change_request(name);
-            return "Focused on '" + name + "'.";
+            return msuccess("Focused on '" + name + "'.");
         },
         ArgInfo<std::string>{"component"}));
 
@@ -231,7 +231,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
             auto [aux, state] = action::add_measure(tl, ts);
             tl.set_aux_state(std::move(aux), false);
             tl.add_state(std::move(state));
-            return "Added measure.";
+            return msuccess("Added measure.");
         },
         ArgInfo<sequence::TimeSignature>("duration", {{4, 4}})));
 
@@ -240,14 +240,14 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
             action::delete_cell(tl.get_aux_state(), tl.get_state().first);
         tl.set_aux_state(aux, false);
         tl.add_state(state);
-        return "Deleted.";
+        return msuccess("Deleted.");
     }));
 
     add(cmd(
         "save", "Save the current state to a file.",
         [](XenTimeline &tl, std::string const &filepath) {
             action::save_state(tl, filepath);
-            return "Saved to '" + filepath + "'.";
+            return msuccess("Saved to '" + filepath + "'.");
         },
         ArgInfo<std::filesystem::path>{"filepath"}));
 
@@ -256,7 +256,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         [](XenTimeline &tl, std::string const &filepath) {
             tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
             tl.add_state(action::load_state(filepath));
-            return "Loaded from '" + filepath + "'.";
+            return msuccess("Loaded from '" + filepath + "'.");
         },
         ArgInfo<std::filesystem::path>{"filepath"}));
 
@@ -265,7 +265,7 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
     add(cmd("demo", "Overwrite current state with demo state.", [](XenTimeline &tl) {
         tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
         tl.add_state(demo_state());
-        return "Demo state loaded.";
+        return msuccess("Demo state loaded.");
     }));
 }
 

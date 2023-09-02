@@ -9,6 +9,7 @@
 
 #include "../command_core.hpp"
 #include "../key_core.hpp"
+#include "../message_type.hpp"
 #include "../state.hpp"
 #include "command_bar.hpp"
 #include "heading.hpp"
@@ -35,9 +36,23 @@ class PluginWindow : public juce::Component
 
         heading_.set_justification(juce::Justification::centred);
 
-        command_bar_.on_command_response.connect([this](std::string const &response) {
-            status_bar_.message_display.set_info(response);
-        });
+        command_bar_.on_command_response.connect(
+            [this](MessageType mtype, std::string const &response) {
+                switch (mtype)
+                {
+                case MessageType::Error:
+                    status_bar_.message_display.set_error(response);
+                    break;
+                case MessageType::Warning:
+                    status_bar_.message_display.set_warning(response);
+                    break;
+                case MessageType::Success:
+                    status_bar_.message_display.set_success(response);
+                    break;
+                default:
+                    throw std::runtime_error("invalid message type");
+                }
+            });
 
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
@@ -45,7 +60,8 @@ class PluginWindow : public juce::Component
         phrase_editor_.on_command.connect([this](std::string const &command) {
             // TODO should this send the message to the command bar? but selection etc..
             // shouldn't display?
-            std::cerr << command_core_.execute_command(command) << std::endl;
+            // std::cerr << command_core_.execute_command(command) << std::endl;
+            command_core_.execute_command(command);
         });
 
         auto slot_change_focus =
@@ -91,7 +107,8 @@ class PluginWindow : public juce::Component
             .on_command.connect([this](std::string const &command) {
                 // TODO should this send the message to the command bar? but
                 // selection etc.. shouldn't display?
-                std::cerr << command_core_.execute_command(command) << std::endl;
+                // std::cerr << command_core_.execute_command(command) << std::endl;
+                command_core_.execute_command(command);
             });
 
         // TODO

@@ -9,8 +9,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "message_type.hpp"
 #include "signature.hpp"
 #include "util.hpp"
 #include "xen_timeline.hpp"
@@ -139,7 +141,8 @@ auto CommandCore::get_matched_command(std::string input) const -> CommandBase co
 
 // TODO have returned message be labeled with enum for type. (info, warning, error,
 // none)
-auto CommandCore::execute_command(std::string const &input) const -> std::string
+auto CommandCore::execute_command(std::string const &input) const
+    -> std::pair<MessageType, std::string>
 {
     auto iss = std::istringstream{input};
     auto command_name = std::string{};

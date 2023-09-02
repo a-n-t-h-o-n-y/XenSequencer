@@ -12,6 +12,7 @@
 
 #include <signals_light/signal.hpp>
 
+#include "../message_type.hpp"
 #include "../xen_command_core.hpp"
 
 namespace xen::gui
@@ -177,7 +178,7 @@ class CommandBar : public juce::Component
 {
   public:
     sl::Signal<void()> on_escape_request;
-    sl::Signal<void(std::string const &)> on_command_response;
+    sl::Signal<void(MessageType, std::string const &)> on_command_response;
 
   public:
     explicit CommandBar(XenCommandCore &command_core)
@@ -271,12 +272,12 @@ class CommandBar : public juce::Component
         command_history_.add_command(command);
         try
         {
-            auto const message = command_core_.execute_command(command);
-            this->on_command_response(message);
+            auto const [mtype, message] = command_core_.execute_command(command);
+            this->on_command_response(mtype, message);
         }
         catch (std::exception const &e)
         {
-            this->on_command_response(std::string{"Exception! "} + e.what());
+            this->on_command_response(MessageType::Error, e.what());
         }
     }
 

@@ -5,9 +5,11 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "command.hpp"
+#include "message_type.hpp"
 #include "signature.hpp"
 #include "util.hpp"
 #include "xen_timeline.hpp"
@@ -63,7 +65,8 @@ class CommandCore
      *  @return The result of the command execution.
      *  @throws std::runtime_error if the command does not exist.
      */
-    [[nodiscard]] auto execute_command(std::string const &input) const -> std::string;
+    [[nodiscard]] auto execute_command(std::string const &input) const
+        -> std::pair<MessageType, std::string>;
 
   private:
     /// Map of command names to Command objects

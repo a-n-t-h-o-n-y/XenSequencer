@@ -7,8 +7,10 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
+#include "message_type.hpp"
 #include "parse_args.hpp"
 #include "signature.hpp"
 #include "xen_timeline.hpp"
@@ -16,7 +18,8 @@
 namespace xen
 {
 template <typename... Args>
-using Action = std::function<std::string(XenTimeline &, Args...)>;
+using Action =
+    std::function<std::pair<MessageType, std::string>(XenTimeline &, Args...)>;
 
 /**
  * @brief A command that can be executed with a set of string arguments.
@@ -33,7 +36,7 @@ class CommandBase
   public:
     [[nodiscard]] virtual auto execute(XenTimeline &tl,
                                        std::vector<std::string> const &args)
-        -> std::string = 0;
+        -> std::pair<MessageType, std::string> = 0;
 
   public:
     virtual ~CommandBase() = default;
@@ -84,11 +87,11 @@ class Command : public CommandBase
 
   public:
     [[nodiscard]] auto execute(XenTimeline &tl, std::vector<std::string> const &args)
-        -> std::string override
+        -> std::pair<MessageType, std::string> override
     {
         if (args.size() > sizeof...(Args))
         {
-            return "Invalid number of arguments";
+            return merror("Invalid number of arguments");
         }
         return this->invoke_action(tl, args, std::index_sequence_for<Args...>());
     }
@@ -119,7 +122,8 @@ class Command : public CommandBase
     template <std::size_t... I>
     [[nodiscard]] auto invoke_action(XenTimeline &tl,
                                      std::vector<std::string> const &args,
-                                     std::index_sequence<I...>) -> std::string
+                                     std::index_sequence<I...>)
+        -> std::pair<MessageType, std::string>
     {
         return action_(tl, this->get_argument_value<I, Args>(args)...);
     }
