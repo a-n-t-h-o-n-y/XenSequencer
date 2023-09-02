@@ -76,4 +76,37 @@ auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
 
 [[nodiscard]] auto load_state(std::string const &filepath) -> State;
 
+[[nodiscard]] auto rotate(XenTimeline const &tl, int amount) -> State;
+
+[[nodiscard]] auto reverse(XenTimeline const &tl) -> State;
+
+[[nodiscard]] auto mirror(XenTimeline const &tl, int center_note) -> State;
+
+[[nodiscard]] auto shuffle(XenTimeline const &tl) -> State;
+
+[[nodiscard]] auto compress(XenTimeline const &tl, std::size_t amount) -> State;
+
+[[nodiscard]] auto stretch(XenTimeline const &tl, std::size_t amount) -> State;
+
+[[nodiscard]] auto quantize(XenTimeline const &tl) -> State;
+
+[[nodiscard]] auto swing(XenTimeline const &tl, float amount) -> State;
+
+[[nodiscard]] auto randomize_notes(XenTimeline const &tl, int min, int max) -> State;
+
+[[nodiscard]] auto randomize_velocities(XenTimeline const &tl, float min, float max)
+    -> State;
+
+[[nodiscard]] auto randomize_delays(XenTimeline const &tl, float min, float max)
+    -> State;
+
+[[nodiscard]] auto randomize_gates(XenTimeline const &tl, float min, float max)
+    -> State;
+
+[[nodiscard]] auto humanize_velocities(XenTimeline const &tl, float amount) -> State;
+
+[[nodiscard]] auto humanize_delays(XenTimeline const &tl, float amount) -> State;
+
+[[nodiscard]] auto humanize_gates(XenTimeline const &tl, float amount) -> State;
+
 } // namespace xen::action

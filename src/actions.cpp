@@ -392,4 +392,251 @@ auto load_state(std::string const &filepath) -> State
     return deserialize(json_str);
 }
 
+auto rotate(XenTimeline const &tl, int amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::rotate(*selected, amount);
+
+    return state;
+}
+
+auto reverse(XenTimeline const &tl) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::reverse(*selected);
+
+    return state;
+}
+
+auto mirror(XenTimeline const &tl, int center_note) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::mirror(*selected, center_note);
+
+    return state;
+}
+
+auto shuffle(XenTimeline const &tl) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::shuffle(*selected);
+
+    return state;
+}
+
+auto compress(XenTimeline const &tl, std::size_t amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::compress(*selected, amount);
+
+    return state;
+}
+
+auto stretch(XenTimeline const &tl, std::size_t amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::stretch(*selected, amount);
+
+    return state;
+}
+
+auto quantize(XenTimeline const &tl) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::quantize(*selected);
+
+    return state;
+}
+
+auto swing(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::swing(*selected, std::clamp(amount, 0.f, 1.f));
+
+    return state;
+}
+
+auto randomize_notes(XenTimeline const &tl, int min, int max) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::randomize_intervals(*selected, min, max);
+
+    return state;
+}
+
+auto randomize_velocities(XenTimeline const &tl, float min, float max) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::randomize_velocity(
+        *selected, std::clamp(min, 0.f, 1.f), std::clamp(max, 0.f, 1.f));
+
+    return state;
+}
+
+[[nodiscard]] auto randomize_delays(XenTimeline const &tl, float min, float max)
+    -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::randomize_delay(*selected, std::clamp(min, 0.f, 1.f),
+                                                  std::clamp(max, 0.f, 1.f));
+
+    return state;
+}
+
+auto randomize_gates(XenTimeline const &tl, float min, float max) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected = sequence::modify::randomize_gate(*selected, std::clamp(min, 0.f, 1.f),
+                                                 std::clamp(max, 0.f, 1.f));
+
+    return state;
+}
+
+auto humanize_velocities(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected =
+        sequence::modify::humanize_velocity(*selected, std::clamp(amount, 0.f, 1.f));
+
+    return state;
+}
+
+auto humanize_delays(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected =
+        sequence::modify::humanize_delay(*selected, std::clamp(amount, 0.f, 1.f));
+
+    return state;
+}
+
+auto humanize_gates(XenTimeline const &tl, float amount) -> State
+{
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        return state;
+    }
+
+    *selected =
+        sequence::modify::humanize_gate(*selected, std::clamp(amount, 0.f, 1.f));
+
+    return state;
+}
+
 } // namespace xen::action

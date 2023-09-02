@@ -260,6 +260,119 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         },
         ArgInfo<std::filesystem::path>{"filepath"}));
 
+    add(cmd(
+        "rotate", "Rotate the current selection.",
+        [](XenTimeline &tl, int amount) {
+            tl.add_state(action::rotate(tl, amount));
+            return msuccess("Rotated.");
+        },
+        ArgInfo<int>{"amount", 1}));
+
+    add(cmd("reverse", "Reverse the current selection.", [](XenTimeline &tl) {
+        tl.add_state(action::reverse(tl));
+        return msuccess("Reversed.");
+    }));
+
+    add(cmd(
+        "mirror", "Mirror the current selection around a Note.",
+        [](XenTimeline &tl, int center_note) {
+            tl.add_state(action::mirror(tl, center_note));
+            return msuccess("Mirrored.");
+        },
+        ArgInfo<int>{"centerNote", 0}));
+
+    add(cmd("shuffle", "Shuffle the notes in the current selection into random places.",
+            [](XenTimeline &tl) {
+                tl.add_state(action::shuffle(tl));
+                return msuccess("Shuffled.");
+            }));
+
+    add(cmd(
+        "compress", "Compress the current selection, keeping every 'amount' Cell.",
+        [](XenTimeline &tl, std::size_t amount) {
+            tl.add_state(action::compress(tl, amount));
+            return msuccess("Compressed.");
+        },
+        ArgInfo<std::size_t>{"amount", 2}));
+
+    add(cmd(
+        "stretch",
+        "Stretch the current selection by duplicating each Cell 'amount' times.",
+        [](XenTimeline &tl, std::size_t amount) {
+            tl.add_state(action::stretch(tl, amount));
+            return msuccess("Stretched.");
+        },
+        ArgInfo<std::size_t>{"amount", 2}));
+
+    add(cmd("quantize", "Quantize the current selection.", [](XenTimeline &tl) {
+        tl.add_state(action::quantize(tl));
+        return msuccess("Quantized.");
+    }));
+
+    add(cmd(
+        "swing", "Swing the current selection by 'amount'.",
+        [](XenTimeline &tl, float amount) {
+            tl.add_state(action::swing(tl, amount));
+            return msuccess("Swung.");
+        },
+        ArgInfo<float>{"amount", 0.1f}));
+
+    add(cmd(
+        "randomizeNotes", "Randomize the note intervals in the current selection.",
+        [](XenTimeline &tl, int min, int max) {
+            tl.add_state(action::randomize_notes(tl, min, max));
+            return msuccess("Randomized.");
+        },
+        ArgInfo<int>{"min", 0}, ArgInfo<int>{"max", 12}));
+
+    add(cmd(
+        "randomizeVelocities", "Randomize the velocities in the current selection.",
+        [](XenTimeline &tl, float min, float max) {
+            tl.add_state(action::randomize_velocities(tl, min, max));
+            return msuccess("Randomized.");
+        },
+        ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 1.f}));
+
+    add(cmd(
+        "randomizeDelays", "Randomize the delays in the current selection.",
+        [](XenTimeline &tl, float min, float max) {
+            tl.add_state(action::randomize_delays(tl, min, max));
+            return msuccess("Randomized.");
+        },
+        ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.5f}));
+
+    add(cmd(
+        "randomizeGates", "Randomize the gates in the current selection.",
+        [](XenTimeline &tl, float min, float max) {
+            tl.add_state(action::randomize_gates(tl, min, max));
+            return msuccess("Randomized.");
+        },
+        ArgInfo<float>{"min", 0.5f}, ArgInfo<float>{"max", 1.f}));
+
+    add(cmd(
+        "humanizeVelocities", "Humanize the velocities in the current selection.",
+        [](XenTimeline &tl, float amount) {
+            tl.add_state(action::humanize_velocities(tl, amount));
+            return msuccess("Humanized.");
+        },
+        ArgInfo<float>{"amount", 0.1f}));
+
+    add(cmd(
+        "humanizeDelays", "Humanize the delays in the current selection.",
+        [](XenTimeline &tl, float amount) {
+            tl.add_state(action::humanize_delays(tl, amount));
+            return msuccess("Humanized.");
+        },
+        ArgInfo<float>{"amount", 0.1f}));
+
+    add(cmd(
+        "humanizeGates", "Humanize the gates in the current selection.",
+        [](XenTimeline &tl, float amount) {
+            tl.add_state(action::humanize_gates(tl, amount));
+            return msuccess("Humanized.");
+        },
+        ArgInfo<float>{"amount", 0.1f}));
+
     // Temporary ----------------------------------------------------------------
 
     add(cmd("demo", "Overwrite current state with demo state.", [](XenTimeline &tl) {
