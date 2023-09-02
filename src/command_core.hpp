@@ -65,7 +65,7 @@ class CommandCore
      *  @return The result of the command execution.
      *  @throws std::runtime_error if the command does not exist.
      */
-    [[nodiscard]] auto execute_command(std::string const &input) const
+    [[nodiscard]] auto execute_command(std::string input) const
         -> std::pair<MessageType, std::string>;
 
   private:

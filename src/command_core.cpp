@@ -1,6 +1,7 @@
 #include "command_core.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <iterator>
 #include <map>
@@ -11,6 +12,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <sequence/pattern.hpp>
 
 #include "message_type.hpp"
 #include "signature.hpp"
@@ -116,6 +119,7 @@ auto CommandCore::get_matched_command(std::string input) const -> CommandBase co
     {
         return nullptr;
     }
+    input = sequence::strip_pattern_chars(input);
     input = to_lower(input);
     auto const input_name = input.substr(0, input.find(' '));
     auto matches = std::vector<std::string>{};
@@ -139,11 +143,13 @@ auto CommandCore::get_matched_command(std::string input) const -> CommandBase co
     return nullptr;
 }
 
-// TODO have returned message be labeled with enum for type. (info, warning, error,
-// none)
-auto CommandCore::execute_command(std::string const &input) const
+auto CommandCore::execute_command(std::string input) const
     -> std::pair<MessageType, std::string>
 {
+    auto const pattern = sequence::parse_pattern(input);
+
+    input = sequence::strip_pattern_chars(input);
+
     auto iss = std::istringstream{input};
     auto command_name = std::string{};
     std::getline(iss, command_name, ' ');
@@ -157,7 +163,7 @@ auto CommandCore::execute_command(std::string const &input) const
 
     auto const params = split_parameters(iss);
 
-    return it->second->execute(timeline_, params);
+    return it->second->execute(timeline_, params, pattern);
 }
 
 } // namespace xen

@@ -4,6 +4,7 @@
 #include <optional>
 #include <utility>
 
+#include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
@@ -103,9 +104,13 @@ auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
 [[nodiscard]] auto randomize_gates(XenTimeline const &tl, float min, float max)
     -> State;
 
-[[nodiscard]] auto humanize_velocities(XenTimeline const &tl, float amount) -> State;
+[[nodiscard]] auto humanize_velocities(XenTimeline const &tl,
+                                       sequence::Pattern const &pattern, float amount)
+    -> State;
 
-[[nodiscard]] auto humanize_delays(XenTimeline const &tl, float amount) -> State;
+[[nodiscard]] auto humanize_delays(XenTimeline const &tl,
+                                   sequence::Pattern const &pattern, float amount)
+    -> State;
 
 [[nodiscard]] auto humanize_gates(XenTimeline const &tl, float amount) -> State;
 

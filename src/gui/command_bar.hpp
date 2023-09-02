@@ -13,6 +13,7 @@
 #include <signals_light/signal.hpp>
 
 #include "../message_type.hpp"
+#include "../signature.hpp"
 #include "../xen_command_core.hpp"
 
 namespace xen::gui
@@ -288,20 +289,28 @@ class CommandBar : public juce::Component
     {
         auto const input = command_input_.getText().toStdString();
         auto const signature = command_core_.get_matched_signature(input);
+        auto const stripped_input = sequence::strip_pattern_chars(input);
+        auto const pattern_str = sequence::extract_pattern_str(input);
+        if (!pattern_str.empty() && pattern_str.back() != ' ')
+        {
+            ghost_text_.clear();
+            return;
+        }
 
         if (signature)
         {
-            auto const arg_count = count_words(input) - 1;
+            auto const arg_count = count_words(stripped_input) - 1;
 
             auto autocomplete_text = [&] {
-                if (input.size() > signature->name.size())
+                if (stripped_input.size() > signature->name.size())
                 {
                     return input;
                 }
                 else
                 {
                     auto name = signature->name;
-                    name.replace(0, input.size(), input.size(), ' ');
+                    name.replace(0, stripped_input.size(), stripped_input.size(), ' ');
+                    name.insert(0, pattern_str.size(), ' ');
                     return name;
                 }
             }();
@@ -334,24 +343,31 @@ class CommandBar : public juce::Component
 
         auto const input = command_input_.getText().toStdString();
         auto const signature = command_core_.get_matched_signature(input);
+        auto const stripped_input = sequence::strip_pattern_chars(input);
+        auto const pattern_str = sequence::extract_pattern_str(input);
+        if (!pattern_str.empty() && pattern_str.back() != ' ')
+        {
+            return;
+        }
 
         if (signature)
         {
             auto completed_text = std::string{};
 
-            if (input.size() <= signature->name.size())
+            if (stripped_input.size() <= signature->name.size())
             {
-                completed_text += signature->name + " ";
+                completed_text += pattern_str + signature->name + " ";
             }
             else
             {
                 completed_text += input;
 
-                auto const arg_count = count_words(input) - 1;
-                if (input.back() == ' ' && arg_count < signature->arguments.size())
+                auto const arg_count = count_words(stripped_input) - 1;
+                if (stripped_input.back() == ' ' &&
+                    arg_count < signature->arguments.size())
                 {
                     CommandBase const *command =
-                        command_core_.get_matched_command(input);
+                        command_core_.get_matched_command(stripped_input);
 
                     if (command)
                     {

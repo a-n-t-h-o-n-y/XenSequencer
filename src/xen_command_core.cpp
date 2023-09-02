@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
@@ -17,8 +18,12 @@
 #include "selection.hpp"
 #include "xen_timeline.hpp"
 
+using sequence::Pattern;
+
 namespace xen
 {
+
+inline constexpr auto WithPattern = true;
 
 XenCommandCore::XenCommandCore(XenTimeline &t,
                                std::optional<sequence::Cell> &copy_buffer)
@@ -349,18 +354,18 @@ XenCommandCore::XenCommandCore(XenTimeline &t,
         },
         ArgInfo<float>{"min", 0.5f}, ArgInfo<float>{"max", 1.f}));
 
-    add(cmd(
+    add(cmd<WithPattern>(
         "humanizeVelocities", "Humanize the velocities in the current selection.",
-        [](XenTimeline &tl, float amount) {
-            tl.add_state(action::humanize_velocities(tl, amount));
+        [](XenTimeline &tl, Pattern const &pattern, float amount) {
+            tl.add_state(action::humanize_velocities(tl, pattern, amount));
             return msuccess("Humanized.");
         },
         ArgInfo<float>{"amount", 0.1f}));
 
-    add(cmd(
+    add(cmd<WithPattern>(
         "humanizeDelays", "Humanize the delays in the current selection.",
-        [](XenTimeline &tl, float amount) {
-            tl.add_state(action::humanize_delays(tl, amount));
+        [](XenTimeline &tl, Pattern const &pattern, float amount) {
+            tl.add_state(action::humanize_delays(tl, pattern, amount));
             return msuccess("Humanized.");
         },
         ArgInfo<float>{"amount", 0.1f}));

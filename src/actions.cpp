@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <sequence/modify.hpp>
+#include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
@@ -588,7 +589,8 @@ auto randomize_gates(XenTimeline const &tl, float min, float max) -> State
     return state;
 }
 
-auto humanize_velocities(XenTimeline const &tl, float amount) -> State
+auto humanize_velocities(XenTimeline const &tl, sequence::Pattern const &pattern,
+                         float amount) -> State
 {
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
@@ -599,13 +601,14 @@ auto humanize_velocities(XenTimeline const &tl, float amount) -> State
         return state;
     }
 
-    *selected =
-        sequence::modify::humanize_velocity(*selected, std::clamp(amount, 0.f, 1.f));
+    *selected = sequence::modify::humanize_velocity(*selected, pattern,
+                                                    std::clamp(amount, 0.f, 1.f));
 
     return state;
 }
 
-auto humanize_delays(XenTimeline const &tl, float amount) -> State
+auto humanize_delays(XenTimeline const &tl, sequence::Pattern const &pattern,
+                     float amount) -> State
 {
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
@@ -616,8 +619,8 @@ auto humanize_delays(XenTimeline const &tl, float amount) -> State
         return state;
     }
 
-    *selected =
-        sequence::modify::humanize_delay(*selected, std::clamp(amount, 0.f, 1.f));
+    *selected = sequence::modify::humanize_delay(*selected, pattern,
+                                                 std::clamp(amount, 0.f, 1.f));
 
     return state;
 }

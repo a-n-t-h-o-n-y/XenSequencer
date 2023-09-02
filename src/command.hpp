@@ -7,19 +7,27 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <sequence/pattern.hpp>
 
 #include "message_type.hpp"
 #include "parse_args.hpp"
 #include "signature.hpp"
+#include "util.hpp"
 #include "xen_timeline.hpp"
 
 namespace xen
 {
-template <typename... Args>
-using Action =
-    std::function<std::pair<MessageType, std::string>(XenTimeline &, Args...)>;
+
+template <bool AcceptsPattern, typename... Args>
+using Action = std::conditional_t<
+    AcceptsPattern,
+    std::function<std::pair<MessageType, std::string>(
+        XenTimeline &, sequence::Pattern const &, Args...)>,
+    std::function<std::pair<MessageType, std::string>(XenTimeline &, Args...)>>;
 
 /**
  * @brief A command that can be executed with a set of string arguments.
@@ -35,7 +43,8 @@ class CommandBase
 
   public:
     [[nodiscard]] virtual auto execute(XenTimeline &tl,
-                                       std::vector<std::string> const &args)
+                                       std::vector<std::string> const &args,
+                                       std::optional<sequence::Pattern> const &pattern)
         -> std::pair<MessageType, std::string> = 0;
 
   public:
@@ -49,7 +58,7 @@ class CommandBase
  *
  * @tparam Args The types of the arguments.
  */
-template <typename... Args>
+template <bool AcceptsPattern, typename... Args>
 class Command : public CommandBase
 {
   public:
@@ -63,7 +72,7 @@ class Command : public CommandBase
      * @param action The action function.
      */
     Command(std::string name, std::string description, ArgInfos<Args...> arg_infos,
-            Action<Args...> action)
+            Action<AcceptsPattern, Args...> action)
         : name_{std::move(name)}, description_{std::move(description)},
           arg_infos_{std::move(arg_infos)}, action_{std::move(action)}
     {
@@ -86,14 +95,21 @@ class Command : public CommandBase
     }
 
   public:
-    [[nodiscard]] auto execute(XenTimeline &tl, std::vector<std::string> const &args)
+    [[nodiscard]] auto execute(XenTimeline &tl, std::vector<std::string> const &args,
+                               std::optional<sequence::Pattern> const &pattern)
         -> std::pair<MessageType, std::string> override
     {
         if (args.size() > sizeof...(Args))
         {
             return merror("Invalid number of arguments");
         }
-        return this->invoke_action(tl, args, std::index_sequence_for<Args...>());
+        if (pattern.has_value() && !AcceptsPattern)
+        {
+            return merror("Command does not accept a pattern");
+        }
+        return this->invoke_action(tl, args,
+                                   (pattern ? *pattern : sequence::Pattern{0, {1}}),
+                                   std::index_sequence_for<Args...>());
     }
 
   public:
@@ -122,10 +138,18 @@ class Command : public CommandBase
     template <std::size_t... I>
     [[nodiscard]] auto invoke_action(XenTimeline &tl,
                                      std::vector<std::string> const &args,
+                                     sequence::Pattern const &pattern,
                                      std::index_sequence<I...>)
         -> std::pair<MessageType, std::string>
     {
-        return action_(tl, this->get_argument_value<I, Args>(args)...);
+        if constexpr (AcceptsPattern)
+        {
+            return action_(tl, pattern, this->get_argument_value<I, Args>(args)...);
+        }
+        else
+        {
+            return action_(tl, this->get_argument_value<I, Args>(args)...);
+        }
     }
 
     template <std::size_t I, typename T>
@@ -181,7 +205,7 @@ class Command : public CommandBase
     std::string name_;
     std::string description_;
     ArgInfos<Args...> arg_infos_;
-    Action<Args...> action_;
+    Action<AcceptsPattern, Args...> action_;
 };
 
 /**
@@ -195,15 +219,12 @@ class Command : public CommandBase
  * @param arg_infos The argument infos.
  * @return std::unique_ptr<CommandBase>
  */
-template <typename ActionFn, typename... Args>
+template <bool AcceptsPattern = false, typename ActionFn, typename... Args>
 auto cmd(std::string name, std::string description, ActionFn action,
          ArgInfo<Args> &&...arg_infos) -> std::unique_ptr<CommandBase>
 {
-    static_assert(std::is_invocable_v<ActionFn, XenTimeline &, Args...>,
-                  "ActionFn signature doesn't match (XenTimeline&, Args...)");
-
     auto tuple_args = ArgInfos<Args...>{std::forward<ArgInfo<Args>>(arg_infos)...};
-    return std::make_unique<Command<std::decay_t<Args>...>>(
+    return std::make_unique<Command<AcceptsPattern, std::decay_t<Args>...>>(
         std::move(name), std::move(description), std::move(tuple_args),
         std::move(action));
 }
