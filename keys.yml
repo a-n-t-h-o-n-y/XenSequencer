@@ -100,6 +100,16 @@ PhraseEditor:
   # Misc
   "delete": "delete"
 
+  # Modifiers
+  "[n] + r": "randomizeNotes 0 12"
+  "[v] + r": "randomizeVelocities 0.0 1.0"
+  "[d] + r": "randomizeDelays 0.0 0.5"
+  "[g] + r": "randomizeGates 0.5 1.0"
+
+  "[v] + t": "humanizeVelocities 0.05"
+  "[d] + t": "humanizeDelays 0.05"
+  "[g] + t": "humanizeGates 0.05"
+
 # TuningBox
 
 # CommandBar
