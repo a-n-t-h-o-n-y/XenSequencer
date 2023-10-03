@@ -28,14 +28,14 @@ PhraseEditor:
   "Cmd + y": "redo"
 
   # Movement
-  "h": "moveLeft"
-  "ArrowLeft": "moveLeft"
-  "l": "moveRight"
-  "ArrowRight": "moveRight"
-  "[m] + j": "moveDown"
-  "[m] + ArrowDown": "moveDown"
-  "[m] + k": "moveUp"
-  "[m] + ArrowUp": "moveUp"
+  "h": "move left"
+  "ArrowLeft": "move left"
+  "l": "move right"
+  "ArrowRight": "move right"
+  "[m] + j": "move down"
+  "[m] + ArrowDown": "move down"
+  "[m] + k": "move up"
+  "[m] + ArrowUp": "move up"
 
   # ShiftNote
   "[n] + j": "shiftNote -1"
@@ -101,14 +101,14 @@ PhraseEditor:
   "delete": "delete"
 
   # Modifiers
-  "[n] + r": "randomizeNotes 0 12"
-  "[v] + r": "randomizeVelocities 0.0 1.0"
-  "[d] + r": "randomizeDelays 0.0 0.5"
-  "[g] + r": "randomizeGates 0.5 1.0"
+  "[n] + r": "randomize note 0 12"
+  "[v] + r": "randomize velocity 0.0 1.0"
+  "[d] + r": "randomize delay 0.0 0.5"
+  "[g] + r": "randomize gate 0.5 1.0"
 
-  "[v] + t": "humanizeVelocities 0.05"
-  "[d] + t": "humanizeDelays 0.05"
-  "[g] + t": "humanizeGates 0.05"
+  "[v] + t": "humanize velocity 0.05"
+  "[d] + t": "humanize delay 0.05"
+  "[g] + t": "humanize gate 0.05"
 
 # TuningBox
 

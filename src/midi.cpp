@@ -1,4 +1,4 @@
-#include "midi.hpp"
+#include <xen/midi.hpp>
 
 #include <stdexcept>
 #include <variant>
@@ -8,7 +8,7 @@
 #include <sequence/midi.hpp>
 #include <sequence/utility.hpp>
 
-#include "state.hpp"
+#include <xen/state.hpp>
 
 namespace xen
 {

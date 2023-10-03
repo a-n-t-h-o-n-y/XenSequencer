@@ -1,4 +1,4 @@
-#include "plugin_processor.hpp"
+#include <xen/plugin_processor.hpp>
 
 namespace xen
 {

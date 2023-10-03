@@ -4,7 +4,7 @@
 
 #include <sequence/midi.hpp>
 
-#include "state.hpp"
+#include <xen/state.hpp>
 
 namespace xen
 {

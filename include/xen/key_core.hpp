@@ -9,8 +9,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <signals_light/signal.hpp>
 
-#include "input_mode.hpp"
-#include "xen_timeline.hpp"
+#include <xen/input_mode.hpp>
+#include <xen/xen_timeline.hpp>
 
 namespace juce
 {

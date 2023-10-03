@@ -12,9 +12,13 @@
 
 #include <signals_light/signal.hpp>
 
-#include "../message_type.hpp"
-#include "../signature.hpp"
-#include "../xen_command_core.hpp"
+#include <xen/command.hpp>
+#include <xen/guide_text.hpp>
+#include <xen/message_type.hpp>
+#include <xen/signature.hpp>
+#include <xen/string_manip.hpp>
+#include <xen/xen_command_tree.hpp>
+#include <xen/xen_timeline.hpp>
 
 namespace xen::gui
 {
@@ -30,7 +34,7 @@ class CommandHistory
 {
   public:
     /// Constructor that initializes an empty history.
-    CommandHistory() : history_{}, current_index_(0)
+    CommandHistory() : history_{}, current_index_{0}
     {
     }
 
@@ -182,8 +186,7 @@ class CommandBar : public juce::Component
     sl::Signal<void(MessageType, std::string const &)> on_command_response;
 
   public:
-    explicit CommandBar(XenCommandCore &command_core)
-        : command_core_{command_core}, command_history_{}
+    CommandBar(XenTimeline &tl) : timeline_{tl}
     {
         this->setWantsKeyboardFocus(true);
 
@@ -201,7 +204,7 @@ class CommandBar : public juce::Component
             this->clear();
             this->close();
         };
-        command_input_.onTextChange = [this] { this->do_autocomplete(); };
+        command_input_.onTextChange = [this] { this->add_guide_text(); };
         command_input_.onEscapeKey = [this] { this->close(); };
         command_input_.onTabKey = [this] {
             this->do_tab_press();
@@ -271,67 +274,23 @@ class CommandBar : public juce::Component
     {
         auto const command = command_input_.getText().toStdString();
         command_history_.add_command(command);
-        try
-        {
-            auto const [mtype, message] = command_core_.execute_command(command);
-            this->on_command_response(mtype, message);
-        }
-        catch (std::exception const &e)
-        {
-            this->on_command_response(MessageType::Error, e.what());
-        }
+        auto const [mtype, message] =
+            execute(command_tree, timeline_, normalize_command_string(command));
+        this->on_command_response(mtype, message);
     }
 
     /**
-     * @brief Autocomplete the command input and draws ghosted text.
+     * @brief Add ghost text that attempts to autocomplete the currently typed command
+     * and displays info about arguments.
      */
-    auto do_autocomplete() -> void
+    auto add_guide_text() -> void
     {
         auto const input = command_input_.getText().toStdString();
-        auto const signature = command_core_.get_matched_signature(input);
-        auto const stripped_input = sequence::strip_pattern_chars(input);
-        auto const pattern_str = sequence::extract_pattern_str(input);
-        if (!pattern_str.empty() && pattern_str.back() != ' ')
-        {
-            ghost_text_.clear();
-            return;
-        }
 
-        if (signature)
-        {
-            auto const arg_count = count_words(stripped_input) - 1;
+        auto const guide_text =
+            std::string(input.size(), ' ') + generate_guide_text(input);
 
-            auto autocomplete_text = [&] {
-                if (stripped_input.size() > signature->name.size())
-                {
-                    return input;
-                }
-                else
-                {
-                    auto name = signature->name;
-                    name.replace(0, stripped_input.size(), stripped_input.size(), ' ');
-                    name.insert(0, pattern_str.size(), ' ');
-                    return name;
-                }
-            }();
-
-            if (input.back() != ' ')
-            {
-                autocomplete_text += ' ';
-            }
-            // Add remaining untyped arguments
-            for (auto i = arg_count; i < signature->arguments.size(); ++i)
-            {
-                autocomplete_text += signature->arguments[i] + ' ';
-            }
-
-            ghost_text_.setText(autocomplete_text,
-                                juce::NotificationType::dontSendNotification);
-        }
-        else
-        {
-            ghost_text_.clear();
-        }
+        ghost_text_.setText(guide_text, juce::NotificationType::dontSendNotification);
     }
 
     auto do_tab_press() -> void
@@ -342,46 +301,13 @@ class CommandBar : public juce::Component
         }
 
         auto const input = command_input_.getText().toStdString();
-        auto const signature = command_core_.get_matched_signature(input);
-        auto const stripped_input = sequence::strip_pattern_chars(input);
-        auto const pattern_str = sequence::extract_pattern_str(input);
-        if (!pattern_str.empty() && pattern_str.back() != ' ')
-        {
-            return;
-        }
-
-        if (signature)
-        {
-            auto completed_text = std::string{};
-
-            if (stripped_input.size() <= signature->name.size())
-            {
-                completed_text += pattern_str + signature->name + " ";
-            }
-            else
-            {
-                completed_text += input;
-
-                auto const arg_count = count_words(stripped_input) - 1;
-                if (stripped_input.back() == ' ' &&
-                    arg_count < signature->arguments.size())
-                {
-                    CommandBase const *command =
-                        command_core_.get_matched_command(stripped_input);
-
-                    if (command)
-                    {
-                        auto const values = command->get_default_arg_strings();
-                        completed_text += values[arg_count] + " ";
-                    }
-                }
-            }
-
-            command_input_.setText(completed_text,
-                                   juce::NotificationType::dontSendNotification);
-            ghost_text_.clear();
-            this->do_autocomplete();
-        }
+        auto const completed_id = complete_id(input);
+        auto const completed_text =
+            input + completed_id + (completed_id.empty() ? "" : " ");
+        command_input_.setText(completed_text,
+                               juce::NotificationType::dontSendNotification);
+        ghost_text_.clear();
+        this->add_guide_text();
     }
 
     auto do_escape() -> void
@@ -450,10 +376,10 @@ class CommandBar : public juce::Component
     }
 
   private:
-    XenCommandCore &command_core_;
+    XenTimeline &timeline_;
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
-    CommandHistory command_history_;
+    CommandHistory command_history_{};
 };
 
 } // namespace xen::gui

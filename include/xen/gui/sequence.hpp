@@ -12,8 +12,8 @@
 
 #include <sequence/sequence.hpp>
 
-#include "../state.hpp"
-#include "homogenous_row.hpp"
+#include <xen/gui/homogenous_row.hpp>
+#include <xen/state.hpp>
 
 namespace xen::gui
 {
@@ -134,7 +134,7 @@ class Note : public Cell
     auto resized() -> void override
     {
         auto const bounds = getLocalBounds();
-        auto const width = bounds.getWidth();
+        auto const width = static_cast<float>(bounds.getWidth());
         auto const delay = note_.delay;
         auto const gate = note_.gate;
         auto const left_x = delay * width;

@@ -13,3 +13,6 @@
 [submodule "external/json"]
 	path = external/json
 	url = git@github.com:nlohmann/json.git
+[submodule "external/Catch2"]
+	path = external/Catch2
+	url = git@github.com:catchorg/Catch2.git

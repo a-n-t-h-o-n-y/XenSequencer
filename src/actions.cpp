@@ -1,4 +1,4 @@
-#include "actions.hpp"
+#include <xen/actions.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -14,8 +14,9 @@
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
-#include "serialize_state.hpp"
-#include "util.hpp"
+#include <xen/serialize_state.hpp>
+#include <xen/state.hpp>
+#include <xen/utility.hpp>
 
 namespace xen::action
 {
@@ -625,7 +626,8 @@ auto humanize_delays(XenTimeline const &tl, sequence::Pattern const &pattern,
     return state;
 }
 
-auto humanize_gates(XenTimeline const &tl, float amount) -> State
+auto humanize_gates(XenTimeline const &tl, sequence::Pattern const &pattern,
+                    float amount) -> State
 {
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
@@ -636,8 +638,8 @@ auto humanize_gates(XenTimeline const &tl, float amount) -> State
         return state;
     }
 
-    *selected =
-        sequence::modify::humanize_gate(*selected, std::clamp(amount, 0.f, 1.f));
+    *selected = sequence::modify::humanize_gate(*selected, pattern,
+                                                std::clamp(amount, 0.f, 1.f));
 
     return state;
 }

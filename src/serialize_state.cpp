@@ -1,4 +1,4 @@
-#include "serialize_state.hpp"
+#include <xen/serialize_state.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <sequence/sequence.hpp>
 
-#include "state.hpp"
+#include <xen/state.hpp>
 
 namespace sequence
 {

@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "state.hpp"
+#include <xen/state.hpp>
 
 namespace xen
 {

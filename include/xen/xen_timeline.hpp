@@ -1,7 +1,7 @@
 #pragma once
 
-#include "state.hpp"
-#include "timeline.hpp"
+#include <xen/state.hpp>
+#include <xen/timeline.hpp>
 
 namespace xen
 {

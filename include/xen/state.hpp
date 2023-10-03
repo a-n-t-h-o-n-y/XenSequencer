@@ -11,7 +11,7 @@
 #include <sequence/modify.hpp>
 #include <sequence/tuning.hpp>
 
-#include "input_mode.hpp"
+#include <xen/input_mode.hpp>
 
 namespace xen
 {

@@ -6,13 +6,16 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
 #include <sequence/time_signature.hpp>
 
-#include "input_mode.hpp"
-#include "util.hpp"
+#include <xen/input_mode.hpp>
+#include <xen/signature.hpp>
+#include <xen/string_manip.hpp>
+#include <xen/utility.hpp>
 
 namespace xen
 {
@@ -76,7 +79,7 @@ template <typename T = std::size_t>
         }
         else
         {
-            static_assert(always_false<T>::value, "Unsupported size_t.");
+            static_assert(xen::always_false<T>::value, "Unsupported size_t.");
         }
 
         // This verifies the entire string was parsed.
@@ -121,7 +124,7 @@ template <typename T = float>
         }
         else
         {
-            static_assert(always_false<T>::value, "Unsupported float.");
+            static_assert(xen::always_false<T>::value, "Unsupported float.");
         }
 
         // This verifies the entire string was parsed.
@@ -159,11 +162,6 @@ template <typename T = float>
     }
 }
 
-[[nodiscard]] inline auto parse_string(std::string const &x) -> std::string
-{
-    return x;
-}
-
 /**
  * @brief Parses a string into a TimeSignature.
  *
@@ -184,6 +182,9 @@ template <typename T = float>
     return ts;
 }
 
+/**
+ * @brief Parses a string into a type T object.
+ */
 template <typename T>
 [[nodiscard]] auto parse(std::string const &x) -> T
 {
@@ -225,10 +226,6 @@ template <typename T>
         }
         return result.value();
     }
-    else if constexpr (std::is_same_v<T, std::string>)
-    {
-        return parse_string(x);
-    }
     else if constexpr (std::is_same_v<T, sequence::TimeSignature>)
     {
         return parse_time_signature(x);
@@ -241,9 +238,53 @@ template <typename T>
     {
         return std::filesystem::path{x};
     }
+    else if constexpr (std::is_same_v<T, std::string>)
+    {
+        return x;
+    }
+    else if constexpr (std::is_same_v<T, std::string_view>)
+    {
+        return x;
+    }
     else
     {
-        static_assert(always_false<T>::value, "Unsupported type.");
+        static_assert(xen::always_false<T>::value, "Unsupported type.");
+    }
+}
+
+/**
+ * @brief Splits a string into arguments, considering quotes.
+ *
+ * @param s The string to split.
+ */
+[[nodiscard]] auto split_args(std::string const &s) -> std::vector<std::string>;
+
+/**
+ * @brief Extracts argument at index I from the given argument list.
+ *
+ * @tparam I The index of the argument to extract.
+ * @param args The argument list as strings.
+ * @param arg_infos The argument infos.
+ * @return auto The extracted argument.
+ *
+ * @throws std::invalid_argument if the argument is missing and no default value is
+ * provided.
+ */
+template <std::size_t I, typename T>
+[[nodiscard]] auto get_argument_value(std::vector<std::string> const &args,
+                                      ArgInfo<T> const &arg_info) -> T
+{
+    if (I < args.size())
+    {
+        return parse<T>(args[I]);
+    }
+    else if (arg_info.default_value.has_value())
+    {
+        return arg_info.default_value.value();
+    }
+    else
+    {
+        throw std::invalid_argument("Missing argument and no default value");
     }
 }
 

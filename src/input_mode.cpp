@@ -1,11 +1,11 @@
-#include "input_mode.hpp"
+#include <xen/input_mode.hpp>
 
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
-#include "parse_args.hpp"
-#include "util.hpp"
+#include <xen/parse_args.hpp>
+#include <xen/string_manip.hpp>
 
 namespace xen
 {

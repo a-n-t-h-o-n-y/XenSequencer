@@ -1,4 +1,4 @@
-#include "xen_processor.hpp"
+#include <xen/xen_processor.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -9,16 +9,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <sequence/measure.hpp>
 
-#include "midi.hpp"
-#include "xen_editor.hpp"
+#include <xen/midi.hpp>
+#include <xen/xen_editor.hpp>
 
 namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline{init_state(), {}}, copy_buffer{std::nullopt},
-      command_core{timeline, copy_buffer}, plugin_state_{init_state()},
-      last_rendered_time_{}
+    : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{}
 {
     this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
                            juce::ParameterID{"base_frequency", 1},

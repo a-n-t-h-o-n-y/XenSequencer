@@ -7,15 +7,16 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <signals_light/signal.hpp>
 
-#include "../command_core.hpp"
-#include "../key_core.hpp"
-#include "../message_type.hpp"
-#include "../state.hpp"
-#include "command_bar.hpp"
-#include "heading.hpp"
-#include "phrase_editor.hpp"
-#include "status_bar.hpp"
-// #include "tuning.hpp"
+#include <xen/command.hpp>
+#include <xen/gui/command_bar.hpp>
+#include <xen/gui/heading.hpp>
+#include <xen/gui/phrase_editor.hpp>
+#include <xen/gui/status_bar.hpp>
+#include <xen/key_core.hpp>
+#include <xen/message_type.hpp>
+#include <xen/state.hpp>
+#include <xen/xen_command_tree.hpp>
+// #include <xen/tuning.hpp>
 
 namespace xen::gui
 {
@@ -23,8 +24,7 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    explicit PluginWindow(XenCommandCore &command_core)
-        : command_bar_{command_core}, command_core_{command_core}
+    explicit PluginWindow(XenTimeline &tl) : timeline_{tl}, command_bar_{tl}
     {
         this->addAndMakeVisible(heading_);
         this->addAndMakeVisible(phrase_editor_);
@@ -57,13 +57,6 @@ class PluginWindow : public juce::Component
         command_bar_.on_escape_request.connect(
             [this] { phrase_editor_.grabKeyboardFocus(); });
 
-        phrase_editor_.on_command.connect([this](std::string const &command) {
-            // TODO should this send the message to the command bar? but selection etc..
-            // shouldn't display?
-            // std::cerr << command_core_.execute_command(command) << std::endl;
-            command_core_.execute_command(command);
-        });
-
         auto slot_change_focus =
             sl::Slot<void(std::string const &)>{[this](std::string const &name) {
                 if (name == "commandbar")
@@ -85,7 +78,7 @@ class PluginWindow : public juce::Component
                 }
             }};
         slot_change_focus.track(lifetime_);
-        command_core_.on_focus_change_request.connect(slot_change_focus);
+        on_focus_change_request.connect(slot_change_focus);
     }
 
   public:
@@ -107,8 +100,10 @@ class PluginWindow : public juce::Component
             .on_command.connect([this](std::string const &command) {
                 // TODO should this send the message to the command bar? but
                 // selection etc.. shouldn't display?
-                // std::cerr << command_core_.execute_command(command) << std::endl;
-                command_core_.execute_command(command);
+                std::cerr << execute(command_tree, timeline_,
+                                     normalize_command_string(command))
+                                 .second
+                          << std::endl;
             });
 
         // TODO
@@ -135,6 +130,8 @@ class PluginWindow : public juce::Component
     }
 
   private:
+    XenTimeline &timeline_;
+
     gui::Heading heading_{"XenSequencer"};
     gui::PhraseEditor phrase_editor_;
     // TODO
@@ -142,7 +139,6 @@ class PluginWindow : public juce::Component
     gui::CommandBar command_bar_;
     gui::StatusBar status_bar_;
 
-    XenCommandCore &command_core_;
     sl::Lifetime lifetime_;
 };
 

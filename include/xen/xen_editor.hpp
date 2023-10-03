@@ -6,11 +6,11 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <signals_light/signal.hpp>
 
-#include "command_core.hpp"
-#include "gui/plugin_window.hpp"
-#include "key_core.hpp"
-#include "state.hpp"
-#include "xen_processor.hpp"
+#include <xen/gui/plugin_window.hpp>
+#include <xen/key_core.hpp>
+#include <xen/state.hpp>
+#include <xen/xen_processor.hpp>
+#include <xen/xen_timeline.hpp>
 
 namespace xen
 {
@@ -30,7 +30,7 @@ class XenEditor : public juce::AudioProcessorEditor
     auto update_key_listeners(std::string const &filename) -> void;
 
   private:
-    XenProcessor const &processor_;
+    XenTimeline const &timeline_;
 
     gui::PluginWindow plugin_window_;
 

@@ -5,7 +5,7 @@
 #include <sequence/measure.hpp>
 #include <sequence/sequence.hpp>
 
-#include "state.hpp"
+#include <xen/state.hpp>
 
 namespace xen
 {

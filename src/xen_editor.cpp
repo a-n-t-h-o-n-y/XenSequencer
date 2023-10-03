@@ -1,15 +1,15 @@
-#include "xen_editor.hpp"
+#include <xen/xen_editor.hpp>
 
-#include "key_core.hpp"
-#include "state.hpp"
-#include "user_directory.hpp"
-#include "xen_processor.hpp"
+#include <xen/key_core.hpp>
+#include <xen/state.hpp>
+#include <xen/user_directory.hpp>
+#include <xen/xen_processor.hpp>
 
 namespace xen
 {
 
 XenEditor::XenEditor(XenProcessor &p)
-    : AudioProcessorEditor{p}, processor_{p}, plugin_window_{p.command_core}
+    : AudioProcessorEditor{p}, timeline_{p.timeline}, plugin_window_{p.timeline}
 {
     this->setResizable(true, true);
     this->setSize(1000, 300);
@@ -24,12 +24,13 @@ XenEditor::XenEditor(XenProcessor &p)
             }};
         slot_update.track(lifetime_);
 
+        // p.timeline because its mutable
         p.timeline.on_state_change.connect(slot_update);
         p.timeline.on_aux_change.connect(slot_update);
     }
 
     // Initialize GUI
-    auto const [state, aux] = p.timeline.get_state();
+    auto const [state, aux] = timeline_.get_state();
     plugin_window_.update(state, aux);
 
     // TODO wrap with try block and figure out how to display error
@@ -50,7 +51,7 @@ void XenEditor::resized()
 
 auto XenEditor::update_key_listeners(std::string const &filepath) -> void
 {
-    key_config_listeners_ = build_key_listeners(filepath, processor_.timeline);
+    key_config_listeners_ = build_key_listeners(filepath, timeline_);
     plugin_window_.set_key_listeners(key_config_listeners_);
 }
 

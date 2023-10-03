@@ -1,4 +1,4 @@
-#include "sequence.hpp"
+#include <xen/gui/sequence.hpp>
 
 #include <cstddef>
 #include <variant>
@@ -8,7 +8,7 @@
 
 #include <sequence/sequence.hpp>
 
-#include "../state.hpp"
+#include <xen/state.hpp>
 
 namespace xen::gui
 {
@@ -54,7 +54,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     auto const total_height = 2 * text_height + 2 * padding;
 
     // starting y position to center the content
-    auto const start_y_position = (getHeight() - total_height) / 2;
+    auto const start_y_position = (static_cast<float>(getHeight()) - total_height) / 2;
     auto const interval_text_y_position = start_y_position;
     auto const line_y_position = interval_text_y_position + text_height + padding;
     auto const tuning_length_text_y_position = line_y_position + padding;

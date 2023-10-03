@@ -1,4 +1,4 @@
-#include "key_core.hpp"
+#include <xen/key_core.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -13,7 +13,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <yaml-cpp/yaml.h>
 
-#include "util.hpp"
+#include <xen/utility.hpp>
 
 namespace
 {

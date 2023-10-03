@@ -1,30 +1,20 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-#include <sequence/time_signature.hpp>
-
-#include "input_mode.hpp"
-#include "util.hpp"
+#include <xen/utility.hpp>
 
 namespace xen
 {
-
-/**
- * @brief Holds display information about a command signature.
- *
- * Used to display pieces of the command as it is typed into the CommandBar.
- */
-struct SignatureDisplay
-{
-    std::string name;
-    std::vector<std::string> arguments;
-};
 
 /**
  * @brief A struct that contains information about a command argument.
@@ -36,12 +26,32 @@ struct SignatureDisplay
 template <typename T>
 struct ArgInfo
 {
-    std::string name;
+    std::string_view name;
     std::optional<T> default_value = std::nullopt;
 };
 
 template <typename... Args>
 using ArgInfos = std::tuple<ArgInfo<Args>...>;
+
+template <typename ID_t, typename... Args>
+struct Signature
+{
+    ID_t id;
+    ArgInfos<Args...> args;
+};
+
+/**
+ * @brief Holds display information about a command signature.
+ *
+ * Used to display pieces of the command as it is typed into the CommandBar.
+ */
+struct SignatureDisplay
+{
+    std::string id;
+    std::vector<std::string> arguments;
+};
+
+// -----------------------------------------------------------------------------
 
 /**
  * @brief Stringify the given template type parameter.
@@ -100,7 +110,7 @@ template <typename T>
  * @return std::string The argument info as string.
  */
 template <typename T>
-auto arg_info_to_string(ArgInfo<T> const &arg) -> std::string
+[[nodiscard]] auto arg_info_to_string(ArgInfo<T> const &arg) -> std::string
 {
     auto os = std::ostringstream{};
     os << type_name<T>() << ": " << arg.name;
@@ -122,11 +132,14 @@ auto arg_info_to_string(ArgInfo<T> const &arg) -> std::string
     return os.str();
 }
 
-template <typename... Args, std::size_t... I>
-auto generate_signature(std::string name, ArgInfos<Args...> const &arg_infos,
-                        std::index_sequence<I...>) -> SignatureDisplay
+template <typename ID_t, typename... Args, std::size_t... I>
+[[nodiscard]] auto generate_display(ID_t const &id, ArgInfos<Args...> const &arg_infos,
+                                    std::index_sequence<I...>) -> SignatureDisplay
 {
-    auto display = SignatureDisplay{name, {}};
+    auto oss = std::ostringstream{};
+    oss << id;
+
+    auto display = SignatureDisplay{oss.str(), {}};
 
     auto add_arg = [&display](auto const &str) {
         display.arguments.push_back('[' + str + ']');
@@ -141,38 +154,16 @@ auto generate_signature(std::string name, ArgInfos<Args...> const &arg_infos,
  * @brief Generate a signature display for the given command name and arg infos.
  *
  * @tparam Args The types of the arguments.
- * @param name The name of the command.
+ * @param id The id of the command.
  * @param arg_infos The argument infos.
  * @return SignatureDisplay The generated signature display.
  */
-template <typename... Args>
-auto generate_signature(std::string const &name, ArgInfos<Args...> const &arg_infos)
+template <typename ID_t, typename... Args>
+[[nodiscard]] auto generate_display(Signature<ID_t, Args...> const &signature)
     -> SignatureDisplay
 {
-    return generate_signature(name, arg_infos, std::index_sequence_for<Args...>());
-}
-
-template <typename T>
-[[nodiscard]] auto optional_to_string(std::optional<T> const &opt) -> std::string
-{
-    if (opt.has_value())
-    {
-        auto ss = std::stringstream{};
-        ss << *opt;
-        return ss.str();
-    }
-    return "";
-}
-
-template <typename... Args>
-[[nodiscard]] auto collect_default_args(ArgInfos<Args...> const &arg_infos)
-    -> std::vector<std::string>
-{
-    auto collect_fn = [](const auto &...args) {
-        return std::vector<std::string>{optional_to_string(args.default_value)...};
-    };
-
-    return std::apply(collect_fn, arg_infos);
+    return generate_display(signature.id, signature.args,
+                            std::index_sequence_for<Args...>());
 }
 
 } // namespace xen

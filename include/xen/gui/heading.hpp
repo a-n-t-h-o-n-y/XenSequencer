@@ -47,7 +47,7 @@ class Heading : public juce::Label
         this->juce::Label::setText(text, notificationType);
 
         float textHeight = this->getFont().getHeight();
-        this->setSize(getWidth(), static_cast<int>(textHeight + 2.f * padding_));
+        this->setSize(getWidth(), static_cast<int>(textHeight + 2.f * (float)padding_));
     }
 
   private:

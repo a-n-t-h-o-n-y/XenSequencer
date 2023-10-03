@@ -1,22 +1,13 @@
-#include "util.hpp"
+#include <xen/utility.hpp>
 
-#include <algorithm>
-#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 
 namespace xen
 {
-
-auto to_lower(std::string x) -> std::string
-{
-    std::transform(std::cbegin(x), std::cend(x), std::begin(x), ::tolower);
-    return x;
-}
 
 auto read_file_to_string(std::string const &filepath) -> std::string
 {

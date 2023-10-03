@@ -1,17 +1,16 @@
 #pragma once
 
 #include <chrono>
-#include <mutex>
-#include <optional>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <sequence/sequence.hpp>
 
-#include "plugin_processor.hpp"
-#include "state.hpp"
-#include "xen_command_core.hpp"
-#include "xen_timeline.hpp"
+#include <xen/command.hpp>
+#include <xen/plugin_processor.hpp>
+#include <xen/state.hpp>
+#include <xen/xen_command_tree.hpp>
+#include <xen/xen_timeline.hpp>
 
 namespace xen
 {
@@ -21,8 +20,6 @@ class XenProcessor : public PluginProcessor
   public:
     DAWState daw_state;
     XenTimeline timeline;
-    std::optional<sequence::Cell> copy_buffer;
-    XenCommandCore command_core;
 
   public:
     XenProcessor();
