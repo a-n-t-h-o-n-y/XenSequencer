@@ -116,62 +116,37 @@ auto get_sibling_count(sequence::Phrase const &phrase, SelectedState const &sele
 
 auto move_left(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
 {
-    using namespace sequence::utility;
+    if (selected.cell.empty()) // Change Measure
+    {
+        selected.measure =
+            (selected.measure > 0) ? selected.measure - 1 : phrase.size() - 1;
+    }
+    else // Change Cell
+    {
+        auto const parent_cells_size = get_sibling_count(phrase, selected);
 
-    return std::visit(overload{
-                          [&](sequence::Note const &) { return selected; },
-                          [&](sequence::Rest const &) { return selected; },
-                          [&](sequence::Sequence const &) {
-                              if (selected.cell.empty()) // Change Measure
-                              {
-                                  selected.measure = (selected.measure > 0)
-                                                         ? selected.measure - 1
-                                                         : phrase.size() - 1;
-                              }
-                              else // Change Cell
-                              {
-                                  auto const parent_cells_size =
-                                      get_sibling_count(phrase, selected);
-
-                                  selected.cell.back() = (selected.cell.back() > 0)
-                                                             ? selected.cell.back() - 1
-                                                             : parent_cells_size - 1;
-                              }
-                              return selected;
-                          },
-                      },
-                      phrase[selected.measure].cell);
+        selected.cell.back() = (selected.cell.back() > 0) ? selected.cell.back() - 1
+                                                          : parent_cells_size - 1;
+    }
+    return selected;
 }
 
 auto move_right(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
 {
-    using namespace sequence::utility;
+    if (selected.cell.empty()) // Change Measure
+    {
+        selected.measure =
+            (selected.measure + 1 < phrase.size()) ? selected.measure + 1 : 0;
+    }
+    else // Change Cell
+    {
+        auto const parent_cells_size = get_sibling_count(phrase, selected);
 
-    return std::visit(overload{
-                          [&](sequence::Note const &) { return selected; },
-                          [&](sequence::Rest const &) { return selected; },
-                          [&](sequence::Sequence const &) {
-                              if (selected.cell.empty()) // Change Measure
-                              {
-                                  selected.measure =
-                                      (selected.measure + 1 < phrase.size())
-                                          ? selected.measure + 1
-                                          : 0;
-                              }
-                              else // Change Cell
-                              {
-                                  auto const parent_cells_size =
-                                      get_sibling_count(phrase, selected);
-
-                                  selected.cell.back() =
-                                      (selected.cell.back() + 1 < parent_cells_size)
-                                          ? selected.cell.back() + 1
-                                          : 0;
-                              }
-                              return selected;
-                          },
-                      },
-                      phrase[selected.measure].cell);
+        selected.cell.back() = (selected.cell.back() + 1 < parent_cells_size)
+                                   ? selected.cell.back() + 1
+                                   : 0;
+    }
+    return selected;
 }
 
 auto move_up(SelectedState selected) -> SelectedState

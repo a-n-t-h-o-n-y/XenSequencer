@@ -187,7 +187,8 @@ auto add_measure(XenTimeline const &tl, sequence::TimeSignature ts)
     -> std::pair<AuxState, State>
 {
     auto state = tl.get_state().first;
-    state.phrase.push_back({sequence::Sequence{{sequence::Rest{}}}, ts});
+    state.phrase.push_back(sequence::Measure{sequence::Rest{}, ts});
+    // state.phrase.push_back({sequence::Sequence{{sequence::Rest{}}}, ts});
     return {{{state.phrase.size() - 1, {}}}, state};
 }
 

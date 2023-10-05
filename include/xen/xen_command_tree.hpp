@@ -231,6 +231,29 @@ inline auto const command_tree = cmd_group(
     )),
 
     pattern(cmd_group(
+        "fill", ArgInfo<std::string>{"type"},
+
+        cmd(
+            "note",
+            [](XenTimeline &tl, sequence::Pattern const& pattern, int interval,
+               float velocity, float delay, float gate) {
+                increment_state(tl, &sequence::modify::notes_fill, pattern, sequence::Note{interval,
+                                velocity, delay, gate});
+                return msuccess("Filled With Notes");
+            }, ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
+            ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}
+        ),
+
+        cmd(
+            "rest",
+            [](XenTimeline &tl, sequence::Pattern const& pattern) {
+                increment_state(tl, &sequence::modify::rests_fill, pattern);
+                return msuccess("Filled With Rests");
+            }
+        )
+    )),
+
+    pattern(cmd_group(
         "set", ArgInfo<std::string>{"trait"},
 
         cmd(
