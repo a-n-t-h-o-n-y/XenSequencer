@@ -92,6 +92,12 @@ template <typename ID_t, typename Fn, typename... Args>
 [[nodiscard]] auto is_partial_match(Command<ID_t, Fn, Args...> const &command,
                                     std::string const &command_str) -> bool
 {
+    // Don't match if command_str contains more than one word.
+    if (word_count(command_str) != 1)
+    {
+        return false;
+    }
+
     // Don't match if there is a trailing space
     if (command_str.empty() || std::isspace(command_str.back()))
     {
@@ -108,6 +114,12 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group,
     std::string const &command_str) -> bool
 {
+    // Don't match if command_str contains more than one word.
+    if (word_count(command_str) != 1)
+    {
+        return false;
+    }
+
     // Don't match if there is a trailing space
     if (command_str.empty() || std::isspace(command_str.back()))
     {
@@ -167,20 +179,22 @@ template <typename Command_t>
 
 template <typename ID_t, typename Fn, typename... Args>
 [[nodiscard]] auto complete_id(Command<ID_t, Fn, Args...> const &command,
-                               std::string const &partial_id) -> std::string
+                               std::string const &command_str) -> std::string
 {
     auto oss = std::ostringstream{};
     oss << command.signature.id;
+    auto const partial_id = strip(get_first_word(command_str));
     return oss.str().substr(strip(partial_id).size());
 }
 
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto complete_id(
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group,
-    std::string const &partial_id) -> std::string
+    std::string const &command_str) -> std::string
 {
     auto oss = std::ostringstream{};
     oss << command_group.id;
+    auto const partial_id = strip(get_first_word(command_str));
     return oss.str().substr(strip(partial_id).size());
 }
 

@@ -134,6 +134,7 @@ TEST_CASE("Command", "[generate_guide_text]")
     CHECK(generate_guide_text("randomize gate 0.3 ") == "[Float: max=0.95]");
     CHECK(generate_guide_text("randomize gate 0.3     ") == "[Float: max=0.95]");
     CHECK(generate_guide_text("randomize gate 0.3 0.5") == "");
+    CHECK(generate_guide_text("randomize asdfsd") == "");
 }
 
 TEST_CASE("Command", "[complete_id]")
@@ -149,4 +150,5 @@ TEST_CASE("Command", "[complete_id]")
     CHECK(complete_id("rand ") == "");
     CHECK(complete_id("add") == "Measure");
     CHECK(complete_id("addm") == "easure");
+    CHECK(complete_id("addm 12343") == "");
 }

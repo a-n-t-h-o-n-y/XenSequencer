@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 #include <sequence/pattern.hpp>
@@ -12,6 +14,45 @@
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_timeline.hpp>
+
+namespace xen
+{
+
+/**
+ * @brief Increment the state by applying a function to the selected Cell.
+ *
+ * This is a convinience function for Command implementations. It will create a copy of
+ * the current state, call the given funtion with the selected cell as first parameter,
+ * then save this state to the timeline.
+ *
+ * @param tl The timeline to operate on.
+ * @param fn The function to apply to the selected Cell.
+ * @param args The arguments to pass to the function.
+ * @return State The new state.
+ * @throw std::runtime_error If no Cell is selected.
+ */
+template <typename Fn, typename... Args>
+auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
+{
+    static_assert(
+        std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>,
+        "Function must be invocable with a Cell and Args... and return a Cell.");
+
+    auto const aux = tl.get_aux_state();
+    auto state = tl.get_state().first;
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+
+    if (selected == nullptr)
+    {
+        throw std::runtime_error("No Cell Selected");
+    }
+
+    *selected = std::forward<Fn>(fn)(*selected, std::forward<Args>(args)...);
+
+    tl.add_state(std::move(state));
+}
+
+} // namespace xen
 
 namespace xen::action
 {
@@ -37,36 +78,15 @@ namespace xen::action
 
 [[nodiscard]] auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
 
-[[nodiscard]] auto note(XenTimeline const &tl, int interval, float velocity,
-                        float delay, float gate) -> State;
+[[nodiscard]] auto lift(XenTimeline const &tl) -> std::pair<State, AuxState>;
 
-[[nodiscard]] auto rest(XenTimeline const &tl) -> State;
+[[nodiscard]] auto shift_note_octave(XenTimeline const &tl,
+                                     sequence::Pattern const &pattern, int amount)
+    -> State;
 
-[[nodiscard]] auto flip(XenTimeline const &tl) -> State;
-
-[[nodiscard]] auto split(XenTimeline const &tl, std::size_t count) -> State;
-
-[[nodiscard]] auto extract(XenTimeline const &tl) -> std::pair<State, AuxState>;
-
-[[nodiscard]] auto shift_note(XenTimeline const &tl, int amount) -> State;
-
-[[nodiscard]] auto shift_note_octave(XenTimeline const &tl, int amount) -> State;
-
-[[nodiscard]] auto shift_velocity(XenTimeline const &tl, float amount) -> State;
-
-[[nodiscard]] auto shift_delay(XenTimeline const &tl, float amount) -> State;
-
-[[nodiscard]] auto shift_gate(XenTimeline const &tl, float amount) -> State;
-
-[[nodiscard]] auto set_note(XenTimeline const &tl, int interval) -> State;
-
-[[nodiscard]] auto set_note_octave(XenTimeline const &tl, int octave) -> State;
-
-[[nodiscard]] auto set_velocity(XenTimeline const &tl, float velocity) -> State;
-
-[[nodiscard]] auto set_delay(XenTimeline const &tl, float delay) -> State;
-
-[[nodiscard]] auto set_gate(XenTimeline const &tl, float gate) -> State;
+[[nodiscard]] auto set_note_octave(XenTimeline const &tl,
+                                   sequence::Pattern const &pattern, int octave)
+    -> State;
 
 [[nodiscard]] auto add_measure(XenTimeline const &tl, sequence::TimeSignature ts)
     -> std::pair<AuxState, State>;
@@ -76,44 +96,5 @@ namespace xen::action
 auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
 
 [[nodiscard]] auto load_state(std::string const &filepath) -> State;
-
-[[nodiscard]] auto rotate(XenTimeline const &tl, int amount) -> State;
-
-[[nodiscard]] auto reverse(XenTimeline const &tl) -> State;
-
-[[nodiscard]] auto mirror(XenTimeline const &tl, int center_note) -> State;
-
-[[nodiscard]] auto shuffle(XenTimeline const &tl) -> State;
-
-[[nodiscard]] auto compress(XenTimeline const &tl, std::size_t amount) -> State;
-
-[[nodiscard]] auto stretch(XenTimeline const &tl, std::size_t amount) -> State;
-
-[[nodiscard]] auto quantize(XenTimeline const &tl) -> State;
-
-[[nodiscard]] auto swing(XenTimeline const &tl, float amount) -> State;
-
-[[nodiscard]] auto randomize_notes(XenTimeline const &tl, int min, int max) -> State;
-
-[[nodiscard]] auto randomize_velocities(XenTimeline const &tl, float min, float max)
-    -> State;
-
-[[nodiscard]] auto randomize_delays(XenTimeline const &tl, float min, float max)
-    -> State;
-
-[[nodiscard]] auto randomize_gates(XenTimeline const &tl, float min, float max)
-    -> State;
-
-[[nodiscard]] auto humanize_velocities(XenTimeline const &tl,
-                                       sequence::Pattern const &pattern, float amount)
-    -> State;
-
-[[nodiscard]] auto humanize_delays(XenTimeline const &tl,
-                                   sequence::Pattern const &pattern, float amount)
-    -> State;
-
-[[nodiscard]] auto humanize_gates(XenTimeline const &tl,
-                                  sequence::Pattern const &pattern, float amount)
-    -> State;
 
 } // namespace xen::action

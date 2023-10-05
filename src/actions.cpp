@@ -134,65 +134,14 @@ auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
     return aux;
 }
 
-auto note(XenTimeline const &tl, int interval, float velocity, float delay, float gate)
-    -> State
+auto lift(XenTimeline const &tl) -> std::pair<State, AuxState>
 {
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::note(interval, velocity, delay, gate);
-    }
-    return state;
-}
-
-auto rest(XenTimeline const &tl) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::rest();
-    }
-    return state;
-}
-
-auto flip(XenTimeline const &tl) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::flip(*cell);
-    }
-    return state;
-}
-
-auto split(XenTimeline const &tl, std::size_t count) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::repeat(*cell, count);
-    }
-    return state;
-}
-
-auto extract(XenTimeline const &tl) -> std::pair<State, AuxState>
-{
-    // TODO
-    // FIXME Extracting first cell in a sequence gives an empty sequence or cell?
     auto aux = tl.get_aux_state();
     auto state = tl.get_state().first;
     sequence::Cell *parent = get_parent_of_selected(state.phrase, aux.selected);
     if (parent == nullptr)
     {
-        throw std::runtime_error{"Can't extract top level Cell."};
+        throw std::runtime_error{"Can't lift top level Cell."};
     }
 
     auto *cell = get_selected_cell(state.phrase, aux.selected);
@@ -205,19 +154,8 @@ auto extract(XenTimeline const &tl) -> std::pair<State, AuxState>
     return {state, action::move_up(tl)};
 }
 
-auto shift_note(XenTimeline const &tl, int amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::shift_pitch(*cell, amount);
-    }
-    return state;
-}
-
-auto shift_note_octave(XenTimeline const &tl, int amount) -> State
+auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
+                       int amount) -> State
 {
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
@@ -225,60 +163,14 @@ auto shift_note_octave(XenTimeline const &tl, int amount) -> State
     if (cell)
     {
         auto const tuning_length = state.tuning.intervals.size();
-        *cell = sequence::modify::shift_pitch(*cell, amount * (int)tuning_length);
+        *cell = sequence::modify::shift_interval(*cell, pattern,
+                                                 amount * (int)tuning_length);
     }
     return state;
 }
 
-auto shift_velocity(XenTimeline const &tl, float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::shift_velocity(*cell, amount);
-    }
-    return state;
-}
-
-auto shift_delay(XenTimeline const &tl, float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::shift_delay(*cell, amount);
-    }
-    return state;
-}
-
-auto shift_gate(XenTimeline const &tl, float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::shift_gate(*cell, amount);
-    }
-    return state;
-}
-
-auto set_note(XenTimeline const &tl, int interval) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::set_pitch(*cell, interval);
-    }
-    return state;
-}
-
-auto set_note_octave(XenTimeline const &tl, int octave) -> State
+auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
+                     int octave) -> State
 {
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
@@ -286,43 +178,7 @@ auto set_note_octave(XenTimeline const &tl, int octave) -> State
     auto *cell = get_selected_cell(state.phrase, aux.selected);
     if (cell)
     {
-        *cell = sequence::modify::set_octave(*cell, octave, tuning_length);
-    }
-    return state;
-}
-
-auto set_velocity(XenTimeline const &tl, float velocity) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::set_velocity(*cell, velocity);
-    }
-    return state;
-}
-
-auto set_delay(XenTimeline const &tl, float delay) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::set_delay(*cell, delay);
-    }
-    return state;
-}
-
-auto set_gate(XenTimeline const &tl, float gate) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::set_gate(*cell, gate);
+        *cell = sequence::modify::set_octave(*cell, pattern, octave, tuning_length);
     }
     return state;
 }
@@ -392,256 +248,6 @@ auto load_state(std::string const &filepath) -> State
 {
     auto const json_str = read_file_to_string(filepath);
     return deserialize(json_str);
-}
-
-auto rotate(XenTimeline const &tl, int amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::rotate(*selected, amount);
-
-    return state;
-}
-
-auto reverse(XenTimeline const &tl) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::reverse(*selected);
-
-    return state;
-}
-
-auto mirror(XenTimeline const &tl, int center_note) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::mirror(*selected, center_note);
-
-    return state;
-}
-
-auto shuffle(XenTimeline const &tl) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::shuffle(*selected);
-
-    return state;
-}
-
-auto compress(XenTimeline const &tl, std::size_t amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::compress(*selected, amount);
-
-    return state;
-}
-
-auto stretch(XenTimeline const &tl, std::size_t amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::stretch(*selected, amount);
-
-    return state;
-}
-
-auto quantize(XenTimeline const &tl) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::quantize(*selected);
-
-    return state;
-}
-
-auto swing(XenTimeline const &tl, float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::swing(*selected, std::clamp(amount, 0.f, 1.f));
-
-    return state;
-}
-
-auto randomize_notes(XenTimeline const &tl, int min, int max) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::randomize_intervals(*selected, min, max);
-
-    return state;
-}
-
-auto randomize_velocities(XenTimeline const &tl, float min, float max) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::randomize_velocity(
-        *selected, std::clamp(min, 0.f, 1.f), std::clamp(max, 0.f, 1.f));
-
-    return state;
-}
-
-[[nodiscard]] auto randomize_delays(XenTimeline const &tl, float min, float max)
-    -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::randomize_delay(*selected, std::clamp(min, 0.f, 1.f),
-                                                  std::clamp(max, 0.f, 1.f));
-
-    return state;
-}
-
-auto randomize_gates(XenTimeline const &tl, float min, float max) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::randomize_gate(*selected, std::clamp(min, 0.f, 1.f),
-                                                 std::clamp(max, 0.f, 1.f));
-
-    return state;
-}
-
-auto humanize_velocities(XenTimeline const &tl, sequence::Pattern const &pattern,
-                         float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::humanize_velocity(*selected, pattern,
-                                                    std::clamp(amount, 0.f, 1.f));
-
-    return state;
-}
-
-auto humanize_delays(XenTimeline const &tl, sequence::Pattern const &pattern,
-                     float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::humanize_delay(*selected, pattern,
-                                                 std::clamp(amount, 0.f, 1.f));
-
-    return state;
-}
-
-auto humanize_gates(XenTimeline const &tl, sequence::Pattern const &pattern,
-                    float amount) -> State
-{
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-
-    if (selected == nullptr)
-    {
-        return state;
-    }
-
-    *selected = sequence::modify::humanize_gate(*selected, pattern,
-                                                std::clamp(amount, 0.f, 1.f));
-
-    return state;
 }
 
 } // namespace xen::action

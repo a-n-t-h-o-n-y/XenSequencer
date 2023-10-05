@@ -89,13 +89,16 @@ struct DAWState
         auto measure = seq::create_measure(seq::TimeSignature{4, 4});
         measure.cell = seq::generate::full(4, seq::Note{0, 1.0, 0.f, 0.8f});
 
-        measure.cell = seq::modify::randomize_intervals(measure.cell, -40, 40);
-        measure.cell = seq::modify::randomize_velocity(measure.cell, 0.f, 1.f);
-        measure.cell = seq::modify::randomize_delay(measure.cell, 0.f, 0.1f);
-        measure.cell = seq::modify::randomize_gate(measure.cell, 0.9f, 1.f);
+        measure.cell =
+            seq::modify::randomize_intervals(measure.cell, {0, {1}}, -40, 40);
+        measure.cell =
+            seq::modify::randomize_velocity(measure.cell, {0, {1}}, 0.f, 1.f);
+        measure.cell = seq::modify::randomize_delay(measure.cell, {0, {1}}, 0.f, 0.1f);
+        measure.cell = seq::modify::randomize_gate(measure.cell, {0, {1}}, 0.9f, 1.f);
         if (i % 2 != 1)
         {
-            measure.cell = seq::modify::randomize_intervals(measure.cell, -20, 20);
+            measure.cell =
+                seq::modify::randomize_intervals(measure.cell, {0, {1}}, -20, 20);
 
             std::get<sequence::Sequence>(measure.cell).cells[3] = seq::Sequence{{
                 seq::Note{5, 0.75f * (i / 2.f), 0.f, 0.3f},

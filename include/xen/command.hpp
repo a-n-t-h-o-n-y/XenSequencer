@@ -30,7 +30,7 @@ namespace xen
 [[nodiscard]] inline auto normalize_command_string(std::string const &command_str)
     -> std::string
 {
-    return to_lower(minimize_spaces(command_str));
+    return minimize_spaces(command_str);
 }
 
 [[nodiscard]] inline auto normalize_id(std::string const &x) -> std::string
