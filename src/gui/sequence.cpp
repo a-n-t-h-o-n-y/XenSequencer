@@ -14,9 +14,10 @@ namespace xen::gui
 {
 
 Sequence::Sequence(sequence::Sequence const &seq, State const &state)
-    : cells_{juce::FlexItem{}.withFlex(1.f), true}
+    : cells_{juce::FlexItem{}.withFlex(1.f), false}
 {
     this->addAndMakeVisible(cells_);
+    this->addAndMakeVisible(indicator_);
 
     auto const build_and_allocate_cell = BuildAndAllocateCell{state};
 
@@ -29,7 +30,16 @@ Sequence::Sequence(sequence::Sequence const &seq, State const &state)
 
 auto NoteInterval::paint(juce::Graphics &g) -> void
 {
-    g.fillAll(bg_color_);
+    constexpr auto max_radius = 25.f;
+    constexpr auto min_radius = 0.f;
+
+    auto const bounds = getLocalBounds().toFloat().reduced(1.f, 2.f);
+    auto const width = static_cast<float>(getWidth());
+    auto const corner_radius = juce::jlimit(
+        min_radius, max_radius, juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
+
+    g.setColour(bg_color_);
+    g.fillRoundedRectangle(bounds, corner_radius);
 
     // define text and line characteristics
     auto const font = juce::Font{16.f}.boldened();
@@ -62,6 +72,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     auto const line_end_x = getWidth() - padding;
 
     // draw the interval text
+    g.setColour(text_color);
     g.drawText(interval_text, (getWidth() - text_width_1) / 2,
                (int)interval_text_y_position, text_width_1, (int)text_height,
                juce::Justification::centred);

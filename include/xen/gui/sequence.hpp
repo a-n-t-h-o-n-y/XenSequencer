@@ -44,8 +44,16 @@ class Cell : public juce::Component
     {
         if (selected_)
         {
+            constexpr auto thickness = 3;
+            constexpr auto margin = 4;
+
+            float const y_offset =
+                static_cast<float>(this->getHeight() - (thickness / 2));
+            float const x_start = margin;
+            float const x_end = static_cast<float>(this->getWidth() - margin);
+
             g.setColour(juce::Colours::yellow);
-            g.drawRect(getLocalBounds(), 3);
+            g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
         }
     }
 
@@ -71,6 +79,22 @@ class Rest : public Cell
         label_.setBounds(this->getLocalBounds());
     }
 
+    auto paint(juce::Graphics &g) -> void override
+    {
+        constexpr auto max_radius = 25.f;
+        constexpr auto min_radius = 0.f;
+
+        auto const bounds = getLocalBounds().toFloat().reduced(1.f, 2.f);
+        auto const width = static_cast<float>(getWidth());
+        auto const corner_radius =
+            juce::jlimit(min_radius, max_radius,
+                         juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
+        auto const line_thickness = 1.f;
+
+        g.setColour(juce::Colours::white);
+        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+    }
+
   private:
     juce::Label label_{"R", "R"};
 };
@@ -91,8 +115,9 @@ class NoteInterval : public juce::Component
   private:
     auto set_velocity(float vel) -> void
     {
-        auto const brightness = std::lerp(0.3f, 1.f, vel);
-        bg_color_ = juce::Colour{0xFFFF5B00}.withBrightness(brightness);
+        auto const brightness = std::lerp(0.5f, 1.f, vel);
+        // old color: FFFF5B00
+        bg_color_ = juce::Colour{0xFF0ad0f5}.withBrightness(brightness);
         this->repaint();
     }
 
@@ -149,6 +174,23 @@ class Note : public Cell
     NoteInterval interval_box_;
 };
 
+class SequenceIndicator : public juce::Component
+{
+  protected:
+    void paint(juce::Graphics &g) override
+    {
+        constexpr auto margin = 4;
+
+        float const y_offset = this->getHeight() / 2.f;
+        float const x_start = margin;
+        float const x_end = static_cast<float>(this->getWidth() - margin);
+
+        g.setColour(juce::Colours::powderblue);
+        g.drawLine(x_start, y_offset, x_end, y_offset,
+                   static_cast<float>(this->getHeight() - 2));
+    }
+};
+
 class Sequence : public Cell
 {
   public:
@@ -170,11 +212,18 @@ class Sequence : public Cell
   protected:
     auto resized() -> void override
     {
-        cells_.setBounds(this->getLocalBounds());
+        auto flexbox = juce::FlexBox{};
+        flexbox.flexDirection = juce::FlexBox::Direction::column;
+
+        flexbox.items.add(juce::FlexItem(indicator_).withHeight(4.f));
+        flexbox.items.add(juce::FlexItem(cells_).withFlex(1.f));
+
+        flexbox.performLayout(this->getLocalBounds());
     }
 
   private:
     HomogenousRow<Cell> cells_;
+    SequenceIndicator indicator_;
 };
 
 class BuildAndAllocateCell
