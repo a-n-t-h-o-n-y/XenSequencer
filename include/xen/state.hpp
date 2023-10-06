@@ -61,11 +61,9 @@ struct DAWState
 
 [[nodiscard]] inline auto init_state() -> State
 {
-    namespace seq = sequence;
     return {
-        // seq::Phrase{seq::create_measure(seq::TimeSignature{4, 4})},
-        {},
-        seq::Tuning{
+        {{sequence::Rest{}, sequence::TimeSignature{4, 4}}},
+        sequence::Tuning{
             {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
             1200,
         },
