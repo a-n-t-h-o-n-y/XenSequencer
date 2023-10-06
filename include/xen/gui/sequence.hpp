@@ -92,7 +92,6 @@ class Rest : public Cell
                          juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
         auto const line_thickness = 2.f;
 
-        // g.setColour(juce::Colours::white);
         g.setColour(juce::Colours::powderblue);
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
     }
