@@ -46,11 +46,10 @@ class Cell : public juce::Component
     {
         if (selected_)
         {
-            constexpr auto thickness = 3;
+            constexpr auto thickness = 2;
             constexpr auto margin = 4;
 
-            float const y_offset =
-                static_cast<float>(this->getHeight() - (thickness / 2));
+            float const y_offset = 0;
             float const x_start = margin;
             float const x_end = static_cast<float>(this->getWidth() - margin);
 
@@ -86,7 +85,7 @@ class Rest : public Cell
         constexpr auto max_radius = 25.f;
         constexpr auto min_radius = 10.f;
 
-        auto const bounds = getLocalBounds().toFloat().reduced(1.f, 2.f);
+        auto const bounds = getLocalBounds().toFloat().reduced(2.f, 4.f);
         auto const width = static_cast<float>(getWidth());
         auto const corner_radius =
             juce::jlimit(min_radius, max_radius,
@@ -303,15 +302,17 @@ class Sequence : public Cell
         auto flexbox = juce::FlexBox{};
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(indicator_).withHeight(8.f));
+        flexbox.items.add(juce::FlexItem(top_indicator_).withHeight(8.f));
         flexbox.items.add(juce::FlexItem(cells_).withFlex(1.f));
+        flexbox.items.add(juce::FlexItem(bottom_indicator_).withHeight(8.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }
 
   private:
+    SequenceIndicator top_indicator_;
     HomogenousRow<Cell> cells_;
-    SequenceIndicator indicator_;
+    SequenceIndicator bottom_indicator_;
 };
 
 class BuildAndAllocateCell
