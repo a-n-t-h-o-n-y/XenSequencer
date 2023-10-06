@@ -119,14 +119,14 @@ class PluginWindow : public juce::Component
         flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
-        if (command_bar_.isVisible())
-        {
-            flexbox.items.add(juce::FlexItem(command_bar_).withHeight(23.f));
-        }
         flexbox.items.add(
             juce::FlexItem(status_bar_).withHeight(ModeDisplay::preferred_size));
 
         flexbox.performLayout(this->getLocalBounds());
+
+        // Overlaps, so outside of flexbox
+        command_bar_.setBounds(0, this->getHeight() - 23 - status_bar_.getHeight(),
+                               getWidth(), 23);
     }
 
   private:

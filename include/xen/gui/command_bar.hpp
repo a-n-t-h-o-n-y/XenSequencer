@@ -239,7 +239,6 @@ class CommandBar : public juce::Component
     {
         this->setVisible(true);
         this->grabKeyboardFocus();
-        this->getParentComponent()->resized();
     }
 
     /**
@@ -249,7 +248,6 @@ class CommandBar : public juce::Component
     {
         this->do_escape();
         this->setVisible(false);
-        this->getParentComponent()->resized();
     }
 
   protected:
