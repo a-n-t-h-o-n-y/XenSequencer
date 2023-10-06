@@ -2,7 +2,9 @@
 
 #include <cassert>
 #include <cstddef>
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <variant>
 #include <vector>
@@ -52,7 +54,7 @@ class Cell : public juce::Component
             float const x_start = margin;
             float const x_end = static_cast<float>(this->getWidth() - margin);
 
-            g.setColour(juce::Colours::yellow);
+            g.setColour(juce::Colours::khaki);
             g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
         }
     }
@@ -82,16 +84,17 @@ class Rest : public Cell
     auto paint(juce::Graphics &g) -> void override
     {
         constexpr auto max_radius = 25.f;
-        constexpr auto min_radius = 0.f;
+        constexpr auto min_radius = 10.f;
 
         auto const bounds = getLocalBounds().toFloat().reduced(1.f, 2.f);
         auto const width = static_cast<float>(getWidth());
         auto const corner_radius =
             juce::jlimit(min_radius, max_radius,
                          juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
-        auto const line_thickness = 1.f;
+        auto const line_thickness = 2.f;
 
-        g.setColour(juce::Colours::white);
+        // g.setColour(juce::Colours::white);
+        g.setColour(juce::Colours::powderblue);
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
     }
 
@@ -103,7 +106,7 @@ class NoteInterval : public juce::Component
 {
   public:
     NoteInterval(int interval, std::size_t tuning_length, float velocity)
-        : interval_{interval}, tuning_length_{tuning_length}, velocity_{velocity}
+        : interval_{interval}, tuning_length_{tuning_length}
     {
         // Called explicitly to generate color
         this->set_velocity(velocity);
@@ -141,15 +144,14 @@ class NoteInterval : public juce::Component
   private:
     int interval_;
     std::size_t tuning_length_;
-    float velocity_;
 
     juce::Colour bg_color_;
 };
 
-class Note : public Cell
+class NoteHolder : public juce::Component
 {
   public:
-    explicit Note(sequence::Note const &note, std::size_t tuning_length)
+    explicit NoteHolder(sequence::Note const &note, std::size_t tuning_length)
         : note_{note}, interval_box_{note.interval, tuning_length, note.velocity}
     {
         this->addAndMakeVisible(interval_box_);
@@ -174,20 +176,106 @@ class Note : public Cell
     NoteInterval interval_box_;
 };
 
+class TraitDisplay : public juce::Component
+{
+  public:
+    explicit TraitDisplay(std::string name, float value)
+        : label_{name, make_display(name, value)}
+    {
+        this->addAndMakeVisible(label_);
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        label_.setBounds(this->getLocalBounds());
+    }
+
+  private:
+    [[nodiscard]] static auto make_display(std::string const &name, float value)
+        -> std::string
+    {
+        auto oss = std::ostringstream{};
+        oss << std::fixed << std::setprecision(2) << value;
+        return name + ": " + oss.str();
+    }
+
+  private:
+    juce::Label label_;
+};
+
+class NoteTraits : public juce::Component
+{
+  public:
+    NoteTraits(sequence::Note const &n)
+        : delay_{"D", n.delay}, velocity_{"V", n.velocity}, gate_{"G", n.gate}
+    {
+        this->addAndMakeVisible(delay_);
+        this->addAndMakeVisible(velocity_);
+        this->addAndMakeVisible(gate_);
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        auto flexbox = juce::FlexBox{};
+        flexbox.flexDirection = juce::FlexBox::Direction::row;
+
+        flexbox.items.add(juce::FlexItem(delay_).withFlex(1.f));
+        flexbox.items.add(juce::FlexItem(velocity_).withFlex(1.f));
+        flexbox.items.add(juce::FlexItem(gate_).withFlex(1.f));
+
+        flexbox.performLayout(this->getLocalBounds());
+    }
+
+  private:
+    TraitDisplay delay_;
+    TraitDisplay velocity_;
+    TraitDisplay gate_;
+};
+
+class Note : public Cell
+{
+  public:
+    explicit Note(sequence::Note const &note, std::size_t tuning_length)
+        : note_{note}, note_holder_{note, tuning_length} //, note_traits_{note}
+    {
+        this->addAndMakeVisible(note_holder_);
+        // this->addAndMakeVisible(note_traits_);
+    }
+
+  protected:
+    auto resized() -> void override
+    {
+        auto flexbox = juce::FlexBox{};
+        flexbox.flexDirection = juce::FlexBox::Direction::column;
+
+        flexbox.items.add(juce::FlexItem(note_holder_).withFlex(1.f));
+        // flexbox.items.add(juce::FlexItem(note_traits_).withHeight(30.f));
+
+        flexbox.performLayout(this->getLocalBounds());
+    }
+
+  private:
+    sequence::Note note_;
+    NoteHolder note_holder_;
+    // NoteTraits note_traits_;
+};
+
 class SequenceIndicator : public juce::Component
 {
   protected:
     void paint(juce::Graphics &g) override
     {
         constexpr auto margin = 4;
+        constexpr auto thickness = 1;
 
-        float const y_offset = this->getHeight() / 2.f;
+        float const y_offset = static_cast<float>(this->getHeight() - thickness) / 2.f;
         float const x_start = margin;
         float const x_end = static_cast<float>(this->getWidth() - margin);
 
         g.setColour(juce::Colours::powderblue);
-        g.drawLine(x_start, y_offset, x_end, y_offset,
-                   static_cast<float>(this->getHeight() - 2));
+        g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
     }
 };
 
@@ -215,7 +303,7 @@ class Sequence : public Cell
         auto flexbox = juce::FlexBox{};
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(indicator_).withHeight(4.f));
+        flexbox.items.add(juce::FlexItem(indicator_).withHeight(8.f));
         flexbox.items.add(juce::FlexItem(cells_).withFlex(1.f));
 
         flexbox.performLayout(this->getLocalBounds());

@@ -33,17 +33,17 @@ class TimeSignature : public juce::Label
         this->setText(text, juce::dontSendNotification);
     }
 
-  protected:
-    auto paint(juce::Graphics &g) -> void override
-    {
-        this->juce::Label::paint(g);
+    // protected:
+    //   auto paint(juce::Graphics &g) -> void override
+    //   {
+    //       this->juce::Label::paint(g);
 
-        // set the current drawing color
-        g.setColour(juce::Colours::white);
+    //       // set the current drawing color
+    //       g.setColour(juce::Colours::white);
 
-        // draw an outline around the component
-        g.drawRect(getLocalBounds(), 1);
-    }
+    //       // draw an outline around the component
+    //       g.drawRect(getLocalBounds(), 1);
+    //   }
 };
 
 class Measure : public juce::Component

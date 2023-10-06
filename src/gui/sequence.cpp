@@ -31,7 +31,7 @@ Sequence::Sequence(sequence::Sequence const &seq, State const &state)
 auto NoteInterval::paint(juce::Graphics &g) -> void
 {
     constexpr auto max_radius = 25.f;
-    constexpr auto min_radius = 0.f;
+    constexpr auto min_radius = 10.f;
 
     auto const bounds = getLocalBounds().toFloat().reduced(1.f, 2.f);
     auto const width = static_cast<float>(getWidth());
@@ -72,10 +72,10 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     auto const line_end_x = getWidth() - padding;
 
     // draw the interval text
-    g.setColour(text_color);
-    g.drawText(interval_text, (getWidth() - text_width_1) / 2,
-               (int)interval_text_y_position, text_width_1, (int)text_height,
-               juce::Justification::centred);
+    // g.setColour(text_color);
+    // g.drawText(interval_text, (getWidth() - text_width_1) / 2,
+    //            (int)interval_text_y_position, text_width_1, (int)text_height,
+    //            juce::Justification::centred);
 
     // draw the horizontal line
     g.setColour(juce::Colours::grey);
@@ -83,10 +83,10 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
                line_thickness);
 
     // draw the tuning length text below the line
-    g.setColour(text_color);
-    g.drawText(octave_text, (getWidth() - text_width_2) / 2,
-               (int)tuning_length_text_y_position, text_width_2, (int)text_height,
-               juce::Justification::centred);
+    // g.setColour(text_color);
+    // g.drawText(octave_text, (getWidth() - text_width_2) / 2,
+    //            (int)tuning_length_text_y_position, text_width_2, (int)text_height,
+    //            juce::Justification::centred);
 }
 
 } // namespace xen::gui
