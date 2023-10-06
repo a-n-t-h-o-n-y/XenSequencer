@@ -294,6 +294,14 @@ inline auto const command_tree = cmd_group(
                 increment_state(tl, &sequence::modify::set_gate, pattern, gate);
                 return msuccess("Gate Set");
             }, ArgInfo<float>{"gate", 1.f}
+        ),
+
+        cmd(
+            "timesignature",
+            [](XenTimeline &tl, sequence::Pattern const& , sequence::TimeSignature const& ts) {
+                tl.add_state(action::set_timesignature(tl, ts));
+                return msuccess("TimeSignature Set");
+            }, ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}
         )
     )),
 

@@ -97,4 +97,7 @@ auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
 
 [[nodiscard]] auto load_state(std::string const &filepath) -> State;
 
+[[nodiscard]] auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts)
+    -> State;
+
 } // namespace xen::action

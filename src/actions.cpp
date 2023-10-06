@@ -251,4 +251,13 @@ auto load_state(std::string const &filepath) -> State
     return deserialize(json_str);
 }
 
+auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts) -> State
+{
+    auto const measure_index = tl.get_aux_state().selected.measure;
+    auto state = tl.get_state().first;
+    auto &measure = state.phrase[measure_index];
+    measure.time_signature = ts;
+    return state;
+}
+
 } // namespace xen::action
