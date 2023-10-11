@@ -67,6 +67,7 @@ target_sources(XenSequencerLib
         src/guide_text.cpp
 
         src/gui/sequence.cpp
+        src/gui/timeline.cpp
 
         include/xen/actions.hpp
         include/xen/command.hpp
@@ -102,6 +103,7 @@ target_sources(XenSequencerLib
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
         include/xen/gui/status_bar.hpp
+        include/xen/gui/timeline.hpp
         include/xen/gui/tuning.hpp
         include/xen/gui/utility/dereference_iterator.hpp
 )

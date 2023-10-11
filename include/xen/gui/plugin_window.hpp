@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream> //temp
 #include <stdexcept>
 
 #include <juce_core/juce_core.h>
@@ -12,6 +11,7 @@
 #include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
 #include <xen/gui/status_bar.hpp>
+#include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/message_type.hpp>
 #include <xen/state.hpp>
@@ -27,6 +27,7 @@ class PluginWindow : public juce::Component
     explicit PluginWindow(XenTimeline &tl) : timeline_{tl}, command_bar_{tl}
     {
         this->addAndMakeVisible(heading_);
+        this->addAndMakeVisible(gui_timeline_);
         this->addAndMakeVisible(phrase_editor_);
         // TODO
         // this->addAndMakeVisible(tuning_box_);
@@ -89,6 +90,8 @@ class PluginWindow : public juce::Component
 
         status_bar_.mode_display.set(aux.input_mode);
 
+        gui_timeline_.set(state.phrase, aux.selected);
+
         // TODO
         // tuning_box_.set_tuning(state.tuning);
     }
@@ -117,6 +120,7 @@ class PluginWindow : public juce::Component
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
         flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
+        flexbox.items.add(juce::FlexItem(gui_timeline_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
         flexbox.items.add(
@@ -133,6 +137,7 @@ class PluginWindow : public juce::Component
     XenTimeline &timeline_;
 
     gui::Heading heading_{"XenSequencer"};
+    gui::Timeline gui_timeline_;
     gui::PhraseEditor phrase_editor_;
     // TODO
     // gui::TuningBox tuning_box_;
