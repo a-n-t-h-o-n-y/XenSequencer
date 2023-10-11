@@ -124,4 +124,16 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
     return *result;
 }
 
+/**
+ * @brief Normalizes an interval to the range [0, length).
+ *
+ * -1 wraps around to length - 1.
+ */
+[[nodiscard]] inline auto normalize_interval(int interval, std::size_t length)
+    -> std::size_t
+{
+    return static_cast<std::size_t>(((interval % (int)length) + (int)length) %
+                                    (int)length);
+}
+
 } // namespace xen

@@ -1,7 +1,10 @@
 #include <xen/gui/sequence.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <stdexcept>
+#include <utility>
 #include <variant>
 
 #include <juce_core/juce_core.h>
@@ -10,6 +13,95 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/state.hpp>
+#include <xen/utility.hpp>
+
+namespace
+{
+
+using namespace xen;
+
+/**
+ * @brief Computes the corner radius for a rectangle based on its width.
+ *
+ * @param bounds The bounds of the rectangle.
+ * @param min_radius The minimum corner radius.
+ * @param max_radius The maximum corner radius.
+ * @return The computed corner radius for the rectangle.
+ */
+[[nodiscard]] auto compute_corner_radius(juce::Rectangle<float> const &bounds,
+                                         float const min_radius, float const max_radius)
+    -> float
+{
+    auto const width = bounds.getWidth();
+    return juce::jlimit(min_radius, max_radius,
+                        juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
+}
+
+/**
+ * @brief Computes the Rectangle bounds for a given note interval and tuning length.
+ *
+ * @param component_bounds  The bounds of the component in which the note will
+ * be displayed.
+ * @param note_interval The note interval, to be used in modulo calculation.
+ * @param tuning_length The tuning length, used for scaling.
+ * @return The Rectangle that represents the position and size of the note.
+ *
+ * @exception std::invalid_argument If tuning_length is zero, to prevent
+ * division by zero.
+ */
+[[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &component_bounds,
+                                       int note_interval, size_t tuning_length)
+    -> juce::Rectangle<float>
+{
+    if (tuning_length == 0)
+    {
+        throw std::invalid_argument("Tuning length must not be zero.");
+    }
+
+    auto const normalized = normalize_interval(note_interval, tuning_length);
+
+    // Calculate note height
+    auto const note_height = component_bounds.getHeight() / (float)tuning_length;
+
+    // Calculate note y-position from the bottom
+    auto const y_position =
+        component_bounds.getBottom() - ((float)normalized * note_height);
+
+    return juce::Rectangle<float>{
+        component_bounds.getX(),
+        y_position - note_height,
+        component_bounds.getWidth(),
+        note_height,
+    };
+}
+
+[[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int
+{
+    return (interval / (int)tuning_length) - (interval < 0 ? 1 : 0);
+}
+
+[[nodiscard]] auto from_gradient(float value, float min, float max) -> juce::Colour
+{
+    juce::Colour startColor = juce::Colour{0xFF020024};
+    juce::Colour middleColor = juce::Colour{0xFF125CB1};
+    juce::Colour endColor = juce::Colour{0xFFDA0000};
+
+    juce::ColourGradient gradient;
+    gradient.isRadial = false;
+    gradient.point1 = {0, 0};
+    gradient.point2 = {0, 100};
+
+    gradient.addColour(0.0, startColor);
+    gradient.addColour(0.43, middleColor);
+    gradient.addColour(1.0, endColor);
+    value = std::clamp(value, min, max);
+
+    auto normalized_position = (value - min) / (max - min);
+
+    return gradient.getColourAtPosition(normalized_position);
+}
+
+} // namespace
 
 namespace xen::gui
 {
@@ -32,126 +124,42 @@ Sequence::Sequence(sequence::Sequence const &seq, State const &state)
 
 auto NoteInterval::paint(juce::Graphics &g) -> void
 {
+    // Paint Background Rectangle ------------------------------------------------
     constexpr auto max_radius = 25.f;
     constexpr auto min_radius = 10.f;
 
     auto const bounds = getLocalBounds().toFloat().reduced(1.f, 3.f);
-    auto const width = static_cast<float>(bounds.getWidth());
-    auto const corner_radius = juce::jlimit(
-        min_radius, max_radius, juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
+    auto const corner_radius = compute_corner_radius(bounds, min_radius, max_radius);
+
+    auto base_path = juce::Path{};
+    base_path.addRoundedRectangle(bounds, corner_radius);
 
     g.setColour(bg_color_);
-    g.fillRoundedRectangle(bounds, corner_radius);
+    g.fillPath(base_path);
 
-    // -------------------------------------------------------------------------
+    // Reduce Paint Region to base_path -----------------------------------------
+    g.reduceClipRegion(base_path);
 
-    // Draw the horizontal interval line
+    // Paint Note Interval ------------------------------------------------------
+    constexpr auto interval_min = -100;
+    constexpr auto interval_max = 100;
 
-    auto computeXMargin = [corner_radius, bounds](float y) -> float {
-        // Calculate the distance from the top or bottom, whichever is closer
-        auto const distance_to_edge =
-            std::min(y - bounds.getY(), bounds.getBottom() - y);
+    auto const interval_bounds = compute_note_bounds(bounds, interval_, tuning_length_);
+    auto const note_color =
+        from_gradient(get_octave(interval_, tuning_length_), -4.f, 4.f);
 
-        // If the distance to the edge is greater than the corner_radius, it's outside
-        // the rounded part
-        if (distance_to_edge >= corner_radius)
-        {
-            return bounds.getTopLeft().getX();
-        }
+    g.setColour(note_color);
+    g.fillRect(interval_bounds);
 
-        // If the distance to the edge is inside the rounded part, use the Pythagorean
-        // theorem to compute x margin
-        auto const triangle_opposite = corner_radius - distance_to_edge;
-        auto const triangle_adjacent = std::sqrt(corner_radius * corner_radius -
-                                                 triangle_opposite * triangle_opposite);
+    // Paint Octave Text --------------------------------------------------------
+    g.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
 
-        return corner_radius - triangle_adjacent + bounds.getTopLeft().getX();
-    };
+    auto const octave = get_octave(interval_, tuning_length_);
 
-    constexpr auto interval_distance = 3.f;
+    auto const octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
 
-    auto const centerY = static_cast<float>(this->getHeight()) / 2.f;
-    auto const offsetY = static_cast<float>(-interval_) * interval_distance;
-    auto const lineWidth = static_cast<float>(this->getWidth());
-    auto const lineHeight = 1.f; // One pixel high
-
-    // Draw Horizontal Interval Line
-    auto const intervalY = centerY + offsetY;
-    auto const xMarginInterval = computeXMargin(intervalY);
-    if (interval_ != 0 && (std::size_t)std::abs(interval_) % tuning_length_ == 0)
-    {
-        g.setColour(juce::Colours::khaki);
-    }
-    else
-    {
-        g.setColour(juce::Colours::black);
-    }
-    g.fillRect(xMarginInterval, intervalY, lineWidth - 2 * xMarginInterval, lineHeight);
-
-    // -------------------------------------------------------------------------
-
-    // define text and line characteristics
-    auto const font = juce::Font{16.f};
-    g.setFont(font);
-
-    auto const text_color = juce::Colours::black;
-    // auto const line_thickness = 2.f;
-    // auto const padding = 10;
-
-    auto const [adjusted_interval, octave] =
-        NoteInterval::get_interval_and_octave(interval_, tuning_length_);
-
-    auto const interval_text = juce::String(adjusted_interval);
-    auto const octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-    auto complete_text = juce::String{};
-    if (interval_ != 0)
-    {
-        complete_text += interval_text;
-    }
-    if (octave != 0)
-    {
-        complete_text += " " + octave_text;
-    }
-
-    auto text_width = font.getStringWidth(complete_text);
-    auto const text_height = font.getHeight();
-
-    if (text_width > this->getWidth())
-    {
-        complete_text = juce::String(interval_);
-        text_width = font.getStringWidth(complete_text);
-    }
-    if (text_width > this->getWidth())
-    {
-        complete_text = juce::String{};
-        text_width = font.getStringWidth(complete_text);
-    }
-
-    auto const x = (this->getWidth() - text_width) / 2.f;
-    auto const y = (this->getHeight() - text_height) / 2.f;
-
-    // Draw center line with gap
-    if (interval_ != 0)
-    {
-        g.setColour(juce::Colours::white);
-        auto const center_line_bounds = juce::Rectangle<float>{
-            xMarginInterval, centerY, (float)getWidth() - (2 * xMarginInterval),
-            (float)lineHeight};
-        auto const text_bounds =
-            juce::Rectangle<float>{x, y, (float)text_width, (float)text_height};
-        auto const left_line_bounds = juce::Rectangle<float>{
-            center_line_bounds.getX(), centerY,
-            text_bounds.getX() - center_line_bounds.getX(), lineHeight};
-        auto const right_line_bounds = juce::Rectangle<float>{
-            text_bounds.getRight(), centerY,
-            center_line_bounds.getRight() - text_bounds.getRight(), lineHeight};
-        g.fillRect(left_line_bounds);
-        g.fillRect(right_line_bounds);
-    }
-
-    g.setColour(text_color);
-    g.drawText(complete_text, x, y, text_width, text_height,
-               juce::Justification::centred);
+    g.setColour(juce::Colours::white);
+    g.drawText(octave_text, this->getLocalBounds(), juce::Justification::centred);
 }
 
 } // namespace xen::gui

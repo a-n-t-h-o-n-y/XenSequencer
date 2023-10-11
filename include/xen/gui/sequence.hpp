@@ -69,7 +69,7 @@ class Rest : public Cell
     {
         this->addAndMakeVisible(label_);
 
-        label_.setFont(juce::Font{"Arial", "Normal", 14.f}.boldened());
+        label_.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
         label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
         label_.setJustificationType(juce::Justification::centred);
     }
@@ -117,26 +117,8 @@ class NoteInterval : public juce::Component
     auto set_velocity(float vel) -> void
     {
         auto const brightness = std::lerp(0.5f, 1.f, vel);
-        // old color: FFFF5B00
         bg_color_ = juce::Colour{0xFF0ad0f5}.withBrightness(brightness);
         this->repaint();
-    }
-
-    [[nodiscard]] static auto get_interval_and_octave(int interval,
-                                                      std::size_t tuning_length)
-        -> std::pair<int, int>
-    {
-        auto const tuning_length_int = static_cast<int>(tuning_length);
-        auto octave = interval / tuning_length_int;
-        auto adjusted_interval = interval % tuning_length_int;
-
-        if (adjusted_interval < 0)
-        {
-            adjusted_interval += tuning_length_int;
-            --octave;
-        }
-
-        return {adjusted_interval, octave};
     }
 
   private:
@@ -202,35 +184,35 @@ class TraitDisplay : public juce::Component
     juce::Label label_;
 };
 
-class NoteTraits : public juce::Component
-{
-  public:
-    NoteTraits(sequence::Note const &n)
-        : delay_{"D", n.delay}, velocity_{"V", n.velocity}, gate_{"G", n.gate}
-    {
-        this->addAndMakeVisible(delay_);
-        this->addAndMakeVisible(velocity_);
-        this->addAndMakeVisible(gate_);
-    }
+// class NoteTraits : public juce::Component
+// {
+//   public:
+//     NoteTraits(sequence::Note const &n)
+//         : delay_{"D", n.delay}, velocity_{"V", n.velocity}, gate_{"G", n.gate}
+//     {
+//         this->addAndMakeVisible(delay_);
+//         this->addAndMakeVisible(velocity_);
+//         this->addAndMakeVisible(gate_);
+//     }
 
-  protected:
-    auto resized() -> void override
-    {
-        auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::row;
+//   protected:
+//     auto resized() -> void override
+//     {
+//         auto flexbox = juce::FlexBox{};
+//         flexbox.flexDirection = juce::FlexBox::Direction::row;
 
-        flexbox.items.add(juce::FlexItem(delay_).withFlex(1.f));
-        flexbox.items.add(juce::FlexItem(velocity_).withFlex(1.f));
-        flexbox.items.add(juce::FlexItem(gate_).withFlex(1.f));
+//         flexbox.items.add(juce::FlexItem(delay_).withFlex(1.f));
+//         flexbox.items.add(juce::FlexItem(velocity_).withFlex(1.f));
+//         flexbox.items.add(juce::FlexItem(gate_).withFlex(1.f));
 
-        flexbox.performLayout(this->getLocalBounds());
-    }
+//         flexbox.performLayout(this->getLocalBounds());
+//     }
 
-  private:
-    TraitDisplay delay_;
-    TraitDisplay velocity_;
-    TraitDisplay gate_;
-};
+//   private:
+//     TraitDisplay delay_;
+//     TraitDisplay velocity_;
+//     TraitDisplay gate_;
+// };
 
 class Note : public Cell
 {
