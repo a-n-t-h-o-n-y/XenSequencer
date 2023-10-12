@@ -49,6 +49,8 @@ template <typename T>
     return x;
 }
 
+// -----------------------------------------------------------------------------
+
 template <typename ID_t, typename Fn, typename... Args>
 struct Command
 {
@@ -58,6 +60,7 @@ struct Command
 
     Signature<ID_t, Args...> signature;
     Fn fn;
+    std::string description;
 };
 
 template <typename ID_t, typename... Commands>
@@ -86,6 +89,8 @@ struct PatternPrefix
     Command_t command;
 };
 
+// -----------------------------------------------------------------------------
+
 } // namespace xen
 
 #include <xen/invoke.hpp>
@@ -93,27 +98,26 @@ struct PatternPrefix
 namespace xen
 {
 
-// -----------------------------------------------------------------------------
-
 /**
  * Convinience function for creating a command.
  */
 template <typename ID_t, typename Fn, typename... Args>
-[[nodiscard]] constexpr auto cmd(ID_t id, Fn fn, ArgInfo<Args>... arg_infos)
+[[nodiscard]] constexpr auto cmd(ID_t id, std::string description, Fn fn,
+                                 ArgInfo<Args>... arg_infos)
 {
     if constexpr (std::is_same_v<ID_t, char const *>)
     {
         return Command<std::string_view, Fn, Args...>{
             Signature<std::string_view, Args...>{
                 id, ArgInfos<Args...>{std::move(arg_infos)...}},
-            std::move(fn)};
+            std::move(fn), std::move(description)};
     }
     else
     {
         return Command<ID_t, Fn, Args...>{
             Signature<ID_t, Args...>{std::move(id),
                                      ArgInfos<Args...>{std::move(arg_infos)...}},
-            std::move(fn)};
+            std::move(fn), std::move(description)};
     }
 }
 
@@ -217,30 +221,6 @@ template <typename Command_t, typename T>
     return sequence::contains_valid_pattern(command_str) &&
            is_match(pattern.command, sequence::pop_pattern_chars(command_str),
                     default_id);
-}
-
-// -----------------------------------------------------------------------------
-
-template <typename ID_t, typename Fn, typename... Args>
-[[nodiscard]] auto get_signature_display(Command<ID_t, Fn, Args...> const &command)
-    -> SignatureDisplay
-{
-    return generate_display(command.signature);
-}
-
-template <typename ID_t, typename ChildID_t, typename... Commands>
-[[nodiscard]] auto get_signature_display(
-    CommandGroup<ID_t, ChildID_t, Commands...> const &command_group) -> SignatureDisplay
-{
-    return generate_display(Signature<ID_t, ChildID_t>{
-        command_group.id, ArgInfos<ChildID_t>{command_group.commands.id_info}});
-}
-
-template <typename Command_t>
-[[nodiscard]] auto get_signature_display(PatternPrefix<Command_t> const &pattern)
-    -> SignatureDisplay
-{
-    return get_signature_display(pattern.command);
 }
 
 // -----------------------------------------------------------------------------
