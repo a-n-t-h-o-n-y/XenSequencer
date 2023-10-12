@@ -100,4 +100,6 @@ auto save_state(XenTimeline const &tl, std::string const &filepath) -> void;
 [[nodiscard]] auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts)
     -> State;
 
+[[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq) -> State;
+
 } // namespace xen::action

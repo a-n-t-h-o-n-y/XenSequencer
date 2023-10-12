@@ -18,11 +18,6 @@ namespace xen
 XenProcessor::XenProcessor()
     : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{}
 {
-    this->addParameter(base_frequency_ = new juce::AudioParameterFloat(
-                           juce::ParameterID{"base_frequency", 1},
-                           "Base Frequency", // parameter name
-                           juce::NormalisableRange<float>(20.f, 20'000.f, 1.f, 0.2f),
-                           440.f)); // default value
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,

@@ -146,6 +146,14 @@ inline auto const command_tree = cmd_group(
                   })),
 
     cmd(
+        "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",
+        [](XenTimeline &tl, float freq) {
+            tl.add_state(action::set_base_frequency(tl, freq));
+            return msuccess("Base Frequency Set.");
+        },
+        ArgInfo<float>{"freq", 440.f}),
+
+    cmd(
         "addMeasure", "Append a measure to the current phrase.",
         [](XenTimeline &tl, sequence::TimeSignature const &ts) {
             auto [aux, state] = action::add_measure(tl, ts);

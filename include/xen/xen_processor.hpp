@@ -39,9 +39,6 @@ class XenProcessor : public PluginProcessor
     State plugin_state_; // Convenience variable, not necessary but saves cycles
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;
-
-  private:
-    juce::AudioParameterFloat *base_frequency_;
 };
 
 } // namespace xen

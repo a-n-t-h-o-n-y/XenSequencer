@@ -260,4 +260,11 @@ auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts) -> Sta
     return state;
 }
 
+auto set_base_frequency(XenTimeline const &tl, float freq) -> State
+{
+    auto state = tl.get_state().first;
+    state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
+    return state;
+}
+
 } // namespace xen::action

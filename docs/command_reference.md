@@ -60,6 +60,10 @@ Move the selection up one level to a parent sequence.
 
 Move the selection down one level.
 
+## `baseFrequency [Float: freq=440]`
+
+Set the base note (interval zero) frequency to `freq`.
+
 ## `addMeasure [TimeSignature: duration=4/4]`
 
 Append a measure to the current phrase.
