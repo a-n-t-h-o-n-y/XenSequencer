@@ -188,7 +188,7 @@ target_link_libraries(XenSequencer
 
 target_compile_options(XenSequencer INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wno-implicit-int-float-conversion>
 )
 
 add_subdirectory(tools/cmd_reference)

@@ -143,7 +143,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     // Paint Note Interval ------------------------------------------------------
     auto const interval_bounds = compute_note_bounds(bounds, interval_, tuning_length_);
     auto const note_color =
-        from_gradient(get_octave(interval_, tuning_length_), -4.f, 4.f);
+        from_gradient((float)get_octave(interval_, tuning_length_), -4.f, 4.f);
 
     g.setColour(note_color);
     g.fillRect(interval_bounds);
@@ -154,7 +154,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     auto const octave = get_octave(interval_, tuning_length_);
 
     auto octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-    if (g.getCurrentFont().getStringWidth(octave_text) > bounds.getWidth())
+    if ((float)g.getCurrentFont().getStringWidth(octave_text) > bounds.getWidth())
     {
         octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
     }
