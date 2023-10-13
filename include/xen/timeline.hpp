@@ -38,7 +38,8 @@ class Timeline
 
   public:
     explicit Timeline(State state, AuxiliaryState aux)
-        : history_{{std::move(state), std::move(aux)}}, current_state_index_{0},
+        : history_{{std::move(state), aux}}, current_state_index_{0},
+          auxiliary_state_{aux},
           last_update_time_{std::chrono::high_resolution_clock::now()}
     {
     }

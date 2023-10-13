@@ -65,7 +65,7 @@ template <typename T = std::size_t>
         {
             result = std::stoul(x, &pos);
         }
-        else if (sizeof(T) == sizeof(unsigned short))
+        else if constexpr (sizeof(T) == sizeof(unsigned short))
         {
             result = std::stoul(x, &pos);
         }

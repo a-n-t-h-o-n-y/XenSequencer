@@ -75,7 +75,7 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 ### Editing Keyboard Shortcuts
 - Keyboard shortcuts can be edited in the `keys.yml` file in the user data directory.
 - Possible locations of the user data directory:
-   - Windows: `\Documents and Settings\username\Application Data\XenSequencer\`
+   - Windows: `\Users\username\AppData\Roaming\XenSequencer\`
    - MacOS: `~/Library/XenSequencer/`
    - Linux: `~/.config/XenSequencer/`
 - Each action in the `keys.yml` file is a string to be passed to the command bar.
