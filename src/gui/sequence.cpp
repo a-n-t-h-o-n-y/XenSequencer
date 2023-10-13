@@ -141,9 +141,6 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     g.reduceClipRegion(base_path);
 
     // Paint Note Interval ------------------------------------------------------
-    constexpr auto interval_min = -100;
-    constexpr auto interval_max = 100;
-
     auto const interval_bounds = compute_note_bounds(bounds, interval_, tuning_length_);
     auto const note_color =
         from_gradient(get_octave(interval_, tuning_length_), -4.f, 4.f);
