@@ -15,19 +15,19 @@ TEST_CASE("Command", "[Command Tree]")
 {
     auto const command_tree = cmd_group(
         "", ArgInfo<std::string>{"command_name"},
-        cmd("browse",
+        cmd("browse", "",
             [](XenTimeline &) {
                 return std::pair{MessageType::Error, "Can't Browse..."};
             }),
         cmd(
-            "help",
+            "help", "",
             [](XenTimeline &, std::string s, int v) {
                 return std::pair{MessageType::Success,
                                  "found: " + std::to_string(v) + " and: " + s};
             },
             ArgInfo<std::string>{"names", "WOW"}, ArgInfo<int>{"value", 5}),
         pattern(cmd(
-            "pat",
+            "pat", "",
             [](XenTimeline &, sequence::Pattern const &p, int v) {
                 auto msg = "Pattern: +" + std::to_string(p.offset) + " ";
                 for (auto const &i : p.intervals)
@@ -39,12 +39,12 @@ TEST_CASE("Command", "[Command Tree]")
             },
             ArgInfo<int>{"value", 3})),
         cmd_group("group", ArgInfo<std::string>{"subcommand"},
-                  cmd("browse",
+                  cmd("browse", "",
                       [](XenTimeline &) {
                           return std::pair{MessageType::Success, "Browsing..."};
                       }),
                   cmd(
-                      "help",
+                      "help", "",
                       [](XenTimeline &, std::string s, int v) {
                           return std::pair{MessageType::Success,
                                            "found: " + std::to_string(v) +
@@ -52,7 +52,7 @@ TEST_CASE("Command", "[Command Tree]")
                       },
                       ArgInfo<std::string>{"names", "WOW"}, ArgInfo<int>{"value", 5}),
                   pattern(cmd(
-                      "pat",
+                      "pat", "",
                       [](XenTimeline &, sequence::Pattern const &p, int v) {
                           auto msg = "Pattern: +" + std::to_string(p.offset) + " ";
                           for (auto const &i : p.intervals)
