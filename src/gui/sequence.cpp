@@ -156,7 +156,11 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
 
     auto const octave = get_octave(interval_, tuning_length_);
 
-    auto const octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
+    auto octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
+    if (g.getCurrentFont().getStringWidth(octave_text) > bounds.getWidth())
+    {
+        octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
+    }
 
     g.setColour(juce::Colours::white);
     g.drawText(octave_text, this->getLocalBounds(), juce::Justification::centred);

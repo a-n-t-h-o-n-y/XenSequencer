@@ -21,7 +21,7 @@
 
 ## Getting Started
 - Build from source, or download the latest release from the [releases page](https://github.com/a-n-t-h-o-n-y/XenSequencer/releases).
-- Place vst3 folder in your system's VST3 plugin directory.
+- Place `XenSequencer.vst3` folder in your system's VST3 plugin directory.
    - If using the pre-built VST, MacOS will have an 'unverified developer' warning. To get around this, build from source, or google "macos unverified developer vst3".
 - Open the plugin in your DAW with an instrument on a separate track.
 - Route MIDI output from the XenSequencer into the instrument and enable monitoring of the instrument.
@@ -49,7 +49,7 @@
 - Change the tempo in your DAW.
 
 ## Keyboard Navigation
-Mouse input is not supported in this initial version. There are a few default key bindings for basic tasks and the rest happens via the command bar. Make sure the measure editor is in focus (click on it) before using keyboard shortcuts.
+Mouse input is not supported in this initial version. There are a few default key bindings for basic tasks and the rest happens via the command bar. Make sure the plugin is in focus (click on it) before using keyboard shortcuts.
 
 All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user data directory.
 
