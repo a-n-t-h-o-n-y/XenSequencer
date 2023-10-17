@@ -111,6 +111,7 @@ target_sources(XenSequencerLib
 
 add_executable(XenTests
     test/command.test.cpp
+    test/utility.test.cpp
 )
 target_link_libraries(XenTests
     PUBLIC

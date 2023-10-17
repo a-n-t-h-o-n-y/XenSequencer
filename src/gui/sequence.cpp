@@ -75,11 +75,6 @@ using namespace xen;
     };
 }
 
-[[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int
-{
-    return (interval / (int)tuning_length) - (interval < 0 ? 1 : 0);
-}
-
 [[nodiscard]] auto from_gradient(float value, float min, float max) -> juce::Colour
 {
     juce::Colour startColor = juce::Colour{0xFF020024};

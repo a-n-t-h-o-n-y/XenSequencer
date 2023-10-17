@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
@@ -134,6 +135,19 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 {
     return static_cast<std::size_t>(((interval % (int)length) + (int)length) %
                                     (int)length);
+}
+
+[[nodiscard]] inline auto get_octave(int interval, std::size_t tuning_length) -> int
+{
+    if (interval >= 0)
+    {
+        return interval / static_cast<int>(tuning_length);
+    }
+    else
+    {
+        return (interval - static_cast<int>(tuning_length) + 1) /
+               static_cast<int>(tuning_length);
+    }
 }
 
 } // namespace xen
