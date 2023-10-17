@@ -12,7 +12,8 @@ namespace xen
 
 auto to_lower(std::string x) -> std::string
 {
-    std::transform(std::cbegin(x), std::cend(x), std::begin(x), ::tolower);
+    std::transform(std::cbegin(x), std::cend(x), std::begin(x),
+                   [](char c) { return static_cast<char>(::tolower(c)); });
     return x;
 }
 
