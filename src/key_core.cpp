@@ -140,7 +140,8 @@ auto const key_map = std::unordered_map<std::string, int>{
     // Convert to lowercase for case-insensitivity
     auto key_combo_lower = key_combo_str;
     std::transform(std::cbegin(key_combo_lower), std::cend(key_combo_lower),
-                   std::begin(key_combo_lower), ::tolower);
+                   std::begin(key_combo_lower),
+                   [](char c) { return static_cast<char>(std::tolower(c)); });
     key_combo_lower.erase(std::remove_if(std::begin(key_combo_lower),
                                          std::end(key_combo_lower), ::isspace),
                           std::end(key_combo_lower));
@@ -215,7 +216,8 @@ auto const key_map = std::unordered_map<std::string, int>{
     {
         auto component_name = component.first.as<std::string>();
         std::transform(std::cbegin(component_name), std::cend(component_name),
-                       std::begin(component_name), ::tolower);
+                       std::begin(component_name),
+                       [](char c) { return static_cast<char>(std::tolower(c)); });
         auto const &key_mappings = component.second;
 
         auto configs = std::vector<KeyConfig>{};

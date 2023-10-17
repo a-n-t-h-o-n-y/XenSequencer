@@ -99,9 +99,9 @@ struct DAWState
                 seq::modify::randomize_intervals(measure.cell, {0, {1}}, -20, 20);
 
             std::get<sequence::Sequence>(measure.cell).cells[3] = seq::Sequence{{
-                seq::Note{5, 0.75f * (i / 2.f), 0.f, 0.3f},
+                seq::Note{5, 0.75f, 0.f, 0.3f},
                 seq::Rest{},
-                seq::Note{10, 0.5f * (i / 2.f), 0.25f, 1.f},
+                seq::Note{10, 0.5f, 0.25f, 1.f},
             }};
         }
         phrase.push_back(measure);

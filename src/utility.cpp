@@ -1,5 +1,6 @@
 #include <xen/utility.hpp>
 
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -30,6 +31,25 @@ auto write_string_to_file(std::string const &filepath, std::string const &conten
         throw std::runtime_error("Failed to open file for writing: " + filepath);
     }
     file << content;
+}
+
+auto normalize_interval(int interval, std::size_t length) -> std::size_t
+{
+    return static_cast<std::size_t>(((interval % (int)length) + (int)length) %
+                                    (int)length);
+}
+
+auto get_octave(int interval, std::size_t tuning_length) -> int
+{
+    if (interval >= 0)
+    {
+        return interval / static_cast<int>(tuning_length);
+    }
+    else
+    {
+        return (interval - static_cast<int>(tuning_length) + 1) /
+               static_cast<int>(tuning_length);
+    }
 }
 
 } // namespace xen

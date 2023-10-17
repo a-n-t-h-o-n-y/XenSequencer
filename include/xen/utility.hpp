@@ -130,24 +130,8 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
  *
  * -1 wraps around to length - 1.
  */
-[[nodiscard]] inline auto normalize_interval(int interval, std::size_t length)
-    -> std::size_t
-{
-    return static_cast<std::size_t>(((interval % (int)length) + (int)length) %
-                                    (int)length);
-}
+[[nodiscard]] auto normalize_interval(int interval, std::size_t length) -> std::size_t;
 
-[[nodiscard]] inline auto get_octave(int interval, std::size_t tuning_length) -> int
-{
-    if (interval >= 0)
-    {
-        return interval / static_cast<int>(tuning_length);
-    }
-    else
-    {
-        return (interval - static_cast<int>(tuning_length) + 1) /
-               static_cast<int>(tuning_length);
-    }
-}
+[[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int;
 
 } // namespace xen
