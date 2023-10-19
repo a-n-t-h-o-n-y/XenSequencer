@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <iomanip>
 #include <memory>
@@ -117,7 +118,8 @@ class NoteInterval : public juce::Component
     auto set_velocity(float vel) -> void
     {
         auto const brightness = std::lerp(0.5f, 1.f, vel);
-        bg_color_ = juce::Colour{0xFF0ad0f5}.withBrightness(brightness);
+        bg_color_ =
+            juce::Colour{0xFF0ad0f5}.withBrightness(vel == 0.f ? 0.2f : brightness);
         this->repaint();
     }
 
