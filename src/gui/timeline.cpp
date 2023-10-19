@@ -45,6 +45,10 @@ auto paint_notes(juce::Graphics &g, sequence::Cell const &cell,
                        g.fillRoundedRectangle(bounds.toFloat().reduced(2.f, 0.f), 2.f);
                    },
                    [&](Sequence const &s) {
+                       if (s.cells.empty())
+                       {
+                           return;
+                       }
                        bounds =
                            bounds.withWidth(bounds.getWidth() / (float)s.cells.size());
                        for (auto const &c : s.cells)
@@ -89,6 +93,10 @@ void Timeline::paint(juce::Graphics &g)
     g.setColour(juce::Colours::white);
 
     auto const num_measures = measures_.size();
+    if (num_measures == 0)
+    {
+        return;
+    }
     for (auto i = std::size_t{0}; i < num_measures - 1; ++i)
     {
         auto const &left_measure = *measures_[i];
