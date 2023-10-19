@@ -161,7 +161,7 @@ inline auto const command_tree = cmd_group(
             tl.add_state(std::move(state));
             return msuccess("Added measure.");
         },
-        ArgInfo<sequence::TimeSignature>("duration", {{4, 4}})),
+        ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}}),
 
     cmd(
         "note", "Create a new Note, overwritting the current selection.",

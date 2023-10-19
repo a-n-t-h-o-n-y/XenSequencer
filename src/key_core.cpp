@@ -254,12 +254,13 @@ KeyCore::KeyCore(std::vector<KeyConfig> const &configs)
     {
         if (config.mode)
         {
-            mode_sensitive_actions_[*config.mode].emplace_back(config.keypress,
-                                                               config.command);
+            mode_sensitive_actions_[*config.mode].push_back(
+                KeyCore::KeyAction{config.keypress, config.command});
         }
         else
         {
-            mode_independent_actions_.emplace_back(config.keypress, config.command);
+            mode_independent_actions_.push_back(
+                KeyCore::KeyAction{config.keypress, config.command});
         }
     }
 }
