@@ -1,6 +1,7 @@
 #include <xen/utility.hpp>
 
 #include <cstddef>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -10,25 +11,27 @@
 namespace xen
 {
 
-auto read_file_to_string(std::string const &filepath) -> std::string
+auto read_file_to_string(std::filesystem::path const &filepath) -> std::string
 {
     auto file = std::ifstream{filepath};
     if (!file)
     {
-        throw std::runtime_error("Failed to open file for reading: " + filepath);
+        throw std::runtime_error("Failed to open file for reading: " +
+                                 filepath.string());
     }
     auto const content = std::string(std::istreambuf_iterator<char>(file),
                                      std::istreambuf_iterator<char>());
     return content;
 }
 
-auto write_string_to_file(std::string const &filepath, std::string const &content)
-    -> void
+auto write_string_to_file(std::filesystem::path const &filepath,
+                          std::string const &content) -> void
 {
     auto file = std::ofstream{filepath};
     if (!file)
     {
-        throw std::runtime_error("Failed to open file for writing: " + filepath);
+        throw std::runtime_error("Failed to open file for writing: " +
+                                 filepath.string());
     }
     file << content;
 }

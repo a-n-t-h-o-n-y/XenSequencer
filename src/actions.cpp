@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
@@ -239,13 +240,13 @@ auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>
     return {aux, state};
 }
 
-auto save_state(XenTimeline const &tl, std::string const &filepath) -> void
+auto save_state(XenTimeline const &tl, std::filesystem::path const &filepath) -> void
 {
     auto const json_str = serialize(tl.get_state().first);
     write_string_to_file(filepath, json_str);
 }
 
-auto load_state(std::string const &filepath) -> State
+auto load_state(std::filesystem::path const &filepath) -> State
 {
     auto const json_str = read_file_to_string(filepath);
     return deserialize(json_str);

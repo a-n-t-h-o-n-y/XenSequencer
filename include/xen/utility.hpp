@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -42,7 +43,8 @@ struct always_false : std::false_type
  * @return std::string Contents of the text file.
  * @throws std::runtime_error Thrown if file cannot be read.
  */
-[[nodiscard]] auto read_file_to_string(std::string const &filepath) -> std::string;
+[[nodiscard]] auto read_file_to_string(std::filesystem::path const &filepath)
+    -> std::string;
 
 /**
  * @brief Writes a std::string to a text file.
@@ -51,8 +53,8 @@ struct always_false : std::false_type
  * @param content Content to write to the text file.
  * @throws std::runtime_error Thrown if file cannot be written to.
  */
-auto write_string_to_file(std::string const &filepath, std::string const &content)
-    -> void;
+auto write_string_to_file(std::filesystem::path const &filepath,
+                          std::string const &content) -> void;
 
 /**
  * @brief Checks if a tuple contains a single element that satisfies a given predicate.

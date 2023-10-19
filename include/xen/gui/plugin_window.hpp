@@ -105,10 +105,8 @@ class PluginWindow : public juce::Component
             .on_command.connect([this](std::string const &command) {
                 // TODO should this send the message to the command bar? but
                 // selection etc.. shouldn't display?
-                std::cerr << execute(command_tree, timeline_,
-                                     normalize_command_string(command))
-                                 .second
-                          << std::endl;
+                (void)execute(command_tree, timeline_,
+                              normalize_command_string(command));
             });
 
         // TODO
