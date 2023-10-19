@@ -194,3 +194,4 @@ target_compile_options(XenSequencer INTERFACE
 )
 
 add_subdirectory(tools/cmd_reference)
+add_subdirectory(tools/keypress)
