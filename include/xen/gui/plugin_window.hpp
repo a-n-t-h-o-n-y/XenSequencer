@@ -80,7 +80,6 @@ class PluginWindow : public juce::Component
             }};
         slot_change_focus.track(lifetime_);
         on_focus_change_request.connect(slot_change_focus);
-        phrase_editor_.grabKeyboardFocus();
     }
 
   public:
