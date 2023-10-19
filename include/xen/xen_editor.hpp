@@ -26,6 +26,11 @@ class XenEditor : public juce::AudioProcessorEditor
   protected:
     auto resized() -> void override;
 
+    void paint(juce::Graphics &g) override
+    {
+        g.fillAll(juce::Colours::black);
+    }
+
   private:
     auto update_key_listeners(std::string const &filename) -> void;
 
