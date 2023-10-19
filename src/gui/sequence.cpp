@@ -142,20 +142,40 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
 
     g.setColour(note_color);
     g.fillRect(interval_bounds);
-
-    // Paint Octave Text --------------------------------------------------------
-    g.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
-
-    auto const octave = get_octave(interval_, tuning_length_);
-
-    auto octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-    if ((float)g.getCurrentFont().getStringWidth(octave_text) > bounds.getWidth())
+    // Paint Interval Text ------------------------------------------------------
     {
-        octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
-    }
+        auto const interval_text =
+            juce::String(normalize_interval(interval_, tuning_length_));
 
-    g.setColour(juce::Colours::white);
-    g.drawText(octave_text, this->getLocalBounds(), juce::Justification::centred);
+        auto font_size = std::min(16.f, interval_bounds.getHeight());
+        auto font = juce::Font{"Arial", "Normal", font_size}.boldened();
+        g.setFont(font);
+        g.setColour(juce::Colours::white);
+
+        auto const margin =
+            std::max(0.f, corner_radius - (font.getStringWidth(interval_text) / 2.f));
+
+        // Draw the interval text aligned to the far left and vertically centered.
+        g.drawText(interval_text, (int)(interval_bounds.getX() + margin),
+                   (int)interval_bounds.getY(),
+                   (int)(interval_bounds.getWidth() - margin),
+                   (int)interval_bounds.getHeight(), juce::Justification::centredLeft);
+    }
+    // Paint Octave Text --------------------------------------------------------
+    {
+        g.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
+
+        auto const octave = get_octave(interval_, tuning_length_);
+
+        auto octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
+        if ((float)g.getCurrentFont().getStringWidth(octave_text) > bounds.getWidth())
+        {
+            octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
+        }
+
+        g.setColour(juce::Colours::white);
+        g.drawText(octave_text, this->getLocalBounds(), juce::Justification::centred);
+    }
 }
 
 } // namespace xen::gui
