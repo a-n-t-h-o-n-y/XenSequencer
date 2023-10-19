@@ -310,6 +310,13 @@ auto KeyConfigListener::keyPressed(juce::KeyPress const &key, juce::Component *)
     return false;
 }
 
+auto KeyConfigListener::keyStateChanged(bool isKeyDown, juce::Component *) -> bool
+{
+    // Workaround for Windows bug, keyPress is called twice if this does not return
+    // true. This allows spacebar press to go to DAW.
+    return isKeyDown && !juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
+}
+
 auto build_key_listeners(std::string const &filepath, XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>
 {

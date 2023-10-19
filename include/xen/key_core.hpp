@@ -82,10 +82,7 @@ class KeyConfigListener : public juce::KeyListener
     auto keyPressed(juce::KeyPress const &key, juce::Component *origin)
         -> bool override;
 
-    auto keyStateChanged(bool, juce::Component *) -> bool override
-    {
-        return true;
-    }
+    auto keyStateChanged(bool, juce::Component *) -> bool override;
 
   private:
     KeyCore key_core_;

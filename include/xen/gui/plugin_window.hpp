@@ -99,6 +99,7 @@ class PluginWindow : public juce::Component
 
     auto set_key_listeners(std::map<std::string, KeyConfigListener> &listeners) -> void
     {
+        // phrase_editor_.removeKeyListener(); // TODO  this fn needs ptr to previous
         phrase_editor_.addKeyListener(&listeners.at("phraseeditor"));
         listeners.at("phraseeditor")
             .on_command.connect([this](std::string const &command) {

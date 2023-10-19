@@ -31,7 +31,7 @@ XenEditor::XenEditor(XenProcessor &p)
 
     // Initialize GUI
     auto const [state, aux] = timeline_.get_state();
-    plugin_window_.update(state, aux);
+    this->update(state, aux);
 
     // TODO wrap with try block and figure out how to display error
     this->update_key_listeners(get_keybinding_file().getFullPathName().toStdString());
