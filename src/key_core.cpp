@@ -24,104 +24,130 @@ auto const get_code = [](auto letter) {
     return juce::KeyPress::createFromDescription(letter).getKeyCode();
 };
 
-auto const key_map = std::unordered_map<std::string, int>{
-    // Letters
-    {"a", get_code("a")},
-    {"b", get_code("b")},
-    {"c", get_code("c")},
-    {"d", get_code("d")},
-    {"e", get_code("e")},
-    {"f", get_code("f")},
-    {"g", get_code("g")},
-    {"h", get_code("h")},
-    {"i", get_code("i")},
-    {"j", get_code("j")},
-    {"k", get_code("k")},
-    {"l", get_code("l")},
-    {"m", get_code("m")},
-    {"n", get_code("n")},
-    {"o", get_code("o")},
-    {"p", get_code("p")},
-    {"q", get_code("q")},
-    {"r", get_code("r")},
-    {"s", get_code("s")},
-    {"t", get_code("t")},
-    {"u", get_code("u")},
-    {"v", get_code("v")},
-    {"w", get_code("w")},
-    {"x", get_code("x")},
-    {"y", get_code("y")},
-    {"z", get_code("z")},
-    // Function Keys
-    {"f1", juce::KeyPress::F1Key},
-    {"f2", juce::KeyPress::F2Key},
-    {"f3", juce::KeyPress::F3Key},
-    {"f4", juce::KeyPress::F4Key},
-    {"f5", juce::KeyPress::F5Key},
-    {"f6", juce::KeyPress::F6Key},
-    {"f7", juce::KeyPress::F7Key},
-    {"f8", juce::KeyPress::F8Key},
-    {"f9", juce::KeyPress::F9Key},
-    {"f10", juce::KeyPress::F10Key},
-    {"f11", juce::KeyPress::F11Key},
-    {"f12", juce::KeyPress::F12Key},
-    // SymbolKeys
-    {"`", get_code("`")},
-    {"~", get_code("~")},
-    {"-", get_code("-")},
-    {"_", get_code("_")},
-    {"=", get_code("=")},
-    {"+", get_code("+")},
-    {"[", get_code("[")},
-    {"{", get_code("{")},
-    {"]", get_code("]")},
-    {"}", get_code("}")},
-    {";", get_code(";")},
-    {":", get_code(":")},
-    {"'", get_code("'")},
-    {"\"", get_code("\"")},
-    {"\\", get_code("\\")},
-    {"|", get_code("|")},
-    {",", get_code(",")},
-    {"<", get_code("<")},
-    {".", get_code(".")},
-    {">", get_code(">")},
-    {"/", get_code("/")},
-    {"?", get_code("?")},
-    // ControlKeys
-    {"escape", juce::KeyPress::escapeKey},
-    {"enter", juce::KeyPress::returnKey},
-    {"spacebar", juce::KeyPress::spaceKey},
-    {"backspace", juce::KeyPress::backspaceKey},
-    {"delete", juce::KeyPress::deleteKey},
-    // NavigationKeys
-    {"arrowup", juce::KeyPress::upKey},
-    {"arrowdown", juce::KeyPress::downKey},
-    {"arrowleft", juce::KeyPress::leftKey},
-    {"arrowright", juce::KeyPress::rightKey},
-    {"pageup", juce::KeyPress::pageUpKey},
-    {"pagedown", juce::KeyPress::pageDownKey},
-    {"home", juce::KeyPress::homeKey},
-    {"end", juce::KeyPress::endKey},
-    // Numpad
-    {"numpad0", juce::KeyPress::numberPad0},
-    {"numpad1", juce::KeyPress::numberPad1},
-    {"numpad2", juce::KeyPress::numberPad2},
-    {"numpad3", juce::KeyPress::numberPad3},
-    {"numpad4", juce::KeyPress::numberPad4},
-    {"numpad5", juce::KeyPress::numberPad5},
-    {"numpad6", juce::KeyPress::numberPad6},
-    {"numpad7", juce::KeyPress::numberPad7},
-    {"numpad8", juce::KeyPress::numberPad8},
-    {"numpad9", juce::KeyPress::numberPad9},
-    {"numpad+", juce::KeyPress::numberPadAdd},
-    {"numpad-", juce::KeyPress::numberPadSubtract},
-    {"numpad*", juce::KeyPress::numberPadMultiply},
-    {"numpad/", juce::KeyPress::numberPadDivide},
-    {"numpad.", juce::KeyPress::numberPadDelete},
-    // SpecialKeys
-    {"insert", juce::KeyPress::insertKey},
-};
+auto const key_map = [] {
+    auto x = std::unordered_map<std::string, int>{
+        // Letters
+        {"a", get_code("a")},
+        {"b", get_code("b")},
+        {"c", get_code("c")},
+        {"d", get_code("d")},
+        {"e", get_code("e")},
+        {"f", get_code("f")},
+        {"g", get_code("g")},
+        {"h", get_code("h")},
+        {"i", get_code("i")},
+        {"j", get_code("j")},
+        {"k", get_code("k")},
+        {"l", get_code("l")},
+        {"m", get_code("m")},
+        {"n", get_code("n")},
+        {"o", get_code("o")},
+        {"p", get_code("p")},
+        {"q", get_code("q")},
+        {"r", get_code("r")},
+        {"s", get_code("s")},
+        {"t", get_code("t")},
+        {"u", get_code("u")},
+        {"v", get_code("v")},
+        {"w", get_code("w")},
+        {"x", get_code("x")},
+        {"y", get_code("y")},
+        {"z", get_code("z")},
+        // Function Keys
+        {"f1", juce::KeyPress::F1Key},
+        {"f2", juce::KeyPress::F2Key},
+        {"f3", juce::KeyPress::F3Key},
+        {"f4", juce::KeyPress::F4Key},
+        {"f5", juce::KeyPress::F5Key},
+        {"f6", juce::KeyPress::F6Key},
+        {"f7", juce::KeyPress::F7Key},
+        {"f8", juce::KeyPress::F8Key},
+        {"f9", juce::KeyPress::F9Key},
+        {"f10", juce::KeyPress::F10Key},
+        {"f11", juce::KeyPress::F11Key},
+        {"f12", juce::KeyPress::F12Key},
+        // SymbolKeys
+        {"`", get_code("`")},
+        {"~", get_code("~")},
+        {"-", get_code("-")},
+        {"_", get_code("_")},
+        {"=", get_code("=")},
+        {"+", get_code("+")},
+        {"[", get_code("[")},
+        {"{", get_code("{")},
+        {"]", get_code("]")},
+        {"}", get_code("}")},
+        {";", get_code(";")},
+        {":", get_code(":")},
+        {"'", get_code("'")},
+        {"\"", get_code("\"")},
+        {"\\", get_code("\\")},
+        {"|", get_code("|")},
+        {",", get_code(",")},
+        {"<", get_code("<")},
+        {".", get_code(".")},
+        {">", get_code(">")},
+        {"/", get_code("/")},
+        {"?", get_code("?")},
+        // ControlKeys
+        {"escape", juce::KeyPress::escapeKey},
+        {"enter", juce::KeyPress::returnKey},
+        {"spacebar", juce::KeyPress::spaceKey},
+        {"backspace", juce::KeyPress::backspaceKey},
+        {"delete", juce::KeyPress::deleteKey},
+        // NavigationKeys
+        {"arrowup", juce::KeyPress::upKey},
+        {"arrowdown", juce::KeyPress::downKey},
+        {"arrowleft", juce::KeyPress::leftKey},
+        {"arrowright", juce::KeyPress::rightKey},
+        {"pageup", juce::KeyPress::pageUpKey},
+        {"pagedown", juce::KeyPress::pageDownKey},
+        {"home", juce::KeyPress::homeKey},
+        {"end", juce::KeyPress::endKey},
+        // Numpad
+        {"numpad0", juce::KeyPress::numberPad0},
+        {"numpad1", juce::KeyPress::numberPad1},
+        {"numpad2", juce::KeyPress::numberPad2},
+        {"numpad3", juce::KeyPress::numberPad3},
+        {"numpad4", juce::KeyPress::numberPad4},
+        {"numpad5", juce::KeyPress::numberPad5},
+        {"numpad6", juce::KeyPress::numberPad6},
+        {"numpad7", juce::KeyPress::numberPad7},
+        {"numpad8", juce::KeyPress::numberPad8},
+        {"numpad9", juce::KeyPress::numberPad9},
+        {"numpad+", juce::KeyPress::numberPadAdd},
+        {"numpad-", juce::KeyPress::numberPadSubtract},
+        {"numpad*", juce::KeyPress::numberPadMultiply},
+        {"numpad/", juce::KeyPress::numberPadDivide},
+        {"numpad.", juce::KeyPress::numberPadDelete},
+        // SpecialKeys
+        {"insert", juce::KeyPress::insertKey},
+    };
+
+#if defined(_WIN32) || defined(_WIN64)
+    // Windows
+    x["["] = get_code("{");
+    x["]"] = get_code("}");
+    x["|"] = get_code("\\");
+    x[":"] = get_code(";");
+    x["\""] = get_code("'");
+    x["<"] = get_code(",");
+    x[">"] = get_code(".");
+    x["?"] = get_code("/");
+    x["+"] = get_code("=");
+    x["_"] = get_code("-");
+    x["~"] = get_code("`");
+
+#elif defined(__APPLE__) || defined(__MACH__)
+    // macOS
+
+#elif defined(__linux__)
+    // Linux
+
+#endif
+
+    return x;
+}();
 
 /** @brief Parses the given YAML node to a KeyConfig
  *
