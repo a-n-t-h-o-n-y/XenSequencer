@@ -114,13 +114,13 @@ class MessageDisplay : public juce::Component
 
     auto set_warning(std::string const &text) -> void
     {
-        label_.setColour(juce::Label::textColourId, juce::Colours::yellow);
+        label_.setColour(juce::Label::textColourId, juce::Colour{0xFFFFBB33});
         label_.setText(text, juce::dontSendNotification);
     }
 
     auto set_error(std::string const &text) -> void
     {
-        label_.setColour(juce::Label::textColourId, juce::Colours::red);
+        label_.setColour(juce::Label::textColourId, juce::Colour{0xFFFF4444});
         label_.setText(text, juce::dontSendNotification);
     }
 
