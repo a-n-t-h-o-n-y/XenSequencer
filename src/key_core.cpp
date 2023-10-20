@@ -140,7 +140,6 @@ auto const key_map = [] {
 
 #elif defined(__APPLE__) || defined(__MACH__)
     // macOS
-    x["delete"] = juce::KeyPress::backspaceKey;
 
 #elif defined(__linux__)
     // Linux
