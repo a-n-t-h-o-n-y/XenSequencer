@@ -136,4 +136,10 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 
 [[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int;
 
+template <typename T>
+[[nodiscard]] auto compare_within_tolerance(T a, T b, T tolerance) -> bool
+{
+    return std::abs(a - b) <= tolerance;
+}
+
 } // namespace xen

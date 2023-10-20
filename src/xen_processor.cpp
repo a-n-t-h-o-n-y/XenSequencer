@@ -10,6 +10,7 @@
 #include <sequence/measure.hpp>
 
 #include <xen/midi.hpp>
+#include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace xen
@@ -50,7 +51,9 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         plugin_state_ = timeline.get_state().first;
         this->render();
     }
-    if (daw_state.bpm != bpm_daw || daw_state.sample_rate != this->getSampleRate())
+    if (!compare_within_tolerance(daw_state.bpm, bpm_daw, 0.00001f) ||
+        !compare_within_tolerance((double)daw_state.sample_rate, this->getSampleRate(),
+                                  0.1))
     {
         daw_state.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
         daw_state.bpm = bpm_daw;
