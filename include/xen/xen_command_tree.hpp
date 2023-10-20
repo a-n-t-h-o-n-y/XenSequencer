@@ -12,6 +12,7 @@
 #include <xen/command.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_type.hpp>
+#include <xen/user_directory.hpp>
 #include <xen/xen_timeline.hpp>
 
 namespace xen
@@ -116,6 +117,11 @@ inline auto const command_tree = cmd_group(
             return msuccess("Loaded state from '" + filepath.string() + "'.");
         },
         ArgInfo<std::filesystem::path>{"filepath"}),
+
+    cmd("dataDirectory", "Display the path to the directory where user data is stored.",
+        [](auto &) {
+            return msuccess(get_user_data_directory().getFullPathName().toStdString());
+        }),
 
     cmd_group("move", ArgInfo<std::string>{"direction"},
 
