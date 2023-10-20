@@ -29,6 +29,10 @@ class XenProcessor : public PluginProcessor
 
     auto createEditor() -> juce::AudioProcessorEditor * override;
 
+    auto getStateInformation(juce::MemoryBlock &dest_data) -> void override;
+
+    auto setStateInformation(void const *data, int sizeInBytes) -> void override;
+
   private:
     /**
      * @brief Render the current State to MIDI and save in rendered_ and update time.
