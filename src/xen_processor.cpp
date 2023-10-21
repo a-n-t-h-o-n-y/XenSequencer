@@ -1,6 +1,7 @@
 #include <xen/xen_processor.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -14,6 +15,35 @@
 #include <xen/serialize_state.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
+
+namespace
+{
+
+/**
+ * @brief Compares two juce::MidiMessage objects for equality.
+ *
+ * @param a First MidiMessage to compare.
+ * @param b Second MidiMessage to compare.
+ * @return bool True if the MidiMessages are equal, false otherwise.
+ */
+[[nodiscard]] auto are_midi_messages_equal(juce::MidiMessage const &a,
+                                           juce::MidiMessage const &b) -> bool
+{
+    if (a.getRawDataSize() != b.getRawDataSize())
+    {
+        return false;
+    }
+
+    if (std::memcmp(a.getRawData(), b.getRawData(), (std::size_t)a.getRawDataSize()) !=
+        0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
 
 namespace xen
 {
@@ -47,11 +77,14 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     auto const bpm_daw =
         position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
 
+    bool rendered = false;
+
     // Separate if statements prevent State copies on BPM changes.
     if (timeline.get_last_update_time() > last_rendered_time_)
     {
         plugin_state_ = timeline.get_state().first;
         this->render();
+        rendered = true;
     }
     if (!compare_within_tolerance(daw_state.bpm, bpm_daw, 0.00001f) ||
         !compare_within_tolerance((double)daw_state.sample_rate, this->getSampleRate(),
@@ -60,6 +93,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         daw_state.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
         daw_state.bpm = bpm_daw;
         this->render();
+        rendered = true;
     }
 
     // Find current MIDI events to send according to PlayHead position
@@ -85,6 +119,21 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     }();
 
     auto new_midi_buffer = find_subrange(rendered_, begin, end, (int)samples_in_phrase);
+
+    if (rendered)
+    {
+        this->add_midi_corrections(new_midi_buffer, *position);
+    }
+
+    if (auto const x = find_last_note_event(new_midi_buffer); x.has_value())
+    {
+        last_note_event_ = *x;
+    }
+    if (auto const x = find_last_pitch_bend_event(new_midi_buffer); x.has_value())
+    {
+        last_pitch_bend_event_ = *x;
+    }
+
     midi_messages.swapWith(new_midi_buffer);
 }
 
@@ -112,6 +161,40 @@ auto XenProcessor::render() -> void
 {
     rendered_ = render_to_midi(state_to_timeline(daw_state, plugin_state_));
     last_rendered_time_ = std::chrono::high_resolution_clock::now();
+}
+
+auto XenProcessor::add_midi_corrections(
+    juce::MidiBuffer &buffer, juce::AudioPlayHead::PositionInfo const &position) -> void
+{
+    auto const at = position.getTimeInSamples()
+                        ? *(position.getTimeInSamples())
+                        : throw std::runtime_error{"Sample position is not valid"};
+    auto const recent_note_event = find_most_recent_note_event(rendered_, at);
+    auto const recent_pitch_bend_event =
+        find_most_recent_pitch_bend_event(rendered_, at);
+
+    if (last_note_event_.isNoteOn() && recent_note_event.has_value() &&
+        !are_midi_messages_equal(last_note_event_, *recent_note_event))
+    {
+        buffer.addEvent(juce::MidiMessage::noteOff(1, last_note_event_.getNoteNumber()),
+                        0);
+        buffer.addEvent(juce::MidiMessage::noteOn(1, recent_note_event->getNoteNumber(),
+                                                  recent_note_event->getVelocity()),
+                        0);
+    }
+    else if (last_note_event_.isNoteOff() && recent_note_event.has_value() &&
+             !are_midi_messages_equal(last_note_event_, *recent_note_event))
+    {
+        buffer.addEvent(juce::MidiMessage::noteOn(1, recent_note_event->getNoteNumber(),
+                                                  recent_note_event->getVelocity()),
+                        0);
+    }
+
+    if (recent_pitch_bend_event.has_value() &&
+        !are_midi_messages_equal(last_pitch_bend_event_, *recent_pitch_bend_event))
+    {
+        buffer.addEvent(*recent_pitch_bend_event, 0);
+    }
 }
 
 } // namespace xen

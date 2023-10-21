@@ -2,6 +2,7 @@
 
 #include <chrono>
 
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <sequence/sequence.hpp>
@@ -39,10 +40,17 @@ class XenProcessor : public PluginProcessor
      */
     auto render() -> void;
 
+    auto add_midi_corrections(juce::MidiBuffer &buffer,
+                              juce::AudioPlayHead::PositionInfo const &position)
+        -> void;
+
   private:
     State plugin_state_; // Convenience variable, not necessary but saves cycles
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;
+
+    juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
+    juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
 };
 
 } // namespace xen

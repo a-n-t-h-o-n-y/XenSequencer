@@ -1,9 +1,13 @@
 #include <xen/midi.hpp>
 
+#include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <variant>
 
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 
 #include <sequence/midi.hpp>
 #include <sequence/utility.hpp>
@@ -99,6 +103,110 @@ auto find_subrange(juce::MidiBuffer const &buffer, int begin, int end,
     }
 
     return sub_buffer;
+}
+
+auto find_most_recent_pitch_bend_event(juce::MidiBuffer const &buffer,
+                                       long sample_begin)
+    -> std::optional<juce::MidiMessage>
+{
+    auto most_recent_pitch_bend = std::optional<juce::MidiMessage>{};
+
+    // Loop through the buffer once, starting from iter
+    for (auto iter = buffer.findNextSamplePosition(sample_begin + 1);
+         iter != buffer.cend(); ++iter)
+    {
+        auto const metadata = *iter;
+        if (metadata.getMessage().isPitchWheel())
+        {
+            most_recent_pitch_bend = metadata.getMessage();
+        }
+    }
+
+    // Loop from the beginning of the buffer to `sample_begin`
+    for (auto iter = buffer.cbegin(); iter != buffer.cend(); ++iter)
+    {
+        auto const metadata = *iter;
+
+        if (metadata.samplePosition > sample_begin)
+        {
+            break;
+        }
+
+        if (metadata.getMessage().isPitchWheel())
+        {
+            most_recent_pitch_bend = metadata.getMessage();
+        }
+    }
+
+    return most_recent_pitch_bend;
+}
+
+auto find_most_recent_note_event(juce::MidiBuffer const &buffer, long sample_begin)
+
+    -> std::optional<juce::MidiMessage>
+{
+    auto most_recent_event = std::optional<juce::MidiMessage>{};
+
+    // Loop through the buffer once, starting from iter
+    for (auto iter = buffer.findNextSamplePosition(sample_begin + 1L);
+         iter != buffer.cend(); ++iter)
+    {
+        auto const metadata = *iter;
+        if (metadata.getMessage().isNoteOnOrOff())
+        {
+            most_recent_event = metadata.getMessage();
+        }
+    }
+
+    // Loop from the beginning of the buffer to `sample_begin`
+    for (auto iter = buffer.cbegin(); iter != buffer.cend(); ++iter)
+    {
+        auto const metadata = *iter;
+
+        if (metadata.samplePosition > sample_begin)
+        {
+            break;
+        }
+
+        if (metadata.getMessage().isPitchWheel())
+        {
+            most_recent_event = metadata.getMessage();
+        }
+    }
+
+    return most_recent_event;
+}
+
+auto find_last_pitch_bend_event(juce::MidiBuffer const &midi_buffer)
+    -> std::optional<juce::MidiMessage>
+{
+    auto last_message = std::optional<juce::MidiMessage>{};
+
+    for (auto const &metadata : midi_buffer)
+    {
+        if (metadata.getMessage().isPitchWheel())
+        {
+            last_message = metadata.getMessage();
+        }
+    }
+
+    return last_message;
+}
+
+auto find_last_note_event(juce::MidiBuffer const &midi_buffer)
+    -> std::optional<juce::MidiMessage>
+{
+    auto last_message = std::optional<juce::MidiMessage>{};
+
+    for (auto const &metadata : midi_buffer)
+    {
+        if (metadata.getMessage().isNoteOnOrOff())
+        {
+            last_message = metadata.getMessage();
+        }
+    }
+
+    return last_message;
 }
 
 } // namespace xen
