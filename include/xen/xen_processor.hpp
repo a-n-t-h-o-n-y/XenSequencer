@@ -41,8 +41,8 @@ class XenProcessor : public PluginProcessor
     auto render() -> void;
 
     auto add_midi_corrections(juce::MidiBuffer &buffer,
-                              juce::AudioPlayHead::PositionInfo const &position)
-        -> void;
+                              juce::AudioPlayHead::PositionInfo const &position,
+                              long samples_in_phrase) -> void;
 
   private:
     State plugin_state_; // Convenience variable, not necessary but saves cycles

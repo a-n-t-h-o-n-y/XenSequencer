@@ -122,7 +122,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     if (rendered)
     {
-        this->add_midi_corrections(new_midi_buffer, *position);
+        this->add_midi_corrections(new_midi_buffer, *position, samples_in_phrase);
     }
 
     if (auto const x = find_last_note_event(new_midi_buffer); x.has_value())
@@ -164,11 +164,13 @@ auto XenProcessor::render() -> void
 }
 
 auto XenProcessor::add_midi_corrections(
-    juce::MidiBuffer &buffer, juce::AudioPlayHead::PositionInfo const &position) -> void
+    juce::MidiBuffer &buffer, juce::AudioPlayHead::PositionInfo const &position,
+    long samples_in_phrase) -> void
 {
-    auto const at = position.getTimeInSamples()
-                        ? *(position.getTimeInSamples())
-                        : throw std::runtime_error{"Sample position is not valid"};
+    auto const at = (position.getTimeInSamples()
+                         ? *(position.getTimeInSamples())
+                         : throw std::runtime_error{"Sample position is not valid"}) %
+                    samples_in_phrase;
     auto const recent_note_event = find_most_recent_note_event(rendered_, at);
     auto const recent_pitch_bend_event =
         find_most_recent_pitch_bend_event(rendered_, at);
@@ -178,16 +180,13 @@ auto XenProcessor::add_midi_corrections(
     {
         buffer.addEvent(juce::MidiMessage::noteOff(1, last_note_event_.getNoteNumber()),
                         0);
-        buffer.addEvent(juce::MidiMessage::noteOn(1, recent_note_event->getNoteNumber(),
-                                                  recent_note_event->getVelocity()),
-                        0);
+        buffer.addEvent(*recent_note_event, 0);
     }
     else if (last_note_event_.isNoteOff() && recent_note_event.has_value() &&
+             recent_note_event->isNoteOn() &&
              !are_midi_messages_equal(last_note_event_, *recent_note_event))
     {
-        buffer.addEvent(juce::MidiMessage::noteOn(1, recent_note_event->getNoteNumber(),
-                                                  recent_note_event->getVelocity()),
-                        0);
+        buffer.addEvent(*recent_note_event, 0);
     }
 
     if (recent_pitch_bend_event.has_value() &&

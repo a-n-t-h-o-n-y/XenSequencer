@@ -142,7 +142,6 @@ auto find_most_recent_pitch_bend_event(juce::MidiBuffer const &buffer,
 }
 
 auto find_most_recent_note_event(juce::MidiBuffer const &buffer, long sample_begin)
-
     -> std::optional<juce::MidiMessage>
 {
     auto most_recent_event = std::optional<juce::MidiMessage>{};
@@ -168,7 +167,7 @@ auto find_most_recent_note_event(juce::MidiBuffer const &buffer, long sample_beg
             break;
         }
 
-        if (metadata.getMessage().isPitchWheel())
+        if (metadata.getMessage().isNoteOnOrOff())
         {
             most_recent_event = metadata.getMessage();
         }
