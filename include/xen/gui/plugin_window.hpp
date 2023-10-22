@@ -118,7 +118,7 @@ class PluginWindow : public juce::Component
         auto flexbox = juce::FlexBox{};
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(heading_).withHeight(30.f));
+        flexbox.items.add(juce::FlexItem(heading_).withHeight(heading_.getHeight()));
         flexbox.items.add(juce::FlexItem(gui_timeline_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
@@ -135,7 +135,7 @@ class PluginWindow : public juce::Component
   private:
     XenTimeline &timeline_;
 
-    gui::Heading heading_{"XenSequencer"};
+    gui::Heading heading_{"XenSequencer", 1, juce::Font{"Arial", "Bold", 16.f}};
     gui::Timeline gui_timeline_;
     gui::PhraseEditor phrase_editor_;
     // TODO
