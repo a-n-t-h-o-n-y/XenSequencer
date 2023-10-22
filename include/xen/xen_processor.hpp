@@ -8,6 +8,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/command.hpp>
+#include <xen/command_history.hpp>
 #include <xen/plugin_processor.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -21,6 +22,7 @@ class XenProcessor : public PluginProcessor
   public:
     DAWState daw_state;
     XenTimeline timeline;
+    CommandHistory command_history;
 
   public:
     XenProcessor();

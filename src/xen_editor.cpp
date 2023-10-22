@@ -9,7 +9,8 @@ namespace xen
 {
 
 XenEditor::XenEditor(XenProcessor &p)
-    : AudioProcessorEditor{p}, timeline_{p.timeline}, plugin_window_{p.timeline}
+    : AudioProcessorEditor{p}, timeline_{p.timeline},
+      plugin_window_{p.timeline, p.command_history}
 {
     this->setResizable(true, true);
     this->setSize(1000, 300);

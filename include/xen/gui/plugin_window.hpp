@@ -7,6 +7,7 @@
 #include <signals_light/signal.hpp>
 
 #include <xen/command.hpp>
+#include <xen/command_history.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
@@ -24,7 +25,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    explicit PluginWindow(XenTimeline &tl) : timeline_{tl}, command_bar_{tl}
+    explicit PluginWindow(XenTimeline &tl, CommandHistory &cmd_history)
+        : timeline_{tl}, command_bar_{tl, cmd_history}
     {
         this->addAndMakeVisible(heading_);
         this->addAndMakeVisible(gui_timeline_);
