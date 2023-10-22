@@ -49,6 +49,7 @@ class XenProcessor : public PluginProcessor
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;
 
+    bool is_playing_{false};
     juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
     juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
 };

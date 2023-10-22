@@ -69,7 +69,13 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     if (!position->getIsPlaying())
     {
-        // Comment this out for JUCE plugin host testing
+        if (is_playing_) // Stop was pressed
+        {
+            last_note_event_ =
+                juce::MidiMessage::noteOff(1, last_note_event_.getNoteNumber());
+            midi_messages.addEvent(last_note_event_, 0);
+        }
+        is_playing_ = false;
         return;
     }
 
@@ -77,14 +83,15 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     auto const bpm_daw =
         position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
 
-    bool rendered = false;
+    bool needs_corrections = !is_playing_; // Start was pressed
+    is_playing_ = true;
 
     // Separate if statements prevent State copies on BPM changes.
     if (timeline.get_last_update_time() > last_rendered_time_)
     {
         plugin_state_ = timeline.get_state().first;
         this->render();
-        rendered = true;
+        needs_corrections = true;
     }
     if (!compare_within_tolerance(daw_state.bpm, bpm_daw, 0.00001f) ||
         !compare_within_tolerance((double)daw_state.sample_rate, this->getSampleRate(),
@@ -93,7 +100,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         daw_state.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
         daw_state.bpm = bpm_daw;
         this->render();
-        rendered = true;
+        needs_corrections = true;
     }
 
     // Find current MIDI events to send according to PlayHead position
@@ -120,7 +127,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     auto new_midi_buffer = find_subrange(rendered_, begin, end, (int)samples_in_phrase);
 
-    if (rendered)
+    if (needs_corrections)
     {
         this->add_midi_corrections(new_midi_buffer, *position, samples_in_phrase);
     }
