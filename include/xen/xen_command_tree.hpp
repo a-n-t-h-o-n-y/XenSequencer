@@ -99,24 +99,29 @@ inline auto const command_tree = cmd_group(
         },
         ArgInfo<std::string>{"component"}),
 
-    cmd(
-        "save", "Save the current state to a file.",
-        [](XenTimeline &tl, std::filesystem::path const &filepath) {
-            action::save_state(tl, filepath);
-            return msuccess("Saved state to '" + filepath.string() + "'.");
-        },
-        ArgInfo<std::filesystem::path>{"filepath"}),
+    cmd_group("load", ArgInfo<std::string>{"filetype"},
 
-    cmd(
-        "load", "Load a state from a file.",
-        [](XenTimeline &tl, std::filesystem::path const &filepath) {
-            // Call first in case of error
-            auto new_state = action::load_state(filepath);
-            tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
-            tl.add_state(std::move(new_state));
-            return msuccess("Loaded state from '" + filepath.string() + "'.");
-        },
-        ArgInfo<std::filesystem::path>{"filepath"}),
+              cmd(
+                  "phrase", "Load a Phrase from a file.",
+                  [](XenTimeline &tl, std::filesystem::path const &filepath) {
+                      // Call first in case of error
+                      auto new_state = action::load_state(filepath);
+                      tl.set_aux_state({{0, {}}},
+                                       false); // Manually reset selection on overwrite
+                      tl.add_state(std::move(new_state));
+                      return msuccess("Loaded state from '" + filepath.string() + "'.");
+                  },
+                  ArgInfo<std::filesystem::path>{"filepath"})),
+
+    cmd_group("save", ArgInfo<std::string>{"filetype"},
+
+              cmd(
+                  "phrase", "Save the current Phrase to a file.",
+                  [](XenTimeline &tl, std::filesystem::path const &filepath) {
+                      action::save_state(tl, filepath);
+                      return msuccess("Saved state to '" + filepath.string() + "'.");
+                  },
+                  ArgInfo<std::filesystem::path>{"filepath"})),
 
     cmd("dataDirectory", "Display the path to the directory where user data is stored.",
         [](auto &) {
