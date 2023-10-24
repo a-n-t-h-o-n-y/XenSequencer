@@ -19,8 +19,8 @@ class Heading : public juce::Label
      * @param font The font to use
      */
     explicit Heading(juce::String const &text = juce::String{}, int padding = 10,
-                     juce::Font font = juce::Font{"Arial", "Bold", 24.f})
-        : juce::Label{text, text}, padding_{padding}, font_{font}
+                     juce::Font font_ = juce::Font{"Arial", "Bold", 24.f})
+        : juce::Label{text, text}, padding_{padding}
     {
         this->setFont(font_);
         this->setText(text, juce::dontSendNotification);
@@ -52,7 +52,6 @@ class Heading : public juce::Label
 
   private:
     int padding_;
-    juce::Font font_;
 };
 
 } // namespace xen::gui

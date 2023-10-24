@@ -144,6 +144,15 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     midi_messages.swapWith(new_midi_buffer);
 }
 
+auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
+                                juce::MidiBuffer &midi_buffer) -> void
+{
+    // Just forward to float version, this is a midi-only plugin.
+    buffer.clear();
+    auto empty = juce::AudioBuffer<double>{};
+    this->processBlock(empty, midi_buffer);
+}
+
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 {
     return new XenEditor{*this};

@@ -27,7 +27,7 @@ target_compile_features(XenSequencerLib
 )
 target_compile_options(XenSequencerLib INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wno-implicit-int-float-conversion>
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
 set_target_properties(XenSequencerLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -195,7 +195,7 @@ target_link_libraries(XenSequencer
 
 target_compile_options(XenSequencer INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Wno-implicit-int-float-conversion>
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
 add_subdirectory(tools/cmd_reference)

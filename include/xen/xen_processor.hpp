@@ -30,6 +30,8 @@ class XenProcessor : public PluginProcessor
   protected:
     auto processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) -> void override;
 
+    auto processBlock(juce::AudioBuffer<double> &, juce::MidiBuffer &) -> void override;
+
     auto createEditor() -> juce::AudioProcessorEditor * override;
 
     auto getStateInformation(juce::MemoryBlock &dest_data) -> void override;

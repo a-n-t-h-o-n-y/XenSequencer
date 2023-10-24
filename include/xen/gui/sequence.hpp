@@ -17,6 +17,7 @@
 
 #include <xen/gui/homogenous_row.hpp>
 #include <xen/state.hpp>
+#include <xen/utility.hpp>
 
 namespace xen::gui
 {
@@ -118,8 +119,8 @@ class NoteInterval : public juce::Component
     auto set_velocity(float vel) -> void
     {
         auto const brightness = std::lerp(0.5f, 1.f, vel);
-        bg_color_ =
-            juce::Colour{0xFF0ad0f5}.withBrightness(vel == 0.f ? 0.2f : brightness);
+        bg_color_ = juce::Colour{0xFF0ad0f5}.withBrightness(
+            compare_within_tolerance(vel, 0.f, 1e-6f) ? 0.2f : brightness);
         this->repaint();
     }
 

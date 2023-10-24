@@ -112,7 +112,7 @@ auto find_most_recent_pitch_bend_event(juce::MidiBuffer const &buffer,
     auto most_recent_pitch_bend = std::optional<juce::MidiMessage>{};
 
     // Loop through the buffer once, starting from iter
-    for (auto iter = buffer.findNextSamplePosition(sample_begin + 1);
+    for (auto iter = buffer.findNextSamplePosition((int)(sample_begin + 1L));
          iter != buffer.cend(); ++iter)
     {
         auto const metadata = *iter;
@@ -147,7 +147,7 @@ auto find_most_recent_note_event(juce::MidiBuffer const &buffer, long sample_beg
     auto most_recent_event = std::optional<juce::MidiMessage>{};
 
     // Loop through the buffer once, starting from iter
-    for (auto iter = buffer.findNextSamplePosition(sample_begin + 1L);
+    for (auto iter = buffer.findNextSamplePosition((int)(sample_begin + 1L));
          iter != buffer.cend(); ++iter)
     {
         auto const metadata = *iter;

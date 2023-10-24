@@ -389,7 +389,7 @@ auto build_key_listeners(std::filesystem::path const &default_keys,
     -> std::map<std::string, KeyConfigListener>
 {
     auto const keys_node = merge_yaml_files(default_keys, user_keys);
-    auto const key_cores = create_component_key_cores(keys_node);
+    auto key_cores = create_component_key_cores(keys_node);
     auto result = std::map<std::string, KeyConfigListener>{};
 
     for (auto &[component_name, key_core] : key_cores)

@@ -152,8 +152,8 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
         g.setFont(font);
         g.setColour(juce::Colours::white);
 
-        auto const margin =
-            std::max(0.f, corner_radius - (font.getStringWidth(interval_text) / 2.f));
+        auto const margin = std::max(
+            0.f, corner_radius - ((float)font.getStringWidth(interval_text) / 2.f));
 
         // Draw the interval text aligned to the far left and vertically centered.
         g.drawText(interval_text, (int)(interval_bounds.getX() + margin),
