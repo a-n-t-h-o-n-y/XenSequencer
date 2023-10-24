@@ -124,9 +124,7 @@ inline auto const command_tree = cmd_group(
                   ArgInfo<std::filesystem::path>{"filepath"})),
 
     cmd("dataDirectory", "Display the path to the directory where user data is stored.",
-        [](auto &) {
-            return msuccess(get_user_data_directory().getFullPathName().toStdString());
-        }),
+        [](auto &) { return msuccess(get_user_data_directory().string()); }),
 
     cmd_group("move", ArgInfo<std::string>{"direction"},
 

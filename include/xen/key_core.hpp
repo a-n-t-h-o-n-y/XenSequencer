@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <map>
 #include <optional>
 #include <string>
@@ -89,7 +90,8 @@ class KeyConfigListener : public juce::KeyListener
     XenTimeline const &tl_;
 };
 
-[[nodiscard]] auto build_key_listeners(std::string const &filepath,
+[[nodiscard]] auto build_key_listeners(std::filesystem::path const &default_keys,
+                                       std::filesystem::path const &user_keys,
                                        XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>;
 

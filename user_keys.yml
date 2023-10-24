@@ -1,0 +1,36 @@
+# Description: User Override Key bindings for the XenSequencer Plugin
+
+# Input Modes:
+#  [m] : Movement
+#  [n] : Note
+#  [v] : Velocity
+#  [d] : Delay
+#  [g] : Gate
+
+# Special Keys - case does not matter
+# "Cmd" - Same as Control key on Linux/Windows
+# "Shift"
+# "Alt"
+# "Escape"
+# "ArrowRight"
+# "ArrowLeft"
+# "ArrowUp"
+# "ArrowDown"
+
+# Use + to link keys together
+
+# Headings are necessary to group keys together per UI component.
+# Valid component headings are:
+# - PhraseEditor
+
+# Example:
+
+# PhraseEditor:
+#   "m": "mode movement"
+#   "escape": "mode movement"
+#   "n": "mode note"
+#   "v": "mode velocity"
+#   "d": "mode delay"
+#   "g": "mode gate"
+
+PhraseEditor:

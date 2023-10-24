@@ -120,7 +120,8 @@ class PluginWindow : public juce::Component
         auto flexbox = juce::FlexBox{};
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(heading_).withHeight(heading_.getHeight()));
+        flexbox.items.add(
+            juce::FlexItem(heading_).withHeight((float)heading_.getHeight()));
         flexbox.items.add(juce::FlexItem(gui_timeline_).withHeight(30.f));
         flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
         // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));

@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <filesystem>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <signals_light/signal.hpp>
@@ -32,7 +33,7 @@ class XenEditor : public juce::AudioProcessorEditor
     }
 
   private:
-    auto update_key_listeners(std::string const &filename) -> void;
+    auto update_key_listeners(std::filesystem::path const &default_keys, std::filesystem::path const& user_keys) -> void;
 
   private:
     XenTimeline const &timeline_;

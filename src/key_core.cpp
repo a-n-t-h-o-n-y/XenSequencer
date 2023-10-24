@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <iostream>
 #include <optional>
 #include <sstream>
@@ -13,12 +14,55 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <yaml-cpp/yaml.h>
 
+#include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
 
 namespace
 {
 
 using namespace xen;
+
+/**
+ * @brief Merge two YAML files into a single YAML::Node, with the overlay taking
+ * precedence.
+
+ * This is not a general solution, this is specific to the XenSequencer key
+ * config. This will remove the 'version' top-level key from base.
+ *
+ * @param base_filepath The base YAML file.
+ * @param overlay_filepath The overlay YAML file.
+ * @return YAML::Node The merged YAML node.
+ * @throws YAML::Exception if there is an error parsing the YAML files.
+ * @throws std::runtime_error if the YAML file structure is invalid.
+ */
+[[nodiscard]] auto merge_yaml_files(std::filesystem::path const &base_filepath,
+                                    std::filesystem::path const &overlay_filepath)
+    -> YAML::Node
+{
+    auto base = YAML::LoadFile(base_filepath.string());
+    auto overlay = YAML::LoadFile(overlay_filepath.string());
+    base.remove("version");
+
+    if (!base.IsMap() || !overlay.IsMap())
+    {
+        // TODO catch this and display as error message in GUI
+        throw std::runtime_error{"Invalid YAML file structure."};
+    }
+
+    for (auto overlay_pair : overlay)
+    {
+        auto component_name = overlay_pair.first.as<std::string>();
+        auto bindings_node = overlay_pair.second;
+        for (auto key : bindings_node)
+        {
+            auto key_value = key.first.as<std::string>();
+            auto value_value = key.second.as<std::string>();
+            base[component_name][key_value] = value_value;
+        }
+    }
+
+    return base;
+}
 
 auto const get_code = [](auto letter) {
     return juce::KeyPress::createFromDescription(letter).getKeyCode();
@@ -226,24 +270,20 @@ auto const key_map = [] {
     return KeyConfig{mode, juce::KeyPress(key_code, modifiers, 0), command};
 }
 
-/** @brief Parses a YAML file into a collection of KeyCore objects.
+/** @brief Parse a YAML::Node into a collection of KeyCore objects.
  *
- *  @param file_path The path to the YAML file.
+ * @param root The root YAML node.
  *  @return A map of KeyCore objects, one for each component.
  */
-[[nodiscard]] auto parse_key_config_from_file(std::string const &filepath)
+[[nodiscard]] auto create_component_key_cores(YAML::Node const &root)
     -> std::unordered_map<std::string, KeyCore>
 {
-    auto root = YAML::LoadFile(filepath);
-
     auto component_to_keycore = std::unordered_map<std::string, KeyCore>{};
 
     for (auto const &component : root)
     {
         auto component_name = component.first.as<std::string>();
-        std::transform(std::cbegin(component_name), std::cend(component_name),
-                       std::begin(component_name),
-                       [](char c) { return static_cast<char>(std::tolower(c)); });
+        component_name = to_lower(component_name);
         auto const &key_mappings = component.second;
 
         auto configs = std::vector<KeyConfig>{};
@@ -254,7 +294,7 @@ auto const key_map = [] {
             auto const command = mapping.second.as<std::string>();
 
             auto config = parse_key_config(key_combo_str, command);
-            configs.push_back(config);
+            configs.push_back(std::move(config));
         }
 
         auto const [_, inserted] =
@@ -344,10 +384,12 @@ auto KeyConfigListener::keyStateChanged(bool isKeyDown, juce::Component *) -> bo
     return isKeyDown && !juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 }
 
-auto build_key_listeners(std::string const &filepath, XenTimeline const &tl)
+auto build_key_listeners(std::filesystem::path const &default_keys,
+                         std::filesystem::path const &user_keys, XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>
 {
-    auto key_cores = parse_key_config_from_file(filepath);
+    auto const keys_node = merge_yaml_files(default_keys, user_keys);
+    auto const key_cores = create_component_key_cores(keys_node);
     auto result = std::map<std::string, KeyConfigListener>{};
 
     for (auto &[component_name, key_core] : key_cores)

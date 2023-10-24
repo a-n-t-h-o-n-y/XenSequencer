@@ -32,12 +32,13 @@ target_compile_options(XenSequencerLib INTERFACE
 
 set_target_properties(XenSequencerLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# Add keys.yml as a binary resource
+# Add config files as a binary resource
 juce_add_binary_data(EmbedKeys
     HEADER_NAME "embed_keys.hpp"
     NAMESPACE embed_keys
     SOURCES
         keys.yml
+        user_keys.yml
 )
 
 target_link_libraries(XenSequencerLib
