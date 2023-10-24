@@ -14,7 +14,7 @@
 #include <sequence/pattern.hpp>
 #include <sequence/utility.hpp>
 
-#include <xen/message_type.hpp>
+#include <xen/message_level.hpp>
 #include <xen/parse_args.hpp>
 #include <xen/signature.hpp>
 #include <xen/string_manip.hpp>
@@ -232,7 +232,7 @@ template <typename Command_t, typename T>
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse, this will only consist of arguments
  * to the command, the name will be stripped off before this function is called.
- * @return std::pair<MessageType, std::string> The message type and message string.
+ * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
@@ -240,7 +240,7 @@ template <typename Command_t, typename T>
 template <typename ID_t, typename Fn, typename... Args>
 [[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, XenTimeline &tl,
                            std::string command_str)
-    -> std::pair<MessageType, std::string>
+    -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -249,7 +249,7 @@ template <typename ID_t, typename Fn, typename... Args>
     }
     catch (std::exception const &e)
     {
-        return {MessageType::Error, e.what()};
+        return {MessageLevel::Error, e.what()};
     }
 }
 
@@ -261,7 +261,7 @@ template <typename ID_t, typename Fn, typename... Args>
  * @param command_str The command string to parse, this will only consist of arguments
  * to the command, the name will be stripped off before this function is called.
  * @param pattern The pattern to use for iteration over Sequences.
- * @return std::pair<MessageType, std::string> The message type and message string.
+ * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
@@ -269,7 +269,7 @@ template <typename ID_t, typename Fn, typename... Args>
 template <typename ID_t, typename Fn, typename... Args>
 [[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, XenTimeline &tl,
                            std::string command_str, sequence::Pattern pattern)
-    -> std::pair<MessageType, std::string>
+    -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -279,7 +279,7 @@ template <typename ID_t, typename Fn, typename... Args>
     }
     catch (std::exception const &e)
     {
-        return {MessageType::Error, e.what()};
+        return {MessageLevel::Error, e.what()};
     }
 }
 
@@ -293,7 +293,7 @@ template <typename ID_t, typename Fn, typename... Args>
  * @param command_group The command group to execute.
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse.
- * @return std::pair<MessageType, std::string> The message type and message string.
+ * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
@@ -302,7 +302,7 @@ template <typename ID_t, typename Fn, typename... Args>
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto execute(
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, XenTimeline &tl,
-    std::string command_str) -> std::pair<MessageType, std::string>
+    std::string command_str) -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -319,7 +319,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
             command_str = pop_first_word(command_str);
         }
 
-        return apply_if<std::pair<MessageType, std::string>>(
+        return apply_if<std::pair<MessageLevel, std::string>>(
             [&](auto const &command) {
                 return is_match(command, command_str,
                                 command_group.commands.id_info.default_value);
@@ -329,11 +329,11 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     }
     catch (ErrorNoMatch const &)
     {
-        return {MessageType::Error, "Command Not Found: " + command_str};
+        return {MessageLevel::Error, "Command Not Found: " + command_str};
     }
     catch (std::exception const &e)
     {
-        return {MessageType::Error, e.what()};
+        return {MessageLevel::Error, e.what()};
     }
 }
 
@@ -348,7 +348,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse.
  * @param pattern The pattern to use for iteration over Sequences.
- * @return std::pair<MessageType, std::string> The message type and message string.
+ * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
@@ -358,7 +358,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto execute(
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, XenTimeline &tl,
     std::string command_str, sequence::Pattern pattern)
-    -> std::pair<MessageType, std::string>
+    -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -373,7 +373,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
         {
             command_str = pop_first_word(command_str);
         }
-        return apply_if<std::pair<MessageType, std::string>>(
+        return apply_if<std::pair<MessageLevel, std::string>>(
             [&](auto const &command) {
                 return is_match(command, command_str,
                                 command_group.commands.id_info.default_value);
@@ -385,11 +385,11 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     }
     catch (ErrorNoMatch const &)
     {
-        return {MessageType::Error, "Command Not Found: " + command_str};
+        return {MessageLevel::Error, "Command Not Found: " + command_str};
     }
     catch (std::exception const &e)
     {
-        return {MessageType::Error, e.what()};
+        return {MessageLevel::Error, e.what()};
     }
 }
 
@@ -403,14 +403,14 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
  * @param pattern The pattern prefix to execute.
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse.
- * @return std::pair<MessageType, std::string> The message type and message string.
+ * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
  * @exception std::invalid_argument Thrown when the pattern string is invalid.
  */
 template <typename Command_t>
 [[nodiscard]] auto execute(PatternPrefix<Command_t> const &pattern_cmd, XenTimeline &tl,
                            std::string command_str)
-    -> std::pair<MessageType, std::string>
+    -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -421,7 +421,7 @@ template <typename Command_t>
     }
     catch (std::invalid_argument const &e)
     {
-        return {MessageType::Error, e.what()};
+        return {MessageLevel::Error, e.what()};
     }
 }
 

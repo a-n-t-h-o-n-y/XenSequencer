@@ -6,7 +6,7 @@
 
 #include <xen/command.hpp>
 #include <xen/guide_text.hpp>
-#include <xen/message_type.hpp>
+#include <xen/message_level.hpp>
 #include <xen/xen_timeline.hpp>
 
 using namespace xen;
@@ -17,13 +17,12 @@ TEST_CASE("Command", "[Command Tree]")
         "", ArgInfo<std::string>{"command_name"},
         cmd("browse", "",
             [](XenTimeline &) {
-                return std::pair{MessageType::Error, "Can't Browse..."};
+                return std::pair{MessageLevel::Error, "Can't Browse..."};
             }),
         cmd(
             "help", "",
             [](XenTimeline &, std::string s, int v) {
-                return std::pair{MessageType::Success,
-                                 "found: " + std::to_string(v) + " and: " + s};
+                return minfo("found: " + std::to_string(v) + " and: " + s);
             },
             ArgInfo<std::string>{"names", "WOW"}, ArgInfo<int>{"value", 5}),
         pattern(cmd(
@@ -35,20 +34,15 @@ TEST_CASE("Command", "[Command Tree]")
                     msg += std::to_string(i) + " ";
                 }
                 msg += "\nvalue: " + std::to_string(v);
-                return std::pair{MessageType::Success, msg};
+                return minfo(msg);
             },
             ArgInfo<int>{"value", 3})),
         cmd_group("group", ArgInfo<std::string>{"subcommand"},
-                  cmd("browse", "",
-                      [](XenTimeline &) {
-                          return std::pair{MessageType::Success, "Browsing..."};
-                      }),
+                  cmd("browse", "", [](XenTimeline &) { return minfo("Browsing..."); }),
                   cmd(
                       "help", "",
                       [](XenTimeline &, std::string s, int v) {
-                          return std::pair{MessageType::Success,
-                                           "found: " + std::to_string(v) +
-                                               " and: " + s};
+                          return minfo("found: " + std::to_string(v) + " and: " + s);
                       },
                       ArgInfo<std::string>{"names", "WOW"}, ArgInfo<int>{"value", 5}),
                   pattern(cmd(
@@ -60,30 +54,30 @@ TEST_CASE("Command", "[Command Tree]")
                               msg += std::to_string(i) + " ";
                           }
                           msg += "\nvalue: " + std::to_string(v);
-                          return std::pair{MessageType::Success, msg};
+                          return minfo(msg);
                       },
                       ArgInfo<int>{"value", 3}))));
 
     auto tl = XenTimeline{{}, {}};
     {
         auto const [type, msg] = execute(command_tree, tl, "help \"hi world\" 3");
-        CHECK(type == MessageType::Success);
+        CHECK(type == MessageLevel::Info);
         CHECK(msg == "found: 3 and: hi world");
     }
     {
         auto const [type, msg] = execute(command_tree, tl, "browse");
-        CHECK(type == MessageType::Error);
+        CHECK(type == MessageLevel::Error);
         CHECK(msg == "Can't Browse...");
     }
     {
         auto const [type, msg] = execute(command_tree, tl, "+5 4 pat");
-        CHECK(type == MessageType::Success);
+        CHECK(type == MessageLevel::Info);
         CHECK(msg == "Pattern: +5 4 \nvalue: 3");
     }
     {
         auto const [type, msg] =
             execute(command_tree, tl, "group help \"thing  \" 432");
-        CHECK(type == MessageType::Success);
+        CHECK(type == MessageLevel::Info);
         CHECK(msg == "found: 432 and: thing  ");
     }
 }

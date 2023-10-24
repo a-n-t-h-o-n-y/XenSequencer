@@ -15,7 +15,7 @@
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
-#include <xen/message_type.hpp>
+#include <xen/message_level.hpp>
 #include <xen/state.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -42,17 +42,22 @@ class PluginWindow : public juce::Component
         heading_.set_justification(juce::Justification::centred);
 
         command_bar_.on_command_response.connect(
-            [this](MessageType mtype, std::string const &response) {
-                switch (mtype)
+            [this](MessageLevel mlevel, std::string const &response) {
+                switch (mlevel)
                 {
-                case MessageType::Error:
+                    // TODO status bar should take the level and message as parameters,
+                    // implement this switch there once.
+                case MessageLevel::Error:
                     status_bar_.message_display.set_error(response);
                     break;
-                case MessageType::Warning:
+                case MessageLevel::Warning:
                     status_bar_.message_display.set_warning(response);
                     break;
-                case MessageType::Success:
+                case MessageLevel::Info:
                     status_bar_.message_display.set_success(response);
+                    break;
+                case MessageLevel::Debug:
+                    // status_bar_.message_display.set_debug(response);
                     break;
                 default:
                     throw std::runtime_error("invalid message type");

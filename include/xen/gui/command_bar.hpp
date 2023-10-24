@@ -15,7 +15,7 @@
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/guide_text.hpp>
-#include <xen/message_type.hpp>
+#include <xen/message_level.hpp>
 #include <xen/signature.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -81,7 +81,7 @@ class CommandBar : public juce::Component
 {
   public:
     sl::Signal<void()> on_escape_request;
-    sl::Signal<void(MessageType, std::string const &)> on_command_response;
+    sl::Signal<void(MessageLevel, std::string const &)> on_command_response;
 
   public:
     CommandBar(XenTimeline &tl, CommandHistory &cmd_history)
@@ -171,9 +171,9 @@ class CommandBar : public juce::Component
     {
         auto const command = command_input_.getText().toStdString();
         command_history_.add_command(command);
-        auto const [mtype, message] =
+        auto const [mlevel, message] =
             execute(command_tree, timeline_, normalize_command_string(command));
-        this->on_command_response(mtype, message);
+        this->on_command_response(mlevel, message);
     }
 
     /**

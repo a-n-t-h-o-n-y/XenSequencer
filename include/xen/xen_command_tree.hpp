@@ -11,7 +11,7 @@
 #include <xen/actions.hpp>
 #include <xen/command.hpp>
 #include <xen/input_mode.hpp>
-#include <xen/message_type.hpp>
+#include <xen/message_level.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_timeline.hpp>
 
@@ -27,12 +27,12 @@ inline auto const command_tree = cmd_group(
 
     cmd("undo", "Revert the last action.",
         [](XenTimeline &tl) {
-            return tl.undo() ? msuccess("Undo Successful") : mwarning("Can't Undo");
+            return tl.undo() ? minfo("Undo Successful") : mwarning("Can't Undo");
         }),
 
     cmd("redo", "Reapply the last undone action.",
         [](XenTimeline &tl) {
-            return tl.redo() ? msuccess("Redo Successful") : mwarning("Can't Redo");
+            return tl.redo() ? minfo("Redo Successful") : mwarning("Can't Redo");
         }),
 
     cmd("copy", "Put the current selection in the copy buffer.",
@@ -41,7 +41,7 @@ inline auto const command_tree = cmd_group(
             if (copy.has_value())
             {
                 copy_buffer = std::move(*copy);
-                return msuccess("Copied.");
+                return minfo("Copied.");
             }
             return mwarning("Nothing to copy.");
         }),
@@ -57,7 +57,7 @@ inline auto const command_tree = cmd_group(
             auto &[buffer, state] = *cut;
             tl.add_state(std::move(state));
             copy_buffer = std::move(buffer);
-            return msuccess("Cut.");
+            return minfo("Cut.");
         }),
 
     cmd("paste",
@@ -67,7 +67,7 @@ inline auto const command_tree = cmd_group(
             if (result.has_value())
             {
                 tl.add_state(*result);
-                return msuccess("Pasted.");
+                return minfo("Pasted.");
             }
             return mwarning("Nothing to paste.");
         }),
@@ -78,7 +78,7 @@ inline auto const command_tree = cmd_group(
             auto [aux, state] = action::duplicate(tl);
             tl.set_aux_state(std::move(aux), false);
             tl.add_state(std::move(state));
-            return msuccess("Duplicated.");
+            return minfo("Duplicated.");
         }),
 
     cmd(
@@ -87,7 +87,7 @@ inline auto const command_tree = cmd_group(
         "\n\nThe mode determines the behavior of the up/down keys.",
         [](XenTimeline &tl, InputMode mode) {
             tl.set_aux_state(action::set_mode(tl, mode));
-            return msuccess("Changed mode to '" + to_string(mode) + "'.");
+            return minfo("Changed mode to '" + to_string(mode) + "'.");
         },
         ArgInfo<InputMode>{"mode"}),
 
@@ -95,7 +95,7 @@ inline auto const command_tree = cmd_group(
         "focus", "Move the keyboard focus to the specified component.",
         [](auto &, std::string const &name) {
             on_focus_change_request(name);
-            return msuccess("Focused on '" + name + "'.");
+            return minfo("Focused on '" + name + "'.");
         },
         ArgInfo<std::string>{"component"}),
 
@@ -109,7 +109,7 @@ inline auto const command_tree = cmd_group(
                       tl.set_aux_state({{0, {}}},
                                        false); // Manually reset selection on overwrite
                       tl.add_state(std::move(new_state));
-                      return msuccess("Loaded state from '" + filepath.string() + "'.");
+                      return minfo("Loaded state from '" + filepath.string() + "'.");
                   },
                   ArgInfo<std::filesystem::path>{"filepath"})),
 
@@ -119,46 +119,46 @@ inline auto const command_tree = cmd_group(
                   "phrase", "Save the current Phrase to a file.",
                   [](XenTimeline &tl, std::filesystem::path const &filepath) {
                       action::save_state(tl, filepath);
-                      return msuccess("Saved state to '" + filepath.string() + "'.");
+                      return minfo("Saved state to '" + filepath.string() + "'.");
                   },
                   ArgInfo<std::filesystem::path>{"filepath"})),
 
     cmd("dataDirectory", "Display the path to the directory where user data is stored.",
-        [](auto &) { return msuccess(get_user_data_directory().string()); }),
+        [](auto &) { return minfo(get_user_data_directory().string()); }),
 
     cmd_group("move", ArgInfo<std::string>{"direction"},
 
               cmd("left", "Move the selection left, or wrap around.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_left(tl));
-                      return msuccess("Moved Left.");
+                      return minfo("Moved Left.");
                   }),
 
               cmd("right", "Move the selection right, or wrap around.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_right(tl));
-                      return msuccess("Moved Right.");
+                      return minfo("Moved Right.");
                   }),
 
               cmd("up", "Move the selection up one level to a parent sequence.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_up(tl));
                       // TODO message depending on if moved or hit ceiling
-                      return msuccess("Moved Up.");
+                      return minfo("Moved Up.");
                   }),
 
               cmd("down", "Move the selection down one level.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_down(tl));
                       // TODO message depending on if moved or hit floor
-                      return msuccess("Moved Down.");
+                      return minfo("Moved Down.");
                   })),
 
     cmd(
         "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",
         [](XenTimeline &tl, float freq) {
             tl.add_state(action::set_base_frequency(tl, freq));
-            return msuccess("Base Frequency Set.");
+            return minfo("Base Frequency Set.");
         },
         ArgInfo<float>{"freq", 440.f}),
 
@@ -168,7 +168,7 @@ inline auto const command_tree = cmd_group(
             auto [aux, state] = action::add_measure(tl, ts);
             tl.set_aux_state(std::move(aux), false);
             tl.add_state(std::move(state));
-            return msuccess("Added measure.");
+            return minfo("Added measure.");
         },
         ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}}),
 
@@ -181,7 +181,7 @@ inline auto const command_tree = cmd_group(
                     return sequence::modify::note(args...);
                 },
                 interval, velocity, delay, gate);
-            return msuccess("Note Added");
+            return minfo("Note Added");
         },
         ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
         ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
@@ -191,7 +191,7 @@ inline auto const command_tree = cmd_group(
             increment_state(tl, [](sequence::Cell const &) -> sequence::Cell {
                 return sequence::modify::rest();
             });
-            return msuccess("Rest Added");
+            return minfo("Rest Added");
         }),
 
     pattern(cmd("flip",
@@ -200,7 +200,7 @@ inline auto const command_tree = cmd_group(
                 [](XenTimeline &tl, sequence::Pattern const &pattern) {
                     increment_state(tl, &sequence::modify::flip, pattern,
                                     sequence::Note{});
-                    return msuccess("Flipped");
+                    return minfo("Flipped");
                 })),
 
     cmd("delete", "Delete the current selection.",
@@ -209,7 +209,7 @@ inline auto const command_tree = cmd_group(
                 action::delete_cell(tl.get_aux_state(), tl.get_state().first);
             tl.set_aux_state(aux, false);
             tl.add_state(std::move(state));
-            return msuccess("Deleted.");
+            return minfo("Deleted.");
         }),
 
     cmd(
@@ -218,7 +218,7 @@ inline auto const command_tree = cmd_group(
         "current selection.",
         [](XenTimeline &tl, std::size_t count) {
             increment_state(tl, &sequence::modify::repeat, count);
-            return msuccess("Split");
+            return minfo("Split");
         },
         ArgInfo<std::size_t>{"count", 2}),
 
@@ -229,7 +229,7 @@ inline auto const command_tree = cmd_group(
             auto [state, aux] = action::lift(tl);
             tl.set_aux_state(aux, false);
             tl.add_state(state);
-            return msuccess("Lifted.");
+            return minfo("Lifted.");
         }),
 
     pattern(cmd(
@@ -242,7 +242,7 @@ inline auto const command_tree = cmd_group(
         "Pattern, whereas split cannot.",
         [](XenTimeline &tl, sequence::Pattern const &pattern, std::size_t count) {
             increment_state(tl, &sequence::modify::stretch, pattern, count);
-            return msuccess("Stretched.");
+            return minfo("Stretched.");
         },
         ArgInfo<std::size_t>{"count", 2})),
 
@@ -257,7 +257,7 @@ inline auto const command_tree = cmd_group(
                     else
                     {
                         increment_state(tl, &sequence::modify::compress, pattern);
-                        return msuccess("Compressed.");
+                        return minfo("Compressed.");
                     }
                 })),
 
@@ -272,7 +272,7 @@ inline auto const command_tree = cmd_group(
                float velocity, float delay, float gate) {
                 increment_state(tl, &sequence::modify::notes_fill, pattern,
                                 sequence::Note{interval, velocity, delay, gate});
-                return msuccess("Filled With Notes");
+                return minfo("Filled With Notes");
             },
             ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
             ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
@@ -282,7 +282,7 @@ inline auto const command_tree = cmd_group(
             "sequences.",
             [](XenTimeline &tl, sequence::Pattern const &pattern) {
                 increment_state(tl, &sequence::modify::rests_fill, pattern);
-                return msuccess("Filled With Rests");
+                return minfo("Filled With Rests");
             }))),
 
     pattern(cmd_group(
@@ -292,7 +292,7 @@ inline auto const command_tree = cmd_group(
             "note", "Set the note interval of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, int interval) {
                 increment_state(tl, &sequence::modify::set_interval, pattern, interval);
-                return msuccess("Note Set");
+                return minfo("Note Set");
             },
             ArgInfo<int>{"interval", 0}),
 
@@ -300,7 +300,7 @@ inline auto const command_tree = cmd_group(
             "octave", "Set the octave of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, int octave) {
                 tl.add_state(action::set_note_octave(tl, pattern, octave));
-                return msuccess("Octave Set");
+                return minfo("Octave Set");
             },
             ArgInfo<int>{"octave", 0}),
 
@@ -308,7 +308,7 @@ inline auto const command_tree = cmd_group(
             "velocity", "Set the velocity of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float velocity) {
                 increment_state(tl, &sequence::modify::set_velocity, pattern, velocity);
-                return msuccess("Velocity Set");
+                return minfo("Velocity Set");
             },
             ArgInfo<float>{"velocity", 0.8f}),
 
@@ -316,7 +316,7 @@ inline auto const command_tree = cmd_group(
             "delay", "Set the delay of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float delay) {
                 increment_state(tl, &sequence::modify::set_delay, pattern, delay);
-                return msuccess("Delay Set");
+                return minfo("Delay Set");
             },
             ArgInfo<float>{"delay", 0.f}),
 
@@ -324,7 +324,7 @@ inline auto const command_tree = cmd_group(
             "gate", "Set the gate of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float gate) {
                 increment_state(tl, &sequence::modify::set_gate, pattern, gate);
-                return msuccess("Gate Set");
+                return minfo("Gate Set");
             },
             ArgInfo<float>{"gate", 1.f}),
 
@@ -334,7 +334,7 @@ inline auto const command_tree = cmd_group(
             [](XenTimeline &tl, sequence::Pattern const &,
                sequence::TimeSignature const &ts) {
                 tl.add_state(action::set_timesignature(tl, ts));
-                return msuccess("TimeSignature Set");
+                return minfo("TimeSignature Set");
             },
             ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}))),
 
@@ -345,7 +345,7 @@ inline auto const command_tree = cmd_group(
             "note", "Increment/Decrement the note interval of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, int amount) {
                 increment_state(tl, &sequence::modify::shift_interval, pattern, amount);
-                return msuccess("Note Shifted");
+                return minfo("Note Shifted");
             },
             ArgInfo<int>{"amount", 1}),
 
@@ -353,7 +353,7 @@ inline auto const command_tree = cmd_group(
             "octave", "Increment/Decrement the octave of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, int amount) {
                 tl.add_state(action::shift_note_octave(tl, pattern, amount));
-                return msuccess("Octave Shifted");
+                return minfo("Octave Shifted");
             },
             ArgInfo<int>{"amount", 1}),
 
@@ -361,7 +361,7 @@ inline auto const command_tree = cmd_group(
             "velocity", "Increment/Decrement the velocity of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::shift_velocity, pattern, amount);
-                return msuccess("Velocity Shifted");
+                return minfo("Velocity Shifted");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -369,7 +369,7 @@ inline auto const command_tree = cmd_group(
             "delay", "Increment/Decrement the delay of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::shift_delay, pattern, amount);
-                return msuccess("Delay Shifted");
+                return minfo("Delay Shifted");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -377,7 +377,7 @@ inline auto const command_tree = cmd_group(
             "gate", "Increment/Decrement the gate of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::shift_gate, pattern, amount);
-                return msuccess("Gate Shifted");
+                return minfo("Gate Shifted");
             },
             ArgInfo<float>{"amount", 0.1f}))),
 
@@ -390,7 +390,7 @@ inline auto const command_tree = cmd_group(
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_velocity, pattern,
                                 amount);
-                return msuccess("Humanized Velocity.");
+                return minfo("Humanized Velocity.");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -399,7 +399,7 @@ inline auto const command_tree = cmd_group(
             "Apply a random shift to the delay of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_delay, pattern, amount);
-                return msuccess("Humanized Delay.");
+                return minfo("Humanized Delay.");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -407,7 +407,7 @@ inline auto const command_tree = cmd_group(
             InputMode::Gate, "Apply a random shift to the gate of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_gate, pattern, amount);
-                return msuccess("Humanized Gate.");
+                return minfo("Humanized Gate.");
             },
             ArgInfo<float>{"amount", 0.1f}))),
 
@@ -420,7 +420,7 @@ inline auto const command_tree = cmd_group(
             [](XenTimeline &tl, sequence::Pattern const &pattern, int min, int max) {
                 increment_state(tl, &sequence::modify::randomize_intervals, pattern,
                                 min, max);
-                return msuccess("Randomized Note.");
+                return minfo("Randomized Note.");
             },
             ArgInfo<int>{"min", -12}, ArgInfo<int>{"max", 12}),
 
@@ -431,7 +431,7 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_velocity, pattern, min,
                                 max);
-                return msuccess("Randomized Velocity.");
+                return minfo("Randomized Velocity.");
             },
             ArgInfo<float>{"min", 0.01f}, ArgInfo<float>{"max", 1.f}),
 
@@ -441,7 +441,7 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_delay, pattern, min,
                                 max);
-                return msuccess("Randomized Delay.");
+                return minfo("Randomized Delay.");
             },
             ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}),
 
@@ -451,14 +451,14 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_gate, pattern, min,
                                 max);
-                return msuccess("Randomized Gate.");
+                return minfo("Randomized Gate.");
             },
             ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}))),
 
     cmd("shuffle", "Randomly shuffle Notes and Rests in current selection.",
         [](XenTimeline &tl) {
             increment_state(tl, &sequence::modify::shuffle);
-            return msuccess("Shuffled.");
+            return minfo("Shuffled.");
         }),
 
     cmd(
@@ -467,14 +467,14 @@ inline auto const command_tree = cmd_group(
         " Positive values shift right, negative values shift left.",
         [](XenTimeline &tl, int amount) {
             increment_state(tl, &sequence::modify::rotate, amount);
-            return msuccess("Rotated.");
+            return minfo("Rotated.");
         },
         ArgInfo<int>{"amount", 1}),
 
     cmd("reverse", "Reverse the order of all Notes and Rests in the current selection.",
         [](XenTimeline &tl) {
             increment_state(tl, &sequence::modify::reverse);
-            return msuccess("Reversed.");
+            return minfo("Reversed.");
         }),
 
     pattern(cmd(
@@ -482,7 +482,7 @@ inline auto const command_tree = cmd_group(
         "Mirror the note intervals of the current selection around `centerNote`.",
         [](XenTimeline &tl, sequence::Pattern const &pattern, int center_note) {
             increment_state(tl, &sequence::modify::mirror, pattern, center_note);
-            return msuccess("Mirrored.");
+            return minfo("Mirrored.");
         },
         ArgInfo<int>{"centerNote", 0})),
 
@@ -491,7 +491,7 @@ inline auto const command_tree = cmd_group(
         "Set the delay to zero and gate to one for all Notes in the current selection.",
         [](XenTimeline &tl, sequence::Pattern const &pattern) {
             increment_state(tl, &sequence::modify::quantize, pattern);
-            return msuccess("Quantized.");
+            return minfo("Quantized.");
         })),
 
     cmd(
@@ -499,7 +499,7 @@ inline auto const command_tree = cmd_group(
         "Set the delay of every other Note in the current selection to `amount`.",
         [](XenTimeline &tl, float amount) {
             increment_state(tl, &sequence::modify::swing, amount, false);
-            return msuccess("Swung.");
+            return minfo("Swung.");
         },
         ArgInfo<float>{"amount", 0.1f}),
 
@@ -508,7 +508,7 @@ inline auto const command_tree = cmd_group(
     cmd("demo", "Reset the state to a demo Phrase.", [](XenTimeline &tl) {
         tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
         tl.add_state(demo_state());
-        return msuccess("Demo state loaded.");
+        return minfo("Demo state loaded.");
     }));
 
 } // namespace xen

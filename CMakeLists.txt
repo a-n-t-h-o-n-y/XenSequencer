@@ -76,7 +76,7 @@ target_sources(XenSequencerLib
         include/xen/input_mode.hpp
         include/xen/invoke.hpp
         include/xen/key_core.hpp
-        include/xen/message_type.hpp
+        include/xen/message_level.hpp
         include/xen/midi.hpp
         include/xen/parse_args.hpp
         include/xen/selection.hpp
