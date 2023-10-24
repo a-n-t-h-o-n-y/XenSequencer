@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <stdexcept>
+#include <string>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -17,6 +18,7 @@
 #include <xen/key_core.hpp>
 #include <xen/message_level.hpp>
 #include <xen/state.hpp>
+#include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
 // #include <xen/tuning.hpp>
@@ -51,22 +53,25 @@ class PluginWindow : public juce::Component
 
         auto slot_change_focus =
             sl::Slot<void(std::string const &)>{[this](std::string const &name) {
-                if (name == "commandbar")
+                if (name == to_lower(command_bar_.getComponentID().toStdString()))
                 {
                     command_bar_.open();
                 }
-                else if (name == "phraseeditor")
+                else if (name ==
+                         to_lower(phrase_editor_.getComponentID().toStdString()))
                 {
                     phrase_editor_.grabKeyboardFocus();
                 }
-                else if (name == "tuningbox")
-                {
-                    // TODO
-                    // tuning_box_.grabKeyboardFocus();
-                }
+                // TODO
+                // else if (name ==
+                // to_lower(tuning_box_.getComponentID().toStdString()))
+                // {
+                //     tuning_box_.grabKeyboardFocus();
+                // }
                 else
                 {
-                    throw std::runtime_error("invalid focus change request");
+                    throw std::runtime_error("Invalid focus change request: '" + name +
+                                             "'.");
                 }
             }};
         slot_change_focus.track(lifetime_);
@@ -97,21 +102,44 @@ class PluginWindow : public juce::Component
         // tuning_box_.set_tuning(state.tuning);
     }
 
-    auto set_key_listeners(std::map<std::string, KeyConfigListener> &listeners) -> void
+    auto set_key_listeners(std::map<std::string, KeyConfigListener> previous_listeners,
+                           std::map<std::string, KeyConfigListener> &new_listeners)
+        -> void
     {
-        // TODO  this fn needs ptr to previous
-        // phrase_editor_.removeKeyListener();
+        // This relies on Component::getComponentID();
+        auto const remove_listener = [&previous_listeners](juce::Component &component) {
+            auto const id = to_lower(component.getComponentID().toStdString());
+            auto const iter = previous_listeners.find(id);
+            if (iter != std::cend(previous_listeners))
+            {
+                component.removeKeyListener(&(iter->second));
+            }
+        };
 
-        phrase_editor_.addKeyListener(&listeners.at("phraseeditor"));
-        listeners.at("phraseeditor")
-            .on_command.connect([this](std::string const &command) {
+        auto const add_listener = [&new_listeners, this](juce::Component &component) {
+            auto const id = to_lower(component.getComponentID().toStdString());
+            component.addKeyListener(&new_listeners.at(id));
+            new_listeners.at(id).on_command.connect([this](std::string const &command) {
                 auto const [mlevel, msg] =
                     execute(command_tree, timeline_, normalize_command_string(command));
                 status_bar_.message_display.set_status(mlevel, msg);
             });
+        };
 
-        // TODO
-        // tuning_box_.addKeyListener(listeners["tuningbox"]);
+        try
+        {
+            remove_listener(phrase_editor_);
+            add_listener(phrase_editor_);
+
+            // TODO
+            // remove_listener(tuning_box_);
+            // add_listener(tuning_box_);
+        }
+        catch (std::exception const &e)
+        {
+            throw std::runtime_error("Failed to set key listeners: " +
+                                     std::string{e.what()});
+        }
     }
 
   protected:
@@ -139,8 +167,9 @@ class PluginWindow : public juce::Component
     auto update_key_listeners(std::filesystem::path const &default_keys,
                               std::filesystem::path const &user_keys) -> void
     {
+        auto previous_listeners = std::move(key_config_listeners_);
         key_config_listeners_ = build_key_listeners(default_keys, user_keys, timeline_);
-        this->set_key_listeners(key_config_listeners_);
+        this->set_key_listeners(std::move(previous_listeners), key_config_listeners_);
     }
 
   private:

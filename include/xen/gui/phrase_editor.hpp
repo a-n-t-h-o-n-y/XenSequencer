@@ -21,8 +21,8 @@ class PhraseEditor : public juce::Component
   public:
     PhraseEditor()
     {
+        this->setComponentID("PhraseEditor");
         this->addAndMakeVisible(phrase);
-
         this->setWantsKeyboardFocus(true);
     }
 

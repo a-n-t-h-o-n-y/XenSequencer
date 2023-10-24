@@ -423,6 +423,7 @@ class TuningBox : public juce::Component
   public:
     TuningBox()
     {
+        this->setComponentID("TuningBox");
         this->addAndMakeVisible(top_row_);
         this->addAndMakeVisible(tuning_row_);
         this->addAndMakeVisible(bottom_row_);

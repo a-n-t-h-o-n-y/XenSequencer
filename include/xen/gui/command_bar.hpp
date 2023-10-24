@@ -87,6 +87,7 @@ class CommandBar : public juce::Component
     CommandBar(XenTimeline &tl, CommandHistory &cmd_history)
         : timeline_{tl}, command_history_{cmd_history}
     {
+        this->setComponentID("CommandBar");
         this->setWantsKeyboardFocus(true);
 
         this->addAndMakeVisible(ghost_text_);
