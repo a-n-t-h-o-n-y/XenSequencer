@@ -77,6 +77,12 @@ class PluginWindow : public juce::Component
         slot_change_focus.track(lifetime_);
         on_focus_change_request.connect(slot_change_focus);
 
+        auto slot_load_keys = sl::Slot<void()>{[this] {
+            this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
+        }};
+        slot_load_keys.track(lifetime_);
+        on_load_keys_request.connect(slot_load_keys);
+
         try
         {
             this->update_key_listeners(get_default_keys_file(), get_user_keys_file());

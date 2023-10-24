@@ -20,6 +20,8 @@ namespace xen
 
 inline auto on_focus_change_request = sl::Signal<void(std::string const &)>{};
 
+inline auto on_load_keys_request = sl::Signal<void()>{};
+
 inline auto copy_buffer = std::optional<sequence::Cell>{std::nullopt};
 
 inline auto const command_tree = cmd_group(
@@ -106,12 +108,27 @@ inline auto const command_tree = cmd_group(
                   [](XenTimeline &tl, std::filesystem::path const &filepath) {
                       // Call first in case of error
                       auto new_state = action::load_state(filepath);
-                      tl.set_aux_state({{0, {}}},
-                                       false); // Manually reset selection on overwrite
+
+                      // Manually reset selection on overwrite
+                      tl.set_aux_state({{0, {}}}, false);
                       tl.add_state(std::move(new_state));
                       return minfo("Loaded state from '" + filepath.string() + "'.");
                   },
-                  ArgInfo<std::filesystem::path>{"filepath"})),
+                  ArgInfo<std::filesystem::path>{"filepath"}),
+
+              cmd("keys", "Load keys.yml and user_keys.yml.",
+                  [](XenTimeline &) {
+                      try
+                      {
+                          on_load_keys_request();
+                          return minfo("Loaded keys.");
+                      }
+                      catch (std::exception const &e)
+                      {
+                          return merror("Failed to load keys: " +
+                                        std::string{e.what()});
+                      }
+                  })),
 
     cmd_group("save", ArgInfo<std::string>{"filetype"},
 
