@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <stdexcept>
 
 #include <juce_core/juce_core.h>
@@ -16,6 +17,7 @@
 #include <xen/key_core.hpp>
 #include <xen/message_type.hpp>
 #include <xen/state.hpp>
+#include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
 // #include <xen/tuning.hpp>
 
@@ -82,6 +84,16 @@ class PluginWindow : public juce::Component
             }};
         slot_change_focus.track(lifetime_);
         on_focus_change_request.connect(slot_change_focus);
+
+        try
+        {
+            this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
+        }
+        catch (std::exception const &e)
+        {
+            status_bar_.message_display.set_error(
+                std::string{"Check `user_keys.yml`: "} + e.what());
+        }
     }
 
   public:
@@ -136,6 +148,14 @@ class PluginWindow : public juce::Component
     }
 
   private:
+    auto update_key_listeners(std::filesystem::path const &default_keys,
+                              std::filesystem::path const &user_keys) -> void
+    {
+        key_config_listeners_ = build_key_listeners(default_keys, user_keys, timeline_);
+        this->set_key_listeners(key_config_listeners_);
+    }
+
+  private:
     XenTimeline &timeline_;
 
     gui::Heading heading_{"XenSequencer", 1, juce::Font{"Arial", "Bold", 16.f}};
@@ -147,6 +167,8 @@ class PluginWindow : public juce::Component
     gui::StatusBar status_bar_;
 
     sl::Lifetime lifetime_;
+
+    std::map<std::string, KeyConfigListener> key_config_listeners_;
 };
 
 } // namespace xen::gui

@@ -2,9 +2,7 @@
 
 #include <filesystem>
 
-#include <xen/key_core.hpp>
 #include <xen/state.hpp>
-#include <xen/user_directory.hpp>
 #include <xen/xen_processor.hpp>
 
 namespace xen
@@ -35,9 +33,6 @@ XenEditor::XenEditor(XenProcessor &p)
     // Initialize GUI
     auto const [state, aux] = timeline_.get_state();
     this->update(state, aux);
-
-    // TODO wrap with try block and figure out how to display error
-    this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
 }
 
 auto XenEditor::update(State const &state, AuxState const &aux) -> void
@@ -50,13 +45,6 @@ auto XenEditor::update(State const &state, AuxState const &aux) -> void
 void XenEditor::resized()
 {
     plugin_window_.setBounds(this->getLocalBounds());
-}
-
-auto XenEditor::update_key_listeners(std::filesystem::path const &default_keys,
-                                     std::filesystem::path const &user_keys) -> void
-{
-    key_config_listeners_ = build_key_listeners(default_keys, user_keys, timeline_);
-    plugin_window_.set_key_listeners(key_config_listeners_);
 }
 
 } // namespace xen
