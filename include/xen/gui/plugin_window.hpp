@@ -43,25 +43,7 @@ class PluginWindow : public juce::Component
 
         command_bar_.on_command_response.connect(
             [this](MessageLevel mlevel, std::string const &response) {
-                switch (mlevel)
-                {
-                    // TODO status bar should take the level and message as parameters,
-                    // implement this switch there once.
-                case MessageLevel::Error:
-                    status_bar_.message_display.set_error(response);
-                    break;
-                case MessageLevel::Warning:
-                    status_bar_.message_display.set_warning(response);
-                    break;
-                case MessageLevel::Info:
-                    status_bar_.message_display.set_success(response);
-                    break;
-                case MessageLevel::Debug:
-                    // status_bar_.message_display.set_debug(response);
-                    break;
-                default:
-                    throw std::runtime_error("invalid message type");
-                }
+                status_bar_.message_display.set_status(mlevel, response);
             });
 
         command_bar_.on_escape_request.connect(
@@ -117,14 +99,15 @@ class PluginWindow : public juce::Component
 
     auto set_key_listeners(std::map<std::string, KeyConfigListener> &listeners) -> void
     {
-        // phrase_editor_.removeKeyListener(); // TODO  this fn needs ptr to previous
+        // TODO  this fn needs ptr to previous
+        // phrase_editor_.removeKeyListener();
+
         phrase_editor_.addKeyListener(&listeners.at("phraseeditor"));
         listeners.at("phraseeditor")
             .on_command.connect([this](std::string const &command) {
-                // TODO should this send the message to the command bar? but
-                // selection etc.. shouldn't display?
-                (void)execute(command_tree, timeline_,
-                              normalize_command_string(command));
+                auto const [mlevel, msg] =
+                    execute(command_tree, timeline_, normalize_command_string(command));
+                status_bar_.message_display.set_status(mlevel, msg);
             });
 
         // TODO

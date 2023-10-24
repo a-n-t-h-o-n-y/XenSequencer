@@ -95,7 +95,7 @@ inline auto const command_tree = cmd_group(
         "focus", "Move the keyboard focus to the specified component.",
         [](auto &, std::string const &name) {
             on_focus_change_request(name);
-            return minfo("Focused on '" + name + "'.");
+            return mdebug("Focused on '" + name + "'.");
         },
         ArgInfo<std::string>{"component"}),
 
@@ -131,27 +131,27 @@ inline auto const command_tree = cmd_group(
               cmd("left", "Move the selection left, or wrap around.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_left(tl));
-                      return minfo("Moved Left.");
+                      return mdebug("Moved Left.");
                   }),
 
               cmd("right", "Move the selection right, or wrap around.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_right(tl));
-                      return minfo("Moved Right.");
+                      return mdebug("Moved Right.");
                   }),
 
               cmd("up", "Move the selection up one level to a parent sequence.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_up(tl));
                       // TODO message depending on if moved or hit ceiling
-                      return minfo("Moved Up.");
+                      return mdebug("Moved Up.");
                   }),
 
               cmd("down", "Move the selection down one level.",
                   [](XenTimeline &tl) {
                       tl.set_aux_state(action::move_down(tl));
                       // TODO message depending on if moved or hit floor
-                      return minfo("Moved Down.");
+                      return mdebug("Moved Down.");
                   })),
 
     cmd(

@@ -4,10 +4,12 @@
 #include <cctype>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include "../input_mode.hpp"
+#include <xen/input_mode.hpp>
+#include <xen/message_level.hpp>
 
 namespace xen::gui
 {
@@ -106,7 +108,47 @@ class MessageDisplay : public juce::Component
     }
 
   public:
-    auto set_success(std::string const &text) -> void
+    auto set_minimum_level(MessageLevel level) -> void
+    {
+        minimum_level_ = level;
+    }
+
+    auto set_status(MessageLevel level, std::string const &text) -> void
+    {
+        if (level < minimum_level_)
+        {
+            return;
+        }
+
+        switch (level)
+        {
+        case MessageLevel::Debug:
+            this->set_debug(text);
+            break;
+        case MessageLevel::Info:
+            this->set_info(text);
+            break;
+        case MessageLevel::Warning:
+            this->set_warning(text);
+            break;
+        case MessageLevel::Error:
+            this->set_error(text);
+            break;
+        default:
+            throw std::invalid_argument{
+                "Invalid MessageLevel: " +
+                std::to_string(
+                    static_cast<std::underlying_type_t<MessageLevel>>(level))};
+        }
+    }
+
+    auto set_debug(std::string const &text) -> void
+    {
+        label_.setColour(juce::Label::textColourId, juce::Colours::white);
+        label_.setText(text, juce::dontSendNotification);
+    }
+
+    auto set_info(std::string const &text) -> void
     {
         label_.setColour(juce::Label::textColourId, juce::Colours::white);
         label_.setText(text, juce::dontSendNotification);
@@ -137,6 +179,7 @@ class MessageDisplay : public juce::Component
 
   private:
     juce::Label label_;
+    MessageLevel minimum_level_{MessageLevel::Info};
 };
 
 class StatusBar : public juce::Component
