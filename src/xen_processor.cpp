@@ -149,7 +149,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
 {
     // Just forward to float version, this is a midi-only plugin.
     buffer.clear();
-    auto empty = juce::AudioBuffer<double>{};
+    auto empty = juce::AudioBuffer<float>{};
     this->processBlock(empty, midi_buffer);
 }
 
