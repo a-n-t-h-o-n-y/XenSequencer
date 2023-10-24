@@ -73,24 +73,28 @@ target_sources(XenSequencerLib
 
         include/xen/actions.hpp
         include/xen/command.hpp
+        include/xen/command_history.hpp
+        include/xen/constants.hpp
+        include/xen/guide_text.hpp
         include/xen/input_mode.hpp
         include/xen/invoke.hpp
         include/xen/key_core.hpp
         include/xen/message_level.hpp
         include/xen/midi.hpp
         include/xen/parse_args.hpp
+        include/xen/plugin_processor.hpp
         include/xen/selection.hpp
         include/xen/serialize_state.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
+        include/xen/string_manip.hpp
         include/xen/timeline.hpp
         include/xen/user_directory.hpp
         include/xen/utility.hpp
-        include/xen/string_manip.hpp
         include/xen/xen_command_tree.hpp
+        include/xen/xen_editor.hpp
+        include/xen/xen_processor.hpp
         include/xen/xen_timeline.hpp
-        include/xen/guide_text.hpp
-        include/xen/command_history.hpp
 
         include/xen/gui/command_bar.hpp
         include/xen/gui/custom_look_and_feel.hpp
@@ -105,9 +109,11 @@ target_sources(XenSequencerLib
         include/xen/gui/phrase_editor.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
+        include/xen/gui/sequence.old.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/timeline.hpp
         include/xen/gui/tuning.hpp
+
         include/xen/gui/utility/dereference_iterator.hpp
 )
 
