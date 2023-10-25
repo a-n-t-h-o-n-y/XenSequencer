@@ -180,14 +180,6 @@ inline auto const command_tree = cmd_group(
                   ArgInfo<std::size_t>{"amount", 1})),
 
     cmd(
-        "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",
-        [](XenTimeline &tl, float freq) {
-            tl.add_state(action::set_base_frequency(tl, freq));
-            return minfo("Base Frequency Set.");
-        },
-        ArgInfo<float>{"freq", 440.f}),
-
-    cmd(
         "addMeasure", "Append a measure to the current phrase.",
         [](XenTimeline &tl, sequence::TimeSignature const &ts) {
             auto [aux, state] = action::add_measure(tl, ts);
@@ -354,14 +346,22 @@ inline auto const command_tree = cmd_group(
             ArgInfo<float>{"gate", 1.f}),
 
         cmd(
-            "timesignature",
+            "timeSignature",
             "Set the time signature of the current Measure. Ignores Pattern.",
             [](XenTimeline &tl, sequence::Pattern const &,
                sequence::TimeSignature const &ts) {
                 tl.add_state(action::set_timesignature(tl, ts));
                 return minfo("TimeSignature Set");
             },
-            ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}))),
+            ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}),
+
+        cmd(
+            "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",
+            [](XenTimeline &tl, sequence::Pattern const &, float freq) {
+                tl.add_state(action::set_base_frequency(tl, freq));
+                return minfo("Base Frequency Set.");
+            },
+            ArgInfo<float>{"freq", 440.f}))),
 
     pattern(cmd_group(
         "shift", ArgInfo<std::string>{"trait"},
