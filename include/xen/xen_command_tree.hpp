@@ -235,14 +235,16 @@ inline auto const command_tree = cmd_group(
                     return minfo("Flipped");
                 })),
 
-    cmd("delete", "Delete the current selection.",
-        [](XenTimeline &tl) {
-            auto [aux, state] =
-                action::delete_cell(tl.get_aux_state(), tl.get_state().first);
-            tl.set_aux_state(aux, false);
-            tl.add_state(std::move(state));
-            return minfo("Deleted.");
-        }),
+    cmd_group("delete", ArgInfo<std::string>{"item", "selection"},
+
+              cmd("selection", "Delete the current selection.",
+                  [](XenTimeline &tl) {
+                      auto [aux, state] =
+                          action::delete_cell(tl.get_aux_state(), tl.get_state().first);
+                      tl.set_aux_state(aux, false);
+                      tl.add_state(std::move(state));
+                      return minfo("Deleted.");
+                  })),
 
     cmd(
         "split",

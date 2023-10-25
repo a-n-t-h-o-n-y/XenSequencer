@@ -102,7 +102,7 @@ PhraseEditor:
   "[g] + Cmd + ArrowUp": "shift Gate +0.01"
 
   # Misc
-  "delete": "delete"
+  "delete": "delete selection"
 
   # Modifiers
   "[n] + r": "randomize note 0 12"
