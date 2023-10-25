@@ -66,14 +66,12 @@ namespace xen::action
 
 [[nodiscard]] auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
-[[nodiscard]] auto copy(XenTimeline const &tl) -> std::optional<sequence::Cell>;
+[[nodiscard]] auto copy(XenTimeline const &tl) -> sequence::Cell;
 
-[[nodiscard]] auto cut(XenTimeline const &tl)
-    -> std::optional<std::pair<sequence::Cell, State>>;
+[[nodiscard]] auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, State>;
 
 [[nodiscard]] auto paste(XenTimeline const &tl,
-                         std::optional<sequence::Cell> const &copy_buffer)
-    -> std::optional<State>;
+                         std::optional<sequence::Cell> const &copy_buffer) -> State;
 
 [[nodiscard]] auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, State>;
 

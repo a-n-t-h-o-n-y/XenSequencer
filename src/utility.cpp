@@ -16,7 +16,7 @@ auto read_file_to_string(std::filesystem::path const &filepath) -> std::string
     auto file = std::ifstream{filepath};
     if (!file)
     {
-        throw std::runtime_error("Failed to open file for reading: " +
+        throw std::runtime_error("Failed to Open File for Reading: " +
                                  filepath.string());
     }
     auto const content = std::string(std::istreambuf_iterator<char>(file),

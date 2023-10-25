@@ -62,17 +62,18 @@ class PluginWindow : public juce::Component
                 {
                     phrase_editor_.grabKeyboardFocus();
                 }
+                else
+                {
+                    throw std::runtime_error("Invalid Component Given: '" + name +
+                                             '\'');
+                }
+
                 // TODO
                 // else if (name ==
                 // to_lower(tuning_box_.getComponentID().toStdString()))
                 // {
                 //     tuning_box_.grabKeyboardFocus();
                 // }
-                else
-                {
-                    throw std::runtime_error("Invalid focus change request: '" + name +
-                                             "'.");
-                }
             }};
         slot_change_focus.track(lifetime_);
         on_focus_change_request.connect(slot_change_focus);

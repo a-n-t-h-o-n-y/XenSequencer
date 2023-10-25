@@ -19,6 +19,28 @@
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
+namespace
+{
+
+[[nodiscard]] auto paste_logic(xen::State &state, xen::AuxState const &aux,
+                               std::optional<sequence::Cell> const &copy_buffer)
+    -> xen::State
+{
+    if (!copy_buffer.has_value())
+    {
+        throw std::runtime_error{"Copy Buffer Is Empty"};
+    }
+    auto *selected = get_selected_cell(state.phrase, aux.selected);
+    if (!selected)
+    {
+        throw std::runtime_error{"No Selection"};
+    }
+    *selected = *copy_buffer;
+    return state;
+}
+
+} // namespace
+
 namespace xen::action
 {
 
@@ -62,70 +84,47 @@ auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState
     return aux;
 }
 
-auto copy(XenTimeline const &tl) -> std::optional<sequence::Cell>
+auto copy(XenTimeline const &tl) -> sequence::Cell
 {
     auto const aux = tl.get_aux_state();
     auto const state = tl.get_state().first;
     auto const *selected = get_selected_cell_const(state.phrase, aux.selected);
     if (selected == nullptr)
     {
-        return std::nullopt;
+        throw std::runtime_error{"No Selection"};
     }
     return *selected;
 }
 
-auto cut(XenTimeline const &tl) -> std::optional<std::pair<sequence::Cell, State>>
+auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, State>
 {
     auto const buffer = ::xen::action::copy(tl);
 
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
     auto *selected = get_selected_cell(state.phrase, aux.selected);
-    if (selected == nullptr || buffer == std::nullopt)
+    if (selected == nullptr)
     {
-        return std::nullopt;
+        throw std::runtime_error{"No Selection"};
     }
     *selected = sequence::Rest{};
-
-    return std::pair{*buffer, state};
+    return {buffer, state};
 }
 
 auto paste(XenTimeline const &tl, std::optional<sequence::Cell> const &copy_buffer)
-    -> std::optional<State>
+    -> State
 {
-    if (!copy_buffer.has_value())
-    {
-        return std::nullopt;
-    }
     auto const aux = tl.get_aux_state();
     auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-    // FIXME if the copy buffer is not a sequence and the selected cell is the top
-    // level, then this will silently fail because you don't have a use case where the
-    // top level is not a sequence, for things like movement.
-    if (selected)
-    {
-        *selected = *copy_buffer;
-    }
-    return state;
+    return paste_logic(state, aux, copy_buffer);
 }
 
 auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, State>
 {
     auto const buffer = ::xen::action::copy(tl);
     auto const aux = ::xen::action::move_right(tl, 1);
-
-    // Reimplement paste here so it isn't recorded in timeline
     auto state = tl.get_state().first;
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-    // FIXME if the copy buffer is not a sequence and the selected cell is the top
-    // level, then this will silently fail because you don't have a use case where the
-    // top level is not a sequence, for things like movement.
-    if (selected && buffer.has_value())
-    {
-        *selected = *buffer;
-    }
-    return {aux, state};
+    return {aux, ::paste_logic(state, aux, buffer)};
 }
 
 auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
@@ -197,8 +196,9 @@ auto insert_measure(XenTimeline const &tl, sequence::TimeSignature ts)
 {
     auto state = tl.get_state().first;
     auto const current_measure = tl.get_aux_state().selected.measure;
-    state.phrase.insert(std::next(std::begin(state.phrase), current_measure),
-                        sequence::Measure{sequence::Rest{}, ts});
+    state.phrase.insert(
+        std::next(std::begin(state.phrase), (std::ptrdiff_t)current_measure),
+        sequence::Measure{sequence::Rest{}, ts});
     return {{{current_measure, {}}}, state};
 }
 

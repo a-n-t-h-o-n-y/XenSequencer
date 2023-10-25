@@ -29,58 +29,46 @@ inline auto const command_tree = cmd_group(
 
     cmd("undo", "Revert the last action.",
         [](XenTimeline &tl) {
-            return tl.undo() ? minfo("Undo Successful") : mwarning("Can't Undo");
+            return tl.undo() ? minfo("Undone")
+                             : mwarning("Can't Undo: At Beginning of "
+                                        "Timeline");
         }),
 
     cmd("redo", "Reapply the last undone action.",
         [](XenTimeline &tl) {
-            return tl.redo() ? minfo("Redo Successful") : mwarning("Can't Redo");
+            return tl.redo() ? minfo("Redone")
+                             : mwarning("Can't Redo: At End of Timeline");
         }),
 
     cmd("copy", "Put the current selection in the copy buffer.",
         [](XenTimeline &tl) {
-            auto copy = action::copy(tl);
-            if (copy.has_value())
-            {
-                copy_buffer = std::move(*copy);
-                return minfo("Copied.");
-            }
-            return mwarning("Nothing to copy.");
+            copy_buffer = action::copy(tl);
+            return minfo("Copied Selection");
         }),
 
     cmd("cut",
         "Put the current selection in the copy buffer and replace it with a Rest.",
         [](XenTimeline &tl) {
-            auto cut = action::cut(tl);
-            if (!cut.has_value())
-            {
-                return mwarning("Nothing to cut.");
-            }
-            auto &[buffer, state] = *cut;
+            auto [buffer, state] = action::cut(tl);
             tl.add_state(std::move(state));
             copy_buffer = std::move(buffer);
-            return minfo("Cut.");
+            return minfo("Cut Selection");
         }),
 
     cmd("paste",
         "Overwrite the current selection with what is stored in the copy buffer.",
         [](XenTimeline &tl) {
-            auto const result = action::paste(tl, copy_buffer);
-            if (result.has_value())
-            {
-                tl.add_state(*result);
-                return minfo("Pasted.");
-            }
-            return mwarning("Nothing to paste.");
+            tl.add_state(action::paste(tl, copy_buffer));
+            return minfo("Pasted Over Selection");
         }),
 
     cmd("duplicate",
-        "Duplicate the current selection by placing it in the next adjacent Cell.",
+        "Duplicate the current selection by placing it in the right-adjacent Cell.",
         [](XenTimeline &tl) {
             auto [aux, state] = action::duplicate(tl);
             tl.set_aux_state(std::move(aux), false);
             tl.add_state(std::move(state));
-            return minfo("Duplicated.");
+            return minfo("Duplicated Selection");
         }),
 
     cmd(
@@ -89,7 +77,7 @@ inline auto const command_tree = cmd_group(
         "\n\nThe mode determines the behavior of the up/down keys.",
         [](XenTimeline &tl, InputMode mode) {
             tl.set_aux_state(action::set_mode(tl, mode));
-            return minfo("Changed mode to '" + to_string(mode) + "'.");
+            return minfo("Input Mode Set to '" + to_string(mode) + '\'');
         },
         ArgInfo<InputMode>{"mode"}),
 
@@ -97,14 +85,14 @@ inline auto const command_tree = cmd_group(
         "focus", "Move the keyboard focus to the specified component.",
         [](auto &, std::string const &name) {
             on_focus_change_request(name);
-            return mdebug("Focused on '" + name + "'.");
+            return mdebug("Focus Set to '" + name + '\'');
         },
         ArgInfo<std::string>{"component"}),
 
     cmd_group("load", ArgInfo<std::string>{"filetype"},
 
               cmd(
-                  "phrase", "Load a Phrase from a file.",
+                  "state", "Load a full plugin State from a file.",
                   [](XenTimeline &tl, std::filesystem::path const &filepath) {
                       // Call first in case of error
                       auto new_state = action::load_state(filepath);
@@ -112,7 +100,7 @@ inline auto const command_tree = cmd_group(
                       // Manually reset selection on overwrite
                       tl.set_aux_state({{0, {}}}, false);
                       tl.add_state(std::move(new_state));
-                      return minfo("Loaded state from '" + filepath.string() + "'.");
+                      return minfo("State Loaded");
                   },
                   ArgInfo<std::filesystem::path>{"filepath"}),
 
@@ -121,11 +109,11 @@ inline auto const command_tree = cmd_group(
                       try
                       {
                           on_load_keys_request();
-                          return minfo("Loaded keys.");
+                          return minfo("Key Config Loaded");
                       }
                       catch (std::exception const &e)
                       {
-                          return merror("Failed to load keys: " +
+                          return merror("Failed to Load Keys: " +
                                         std::string{e.what()});
                       }
                   })),
@@ -133,10 +121,10 @@ inline auto const command_tree = cmd_group(
     cmd_group("save", ArgInfo<std::string>{"filetype"},
 
               cmd(
-                  "phrase", "Save the current Phrase to a file.",
+                  "state", "Save the current plugin State to a file.",
                   [](XenTimeline &tl, std::filesystem::path const &filepath) {
                       action::save_state(tl, filepath);
-                      return minfo("Saved state to '" + filepath.string() + "'.");
+                      return minfo("State Saved to '" + filepath.string() + '\'');
                   },
                   ArgInfo<std::filesystem::path>{"filepath"})),
 
@@ -149,7 +137,7 @@ inline auto const command_tree = cmd_group(
                   "left", "Move the selection left, or wrap around.",
                   [](XenTimeline &tl, std::size_t amount) {
                       tl.set_aux_state(action::move_left(tl, amount));
-                      return mdebug("Moved Left.");
+                      return mdebug("Moved Left " + std::to_string(amount) + " Times");
                   },
                   ArgInfo<std::size_t>{"amount", 1}),
 
@@ -157,7 +145,7 @@ inline auto const command_tree = cmd_group(
                   "right", "Move the selection right, or wrap around.",
                   [](XenTimeline &tl, std::size_t amount) {
                       tl.set_aux_state(action::move_right(tl, amount));
-                      return mdebug("Moved Right.");
+                      return mdebug("Moved Right " + std::to_string(amount) + " Times");
                   },
                   ArgInfo<std::size_t>{"amount", 1}),
 
@@ -165,8 +153,7 @@ inline auto const command_tree = cmd_group(
                   "up", "Move the selection up one level to a parent sequence.",
                   [](XenTimeline &tl, std::size_t amount) {
                       tl.set_aux_state(action::move_up(tl, amount));
-                      // TODO message depending on if moved or hit ceiling
-                      return mdebug("Moved Up.");
+                      return mdebug("Moved Up " + std::to_string(amount) + " Times");
                   },
                   ArgInfo<std::size_t>{"amount", 1}),
 
@@ -174,8 +161,7 @@ inline auto const command_tree = cmd_group(
                   "down", "Move the selection down one level.",
                   [](XenTimeline &tl, std::size_t amount) {
                       tl.set_aux_state(action::move_down(tl, amount));
-                      // TODO message depending on if moved or hit floor
-                      return mdebug("Moved Down.");
+                      return mdebug("Moved Down " + std::to_string(amount) + " Times");
                   },
                   ArgInfo<std::size_t>{"amount", 1})),
 
@@ -187,7 +173,7 @@ inline auto const command_tree = cmd_group(
                       auto [aux, state] = action::append_measure(tl, ts);
                       tl.set_aux_state(std::move(aux), false);
                       tl.add_state(std::move(state));
-                      return minfo("Appended measure.");
+                      return minfo("Appended Measure");
                   },
                   ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
 
@@ -200,7 +186,7 @@ inline auto const command_tree = cmd_group(
                       auto [aux, state] = action::insert_measure(tl, ts);
                       tl.set_aux_state(std::move(aux), false);
                       tl.add_state(std::move(state));
-                      return minfo("Inserted measure.");
+                      return minfo("Inserted Measure");
                   },
                   ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
 
@@ -213,7 +199,7 @@ inline auto const command_tree = cmd_group(
                     return sequence::modify::note(args...);
                 },
                 interval, velocity, delay, gate);
-            return minfo("Note Added");
+            return minfo("Note Created");
         },
         ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
         ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
@@ -223,17 +209,17 @@ inline auto const command_tree = cmd_group(
             increment_state(tl, [](sequence::Cell const &) -> sequence::Cell {
                 return sequence::modify::rest();
             });
-            return minfo("Rest Added");
+            return minfo("Rest Created");
         }),
 
-    pattern(cmd("flip",
-                "Alternate between Note and Rest for the current selection. Works over "
-                "sequences.",
-                [](XenTimeline &tl, sequence::Pattern const &pattern) {
-                    increment_state(tl, &sequence::modify::flip, pattern,
-                                    sequence::Note{});
-                    return minfo("Flipped");
-                })),
+    pattern(cmd(
+        "flip",
+        "Flips Notes to Rests and Rests to Notes for the current selection. Works over "
+        "sequences.",
+        [](XenTimeline &tl, sequence::Pattern const &pattern) {
+            increment_state(tl, &sequence::modify::flip, pattern, sequence::Note{});
+            return minfo("Flipped Selection");
+        })),
 
     cmd_group("delete", ArgInfo<std::string>{"item", "selection"},
 
@@ -243,7 +229,7 @@ inline auto const command_tree = cmd_group(
                           action::delete_cell(tl.get_aux_state(), tl.get_state().first);
                       tl.set_aux_state(aux, false);
                       tl.add_state(std::move(state));
-                      return minfo("Deleted.");
+                      return minfo("Deleted Selection");
                   })),
 
     cmd(
@@ -252,7 +238,7 @@ inline auto const command_tree = cmd_group(
         "current selection.",
         [](XenTimeline &tl, std::size_t count) {
             increment_state(tl, &sequence::modify::repeat, count);
-            return minfo("Split");
+            return minfo("Split Selection " + std::to_string(count) + " Times");
         },
         ArgInfo<std::size_t>{"count", 2}),
 
@@ -263,7 +249,7 @@ inline auto const command_tree = cmd_group(
             auto [state, aux] = action::lift(tl);
             tl.set_aux_state(aux, false);
             tl.add_state(state);
-            return minfo("Lifted.");
+            return minfo("Selection Lifted One Layer");
         }),
 
     pattern(cmd(
@@ -276,7 +262,7 @@ inline auto const command_tree = cmd_group(
         "Pattern, whereas split cannot.",
         [](XenTimeline &tl, sequence::Pattern const &pattern, std::size_t count) {
             increment_state(tl, &sequence::modify::stretch, pattern, count);
-            return minfo("Stretched.");
+            return minfo("Stretched Selection by " + std::to_string(count));
         },
         ArgInfo<std::size_t>{"count", 2})),
 
@@ -291,7 +277,7 @@ inline auto const command_tree = cmd_group(
                     else
                     {
                         increment_state(tl, &sequence::modify::compress, pattern);
-                        return minfo("Compressed.");
+                        return minfo("Compressed Selection");
                     }
                 })),
 
@@ -306,7 +292,7 @@ inline auto const command_tree = cmd_group(
                float velocity, float delay, float gate) {
                 increment_state(tl, &sequence::modify::notes_fill, pattern,
                                 sequence::Note{interval, velocity, delay, gate});
-                return minfo("Filled With Notes");
+                return minfo("Filled Selection With Notes");
             },
             ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
             ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
@@ -316,7 +302,7 @@ inline auto const command_tree = cmd_group(
             "sequences.",
             [](XenTimeline &tl, sequence::Pattern const &pattern) {
                 increment_state(tl, &sequence::modify::rests_fill, pattern);
-                return minfo("Filled With Rests");
+                return minfo("Filled Selection With Rests");
             }))),
 
     pattern(cmd_group(
@@ -376,7 +362,7 @@ inline auto const command_tree = cmd_group(
             "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",
             [](XenTimeline &tl, sequence::Pattern const &, float freq) {
                 tl.add_state(action::set_base_frequency(tl, freq));
-                return minfo("Base Frequency Set.");
+                return minfo("Base Frequency Set");
             },
             ArgInfo<float>{"freq", 440.f}))),
 
@@ -432,7 +418,7 @@ inline auto const command_tree = cmd_group(
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_velocity, pattern,
                                 amount);
-                return minfo("Humanized Velocity.");
+                return minfo("Humanized Velocity");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -441,7 +427,7 @@ inline auto const command_tree = cmd_group(
             "Apply a random shift to the delay of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_delay, pattern, amount);
-                return minfo("Humanized Delay.");
+                return minfo("Humanized Delay");
             },
             ArgInfo<float>{"amount", 0.1f}),
 
@@ -449,7 +435,7 @@ inline auto const command_tree = cmd_group(
             InputMode::Gate, "Apply a random shift to the gate of any selected Notes.",
             [](XenTimeline &tl, sequence::Pattern const &pattern, float amount) {
                 increment_state(tl, &sequence::modify::humanize_gate, pattern, amount);
-                return minfo("Humanized Gate.");
+                return minfo("Humanized Gate");
             },
             ArgInfo<float>{"amount", 0.1f}))),
 
@@ -462,7 +448,7 @@ inline auto const command_tree = cmd_group(
             [](XenTimeline &tl, sequence::Pattern const &pattern, int min, int max) {
                 increment_state(tl, &sequence::modify::randomize_intervals, pattern,
                                 min, max);
-                return minfo("Randomized Note.");
+                return minfo("Randomized Note");
             },
             ArgInfo<int>{"min", -12}, ArgInfo<int>{"max", 12}),
 
@@ -473,7 +459,7 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_velocity, pattern, min,
                                 max);
-                return minfo("Randomized Velocity.");
+                return minfo("Randomized Velocity");
             },
             ArgInfo<float>{"min", 0.01f}, ArgInfo<float>{"max", 1.f}),
 
@@ -483,7 +469,7 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_delay, pattern, min,
                                 max);
-                return minfo("Randomized Delay.");
+                return minfo("Randomized Delay");
             },
             ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}),
 
@@ -493,14 +479,14 @@ inline auto const command_tree = cmd_group(
                float max) {
                 increment_state(tl, &sequence::modify::randomize_gate, pattern, min,
                                 max);
-                return minfo("Randomized Gate.");
+                return minfo("Randomized Gate");
             },
             ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}))),
 
     cmd("shuffle", "Randomly shuffle Notes and Rests in current selection.",
         [](XenTimeline &tl) {
             increment_state(tl, &sequence::modify::shuffle);
-            return minfo("Shuffled.");
+            return minfo("Selection Shuffled");
         }),
 
     cmd(
@@ -509,14 +495,14 @@ inline auto const command_tree = cmd_group(
         " Positive values shift right, negative values shift left.",
         [](XenTimeline &tl, int amount) {
             increment_state(tl, &sequence::modify::rotate, amount);
-            return minfo("Rotated.");
+            return minfo("Selection Rotated");
         },
         ArgInfo<int>{"amount", 1}),
 
     cmd("reverse", "Reverse the order of all Notes and Rests in the current selection.",
         [](XenTimeline &tl) {
             increment_state(tl, &sequence::modify::reverse);
-            return minfo("Reversed.");
+            return minfo("Selection Reversed");
         }),
 
     pattern(cmd(
@@ -524,7 +510,7 @@ inline auto const command_tree = cmd_group(
         "Mirror the note intervals of the current selection around `centerNote`.",
         [](XenTimeline &tl, sequence::Pattern const &pattern, int center_note) {
             increment_state(tl, &sequence::modify::mirror, pattern, center_note);
-            return minfo("Mirrored.");
+            return minfo("Selection Mirrored");
         },
         ArgInfo<int>{"centerNote", 0})),
 
@@ -533,7 +519,7 @@ inline auto const command_tree = cmd_group(
         "Set the delay to zero and gate to one for all Notes in the current selection.",
         [](XenTimeline &tl, sequence::Pattern const &pattern) {
             increment_state(tl, &sequence::modify::quantize, pattern);
-            return minfo("Quantized.");
+            return minfo("Selection Quantized");
         })),
 
     cmd(
@@ -541,7 +527,7 @@ inline auto const command_tree = cmd_group(
         "Set the delay of every other Note in the current selection to `amount`.",
         [](XenTimeline &tl, float amount) {
             increment_state(tl, &sequence::modify::swing, amount, false);
-            return minfo("Swung.");
+            return minfo("Selection Swung by " + std::to_string(amount));
         },
         ArgInfo<float>{"amount", 0.1f}),
 
@@ -550,7 +536,7 @@ inline auto const command_tree = cmd_group(
     cmd("demo", "Reset the state to a demo Phrase.", [](XenTimeline &tl) {
         tl.set_aux_state({{0, {}}}, false); // Manually reset selection on overwrite
         tl.add_state(demo_state());
-        return minfo("Demo state loaded.");
+        return minfo("Demo State Loaded");
     }));
 
 } // namespace xen
