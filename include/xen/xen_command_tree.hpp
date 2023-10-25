@@ -145,31 +145,39 @@ inline auto const command_tree = cmd_group(
 
     cmd_group("move", ArgInfo<std::string>{"direction"},
 
-              cmd("left", "Move the selection left, or wrap around.",
-                  [](XenTimeline &tl) {
-                      tl.set_aux_state(action::move_left(tl));
+              cmd(
+                  "left", "Move the selection left, or wrap around.",
+                  [](XenTimeline &tl, std::size_t amount) {
+                      tl.set_aux_state(action::move_left(tl, amount));
                       return mdebug("Moved Left.");
-                  }),
+                  },
+                  ArgInfo<std::size_t>{"amount", 1}),
 
-              cmd("right", "Move the selection right, or wrap around.",
-                  [](XenTimeline &tl) {
-                      tl.set_aux_state(action::move_right(tl));
+              cmd(
+                  "right", "Move the selection right, or wrap around.",
+                  [](XenTimeline &tl, std::size_t amount) {
+                      tl.set_aux_state(action::move_right(tl, amount));
                       return mdebug("Moved Right.");
-                  }),
+                  },
+                  ArgInfo<std::size_t>{"amount", 1}),
 
-              cmd("up", "Move the selection up one level to a parent sequence.",
-                  [](XenTimeline &tl) {
-                      tl.set_aux_state(action::move_up(tl));
+              cmd(
+                  "up", "Move the selection up one level to a parent sequence.",
+                  [](XenTimeline &tl, std::size_t amount) {
+                      tl.set_aux_state(action::move_up(tl, amount));
                       // TODO message depending on if moved or hit ceiling
                       return mdebug("Moved Up.");
-                  }),
+                  },
+                  ArgInfo<std::size_t>{"amount", 1}),
 
-              cmd("down", "Move the selection down one level.",
-                  [](XenTimeline &tl) {
-                      tl.set_aux_state(action::move_down(tl));
+              cmd(
+                  "down", "Move the selection down one level.",
+                  [](XenTimeline &tl, std::size_t amount) {
+                      tl.set_aux_state(action::move_down(tl, amount));
                       // TODO message depending on if moved or hit floor
                       return mdebug("Moved Down.");
-                  })),
+                  },
+                  ArgInfo<std::size_t>{"amount", 1})),
 
     cmd(
         "baseFrequency", "Set the base note (interval zero) frequency to `freq`.",

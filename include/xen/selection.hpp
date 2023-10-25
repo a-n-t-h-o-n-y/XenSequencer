@@ -87,38 +87,43 @@ namespace xen
  *
  * @param phrase The root Phrase.
  * @param selected The current selection indices.
+ * @param amount The number of cells to move left.
  * @return The new selection indices after moving left.
  */
-[[nodiscard]] auto move_left(sequence::Phrase const &phrase, SelectedState selected)
-    -> SelectedState;
+[[nodiscard]] auto move_left(sequence::Phrase const &phrase, SelectedState selected,
+                             std::size_t amount = 1) -> SelectedState;
 
 /**
  * Move the selection right within the current sequence.
  *
  * @param phrase The root Phrase.
  * @param selected The current selection indices.
+ * @param amount The number of cells to move right.
  * @return The new selection indices after moving right.
  */
-[[nodiscard]] auto move_right(sequence::Phrase const &phrase, SelectedState selected)
-    -> SelectedState;
+[[nodiscard]] auto move_right(sequence::Phrase const &phrase, SelectedState selected,
+                              std::size_t amount = 1) -> SelectedState;
 
 /**
  * Move the selection up in the sequence hierarchy if possible.
  *
  * @param selected The current selection indices.
+ * @param amount The number of cells to move up.
  * @return The new selection indices after moving up.
  */
-[[nodiscard]] auto move_up(SelectedState selected) -> SelectedState;
+[[nodiscard]] auto move_up(SelectedState selected, std::size_t amount = 1)
+    -> SelectedState;
 
 /**
  * Move the selection down in the sequence hierarchy if possible.
  *
  * @param phrase The root Phrase.
  * @param selected The current selection indices.
+ * @param amount The number of cells to move down.
  * @return The new selection indices after moving down, or the original indices if
  * moving down is not possible.
  */
-[[nodiscard]] auto move_down(sequence::Phrase const &phrase, SelectedState selected)
-    -> SelectedState;
+[[nodiscard]] auto move_down(sequence::Phrase const &phrase, SelectedState selected,
+                             std::size_t amount = 1) -> SelectedState;
 
 } // namespace xen

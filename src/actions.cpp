@@ -24,41 +24,41 @@ namespace xen::action
 
 // These can throw exceptions with error messages and those will be displayed
 
-auto move_left(XenTimeline const &tl) -> AuxState
+auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto aux = tl.get_aux_state();
     auto const phrase = tl.get_state().first.phrase;
     if (!phrase.empty())
     {
-        aux.selected = move_left(phrase, aux.selected);
+        aux.selected = move_left(phrase, aux.selected, amount);
     }
 
     return aux;
 }
 
-auto move_right(XenTimeline const &tl) -> AuxState
+auto move_right(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto aux = tl.get_aux_state();
     auto const phrase = tl.get_state().first.phrase;
     if (!phrase.empty())
     {
-        aux.selected = move_right(phrase, aux.selected);
+        aux.selected = move_right(phrase, aux.selected, amount);
     }
     return aux;
 }
 
-auto move_up(XenTimeline const &tl) -> AuxState
+auto move_up(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto aux = tl.get_aux_state();
-    aux.selected = xen::move_up(aux.selected);
+    aux.selected = xen::move_up(aux.selected, amount);
     return aux;
 }
 
-auto move_down(XenTimeline const &tl) -> AuxState
+auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto aux = tl.get_aux_state();
     auto const phrase = tl.get_state().first.phrase;
-    aux.selected = xen::move_down(phrase, aux.selected);
+    aux.selected = xen::move_down(phrase, aux.selected, amount);
     return aux;
 }
 
@@ -113,7 +113,7 @@ auto paste(XenTimeline const &tl, std::optional<sequence::Cell> const &copy_buff
 auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, State>
 {
     auto const buffer = ::xen::action::copy(tl);
-    auto const aux = ::xen::action::move_right(tl);
+    auto const aux = ::xen::action::move_right(tl, 1);
 
     // Reimplement paste here so it isn't recorded in timeline
     auto state = tl.get_state().first;
@@ -152,7 +152,7 @@ auto lift(XenTimeline const &tl) -> std::pair<State, AuxState>
         auto cell_copy = std::move(*cell);
         *parent = std::move(cell_copy);
     }
-    return {state, action::move_up(tl)};
+    return {state, action::move_up(tl, 1)};
 }
 
 auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
@@ -227,7 +227,7 @@ auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>
 
         if (cells.empty())
         {
-            aux.selected = xen::move_up(aux.selected);
+            aux.selected = xen::move_up(aux.selected, 1);
             return delete_cell(aux, state);
         }
         else

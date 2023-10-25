@@ -58,13 +58,13 @@ auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
 namespace xen::action
 {
 
-[[nodiscard]] auto move_left(XenTimeline const &tl) -> AuxState;
+[[nodiscard]] auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
-[[nodiscard]] auto move_right(XenTimeline const &tl) -> AuxState;
+[[nodiscard]] auto move_right(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
-[[nodiscard]] auto move_up(XenTimeline const &tl) -> AuxState;
+[[nodiscard]] auto move_up(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
-[[nodiscard]] auto move_down(XenTimeline const &tl) -> AuxState;
+[[nodiscard]] auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
 [[nodiscard]] auto copy(XenTimeline const &tl) -> std::optional<sequence::Cell>;
 

@@ -114,57 +114,68 @@ auto get_sibling_count(sequence::Phrase const &phrase, SelectedState const &sele
     return std::get<sequence::Sequence>(*parent).cells.size();
 }
 
-auto move_left(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
+auto move_left(sequence::Phrase const &phrase, SelectedState selected,
+               std::size_t amount) -> SelectedState
 {
+
     if (selected.cell.empty()) // Change Measure
     {
-        selected.measure =
-            (selected.measure > 0) ? selected.measure - 1 : phrase.size() - 1;
+        amount = amount % phrase.size();
+        selected.measure = (selected.measure >= amount)
+                               ? selected.measure - amount
+                               : phrase.size() - (amount - selected.measure);
     }
     else // Change Cell
     {
         auto const parent_cells_size = get_sibling_count(phrase, selected);
+        amount = amount % parent_cells_size;
 
-        selected.cell.back() = (selected.cell.back() > 0) ? selected.cell.back() - 1
-                                                          : parent_cells_size - 1;
+        selected.cell.back() =
+            (selected.cell.back() >= amount)
+                ? selected.cell.back() - amount
+                : parent_cells_size - (amount - selected.cell.back());
     }
     return selected;
 }
 
-auto move_right(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
+auto move_right(sequence::Phrase const &phrase, SelectedState selected,
+                std::size_t amount) -> SelectedState
 {
     if (selected.cell.empty()) // Change Measure
     {
-        selected.measure =
-            (selected.measure + 1 < phrase.size()) ? selected.measure + 1 : 0;
+        selected.measure = (selected.measure + amount) % phrase.size();
     }
     else // Change Cell
     {
         auto const parent_cells_size = get_sibling_count(phrase, selected);
-
-        selected.cell.back() = (selected.cell.back() + 1 < parent_cells_size)
-                                   ? selected.cell.back() + 1
-                                   : 0;
+        selected.cell.back() = (selected.cell.back() + amount) % parent_cells_size;
     }
     return selected;
 }
 
-auto move_up(SelectedState selected) -> SelectedState
+auto move_up(SelectedState selected, std::size_t amount) -> SelectedState
 {
-    if (!selected.cell.empty())
+    for (auto i = std::size_t{0}; i < amount && !selected.cell.empty(); ++i)
     {
         selected.cell.pop_back();
     }
     return selected;
 }
 
-auto move_down(sequence::Phrase const &phrase, SelectedState selected) -> SelectedState
+auto move_down(sequence::Phrase const &phrase, SelectedState selected,
+               std::size_t amount) -> SelectedState
 {
-    auto const *selected_cell = get_selected_cell_const(phrase, selected);
-
-    if (selected_cell && std::holds_alternative<sequence::Sequence>(*selected_cell))
+    for (auto i = std::size_t{0}; i < amount; ++i)
     {
-        selected.cell.push_back(0);
+        auto const *selected_cell = get_selected_cell_const(phrase, selected);
+        if (selected_cell && std::holds_alternative<sequence::Sequence>(*selected_cell))
+        {
+            selected.cell.push_back(0);
+        }
+        else
+        {
+            break;
+        }
     }
 
     return selected;
