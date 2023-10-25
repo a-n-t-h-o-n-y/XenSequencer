@@ -184,13 +184,22 @@ auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
     return state;
 }
 
-auto add_measure(XenTimeline const &tl, sequence::TimeSignature ts)
+auto append_measure(XenTimeline const &tl, sequence::TimeSignature ts)
     -> std::pair<AuxState, State>
 {
     auto state = tl.get_state().first;
     state.phrase.push_back(sequence::Measure{sequence::Rest{}, ts});
-    // state.phrase.push_back({sequence::Sequence{{sequence::Rest{}}}, ts});
     return {{{state.phrase.size() - 1, {}}}, state};
+}
+
+auto insert_measure(XenTimeline const &tl, sequence::TimeSignature ts)
+    -> std::pair<AuxState, State>
+{
+    auto state = tl.get_state().first;
+    auto const current_measure = tl.get_aux_state().selected.measure;
+    state.phrase.insert(std::next(std::begin(state.phrase), current_measure),
+                        sequence::Measure{sequence::Rest{}, ts});
+    return {{{current_measure, {}}}, state};
 }
 
 auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>

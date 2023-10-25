@@ -179,15 +179,30 @@ inline auto const command_tree = cmd_group(
                   },
                   ArgInfo<std::size_t>{"amount", 1})),
 
-    cmd(
-        "addMeasure", "Append a measure to the current phrase.",
-        [](XenTimeline &tl, sequence::TimeSignature const &ts) {
-            auto [aux, state] = action::add_measure(tl, ts);
-            tl.set_aux_state(std::move(aux), false);
-            tl.add_state(std::move(state));
-            return minfo("Added measure.");
-        },
-        ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}}),
+    cmd_group("append", ArgInfo<std::string>{"item", "measure"},
+
+              cmd(
+                  "measure", "Append a measure to the current phrase.",
+                  [](XenTimeline &tl, sequence::TimeSignature const &ts) {
+                      auto [aux, state] = action::append_measure(tl, ts);
+                      tl.set_aux_state(std::move(aux), false);
+                      tl.add_state(std::move(state));
+                      return minfo("Appended measure.");
+                  },
+                  ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
+
+    cmd_group("insert", ArgInfo<std::string>{"item", "measure"},
+
+              cmd(
+                  "measure",
+                  "Insert a measure at the current location inside the current phrase.",
+                  [](XenTimeline &tl, sequence::TimeSignature const &ts) {
+                      auto [aux, state] = action::insert_measure(tl, ts);
+                      tl.set_aux_state(std::move(aux), false);
+                      tl.add_state(std::move(state));
+                      return minfo("Inserted measure.");
+                  },
+                  ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
 
     cmd(
         "note", "Create a new Note, overwritting the current selection.",

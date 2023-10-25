@@ -89,7 +89,10 @@ namespace xen::action
                                    sequence::Pattern const &pattern, int octave)
     -> State;
 
-[[nodiscard]] auto add_measure(XenTimeline const &tl, sequence::TimeSignature ts)
+[[nodiscard]] auto append_measure(XenTimeline const &tl, sequence::TimeSignature ts)
+    -> std::pair<AuxState, State>;
+
+[[nodiscard]] auto insert_measure(XenTimeline const &tl, sequence::TimeSignature ts)
     -> std::pair<AuxState, State>;
 
 [[nodiscard]] auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>;
