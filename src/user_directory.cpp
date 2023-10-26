@@ -18,9 +18,9 @@ namespace
     return std::filesystem::path{file.getFullPathName().toStdString()};
 }
 
-[[nodiscard]] auto to_juce_file(std::string const &filepath) -> juce::File
+[[nodiscard]] auto to_juce_file(std::filesystem::path const &filepath) -> juce::File
 {
-    return juce::File{filepath};
+    return juce::File{filepath.string()};
 }
 
 } // namespace
