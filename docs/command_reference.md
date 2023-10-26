@@ -22,7 +22,7 @@ Overwrite the current selection with what is stored in the copy buffer.
 
 ## `duplicate`
 
-Duplicate the current selection by placing it in the next adjacent Cell.
+Duplicate the current selection by placing it in the right-adjacent Cell.
 
 ## `mode [InputMode: mode]`
 
@@ -34,39 +34,55 @@ The mode determines the behavior of the up/down keys.
 
 Move the keyboard focus to the specified component.
 
-## `save [Filepath: filepath]`
+## `load [String: filetype]`
 
-Save the current state to a file.
+### `state [Filepath: filepath]`
 
-## `load [Filepath: filepath]`
+Load a full plugin State from a file.
 
-Load a state from a file.
+### `keys`
+
+Load keys.yml and user_keys.yml.
+
+## `save [String: filetype]`
+
+### `state [Filepath: filepath]`
+
+Save the current plugin State to a file.
+
+## `dataDirectory`
+
+Display the path to the directory where user data is stored.
 
 ## `move [String: direction]`
 
-### `left`
+### `left [Unsigned: amount=1]`
 
 Move the selection left, or wrap around.
 
-### `right`
+### `right [Unsigned: amount=1]`
 
 Move the selection right, or wrap around.
 
-### `up`
+### `up [Unsigned: amount=1]`
 
 Move the selection up one level to a parent sequence.
 
-### `down`
+### `down [Unsigned: amount=1]`
 
 Move the selection down one level.
 
-## `baseFrequency [Float: freq=440]`
+## `append [String: item="measure"]`
 
-Set the base note (interval zero) frequency to `freq`.
-
-## `addMeasure [TimeSignature: duration=4/4]`
+### `measure [TimeSignature: duration=4/4]`
 
 Append a measure to the current phrase.
+
+## `insert [String: item="measure"]`
+
+### `measure [TimeSignature: duration=4/4]`
+
+Insert a measure at the current location inside the current phrase.
 
 ## `note [Int: interval=0] [Float: velocity=0.8] [Float: delay=0] [Float: gate=1]`
 
@@ -78,9 +94,11 @@ Create a new Rest, overwritting the current selection.
 
 ## `[Pattern] flip`
 
-Alternate between Note and Rest for the current selection. Works over sequences.
+Flips Notes to Rests and Rests to Notes for the current selection. Works over sequences.
 
-## `delete`
+## `delete [String: item="selection"]`
+
+### `selection`
 
 Delete the current selection.
 
@@ -134,9 +152,13 @@ Set the delay of any selected Notes.
 
 Set the gate of any selected Notes.
 
-#### `timesignature [TimeSignature: timesignature=4/4]`
+#### `timeSignature [TimeSignature: timesignature=4/4]`
 
 Set the time signature of the current Measure. Ignores Pattern.
+
+#### `baseFrequency [Float: freq=440]`
+
+Set the base note (interval zero) frequency to `freq`.
 
 ## `[Pattern] shift [String: trait]`
 

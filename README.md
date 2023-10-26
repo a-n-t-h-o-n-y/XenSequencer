@@ -1,5 +1,7 @@
 # XenSequencer
 
+![XenSequencer](/docs/img/XS_v0.1.png)
+
 ## Table of Contents
 - [Overview](#overview)
 - [Documentation](#documentation)
@@ -12,7 +14,7 @@
 - [License](#license)
 
 ## Overview
-[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) is a monophonic MIDI sequencer VST designed to help generate sequences programmatically. The plugin features a recursive structure where sequences are built by splitting existing notes. Currently, it supports keyboard input and is compatible with some DAWs (tested with ableton, bitwig).
+[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) is a monophonic MIDI sequencer VST designed to help generate sequences programmatically. The plugin features a recursive structure where sequences are built by splitting existing notes. Currently, it supports keyboard input and is compatible with some DAWs (tested with Ableton, Bitwig).
 
 ## Documentation
 - [User Guide](docs/user_guide.md)
@@ -53,7 +55,7 @@
     ```
 
 ## Installation
-Move `XenSequencer.vst3` folder to your system's vst3 folder. If building from source, the VST can be found in `XenSequencer/build/XenSequencer_artefacts/Release/VST3/`.
+Move the XenSequencer VST to your system's VST3 folder. If building from source, the VST can be found in `XenSequencer/build/XenSequencer_artefacts/Release/VST3/`.
 
 ## Running Tests
 XenSequencer uses [Catch2](https://github.com/catchorg/Catch2) for unit testing. To run the tests, navigate to the build directory and run the following command:
@@ -66,7 +68,7 @@ cmake --build . --target XenTests
 
 ## Plugin Architecture
 
-- **Framework**: The plugin is built using [JUCE](https://github.com/juce-framework/JUCE), a widely-used framework for audio software.
+- **Framework**: The plugin is built using [JUCE](https://github.com/juce-framework/JUCE), a framework for audio software.
   
 - **Programming Style**: The codebase attempts to adhere to a functional programming style, utilizing structs and pure, free functions whenever possible.
 

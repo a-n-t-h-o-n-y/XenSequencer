@@ -16,15 +16,16 @@
 1. [Contact and Support](#contact-and-support)
 
 ## Overview
-- Monophonic step sequencer VST plugin.
-- Unique sequence creation tools.
+- Monophonic Step Sequencer
+- VST3 Plugin
+- Sequence Creation Tools
 
 ## Getting Started
 - Build from source, or download the latest release from the [releases page](https://github.com/a-n-t-h-o-n-y/XenSequencer/releases).
-- Place `XenSequencer.vst3` folder in your system's VST3 plugin directory.
-   - If using the pre-built VST, MacOS will have an 'unverified developer' warning. To get around this, build from source, or google "macos unverified developer vst3".
-- Open the plugin in your DAW with an instrument on a separate track.
-- Route MIDI output from the XenSequencer into the instrument and enable monitoring of the instrument.
+- Place the XenSequencer VST in your system's VST3 plugin directory.
+   - If using the pre-built VST, MacOS will have an 'unverified developer' warning. To get around this, build from source, or search "MacOS unverified developer VST3".
+- Open the plugin in your DAW and a MIDI instrument.
+- Route MIDI output from the XenSequencer into the instrument.
 
 ### User Interface
 - Phrase Timeline
@@ -51,7 +52,7 @@
 ## Keyboard Navigation
 Mouse input is not supported in this initial version. There are a few default key bindings for basic tasks and the rest happens via the command bar. Make sure the plugin is in focus (click on it) before using keyboard shortcuts.
 
-All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user data directory.
+All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user data directory, and `user_keys.yml` (in the same directory) will override the defaults.
 
 ### Navigating the UI
 | Key Combination | Action |
@@ -72,13 +73,13 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 | `esc` | Exit the command bar or revert to movement input mode |
 | `del` | Delete the current selection |
 
-### Editing Keyboard Shortcuts
-- Keyboard shortcuts can be edited in the `keys.yml` file in the user data directory.
+### Custom Keyboard Shortcuts
+- Keyboard shortcuts can be added in the `user_keys.yml` file in the user data directory.
 - Possible locations of the user data directory:
    - Windows: `\Users\username\AppData\Roaming\XenSequencer\`
    - MacOS: `~/Library/XenSequencer/`
    - Linux: `~/.config/XenSequencer/`
-- Each action in the `keys.yml` file is a string to be passed to the command bar.
+- Each entry in the `yml` files is a string to be passed to the command bar.
 
 ## Commands
 All actions in the plugin are defined by command strings. These follow the format of `[pattern] command_name [arguments...]` where square brackets delimit optional items. The command bar is the main UI element to enter commands.
@@ -86,26 +87,29 @@ All actions in the plugin are defined by command strings. These follow the forma
 The command reference can be found [here](command_reference.md).
 
 ### Patterns
-Patterns follow the following format: `[offset] intervals...` where `offset` is optional. `offset` is defined by putting a plus sign followed immediately by an integer. `intervals...` is a space separated list of integers.
+
+`+1 3 2`
+
+Patterns have the following format: `[offset] intervals...` where `offset` is optional. `offset` is defined by putting a plus sign followed immediately by an integer. `intervals...` is a space separated list of integers.
 
 If a command takes a Pattern, the pattern will be used to select notes in the current sequence. If no pattern is provided, then the entire selection will be used.
 
 The `offset` is used to shift the pattern to the right by the given number of steps, the default is `+0`. For example, `+1` will apply the command to everything except the first note. `+1 2` will skip the first note, then skip every other note after that. `2 3` will apply to the first, third, sixth, eighth note, etc... An iterval cannot be less than one. The default Pattern, when one is not provided, is `+0 1`.
 
 ### Command Bar
-The colon key `:` opens the command bar. The command bar is used to type and execute commands. The command bar will autocomplete commands and arguments as you type. Press the up and down arrows to cycle through the command history, and press `tab` to autocomplete any shown guide text. Some commands have default arguments that are used if not provided, these values are displayed in the guide text. `Enter` key will execute the typed command.
+The colon key `:` opens the command bar, it is used to type and execute commands. It will autocomplete commands and arguments as you type. Press the up and down arrows to cycle through the command history, and press `tab` to autocomplete any shown guide text. Some commands have default arguments that are used if not provided, these values are displayed in the guide text. `Enter` key will execute the typed command.
 
 ### Common Commands
 | Command | Description |
 | --- | --- |
-| `addMeasure [time signature=4/4]` | Append an empty measure to the current phrase. |
+| `append measure [time signature=4/4]` | Append an empty measure to the current phrase. |
 | `note [interval=0] [velocity=0.8] [delay=0] [gate=1]` | Create a new note, overwriting the current selection. |
 | `rest` | Create a new rest, overwriting the current selection. |
 | `split [count=2]` | Split the current selection into two sequences. |
 | `[pattern] fill [note\|rest] ...` | Fill the current selection with the given note or rest. |
 | `[pattern] randomize [note\|velocity\|delay\|gate] ...` | Randomize the given property of the current selection. |
-| `save [filepath]` | Save the plugin state to a `json` file. |
-| `load [filepath]` | Load the plugin state from a `json` file. |
+| `save state [filepath]` | Save the plugin state to a `json` file. |
+| `load state [filepath]` | Load the plugin state from a `json` file. |
 
 ## Contact and Support
 Contact by opening an issue or starting a discussion at the [github page](https://github.com/a-n-t-h-o-n-y/XenSequencer) for this project.
