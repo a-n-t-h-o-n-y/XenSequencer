@@ -24,8 +24,9 @@
 ## Building from Source
 
 ### Prerequisites
-- A C++20 compliant compiler
-- CMake 3.16 or higher
+- A C++20 Compliant Compiler
+- Boost Libraries
+- CMake 3.16 or Higher
 - Git
 
 ### Build Steps

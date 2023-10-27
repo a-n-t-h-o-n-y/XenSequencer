@@ -4,6 +4,9 @@ project(XenSequencer VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(Boost_USE_STATIC_LIBS ON)
+find_package(Boost REQUIRED)
+
 add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE)
@@ -52,6 +55,7 @@ target_link_libraries(XenSequencerLib
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+        Boost::boost
 )
 
 target_sources(XenSequencerLib
@@ -65,6 +69,7 @@ target_sources(XenSequencerLib
         src/utility.cpp
         src/string_manip.cpp
         src/serialize_state.cpp
+        src/shared_state.cpp
         src/parse_args.cpp
         src/guide_text.cpp
 
@@ -85,6 +90,7 @@ target_sources(XenSequencerLib
         include/xen/plugin_processor.hpp
         include/xen/selection.hpp
         include/xen/serialize_state.hpp
+        include/xen/shared_state.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
         include/xen/string_manip.hpp
