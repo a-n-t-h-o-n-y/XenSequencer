@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -15,6 +16,11 @@
 
 namespace xen
 {
+
+struct Metadata
+{
+    std::string display_name;
+};
 
 /**
  * @brief The state of the internal sequencer for the plugin.

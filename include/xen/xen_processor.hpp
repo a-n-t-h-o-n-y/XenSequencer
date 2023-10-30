@@ -20,6 +20,7 @@ namespace xen
 class XenProcessor : public PluginProcessor
 {
   public:
+    Metadata metadata{"XenSequencer"};
     DAWState daw_state;
     XenTimeline timeline;
     CommandHistory command_history;

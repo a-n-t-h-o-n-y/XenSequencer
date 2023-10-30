@@ -12,7 +12,7 @@
 #include <sequence/measure.hpp>
 
 #include <xen/midi.hpp>
-#include <xen/serialize_state.hpp>
+#include <xen/serialize.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
 
@@ -160,7 +160,7 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
 {
-    auto const json_str = serialize(timeline.get_state().first);
+    auto const json_str = serialize_plugin(timeline.get_state().first, metadata);
     dest_data.setSize(json_str.size());
     std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
 }
@@ -169,8 +169,9 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
 {
     auto const json_str =
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-    auto const state = deserialize(json_str);
-    timeline.add_state(state);
+    auto [state, md] = deserialize_plugin(json_str);
+    metadata = std::move(md);
+    timeline.add_state(std::move(state));
 }
 
 auto XenProcessor::render() -> void

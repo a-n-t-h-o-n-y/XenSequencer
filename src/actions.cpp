@@ -15,7 +15,7 @@
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
-#include <xen/serialize_state.hpp>
+#include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
@@ -251,14 +251,14 @@ auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>
 
 auto save_state(XenTimeline const &tl, std::filesystem::path const &filepath) -> void
 {
-    auto const json_str = serialize(tl.get_state().first);
+    auto const json_str = serialize_state(tl.get_state().first);
     write_string_to_file(filepath, json_str);
 }
 
 auto load_state(std::filesystem::path const &filepath) -> State
 {
     auto const json_str = read_file_to_string(filepath);
-    return deserialize(json_str);
+    return deserialize_state(json_str);
 }
 
 auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts) -> State

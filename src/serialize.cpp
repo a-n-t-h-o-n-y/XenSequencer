@@ -1,4 +1,4 @@
-#include <xen/serialize_state.hpp>
+#include <xen/serialize.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -133,7 +133,19 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 namespace xen
 {
 
-auto serialize(State const &state) -> std::string
+static void to_json(nlohmann::json &j, Metadata const &metadata)
+{
+    j = nlohmann::json{
+        {"display_name", metadata.display_name},
+    };
+}
+
+static void from_json(nlohmann::json const &j, Metadata &metadata)
+{
+    metadata.display_name = j.at("display_name").get<std::string>();
+}
+
+auto serialize_state(State const &state) -> std::string
 {
     auto const json = nlohmann::json{
         {"phrase", state.phrase},
@@ -144,7 +156,7 @@ auto serialize(State const &state) -> std::string
     return json.dump();
 }
 
-auto deserialize(std::string const &json_str) -> State
+auto deserialize_state(std::string const &json_str) -> State
 {
     auto const json = nlohmann::json::parse(json_str);
 
@@ -155,6 +167,36 @@ auto deserialize(std::string const &json_str) -> State
     };
 
     return state;
+}
+
+auto serialize_plugin(State const &state, Metadata const &metadata) -> std::string
+{
+    auto const json = nlohmann::json{
+        {"metadata", metadata},
+        {
+            "state",
+            {"phrase", state.phrase},
+            {"tuning", state.tuning},
+            {"base_frequency", state.base_frequency},
+        },
+    };
+
+    return json.dump();
+}
+
+auto deserialize_plugin(std::string const &json_str) -> std::pair<State, Metadata>
+{
+    auto const json = nlohmann::json::parse(json_str);
+
+    auto const state = State{
+        json.at("state").at("phrase").get<sequence::Phrase>(),
+        json.at("state").at("tuning").get<sequence::Tuning>(),
+        json.at("state").at("base_frequency").get<float>(),
+    };
+
+    auto const metadata = json.at("metadata").get<Metadata>();
+
+    return {state, metadata};
 }
 
 } // namespace xen

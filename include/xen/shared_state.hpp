@@ -19,6 +19,11 @@ struct SessionID
     std::string display_name;
 };
 
+class SharedState
+{
+  public:
+};
+
 /**
  * @brief Get the UUID for the current process.
  *
@@ -44,22 +49,24 @@ struct SessionID
  * @throw std::runtime_error If the session ID is not found.
  * @throw std::runtime_error If the UUID is not part of the shared memory.
  */
-[[nodiscard]] auto get_shared_state(juce::Uuid uuid) -> xen::State;
+[[nodiscard]] auto get_shared_state(juce::Uuid const &uuid) -> xen::State;
 
 /**
- * @brief Update or insert the State for the current session in shared memory.
+ * @brief Update the State for the current session in shared memory.
  *
- * The current session's UUID is automatically used by this function.
+ * The current session's UUID is automatically used in this function. There must already
+ * be an entry for the current session in shared memory.
  *
  * @param state The new state.
+ * @throw std::runtime_error If the session ID is not found.
  */
-auto update_current_process_shared_state(xen::State const &state) -> void;
+auto update_shared_state(xen::State const &state) -> void;
 
 /**
  * @brief Update the display name for the current process in shared memory.
  *
  * @param name The new display name.
  */
-auto update_current_process_display_name(std::string const &name) -> void;
+auto update_display_name(std::string const &name) -> void;
 
 } // namespace xen

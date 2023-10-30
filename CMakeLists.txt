@@ -68,7 +68,7 @@ target_sources(XenSequencerLib
         src/user_directory.cpp
         src/utility.cpp
         src/string_manip.cpp
-        src/serialize_state.cpp
+        src/serialize.cpp
         src/shared_state.cpp
         src/parse_args.cpp
         src/guide_text.cpp
@@ -89,7 +89,7 @@ target_sources(XenSequencerLib
         include/xen/parse_args.hpp
         include/xen/plugin_processor.hpp
         include/xen/selection.hpp
-        include/xen/serialize_state.hpp
+        include/xen/serialize.hpp
         include/xen/shared_state.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
