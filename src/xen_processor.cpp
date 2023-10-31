@@ -49,7 +49,8 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{}
+    : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{},
+      active_sessions_{metadata, timeline.get_state().first}
 {
 }
 

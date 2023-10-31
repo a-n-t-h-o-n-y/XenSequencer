@@ -7,6 +7,7 @@
 
 #include <sequence/sequence.hpp>
 
+#include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/plugin_processor.hpp>
@@ -57,6 +58,8 @@ class XenProcessor : public PluginProcessor
     bool is_playing_{false};
     juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
     juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
+
+    ActiveSessions active_sessions_;
 };
 
 } // namespace xen

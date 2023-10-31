@@ -173,12 +173,12 @@ auto serialize_plugin(State const &state, Metadata const &metadata) -> std::stri
 {
     auto const json = nlohmann::json{
         {"metadata", metadata},
-        {
-            "state",
-            {"phrase", state.phrase},
-            {"tuning", state.tuning},
-            {"base_frequency", state.base_frequency},
-        },
+        {"state",
+         {
+             {"phrase", state.phrase},
+             {"tuning", state.tuning},
+             {"base_frequency", state.base_frequency},
+         }},
     };
 
     return json.dump();
@@ -187,6 +187,8 @@ auto serialize_plugin(State const &state, Metadata const &metadata) -> std::stri
 auto deserialize_plugin(std::string const &json_str) -> std::pair<State, Metadata>
 {
     auto const json = nlohmann::json::parse(json_str);
+
+    json.at("state");
 
     auto const state = State{
         json.at("state").at("phrase").get<sequence::Phrase>(),

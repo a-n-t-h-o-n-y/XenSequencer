@@ -69,7 +69,7 @@ target_sources(XenSequencerLib
         src/utility.cpp
         src/string_manip.cpp
         src/serialize.cpp
-        src/shared_state.cpp
+        src/active_sessions.cpp
         src/parse_args.cpp
         src/guide_text.cpp
 
@@ -90,7 +90,7 @@ target_sources(XenSequencerLib
         include/xen/plugin_processor.hpp
         include/xen/selection.hpp
         include/xen/serialize.hpp
-        include/xen/shared_state.hpp
+        include/xen/active_sessions.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
         include/xen/string_manip.hpp
