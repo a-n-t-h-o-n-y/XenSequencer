@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
-#include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/sync/named_condition.hpp>
-#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/interprocess/ipc/message_queue.hpp>
 #include <juce_core/juce_core.h>
-
 #include <signals_light/signal.hpp>
 
 #include <xen/state.hpp>
@@ -25,123 +25,106 @@ struct SessionID
     std::string display_name;
 };
 
+namespace message
+{
+
+// TODO emit SessionStart on XenProcessor constructor manually? and others?
+
+struct SessionStart
+{
+    SessionID id;
+};
+
+struct SessionEnd
+{
+    SessionID id;
+};
+
+struct SessionIDUpdate
+{
+    SessionID id;
+};
+
+struct GetStateRequest
+{
+    juce::Uuid request_id;
+    juce::Uuid reply_id;
+};
+
+struct GetStateResponse
+{
+    xen::State state;
+};
+
+struct SessionIDResponse
+{
+    SessionID id;
+};
+
+using Message = std::variant<SessionStart, SessionEnd, SessionIDUpdate, GetStateRequest,
+                             GetStateResponse, SessionIDResponse>;
+
+[[nodiscard]] auto serialize(Message const &m) -> std::string;
+
+[[nodiscard]] auto deserialize(std::string const &x) -> Message;
+
+} // namespace message
+
 /**
- * @brief Listens for updates to the active sessions list.
- *
- * This list is their UUIDs and display names, not their individual states.
+ * @brief Creates a new thread and listens for messages on the given queue.
  */
-class SessionListener : public juce::Thread
+class QueueListener : public juce::Thread
 {
   public:
     /**
-     * @brief Emitted when the active session list is updated.
+     * @brief Emitted when a message is received.
      */
-    sl::Signal<void()> on_update;
+    sl::Signal<void(message::Message const &)> on_message;
 
   public:
-    /**
-     * @brief Launches a new thread to listen for active session list updates.
-     *
-     * The thread will automatically be started.
-     *
-     * @throw std::runtime_error If the thread cannot be started.
-     */
-    SessionListener();
+    explicit QueueListener(boost::interprocess::message_queue &queue,
+                           std::string const &name);
 
-    ~SessionListener() override;
-
-  protected:
-    /**
-     * @brief Posts a call to on_update() to the main GUI thread if condition variable
-     * is notified.
-     */
+  public:
     void run() override;
+
+  private:
+    boost::interprocess::message_queue &queue_;
 };
 
-/**
- * @brief Manages the current session's state.
- */
-class CurrentSession
-{
-  public:
-    CurrentSession(Metadata const &metadata, State const &state);
-
-    ~CurrentSession();
-
-  public:
-    /**
-     * @brief Get the UUID for the current process.
-     *
-     * @return juce::Uuid
-     */
-    [[nodiscard]] auto get_process_uuid() const -> juce::Uuid;
-
-    /**
-     * @brief Get the display name for the current process.
-     *
-     * @return std::string
-     * @throw std::runtime_error If the session ID is not found.
-     */
-    [[nodiscard]] auto get_display_name() const -> std::string;
-
-    /**
-     * @brief Update the display name for the current process in shared memory.
-     *
-     * The current session's UUID is automatically used in this function. There must
-     * already be an entry for the current session in shared memory.
-     *
-     * @param name The new display name.
-     * @throw std::runtime_error If the session ID is not found.
-     */
-    auto set_display_name(std::string const &name) -> void;
-
-    /**
-     * @brief Update the State for the current session in shared memory.
-     *
-     * The current session's UUID is automatically used in this function. There must
-     * already be an entry for the current session in shared memory.
-     *
-     * @param state The new state.
-     * @throw std::runtime_error If the session ID is not found.
-     */
-    auto set_state(xen::State const &state) -> void;
-};
-
-/**
- * @brief Manages all active instances of XenSequencer via shared memory.
- */
+// The instance of this class is owned by XenProcessor
 class ActiveSessions
 {
   public:
-    sl::Signal<void(std::vector<SessionID> const &)> on_update;
-
-    CurrentSession current;
+    // These are all emitted by the Listeners
+    // These will be connected to in XenProcessor to various GUI elements
+    sl::Signal<void(SessionID const &)> on_session_start;
+    sl::Signal<void(SessionID const &)> on_session_end;
+    sl::Signal<void(SessionID const &)> on_session_id_update; // create or replace
+    sl::Signal<void(juce::Uuid const &)> on_state_request;
+    sl::Signal<void(State const &)> on_session_state_response;
 
   public:
-    ActiveSessions(Metadata const &metadata, State const &state);
+    ActiveSessions();
 
   public:
-    /**
-     * @brief Get a list of the active session IDs for all instances of XenSequencer
-     * currently running.
-     *
-     * @return std::vector<SessionID>
-     * @throw std::runtime_error If the shared memory is not found or initialized.
-     */
-    [[nodiscard]] auto get_active_ids() -> std::vector<SessionID>;
+    [[nodiscard]] auto get_current_session_uuid() const -> juce::Uuid;
 
-    /**
-     * @brief Get the shared State for a given session ID.
-     *
-     * @param uuid The session ID to get the state from.
-     * @return xen::State The state of the UUID session.
-     * @throw std::runtime_error If the shared memory is not found or initialized.
-     * @throw std::runtime_error If the UUID does not reference an active instance.
-     */
-    [[nodiscard]] auto get_state(juce::Uuid const &uuid) -> xen::State;
+    /// Send message to all instances
+    void broadcast(message::Message const &m);
+
+    /// Send message to specific instance.
+    void send_to(juce::Uuid uuid, message::Message const &m);
 
   private:
-    SessionListener session_listener_;
+    void emit_signal(message::Message const &m);
+
+  private:
+    boost::interprocess::message_queue broadcast_queue_;
+    boost::interprocess::message_queue current_reply_queue_;
+
+    QueueListener broadcast_listener_{broadcast_queue_, "Broadcast"};
+    QueueListener current_reply_listener_{current_reply_queue_, "CurrentReply"};
 };
 
 } // namespace xen

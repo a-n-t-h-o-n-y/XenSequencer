@@ -50,8 +50,16 @@ namespace xen
 
 XenProcessor::XenProcessor()
     : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{},
-      active_sessions_{metadata, timeline.get_state().first}
+      active_sessions_{}
 {
+    active_sessions_.broadcast(
+        message::SessionStart{{.uuid = active_sessions_.get_current_session_uuid(),
+                               .display_name = metadata.display_name}});
+
+    active_sessions_.on_session_start.connect([](SessionID const &id) {
+        std::cout << "Session started: " << id.uuid.toString().toStdString() << " "
+                  << id.display_name << std::endl;
+    });
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
