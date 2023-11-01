@@ -13,6 +13,7 @@ add_subdirectory(external/JUCE)
 add_subdirectory(external/JUCE/extras/AudioPluginHost)
 add_subdirectory(external/yaml-cpp)
 add_subdirectory(external/json)
+add_subdirectory(external/nng)
 if (NOT TARGET Catch2)
     add_subdirectory(external/Catch2)
 endif()
@@ -55,6 +56,7 @@ target_link_libraries(XenSequencerLib
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+        nng
         Boost::boost
 )
 
