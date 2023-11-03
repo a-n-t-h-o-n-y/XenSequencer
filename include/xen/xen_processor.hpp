@@ -29,6 +29,9 @@ class XenProcessor : public PluginProcessor
   public:
     XenProcessor();
 
+  public:
+    [[nodiscard]] auto get_process_uuid() const -> juce::Uuid;
+
   protected:
     auto processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) -> void override;
 

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_core/juce_core.h>
 #include <sequence/measure.hpp>
 
 #include <xen/midi.hpp>
@@ -18,6 +19,8 @@
 
 namespace
 {
+
+auto const current_process_uuid = juce::Uuid{};
 
 /**
  * @brief Compares two juce::MidiMessage objects for equality.
@@ -48,18 +51,23 @@ namespace
 namespace xen
 {
 
+auto XenProcessor::get_process_uuid() const -> juce::Uuid
+{
+    return current_process_uuid;
+}
+
 XenProcessor::XenProcessor()
     : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{},
-      active_sessions_{}
+      active_sessions_{this->get_process_uuid()}
 {
-    active_sessions_.broadcast(
-        message::SessionStart{{.uuid = active_sessions_.get_current_session_uuid(),
-                               .display_name = metadata.display_name}});
+    // active_sessions_.broadcast(
+    //     message::SessionStart{{.uuid = active_sessions_.get_current_session_uuid(),
+    //                            .display_name = metadata.display_name}});
 
-    active_sessions_.on_session_start.connect([](SessionID const &id) {
-        std::cout << "Session started: " << id.uuid.toString().toStdString() << " "
-                  << id.display_name << std::endl;
-    });
+    // active_sessions_.on_session_start.connect([](SessionID const &id) {
+    //     std::cout << "Session started: " << id.uuid.toString().toStdString() << " "
+    //               << id.display_name << std::endl;
+    // });
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
