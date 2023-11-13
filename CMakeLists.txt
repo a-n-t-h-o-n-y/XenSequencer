@@ -74,6 +74,8 @@ target_sources(XenSequencerLib
         src/active_sessions.cpp
         src/parse_args.cpp
         src/guide_text.cpp
+        src/instance_directory.cpp
+        src/inter_process_relay.cpp
 
         src/gui/sequence.cpp
         src/gui/timeline.cpp
@@ -84,6 +86,8 @@ target_sources(XenSequencerLib
         include/xen/constants.hpp
         include/xen/guide_text.hpp
         include/xen/input_mode.hpp
+        include/xen/instance_directory.hpp
+        include/xen/inter_process_relay.hpp
         include/xen/invoke.hpp
         include/xen/key_core.hpp
         include/xen/message_level.hpp

@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include <xen/active_sessions.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_processor.hpp>
 
@@ -19,16 +20,41 @@ XenEditor::XenEditor(XenProcessor &p)
     this->addAndMakeVisible(&plugin_window_);
 
     {
-        auto slot_update = sl::Slot<void(State const &, AuxState const &)>{
+        auto slot = sl::Slot<void(State const &, AuxState const &)>{
             [this](State const &state, AuxState const &aux) {
                 this->update(state, aux);
             }};
-        slot_update.track(lifetime_);
+        slot.track(lifetime_);
 
         // p.timeline because its mutable
-        p.timeline.on_state_change.connect(slot_update);
-        p.timeline.on_aux_change.connect(slot_update);
+        p.timeline.on_state_change.connect(slot);
+        p.timeline.on_aux_change.connect(slot);
     }
+
+    // ActiveSessions Signals/Slots
+    {
+        auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
+            /* TODO phrase_finder.active_sessions.remove_instance(uuid); */
+        }};
+        slot.track(lifetime_);
+
+        p.active_sessions.on_instance_shutdown.connect(slot);
+    }
+
+    {
+        auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
+            [this](juce::Uuid const &uuid, std::string const &display_name) {
+                /* TODO phrase_finder.active_sessions.update_or_add_instance(uuid,
+                 * display_name); */
+            }};
+        slot.track(lifetime_);
+
+        p.active_sessions.on_id_update.connect(slot);
+    }
+
+    // TODO connection gui signal changes to activesession member functions
+
+    p.active_sessions.request_other_session_ids();
 
     // Initialize GUI
     auto const [state, aux] = timeline_.get_state();

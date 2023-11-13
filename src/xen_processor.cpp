@@ -20,7 +20,7 @@
 namespace
 {
 
-auto const current_process_uuid = juce::Uuid{};
+auto const CURRENT_PROCESS_UUID = juce::Uuid{};
 
 /**
  * @brief Compares two juce::MidiMessage objects for equality.
@@ -51,23 +51,27 @@ auto const current_process_uuid = juce::Uuid{};
 namespace xen
 {
 
-auto XenProcessor::get_process_uuid() const -> juce::Uuid
+XenProcessor::XenProcessor()
+    : timeline{init_state(), {}},
+      active_sessions{CURRENT_PROCESS_UUID, metadata.display_name},
+      plugin_state_{init_state()}, last_rendered_time_{}
+
 {
-    return current_process_uuid;
+    active_sessions.on_display_name_request.connect(
+        [this] { return metadata.display_name; });
+
+    active_sessions.on_state_request.connect([this] {
+        auto const [state, _] = timeline.get_state();
+        return state;
+    });
+
+    active_sessions.on_state_response.connect(
+        [this](State const &state) { timeline.add_state(state); });
 }
 
-XenProcessor::XenProcessor()
-    : timeline{init_state(), {}}, plugin_state_{init_state()}, last_rendered_time_{},
-      active_sessions_{this->get_process_uuid()}
+auto XenProcessor::get_process_uuid() const -> juce::Uuid
 {
-    // active_sessions_.broadcast(
-    //     message::SessionStart{{.uuid = active_sessions_.get_current_session_uuid(),
-    //                            .display_name = metadata.display_name}});
-
-    // active_sessions_.on_session_start.connect([](SessionID const &id) {
-    //     std::cout << "Session started: " << id.uuid.toString().toStdString() << " "
-    //               << id.display_name << std::endl;
-    // });
+    return CURRENT_PROCESS_UUID;
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,

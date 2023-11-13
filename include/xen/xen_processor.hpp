@@ -25,9 +25,12 @@ class XenProcessor : public PluginProcessor
     DAWState daw_state;
     XenTimeline timeline;
     CommandHistory command_history;
+    ActiveSessions active_sessions;
 
   public:
     XenProcessor();
+
+    ~XenProcessor() override = default;
 
   public:
     [[nodiscard]] auto get_process_uuid() const -> juce::Uuid;
@@ -61,8 +64,6 @@ class XenProcessor : public PluginProcessor
     bool is_playing_{false};
     juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
     juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
-
-    ActiveSessions active_sessions_;
 };
 
 } // namespace xen
