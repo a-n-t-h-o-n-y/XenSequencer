@@ -82,7 +82,7 @@ auto deserialize(std::string const &x) -> Message
     else if (type == "StateResponse")
     {
         return StateResponse{
-            deserialize_state(j.at("state").dump()),
+            deserialize_state(j.at("state").get<std::string>()),
         };
     }
     else if (type == "DisplayNameRequest")

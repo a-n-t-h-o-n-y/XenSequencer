@@ -10,6 +10,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
+#include <xen/gui/active_sessions.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
@@ -30,37 +31,37 @@ class PluginWindow : public juce::Component
 {
   public:
     explicit PluginWindow(XenTimeline &tl, CommandHistory &cmd_history)
-        : timeline_{tl}, command_bar_{tl, cmd_history}
+        : timeline_{tl}, command_bar{tl, cmd_history}
     {
-        this->addAndMakeVisible(heading_);
-        this->addAndMakeVisible(gui_timeline_);
-        this->addAndMakeVisible(phrase_editor_);
+        this->addAndMakeVisible(heading);
+        this->addAndMakeVisible(active_sessions);
+        this->addAndMakeVisible(gui_timeline);
+        this->addAndMakeVisible(phrase_editor);
         // TODO
-        // this->addAndMakeVisible(tuning_box_);
-        this->addChildComponent(command_bar_);
-        command_bar_.setVisible(false);
-        this->addAndMakeVisible(status_bar_);
+        // this->addAndMakeVisible(tuning_box);
+        this->addChildComponent(command_bar);
+        command_bar.setVisible(false);
+        this->addAndMakeVisible(status_bar);
 
-        heading_.set_justification(juce::Justification::centred);
+        heading.set_justification(juce::Justification::centred);
 
-        command_bar_.on_command_response.connect(
+        command_bar.on_command_response.connect(
             [this](MessageLevel mlevel, std::string const &response) {
-                status_bar_.message_display.set_status(mlevel, response);
+                status_bar.message_display.set_status(mlevel, response);
             });
 
-        command_bar_.on_escape_request.connect(
-            [this] { phrase_editor_.grabKeyboardFocus(); });
+        command_bar.on_escape_request.connect(
+            [this] { phrase_editor.grabKeyboardFocus(); });
 
         auto slot_change_focus =
             sl::Slot<void(std::string const &)>{[this](std::string const &name) {
-                if (name == to_lower(command_bar_.getComponentID().toStdString()))
+                if (name == to_lower(command_bar.getComponentID().toStdString()))
                 {
-                    command_bar_.open();
+                    command_bar.open();
                 }
-                else if (name ==
-                         to_lower(phrase_editor_.getComponentID().toStdString()))
+                else if (name == to_lower(phrase_editor.getComponentID().toStdString()))
                 {
-                    phrase_editor_.grabKeyboardFocus();
+                    phrase_editor.grabKeyboardFocus();
                 }
                 else
                 {
@@ -70,9 +71,9 @@ class PluginWindow : public juce::Component
 
                 // TODO
                 // else if (name ==
-                // to_lower(tuning_box_.getComponentID().toStdString()))
+                // to_lower(tuning_box.getComponentID().toStdString()))
                 // {
-                //     tuning_box_.grabKeyboardFocus();
+                //     tuning_box.grabKeyboardFocus();
                 // }
             }};
         slot_change_focus.track(lifetime_);
@@ -90,7 +91,7 @@ class PluginWindow : public juce::Component
         }
         catch (std::exception const &e)
         {
-            status_bar_.message_display.set_error(
+            status_bar.message_display.set_error(
                 std::string{"Check `user_keys.yml`: "} + e.what());
         }
     }
@@ -98,15 +99,15 @@ class PluginWindow : public juce::Component
   public:
     auto update(State const &state, AuxState const &aux) -> void
     {
-        phrase_editor_.phrase.set(state, aux.selected);
-        phrase_editor_.phrase.select(aux.selected);
+        phrase_editor.phrase.set(state, aux.selected);
+        phrase_editor.phrase.select(aux.selected);
 
-        status_bar_.mode_display.set(aux.input_mode);
+        status_bar.mode_display.set(aux.input_mode);
 
-        gui_timeline_.set(state.phrase, aux.selected);
+        gui_timeline.set(state.phrase, aux.selected);
 
         // TODO
-        // tuning_box_.set_tuning(state.tuning);
+        // tuning_box.set_tuning(state.tuning);
     }
 
     auto set_key_listeners(std::map<std::string, KeyConfigListener> previous_listeners,
@@ -129,18 +130,18 @@ class PluginWindow : public juce::Component
             new_listeners.at(id).on_command.connect([this](std::string const &command) {
                 auto const [mlevel, msg] =
                     execute(command_tree, timeline_, normalize_command_string(command));
-                status_bar_.message_display.set_status(mlevel, msg);
+                status_bar.message_display.set_status(mlevel, msg);
             });
         };
 
         try
         {
-            remove_listener(phrase_editor_);
-            add_listener(phrase_editor_);
+            remove_listener(phrase_editor);
+            add_listener(phrase_editor);
 
             // TODO
-            // remove_listener(tuning_box_);
-            // add_listener(tuning_box_);
+            // remove_listener(tuning_box);
+            // add_listener(tuning_box);
         }
         catch (std::exception const &e)
         {
@@ -156,18 +157,19 @@ class PluginWindow : public juce::Component
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
         flexbox.items.add(
-            juce::FlexItem(heading_).withHeight((float)heading_.getHeight()));
-        flexbox.items.add(juce::FlexItem(gui_timeline_).withHeight(30.f));
-        flexbox.items.add(juce::FlexItem(phrase_editor_).withFlex(1.f));
-        // flexbox.items.add(juce::FlexItem(tuning_box_).withHeight(140.f));
+            juce::FlexItem(heading).withHeight((float)heading.getHeight()));
+        flexbox.items.add(juce::FlexItem(active_sessions).withHeight(60.f));
+        flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
+        flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
+        // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));
         flexbox.items.add(
-            juce::FlexItem(status_bar_).withHeight(ModeDisplay::preferred_size));
+            juce::FlexItem(status_bar).withHeight(ModeDisplay::preferred_size));
 
         flexbox.performLayout(this->getLocalBounds());
 
         // Overlaps, so outside of flexbox
-        command_bar_.setBounds(0, this->getHeight() - 23 - status_bar_.getHeight(),
-                               getWidth(), 23);
+        command_bar.setBounds(0, this->getHeight() - 23 - status_bar.getHeight(),
+                              getWidth(), 23);
     }
 
   private:
@@ -182,14 +184,19 @@ class PluginWindow : public juce::Component
   private:
     XenTimeline &timeline_;
 
-    gui::Heading heading_{"XenSequencer", 1, juce::Font{"Arial", "Bold", 16.f}};
-    gui::Timeline gui_timeline_;
-    gui::PhraseEditor phrase_editor_;
-    // TODO
-    // gui::TuningBox tuning_box_;
-    gui::CommandBar command_bar_;
-    gui::StatusBar status_bar_;
+  public:
+    gui::Heading heading{"XenSequencer", 1, juce::Font{"Arial", "Bold", 16.f}};
+    gui::ActiveSessions active_sessions;
+    gui::Timeline gui_timeline;
+    gui::PhraseEditor phrase_editor;
 
+    // TODO
+    // gui::TuningBox tuning_box;
+
+    gui::CommandBar command_bar;
+    gui::StatusBar status_bar;
+
+  private:
     sl::Lifetime lifetime_;
 
     std::map<std::string, KeyConfigListener> key_config_listeners_;

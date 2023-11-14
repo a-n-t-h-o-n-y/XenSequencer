@@ -77,6 +77,7 @@ target_sources(XenSequencerLib
         src/instance_directory.cpp
         src/inter_process_relay.cpp
 
+        src/gui/active_sessions.cpp
         src/gui/sequence.cpp
         src/gui/timeline.cpp
 
@@ -108,6 +109,7 @@ target_sources(XenSequencerLib
         include/xen/xen_processor.hpp
         include/xen/xen_timeline.hpp
 
+        include/xen/gui/active_sessions.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/custom_look_and_feel.hpp
         include/xen/gui/file_button.hpp

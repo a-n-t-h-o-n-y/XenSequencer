@@ -14,7 +14,7 @@ XenEditor::XenEditor(XenProcessor &p)
       plugin_window_{p.timeline, p.command_history}
 {
     this->setResizable(true, true);
-    this->setSize(1000, 300);
+    this->setSize(1000, 400);
     this->setResizeLimits(400, 300, 1200, 900);
 
     this->addAndMakeVisible(&plugin_window_);
@@ -34,25 +34,31 @@ XenEditor::XenEditor(XenProcessor &p)
     // ActiveSessions Signals/Slots
     {
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            /* TODO phrase_finder.active_sessions.remove_instance(uuid); */
+            plugin_window_.active_sessions.remove_instance(uuid);
         }};
         slot.track(lifetime_);
-
         p.active_sessions.on_instance_shutdown.connect(slot);
     }
-
     {
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                /* TODO phrase_finder.active_sessions.update_or_add_instance(uuid,
-                 * display_name); */
+                plugin_window_.active_sessions.add_or_update_instance(uuid,
+                                                                      display_name);
             }};
         slot.track(lifetime_);
-
         p.active_sessions.on_id_update.connect(slot);
     }
 
-    // TODO connection gui signal changes to activesession member functions
+    plugin_window_.active_sessions.on_instance_selected.connect(
+        [&p](juce::Uuid const &uuid) { p.active_sessions.request_state(uuid); });
+
+    plugin_window_.active_sessions.on_this_instance_name_change.connect(
+        [&p](std::string const &name) {
+            p.metadata.display_name = name;
+            p.active_sessions.notify_display_name_update(name);
+        });
+
+    // TODO any other gui active session signals to connect?
 
     p.active_sessions.request_other_session_ids();
 
@@ -68,9 +74,14 @@ auto XenEditor::update(State const &state, AuxState const &aux) -> void
     // TODO set base frequency?
 }
 
-void XenEditor::resized()
+auto XenEditor::resized() -> void
 {
     plugin_window_.setBounds(this->getLocalBounds());
+}
+
+auto XenEditor::paint(juce::Graphics &g) -> void
+{
+    g.fillAll(juce::Colours::black);
 }
 
 } // namespace xen

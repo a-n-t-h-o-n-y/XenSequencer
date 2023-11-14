@@ -26,10 +26,7 @@ class XenEditor : public juce::AudioProcessorEditor
   protected:
     auto resized() -> void override;
 
-    void paint(juce::Graphics &g) override
-    {
-        g.fillAll(juce::Colours::black);
-    }
+    auto paint(juce::Graphics &g) -> void override;
 
   private:
     XenTimeline const &timeline_;
