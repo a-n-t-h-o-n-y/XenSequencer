@@ -97,8 +97,11 @@ class PluginWindow : public juce::Component
     }
 
   public:
-    auto update(State const &state, AuxState const &aux) -> void
+    auto update(State const &state, AuxState const &aux, Metadata const &metadata)
+        -> void
     {
+        active_sessions.update_this_instance_name(metadata.display_name);
+
         phrase_editor.phrase.set(state, aux.selected);
         phrase_editor.phrase.select(aux.selected);
 

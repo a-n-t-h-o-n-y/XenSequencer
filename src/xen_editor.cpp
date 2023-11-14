@@ -21,8 +21,8 @@ XenEditor::XenEditor(XenProcessor &p)
 
     {
         auto slot = sl::Slot<void(State const &, AuxState const &)>{
-            [this](State const &state, AuxState const &aux) {
-                this->update(state, aux);
+            [this, &p](State const &state, AuxState const &aux) {
+                this->update(state, aux, p.metadata);
             }};
         slot.track(lifetime_);
 
@@ -64,12 +64,13 @@ XenEditor::XenEditor(XenProcessor &p)
 
     // Initialize GUI
     auto const [state, aux] = timeline_.get_state();
-    this->update(state, aux);
+    this->update(state, aux, p.metadata);
 }
 
-auto XenEditor::update(State const &state, AuxState const &aux) -> void
+auto XenEditor::update(State const &state, AuxState const &aux,
+                       Metadata const &metadata) -> void
 {
-    plugin_window_.update(state, aux);
+    plugin_window_.update(state, aux, metadata);
 
     // TODO set base frequency?
 }

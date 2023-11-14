@@ -52,7 +52,7 @@ auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
             g.fillAll(juce::Colours::lightblue);
         }
 
-        g.setColour(juce::Colours::black);
+        g.setColour(juce::Colours::white);
         g.drawText(items_[(std::size_t)row].second, 2, 0, width - 4, height,
                    juce::Justification::centredLeft, true);
     }
@@ -68,6 +68,19 @@ auto InstanceModel::listBoxItemDoubleClicked(int row, const juce::MouseEvent &) 
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
+NameEdit::NameEdit()
+{
+    // Makes the label editable on a double click
+    this->setEditable(false, true, false);
+}
+
+auto NameEdit::textWasEdited() -> void
+{
+    on_name_changed(this->getText().toStdString());
+}
+
+/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+
 ActiveSessions::ActiveSessions()
 {
     label_.setText("Active Sessions", juce::dontSendNotification);
@@ -75,9 +88,17 @@ ActiveSessions::ActiveSessions()
     label_.setFont(juce::Font(15.0f, juce::Font::bold));
     this->addAndMakeVisible(label_);
 
+    name_edit_.setText("", juce::dontSendNotification);
+    this->addAndMakeVisible(name_edit_);
+
     instance_list_box_.setModel(&instance_model_);
     instance_list_box_.setRowHeight(20);
     this->addAndMakeVisible(instance_list_box_);
+}
+
+auto ActiveSessions::update_this_instance_name(std::string const &name) -> void
+{
+    name_edit_.setText(name, juce::dontSendNotification);
 }
 
 auto ActiveSessions::add_or_update_instance(juce::Uuid const &uuid,
@@ -85,6 +106,7 @@ auto ActiveSessions::add_or_update_instance(juce::Uuid const &uuid,
 {
     instance_model_.add_or_update_item(uuid, name);
     instance_list_box_.updateContent();
+    instance_list_box_.repaint(); // Shouldn't be needed but is
 }
 
 auto ActiveSessions::remove_instance(juce::Uuid const &uuid) -> void
@@ -95,13 +117,22 @@ auto ActiveSessions::remove_instance(juce::Uuid const &uuid) -> void
 
 auto ActiveSessions::resized() -> void
 {
-    auto flexbox = juce::FlexBox{};
-    flexbox.flexDirection = juce::FlexBox::Direction::column;
+    auto horizontal = juce::FlexBox{};
+    horizontal.flexDirection = juce::FlexBox::Direction::row;
 
-    flexbox.items.add(juce::FlexItem{label_}.withHeight(20.0f));
-    flexbox.items.add(juce::FlexItem{instance_list_box_}.withFlex(1.0f));
+    horizontal.items.add(juce::FlexItem{label_}.withFlex(1.0f));
+    horizontal.items.add(juce::FlexItem{name_edit_}.withFlex(1.0f));
 
-    flexbox.performLayout(this->getLocalBounds());
+    auto bounds = this->getLocalBounds();
+
+    horizontal.performLayout(bounds.removeFromTop(20));
+
+    auto vertical = juce::FlexBox{};
+    vertical.flexDirection = juce::FlexBox::Direction::column;
+
+    vertical.items.add(juce::FlexItem{instance_list_box_}.withFlex(1.0f));
+
+    vertical.performLayout(bounds);
 }
 
 } // namespace xen::gui

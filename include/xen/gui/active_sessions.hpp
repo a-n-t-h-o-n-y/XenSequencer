@@ -57,12 +57,36 @@ class InstanceModel : public juce::ListBoxModel
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
+/**
+ * @brief A label that can be edited.
+ */
+class NameEdit : public juce::Label
+{
+  public:
+    sl::Signal<void(std::string const &)> on_name_changed;
+
+  public:
+    NameEdit();
+
+  protected:
+    auto textWasEdited() -> void override;
+};
+
+/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+
 class ActiveSessions : public juce::Component
 {
   public:
     ActiveSessions();
 
   public:
+    /**
+     * @brief Update the name of 'this' instance.
+     *
+     * @param name The new name of this instance.
+     */
+    auto update_this_instance_name(std::string const &name) -> void;
+
     /**
      * @brief Add or update an instance in the listbox.
      *
@@ -84,6 +108,7 @@ class ActiveSessions : public juce::Component
 
   private:
     juce::Label label_;
+    NameEdit name_edit_;
     juce::ListBox instance_list_box_;
     InstanceModel instance_model_;
 
@@ -91,7 +116,8 @@ class ActiveSessions : public juce::Component
     sl::Signal<void(juce::Uuid const &)> &on_instance_selected{
         instance_model_.on_instance_selected};
 
-    sl::Signal<void(std::string const &)> on_this_instance_name_change;
+    sl::Signal<void(std::string const &)> &on_this_instance_name_change{
+        name_edit_.on_name_changed};
 };
 
 } // namespace xen::gui
