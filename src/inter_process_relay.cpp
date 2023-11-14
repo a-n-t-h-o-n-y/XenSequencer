@@ -146,7 +146,8 @@ auto ListenSocket::listen() const -> std::optional<std::string>
     }
     else if (result != 0)
     {
-        throw std::runtime_error{"Failed to receive message"};
+        throw std::runtime_error{
+            "Failed to receive message: " + std::string{nng_strerror(result)} + "\n"};
     }
 
     auto const data = nng_msg_body(msg);

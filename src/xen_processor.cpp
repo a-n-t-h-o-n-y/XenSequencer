@@ -20,8 +20,6 @@
 namespace
 {
 
-auto const CURRENT_PROCESS_UUID = juce::Uuid{};
-
 /**
  * @brief Compares two juce::MidiMessage objects for equality.
  *

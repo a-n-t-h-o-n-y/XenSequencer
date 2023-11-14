@@ -20,6 +20,9 @@ namespace xen
 
 class XenProcessor : public PluginProcessor
 {
+  private:
+    juce::Uuid const CURRENT_PROCESS_UUID = juce::Uuid{};
+
   public:
     Metadata metadata{"XenSequencer"};
     DAWState daw_state;
