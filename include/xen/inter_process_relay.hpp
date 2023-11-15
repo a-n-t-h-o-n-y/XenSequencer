@@ -59,7 +59,7 @@ class SendSocket
      *
      * @param socket Socket to send over.
      */
-    explicit SendSocket(nng_socket socket);
+    explicit SendSocket(nng_socket const &socket);
 
     ~SendSocket();
 
@@ -114,8 +114,8 @@ class InterProcessRelay : private juce::Thread
     auto run() -> void override;
 
   private:
-    ListenSocket pull_socket_;
-    static constexpr int timeout_ = 500;
+    ListenSocket reply_socket_;
+    static constexpr int timeout_ = 5000;
 };
 
 } // namespace xen
