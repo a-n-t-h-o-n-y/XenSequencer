@@ -84,8 +84,9 @@ class CommandBar : public juce::Component
     sl::Signal<void(MessageLevel, std::string const &)> on_command_response;
 
   public:
-    CommandBar(XenTimeline &tl, CommandHistory &cmd_history)
-        : timeline_{tl}, command_history_{cmd_history}
+    CommandBar(XenTimeline &tl, CommandHistory &cmd_history,
+               xen::XenCommandTree &command_tree)
+        : timeline_{tl}, command_history_{cmd_history}, command_tree_{command_tree}
     {
         this->setComponentID("CommandBar");
         this->setWantsKeyboardFocus(true);
@@ -173,7 +174,7 @@ class CommandBar : public juce::Component
         auto const command = command_input_.getText().toStdString();
         command_history_.add_command(command);
         auto const [mlevel, message] =
-            execute(command_tree, timeline_, normalize_command_string(command));
+            execute(command_tree_, timeline_, normalize_command_string(command));
         this->on_command_response(mlevel, message);
     }
 
@@ -186,7 +187,7 @@ class CommandBar : public juce::Component
         auto const input = command_input_.getText().toStdString();
 
         auto const guide_text =
-            std::string(input.size(), ' ') + generate_guide_text(input);
+            std::string(input.size(), ' ') + generate_guide_text(command_tree_, input);
 
         ghost_text_.setText(guide_text, juce::NotificationType::dontSendNotification);
     }
@@ -199,7 +200,7 @@ class CommandBar : public juce::Component
         }
 
         auto const input = command_input_.getText().toStdString();
-        auto const completed_id = complete_id(input);
+        auto const completed_id = complete_id(command_tree_, input);
         auto const completed_text =
             input + completed_id + (completed_id.empty() ? "" : " ");
         command_input_.setText(completed_text,
@@ -278,6 +279,7 @@ class CommandBar : public juce::Component
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
     CommandHistory &command_history_;
+    xen::XenCommandTree command_tree_;
 };
 
 } // namespace xen::gui

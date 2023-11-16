@@ -7,6 +7,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED)
 
+# For nlohmann json with clang 16
+# You can remove this once nlohmann/json v3.11.3 is released
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-deprecated-literal-operator)
+endif()
+
 add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE)
@@ -80,6 +86,7 @@ target_sources(XenSequencerLib
         src/gui/active_sessions.cpp
         src/gui/sequence.cpp
         src/gui/timeline.cpp
+        src/gui/plugin_window.cpp
 
         include/xen/actions.hpp
         include/xen/command.hpp

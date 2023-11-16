@@ -308,7 +308,8 @@ template <typename Command_t>
 namespace xen
 {
 
-auto generate_guide_text(std::string const &partial_command) -> std::string
+auto generate_guide_text(XenCommandTree &command_tree,
+                         std::string const &partial_command) -> std::string
 {
     // Don't complete top-level CommandGroup
     if (strip(partial_command).empty())
@@ -321,10 +322,12 @@ auto generate_guide_text(std::string const &partial_command) -> std::string
     }
 }
 
-auto complete_id(std::string const &partial_command) -> std::string
+auto complete_id(XenCommandTree &command_tree, std::string const &partial_command)
+    -> std::string
 {
     // This could have a proper implementation, but this is enough for now.
-    auto const potential = get_first_word(generate_guide_text(partial_command));
+    auto const potential =
+        get_first_word(generate_guide_text(command_tree, partial_command));
     if (!potential.empty() && potential.front() == '[')
     {
         return "";
