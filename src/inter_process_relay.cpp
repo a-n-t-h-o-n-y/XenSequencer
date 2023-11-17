@@ -268,8 +268,24 @@ auto InterProcessRelay::run() -> void
     {
         if (auto data = reply_socket_.listen(); data.has_value())
         {
-            juce::MessageManager::callAsync(
-                [this, d = std::move(*data)] { this->on_message.emit(d); });
+            juce::MessageManager::callAsync([this, d = std::move(*data)] {
+                try
+                {
+                    this->on_message.emit(d);
+                }
+                catch (std::exception const &e)
+                {
+                    std::cerr << "InterProcessRelay::run() Exception:\n"
+                              << e.what() << "With Message:\n"
+                              << d << "\nContinuing...\n";
+                }
+                catch (...)
+                {
+                    std::cerr << "InterProcessRelay::run() Unknown Exception\n"
+                              << "With Message:\n"
+                              << d << "Continuing...\n";
+                }
+            });
         }
     }
 }

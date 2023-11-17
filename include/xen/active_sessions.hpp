@@ -212,6 +212,10 @@ class ThisInstance
                           << e.what() << '\n'
                           << "skipping...\n";
             }
+            catch (...)
+            {
+                std::cerr << "Unknown exception in ThisInstance\n";
+            }
         }
     }
 
@@ -346,6 +350,10 @@ class ActiveSessions
                         << instance.toString().toStdString() << "):\n"
                         << e.what() << '\n'
                         << "skipping...\n";
+                }
+                catch (...)
+                {
+                    std::cerr << "Unknown exception in request_other_session_ids\n";
                 }
             }
         }

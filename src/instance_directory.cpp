@@ -31,7 +31,6 @@ InstanceDirectory::~InstanceDirectory()
 
     if (directory_.empty())
     {
-
         segment_.destroy<SharedMap>("InstanceDirectoryMap");
 
         if (!bip::shared_memory_object::remove("xen_instance_directory"))
