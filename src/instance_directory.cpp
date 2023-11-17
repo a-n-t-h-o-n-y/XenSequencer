@@ -100,13 +100,19 @@ auto InstanceDirectory::unregister_dead_instances(
     auto const lock = std::lock_guard{mutex_};
 
     auto now = HeartbeatClock::now();
+    auto keys_to_erase = std::vector<InstanceDirectory::SharedMap::key_type>{};
 
-    for (auto &[uuid, heartbeat] : directory_)
+    for (auto const &[uuid, heartbeat] : directory_)
     {
         if (now - heartbeat > elapsed_time)
         {
-            directory_.erase(uuid);
+            keys_to_erase.push_back(uuid);
         }
+    }
+
+    for (auto const &key : keys_to_erase)
+    {
+        directory_.erase(key);
     }
 }
 

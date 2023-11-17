@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -155,7 +156,7 @@ class DeadSessionTrimmer : private juce::Timer
         try
         {
             directory_.unregister_dead_instances(
-                std::chrono::milliseconds{HeartbeatSender::PERIOD});
+                std::chrono::milliseconds{HeartbeatSender::PERIOD} * 4);
         }
         catch (std::exception const &e)
         {
