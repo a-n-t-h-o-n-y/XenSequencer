@@ -17,6 +17,7 @@
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
+
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
@@ -34,18 +35,12 @@ namespace xen::gui
 
 /**
  * @brief The main window for the plugin, holding all other components.
+ *
+ * This component's main purpose is as a box of other components. It is responsible for
+ * updating all child components with the current state of the timeline.
  */
 class PluginWindow : public juce::Component
 {
-  private:
-    XenTimeline &timeline_;
-    std::map<std::string, KeyConfigListener> key_config_listeners_;
-
-    sl::Signal<void(std::string const &)> on_focus_change_request_;
-    sl::Lifetime lifetime_;
-
-    xen::XenCommandTree command_tree_;
-
   public:
     gui::Heading heading;
     gui::ActiveSessions active_sessions;
@@ -56,22 +51,41 @@ class PluginWindow : public juce::Component
     gui::StatusBar status_bar;
 
   public:
-    explicit PluginWindow(XenTimeline &tl, CommandHistory &cmd_history);
+    explicit PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
+                          XenCommandTree const &command_tree);
 
   public:
+    /**
+     * @brief Update all child components with the current state of the timeline.
+     *
+     * @param state The current state of the timeline
+     * @param aux The current aux state of the timeline
+     * @param metadata The current metadata of the timeline
+     */
     auto update(State const &state, AuxState const &aux, Metadata const &metadata)
         -> void;
 
-    auto set_key_listeners(std::map<std::string, KeyConfigListener> previous_listeners,
-                           std::map<std::string, KeyConfigListener> &new_listeners)
-        -> void;
+    /**
+     * @brief Set or Update the key listeners for the plugin window.
+     *
+     * @param default_keys The path to the default key configuration file
+     * @param user_keys The path to the user key configuration file
+     * @throws std::runtime_error if the key configuration files cannot be read or have
+     * errors
+     */
+    // auto update_key_listeners(std::filesystem::path const &default_keys,
+    //                           std::filesystem::path const &user_keys) -> void;
+
+    /**
+     * @brief Set the focus of the plugin window by ComponentID
+     *
+     * @param component_id The ComponentID of the component to focus
+     * @throws std::invalid_argument if the ComponentID is not found
+     */
+    auto set_focus(std::string component_id) -> void;
 
   protected:
     auto resized() -> void override;
-
-  private:
-    auto update_key_listeners(std::filesystem::path const &default_keys,
-                              std::filesystem::path const &user_keys) -> void;
 };
 
 } // namespace xen::gui

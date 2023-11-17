@@ -6,6 +6,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <juce_core/juce_core.h>
+
 #include <signals_light/signal.hpp>
 
 #include <sequence/sequence.hpp>
@@ -95,7 +97,8 @@ TEST_CASE("Command", "[generate_guide_text]")
     auto mtx1 = std::mutex{};
     auto buf = std::optional<sequence::Cell>{};
     auto mtx2 = std::mutex{};
-    auto const tree = xen::create_command_tree(sig1, sig2, mtx1, buf, mtx2);
+    auto const uuid = juce::Uuid{};
+    auto const tree = xen::create_command_tree(sig1, sig2, mtx1, buf, mtx2, uuid);
 
     CHECK(generate_guide_text(tree, "") == "");
     CHECK(generate_guide_text(tree, "     ") == "");
@@ -166,7 +169,8 @@ TEST_CASE("Command", "[complete_id]")
     auto mtx1 = std::mutex{};
     auto buf = std::optional<sequence::Cell>{};
     auto mtx2 = std::mutex{};
-    auto const tree = xen::create_command_tree(sig1, sig2, mtx1, buf, mtx2);
+    auto const uuid = juce::Uuid{};
+    auto const tree = xen::create_command_tree(sig1, sig2, mtx1, buf, mtx2, uuid);
 
     CHECK(complete_id(tree, "randomize ga") == "te");
     CHECK(complete_id(tree, "randomize ga  ") == "");

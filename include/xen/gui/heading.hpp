@@ -19,18 +19,14 @@ class Heading : public juce::Label
      * @param font The font to use
      */
     explicit Heading(juce::String const &text = juce::String{}, int padding = 10,
-                     juce::Font font_ = juce::Font{"Arial", "Bold", 24.f})
+                     juce::Font font_ = juce::Font{"Arial", "Bold", 24.f},
+                     juce::Justification just = juce::Justification::centred)
         : juce::Label{text, text}, padding_{padding}
     {
         this->setFont(font_);
         this->setText(text, juce::dontSendNotification);
         this->setColour(juce::Label::backgroundColourId, juce::Colours::black);
         this->setColour(juce::Label::textColourId, juce::Colours::white);
-    }
-
-  public:
-    auto set_justification(juce::Justification just) -> void
-    {
         this->setJustificationType(just);
     }
 

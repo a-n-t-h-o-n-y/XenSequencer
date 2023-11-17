@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <juce_core/juce_core.h>
+
 #include <sequence/sequence.hpp>
 
 #include <signals_light/signal.hpp>
@@ -30,7 +32,8 @@ namespace xen
 [[nodiscard]] inline auto create_command_tree(
     sl::Signal<void(std::string const &)> &on_focus_change_request,
     sl::Signal<void()> &on_load_keys_request, std::mutex &on_load_keys_request_mtx,
-    std::optional<sequence::Cell> &copy_buffer, std::mutex &copy_buffer_mtx)
+    std::optional<sequence::Cell> &copy_buffer, std::mutex &copy_buffer_mtx,
+    juce::Uuid const &uuid)
 {
     return cmd_group(
         "", ArgInfo<std::string>{"command_name"},
@@ -151,6 +154,9 @@ namespace xen
         cmd("dataDirectory",
             "Display the path to the directory where user data is stored.",
             [](auto &) { return minfo(get_user_data_directory().string()); }),
+
+        cmd("UUID", "Display the UUID for this instance.",
+            [uuid](auto &) { return minfo(uuid.toString().toStdString()); }),
 
         cmd_group(
             "move", ArgInfo<std::string>{"direction"},
@@ -582,6 +588,7 @@ namespace xen
 using XenCommandTree = decltype(create_command_tree(
     std::declval<sl::Signal<void(std::string const &)> &>(),
     std::declval<sl::Signal<void()> &>(), std::declval<std::mutex &>(),
-    std::declval<std::optional<sequence::Cell> &>(), std::declval<std::mutex &>()));
+    std::declval<std::optional<sequence::Cell> &>(), std::declval<std::mutex &>(),
+    std::declval<juce::Uuid const &>()));
 
 } // namespace xen

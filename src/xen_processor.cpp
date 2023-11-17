@@ -174,7 +174,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
 
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 {
-    return new XenEditor{*this};
+    return new gui::XenEditor{*this};
 }
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void

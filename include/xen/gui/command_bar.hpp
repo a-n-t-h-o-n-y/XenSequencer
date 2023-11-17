@@ -85,7 +85,7 @@ class CommandBar : public juce::Component
 
   public:
     CommandBar(XenTimeline &tl, CommandHistory &cmd_history,
-               xen::XenCommandTree &command_tree)
+               xen::XenCommandTree const &command_tree)
         : timeline_{tl}, command_history_{cmd_history}, command_tree_{command_tree}
     {
         this->setComponentID("CommandBar");
@@ -279,7 +279,7 @@ class CommandBar : public juce::Component
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
     CommandHistory &command_history_;
-    xen::XenCommandTree command_tree_;
+    xen::XenCommandTree const& command_tree_;
 };
 
 } // namespace xen::gui
