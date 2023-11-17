@@ -115,7 +115,7 @@ class InterProcessRelay : private juce::Thread
 
   private:
     ListenSocket reply_socket_;
-    static constexpr int timeout_ = 5000;
+    static constexpr int timeout_ = 0;
 };
 
 } // namespace xen

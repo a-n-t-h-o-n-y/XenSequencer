@@ -58,8 +58,6 @@ XenEditor::XenEditor(XenProcessor &p)
             p.active_sessions.notify_display_name_update(name);
         });
 
-    // TODO any other gui active session signals to connect?
-
     p.active_sessions.request_other_session_ids();
 
     // Initialize GUI

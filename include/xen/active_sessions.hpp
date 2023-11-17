@@ -206,10 +206,11 @@ class ThisInstance
             }
             catch (std::exception const &e)
             {
-                std::cerr
-                    << "Could not send initialization message to other instance:\n"
-                    << e.what() << '\n'
-                    << "skipping...\n";
+                // TODO logging
+                std::cerr << "Could not send initialization message to other instance ("
+                          << other.toString().toStdString() << "):\n"
+                          << e.what() << '\n'
+                          << "skipping...\n";
             }
         }
     }
@@ -331,8 +332,21 @@ class ActiveSessions
         {
             if (instance != this_instance_.get_uuid())
             {
-                relay_.send_to(instance, serialize(DisplayNameRequest{
-                                             .reply_to = this_instance_.get_uuid()}));
+                try
+                {
+                    relay_.send_to(instance,
+                                   serialize(DisplayNameRequest{
+                                       .reply_to = this_instance_.get_uuid()}));
+                }
+                catch (std::exception const &e)
+                {
+                    // TODO change this to use Logging with timestamp.
+                    std::cerr
+                        << "Could not send display name request to other instance ("
+                        << instance.toString().toStdString() << "):\n"
+                        << e.what() << '\n'
+                        << "skipping...\n";
+                }
             }
         }
     }
