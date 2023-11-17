@@ -308,7 +308,7 @@ template <typename Command_t>
 namespace xen
 {
 
-auto generate_guide_text(XenCommandTree &command_tree,
+auto generate_guide_text(XenCommandTree const &command_tree,
                          std::string const &partial_command) -> std::string
 {
     // Don't complete top-level CommandGroup
@@ -322,7 +322,7 @@ auto generate_guide_text(XenCommandTree &command_tree,
     }
 }
 
-auto complete_id(XenCommandTree &command_tree, std::string const &partial_command)
+auto complete_id(XenCommandTree const &command_tree, std::string const &partial_command)
     -> std::string
 {
     // This could have a proper implementation, but this is enough for now.
