@@ -18,11 +18,6 @@
 #include <xen/user_directory.hpp>
 #include <xen/xen_timeline.hpp>
 
-namespace
-{
-
-} // namespace
-
 namespace xen
 {
 
