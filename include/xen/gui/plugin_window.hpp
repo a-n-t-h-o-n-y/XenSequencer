@@ -15,9 +15,9 @@
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
 
+#include <xen/gui/accordion.hpp>
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
@@ -42,8 +42,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    gui::Heading heading;
-    gui::ActiveSessions active_sessions;
+    gui::Accordion<gui::ActiveSessions> active_sessions_accordion;
+    gui::ActiveSessions &active_sessions;
     gui::Timeline gui_timeline;
     gui::PhraseEditor phrase_editor;
     // gui::TuningBox tuning_box; // TODO

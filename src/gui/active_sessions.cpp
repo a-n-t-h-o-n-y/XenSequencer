@@ -83,11 +83,6 @@ auto NameEdit::textWasEdited() -> void
 
 ActiveSessions::ActiveSessions()
 {
-    label_.setText("Active Sessions", juce::dontSendNotification);
-    label_.setJustificationType(juce::Justification::centred);
-    label_.setFont(juce::Font(15.0f, juce::Font::bold));
-    this->addAndMakeVisible(label_);
-
     name_edit_.setText("", juce::dontSendNotification);
     this->addAndMakeVisible(name_edit_);
 
@@ -117,22 +112,13 @@ auto ActiveSessions::remove_instance(juce::Uuid const &uuid) -> void
 
 auto ActiveSessions::resized() -> void
 {
-    auto horizontal = juce::FlexBox{};
-    horizontal.flexDirection = juce::FlexBox::Direction::row;
+    auto flexbox = juce::FlexBox{};
+    flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    horizontal.items.add(juce::FlexItem{label_}.withFlex(1.0f));
-    horizontal.items.add(juce::FlexItem{name_edit_}.withFlex(1.0f));
+    flexbox.items.add(juce::FlexItem{name_edit_}.withHeight(20.f));
+    flexbox.items.add(juce::FlexItem{instance_list_box_}.withFlex(1.0f));
 
-    auto bounds = this->getLocalBounds();
-
-    horizontal.performLayout(bounds.removeFromTop(20));
-
-    auto vertical = juce::FlexBox{};
-    vertical.flexDirection = juce::FlexBox::Direction::column;
-
-    vertical.items.add(juce::FlexItem{instance_list_box_}.withFlex(1.0f));
-
-    vertical.performLayout(bounds);
+    flexbox.performLayout(this->getLocalBounds());
 }
 
 } // namespace xen::gui

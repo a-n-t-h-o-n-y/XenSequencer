@@ -19,7 +19,6 @@
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/gui/heading.hpp>
 #include <xen/gui/phrase_editor.hpp>
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
@@ -34,11 +33,13 @@ namespace xen::gui
 
 PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
                            XenCommandTree const &command_tree)
-    : heading{"XenSequencer", 1, juce::Font{"Arial", "Bold", 16.f}},
-        command_bar{tl, cmd_history, command_tree}
+    : active_sessions_accordion{"Active Sessions"},
+      active_sessions{active_sessions_accordion.child},
+      command_bar{tl, cmd_history, command_tree}
 {
-    this->addAndMakeVisible(heading);
-    this->addAndMakeVisible(active_sessions);
+    this->setWantsKeyboardFocus(false);
+
+    this->addAndMakeVisible(active_sessions_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
 
@@ -102,8 +103,8 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(juce::FlexItem(heading).withHeight((float)heading.getHeight()));
-    flexbox.items.add(juce::FlexItem(active_sessions).withHeight(60.f));
+    flexbox.items.add(active_sessions_accordion.get_flexitem());
+    // flexbox.items.add(juce::FlexItem(active_sessions_accordion).withHeight(60.f));
     flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
     // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));

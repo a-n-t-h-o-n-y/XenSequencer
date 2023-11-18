@@ -107,7 +107,6 @@ class ActiveSessions : public juce::Component
     auto resized() -> void override;
 
   private:
-    juce::Label label_;
     NameEdit name_edit_;
     juce::ListBox instance_list_box_;
     InstanceModel instance_model_;
