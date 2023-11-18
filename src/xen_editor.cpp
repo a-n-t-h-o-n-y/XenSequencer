@@ -88,7 +88,7 @@ XenEditor::XenEditor(XenProcessor &p)
       plugin_window_{p.timeline, p.command_history, command_tree_}
 {
     this->setResizable(true, true);
-    this->setSize(1000, 400);
+    this->setSize(1000, 300);
     this->setResizeLimits(400, 300, 1200, 900);
 
     this->addAndMakeVisible(&plugin_window_);

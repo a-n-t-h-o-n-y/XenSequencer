@@ -37,8 +37,6 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
       active_sessions{active_sessions_accordion.child},
       command_bar{tl, cmd_history, command_tree}
 {
-    this->setWantsKeyboardFocus(false);
-
     this->addAndMakeVisible(active_sessions_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
@@ -104,7 +102,6 @@ auto PluginWindow::resized() -> void
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
     flexbox.items.add(active_sessions_accordion.get_flexitem());
-    // flexbox.items.add(juce::FlexItem(active_sessions_accordion).withHeight(60.f));
     flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
     // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));

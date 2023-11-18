@@ -26,6 +26,8 @@ class Accordion : public juce::Component
               toggle_button{"toggle_button",
                             juce::DrawableButton::ButtonStyle::ImageFitted}
         {
+            toggle_button.setWantsKeyboardFocus(false);
+
             this->addAndMakeVisible(title);
 
             open_triangle_.setPath(create_triangle_path(true));
@@ -96,10 +98,14 @@ class Accordion : public juce::Component
     explicit Accordion(juce::String const &title, Args &&...args)
         : top_{title}, child{std::forward<Args>(args)...}
     {
+        this->setWantsKeyboardFocus(false);
+
         this->addAndMakeVisible(top_);
         this->addAndMakeVisible(child);
 
         top_.toggle_button.onClick = [this] { this->toggle_child_component(); };
+
+        this->toggle_child_component();
     }
 
   public:
@@ -133,6 +139,7 @@ class Accordion : public juce::Component
         top_.toggle();
         is_expanded_ = !is_expanded_;
         child.setVisible(is_expanded_);
+        child.setEnabled(is_expanded_);
         if (auto *parent = getParentComponent(); parent != nullptr)
         {
             parent->resized();
@@ -141,7 +148,7 @@ class Accordion : public juce::Component
     }
 
   private:
-    bool is_expanded_ = false;
+    bool is_expanded_ = true;
 };
 
 } // namespace xen::gui

@@ -51,8 +51,8 @@ class PluginWindow : public juce::Component
     gui::StatusBar status_bar;
 
   public:
-    explicit PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
-                          XenCommandTree const &command_tree);
+    PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
+                 XenCommandTree const &command_tree);
 
   public:
     /**
@@ -64,17 +64,6 @@ class PluginWindow : public juce::Component
      */
     auto update(State const &state, AuxState const &aux, Metadata const &metadata)
         -> void;
-
-    /**
-     * @brief Set or Update the key listeners for the plugin window.
-     *
-     * @param default_keys The path to the default key configuration file
-     * @param user_keys The path to the user key configuration file
-     * @throws std::runtime_error if the key configuration files cannot be read or have
-     * errors
-     */
-    // auto update_key_listeners(std::filesystem::path const &default_keys,
-    //                           std::filesystem::path const &user_keys) -> void;
 
     /**
      * @brief Set the focus of the plugin window by ComponentID
