@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.15)
-project(XenSequencer VERSION 0.1.0)
+cmake_minimum_required(VERSION 3.25)
+project(XenSequencer VERSION 0.2.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -7,21 +7,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED)
 
-# For nlohmann json with clang 16
-# You can remove this once nlohmann/json v3.11.3 is released
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_compile_options(-Wno-deprecated-literal-operator)
-endif()
-
 add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
-add_subdirectory(external/JUCE)
-add_subdirectory(external/JUCE/extras/AudioPluginHost)
-add_subdirectory(external/yaml-cpp)
-add_subdirectory(external/json)
-add_subdirectory(external/nng)
+add_subdirectory(external/JUCE SYSTEM)
+add_subdirectory(external/JUCE/extras/AudioPluginHost SYSTEM)
+add_subdirectory(external/yaml-cpp SYSTEM)
+add_subdirectory(external/json SYSTEM)
+add_subdirectory(external/nng SYSTEM)
 if (NOT TARGET Catch2)
-    add_subdirectory(external/Catch2)
+    add_subdirectory(external/Catch2 SYSTEM)
 endif()
 
 # XenSequencer Code
