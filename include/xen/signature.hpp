@@ -139,7 +139,7 @@ template <typename ID_t, typename... Args, std::size_t... I>
     auto oss = std::ostringstream{};
     oss << id;
 
-    auto display = SignatureDisplay{oss.str(), {}};
+    auto display = SignatureDisplay{.id = oss.str(), .arguments = {}};
 
     [[maybe_unused]] auto add_arg = [&display](auto const &str) {
         display.arguments.push_back('[' + str + ']');

@@ -42,8 +42,7 @@ auto invoke_with_args(Fn fn, XenTimeline &tl, std::string const &args,
 /**
  * Invoke a function with arguments parsed from a vector of strings.
  *
- * Specialized for functions that take a pattern as the second argument.
- *
+ * @details Specialized for functions that take a pattern as the second argument.
  * @param fn The function to invoke.
  * @param tl The timeline to pass to the function.
  * @param pattern The pattern to pass to the function.

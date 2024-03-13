@@ -68,12 +68,17 @@ struct DAWState
 [[nodiscard]] inline auto init_state() -> State
 {
     return {
-        {{sequence::Rest{}, sequence::TimeSignature{4, 4}}},
-        sequence::Tuning{
-            {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
-            1200,
-        },
-        440.f,
+        .phrase = {{
+            .cell = sequence::Rest{},
+            .time_signature = {4, 4},
+        }},
+        .tuning =
+            {
+                .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
+                              1100},
+                .octave = 1200,
+            },
+        .base_frequency = 440.f,
     };
 }
 
@@ -114,12 +119,13 @@ struct DAWState
     }
     // {0, 25, 50, 75, 100, 125, 150},
     return State{
-        phrase,
-        seq::Tuning{
-            {0, 200, 400, 500, 700, 900, 1100},
-            1200,
-        },
-        440.f,
+        .phrase = phrase,
+        .tuning =
+            {
+                .intervals = {0, 200, 400, 500, 700, 900, 1100},
+                .octave = 1200,
+            },
+        .base_frequency = 440.f,
     };
 }
 

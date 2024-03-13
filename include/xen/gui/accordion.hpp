@@ -67,16 +67,16 @@ class Accordion : public juce::Component
         /**
          * Helper to create a triangle path.
          */
-        [[nodiscard]] static auto create_triangle_path(bool pointingDown) -> juce::Path
+        [[nodiscard]] static auto create_triangle_path(bool pointing_down) -> juce::Path
         {
             auto path = juce::Path{};
-            if (pointingDown)
+            if (pointing_down)
             {
-                path.addTriangle(0.0f, 0.0f, 10.0f, 0.0f, 5.0f, 10.0f);
+                path.addTriangle({0.f, 0.f}, {10.f, 5.f}, {0.f, 10.f});
             }
             else
             {
-                path.addTriangle(0.0f, 0.0f, 10.0f, 5.0f, 0.0f, 10.0f);
+                path.addTriangle({0.f, 0.f}, {10.f, 0.f}, {5.f, 10.f});
             }
             return path;
         }
@@ -111,14 +111,8 @@ class Accordion : public juce::Component
   public:
     [[nodiscard]] auto get_flexitem() -> juce::FlexItem
     {
-        if (is_expanded_)
-        {
-            return juce::FlexItem{*this}.withFlex(0.5f);
-        }
-        else
-        {
-            return juce::FlexItem{*this}.withHeight(20.f);
-        }
+        return is_expanded_ ? juce::FlexItem{*this}.withFlex(1.f)
+                            : juce::FlexItem{*this}.withHeight(20.f);
     }
 
   protected:

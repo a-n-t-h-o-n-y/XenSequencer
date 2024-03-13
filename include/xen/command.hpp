@@ -108,21 +108,31 @@ template <typename ID_t, typename Fn, typename... Args>
     if constexpr (std::is_same_v<ID_t, char const *>)
     {
         return Command<std::string_view, Fn, Args...>{
-            Signature<std::string_view, Args...>{
-                id, ArgInfos<Args...>{std::move(arg_infos)...}},
-            std::move(fn), std::move(description)};
+            .signature =
+                {
+                    .id = id,
+                    .args = ArgInfos<Args...>{std::move(arg_infos)...},
+                },
+            .fn = std::move(fn),
+            .description = std::move(description),
+        };
     }
     else
     {
         return Command<ID_t, Fn, Args...>{
-            Signature<ID_t, Args...>{std::move(id),
-                                     ArgInfos<Args...>{std::move(arg_infos)...}},
-            std::move(fn), std::move(description)};
+            .signature =
+                {
+                    .id = std::move(id),
+                    .args = ArgInfos<Args...>{std::move(arg_infos)...},
+                },
+            .fn = std::move(fn),
+            .description = std::move(description),
+        };
     }
 }
 
 /**
- * Convinience function for creating a command list.
+ * Convinience function for creating a command group.
  */
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] constexpr auto cmd_group(ID_t id, ArgInfo<ChildID_t> child_id_info,
@@ -131,15 +141,24 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     if constexpr (std::is_same_v<ID_t, char const *>)
     {
         return CommandGroup<std::string_view, ChildID_t, Commands...>{
-            id, CommandList<ChildID_t, Commands...>{
-                    std::move(child_id_info), std::tuple{std::move(commands)...}}};
+            .id = id,
+            .commands =
+                {
+                    .id_info = std::move(child_id_info),
+                    .commands = std::tuple{std::move(commands)...},
+                },
+        };
     }
     else
     {
         return CommandGroup<ID_t, ChildID_t, Commands...>{
-            std::move(id),
-            CommandList<ID_t, Commands...>{std::move(child_id_info),
-                                           std::tuple{std::move(commands)...}}};
+            .id = std::move(id),
+            .commands =
+                {
+                    .id_info = std::move(child_id_info),
+                    .commands = std::tuple{std::move(commands)...},
+                },
+        };
     }
 }
 
@@ -149,7 +168,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 template <typename Command_t>
 [[nodiscard]] constexpr auto pattern(Command_t command) -> PatternPrefix<Command_t>
 {
-    return {std::move(command)};
+    return {.command = std::move(command)};
 }
 
 // -----------------------------------------------------------------------------
@@ -167,14 +186,7 @@ template <typename ID_t, typename Fn, typename... Args, typename T>
     auto const id_str = get_first_word(command_str);
     if (id_str.empty())
     {
-        if (default_id.has_value())
-        {
-            return default_id.value() == command.signature.id;
-        }
-        else
-        {
-            return false;
-        }
+        return default_id.has_value() && default_id.value() == command.signature.id;
     }
     else
     {
@@ -195,14 +207,7 @@ template <typename ID_t, typename ChildID_t, typename... Args, typename T>
     auto const id_str = get_first_word(command_str);
     if (id_str.empty())
     {
-        if (default_id.has_value())
-        {
-            return default_id.value() == command_group.id;
-        }
-        else
-        {
-            return false;
-        }
+        return default_id.has_value() && default_id.value() == command_group.id;
     }
     else
     {
@@ -233,7 +238,6 @@ template <typename Command_t, typename T>
  * @param command_str The command string to parse, this will only consist of arguments
  * to the command, the name will be stripped off before this function is called.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
- *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
  */
@@ -340,16 +344,14 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 /**
  * Execute a CommandGroup object that takes a PatternPrefix.
  *
- * This will pop off the first word of the command_str and use it to find the matching
- * command in the CommandGroup, then it will forward the rest of the command_str to the
- * command.
- *
+ * @details This will pop off the first word of the command_str and use it to find the
+ * matching command in the CommandGroup, then it will forward the rest of the
+ * command_str to the command.
  * @param command_group The command group to execute.
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse.
  * @param pattern The pattern to use for iteration over Sequences.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
- *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
  * @exception std::runtime_error Thrown when no command with the given ID is found.
@@ -396,15 +398,13 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 /**
  * Execute a PatternPrefix object.
  *
- * This will parse a Pattern from the front of the command string and pass the Pattern
- * and the remaining command string on to its child command. A pattern string can be
- * empty and will default to Pattern{0, {1}}.
- *
+ * @details This will parse a Pattern from the front of the command string and pass the
+ * Pattern and the remaining command string on to its child command. A pattern string
+ * can be empty and will default to Pattern{0, {1}}.
  * @param pattern The pattern prefix to execute.
  * @param tl The timeline to execute the command on.
  * @param command_str The command string to parse.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
- *
  * @exception std::invalid_argument Thrown when the pattern string is invalid.
  */
 template <typename Command_t>

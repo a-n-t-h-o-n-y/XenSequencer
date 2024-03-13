@@ -31,8 +31,7 @@ class ListenSocket
     /**
      * Receive a message from the socket.
      *
-     * Blocking depends on settings of passed in socket.
-     *
+     * @details Blocking depends on settings of passed in socket.
      * @return Received message as std::string or std::nullopt if timeout occured.
      * @throw std::runtime_error if message receiving fails.
      */
@@ -41,7 +40,8 @@ class ListenSocket
     /**
      * Close the socket.
      *
-     * This will cause calls to listen() to return immediately with std::nullopt.
+     * @details This will cause calls to listen() to return immediately with
+     * std::nullopt.
      */
     auto close() const -> void;
 
@@ -67,8 +67,7 @@ class SendSocket
     /**
      * Send a string message over the socket.
      *
-     * Blocking depends on settings of passed in socket.
-     *
+     * @details Blocking depends on settings of passed in socket.
      * @param message Message to send.
      * @return True if the message was sent, false if timeout occurred.
      * @throws std::runtime_error if the message sending fails.
@@ -84,8 +83,9 @@ class SendSocket
 /**
  * @class InterProcessRelay
  *
- * Conduit for sending messages between instances. This launches a listener thread and
- * receives messages via the on_message signal emitted by the main juce thread.
+ * @details Conduit for sending messages between instances. This launches a listener
+ * thread and receives messages via the on_message signal emitted by the main juce
+ * thread.
  */
 class InterProcessRelay : private juce::Thread
 {
@@ -101,9 +101,8 @@ class InterProcessRelay : private juce::Thread
     /**
      * Send a message to a specific instance.
      *
-     * This does not wait for a response, any response will come in via the
+     * @details This does not wait for a response, any response will come in via the
      * on_message signal.
-     *
      * @param target_uuid UUID of the instance to send to.
      * @param message Message to send.
      */

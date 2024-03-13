@@ -24,7 +24,7 @@ class XenProcessor : public PluginProcessor
     juce::Uuid const CURRENT_PROCESS_UUID = juce::Uuid{};
 
   public:
-    Metadata metadata{"XenSequencer"};
+    Metadata metadata{.display_name = "XenSequencer"};
     DAWState daw_state;
     XenTimeline timeline;
     CommandHistory command_history;

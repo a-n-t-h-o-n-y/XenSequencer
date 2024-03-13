@@ -78,7 +78,7 @@ static void from_json(nlohmann::json const &j, Note &note)
 
 static void from_json(nlohmann::json const &, Rest &)
 {
-    // Empty since Rest has no members
+    // Empty; Rest has no members
 }
 
 // Forward declare for Sequence implementation.
@@ -161,9 +161,9 @@ auto deserialize_state(std::string const &json_str) -> State
     auto const json = nlohmann::json::parse(json_str);
 
     auto state = State{
-        json.at("phrase").get<sequence::Phrase>(),
-        json.at("tuning").get<sequence::Tuning>(),
-        json.at("base_frequency").get<float>(),
+        .phrase = json.at("phrase").get<sequence::Phrase>(),
+        .tuning = json.at("tuning").get<sequence::Tuning>(),
+        .base_frequency = json.at("base_frequency").get<float>(),
     };
 
     return state;
@@ -191,9 +191,9 @@ auto deserialize_plugin(std::string const &json_str) -> std::pair<State, Metadat
     json.at("state");
 
     auto const state = State{
-        json.at("state").at("phrase").get<sequence::Phrase>(),
-        json.at("state").at("tuning").get<sequence::Tuning>(),
-        json.at("state").at("base_frequency").get<float>(),
+        .phrase = json.at("state").at("phrase").get<sequence::Phrase>(),
+        .tuning = json.at("state").at("tuning").get<sequence::Tuning>(),
+        .base_frequency = json.at("state").at("base_frequency").get<float>(),
     };
 
     auto const metadata = json.at("metadata").get<Metadata>();
