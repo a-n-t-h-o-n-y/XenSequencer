@@ -20,13 +20,13 @@ namespace xen::gui
 {
 
 /**
- * @brief Display a floating point number in separate integer and fractional parts.
+ * Display a floating point number in separate integer and fractional parts.
  */
 class SplitFloatBox : public juce::Component
 {
   public:
     /**
-     * @brief Construct a SplitFloatBox.
+     * Construct a SplitFloatBox.
      *
      * @param range The range of the integral part. This is used for the integral part
      * only, it should have an interval of at least 1.
@@ -130,7 +130,7 @@ class SplitFloatBox : public juce::Component
 };
 
 /**
- * @brief A NumberBox for displaying a single tuning interval.
+ * A NumberBox for displaying a single tuning interval.
  */
 class IntervalBox : public SplitFloatBox
 {
@@ -154,7 +154,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
 
   public:
     /**
-     * @brief Removes all previous intervals and resets the display and state
+     * Removes all previous intervals and resets the display and state
      * to the given intervals.
      *
      * @param intervals The intervals to display.
@@ -195,7 +195,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
     }
 
     /**
-     * @brief Inserts a new interval at the given index with value zero.
+     * Inserts a new interval at the given index with value zero.
      *
      * @param at The index to insert at.
      * @throws std::out_of_range if at > intervals_.size()
@@ -212,7 +212,7 @@ class IntervalRow : public HomogenousRow<IntervalBox>
     }
 
     /**
-     * @brief Erases the interval at the given index.
+     * Erases the interval at the given index.
      *
      * @param at The index to erase.
      * @throws std::out_of_range if at >= intervals_.size()
@@ -256,7 +256,7 @@ class PlusButton : public juce::TextButton
 };
 
 /**
- * @brief A row of IntervalBoxes, add interval button, and OctaveBox.
+ * A row of IntervalBoxes, add interval button, and OctaveBox.
  */
 class TuningRow : public juce::Component
 {
@@ -302,7 +302,7 @@ class TuningRow : public juce::Component
 
   public:
     /**
-     * @brief Removes all previous tuning intervals and resets the display and state
+     * Removes all previous tuning intervals and resets the display and state
      * to the given tuning.
      *
      * @param tuning The tuning to display.
@@ -314,7 +314,7 @@ class TuningRow : public juce::Component
     }
 
     /**
-     * @brief Returns the current tuning.
+     * Returns the current tuning.
      */
     auto tuning() const -> sequence::Tuning const &
     {

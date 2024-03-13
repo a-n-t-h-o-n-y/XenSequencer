@@ -12,7 +12,7 @@ namespace xen
 {
 
 /**
- * @brief A timeline of states.
+ * A timeline of states.
  *
  * This class represents a timeline of states that can be navigated using undo and redo
  * operations. The timeline is thread-safe and can be used from multiple threads.
@@ -24,7 +24,7 @@ class Timeline
 {
   public:
     /**
-     * @brief A signal emitted when the state of the timeline changes.
+     * A signal emitted when the state of the timeline changes.
      *
      * This signal is emitted whenever a new state is added to the timeline or the
      * current state is changed. The signal carries the new state as an argument.
@@ -32,7 +32,7 @@ class Timeline
     sl::Signal<void(State const &, AuxiliaryState const &)> on_state_change;
 
     /**
-     * @brief A signal emitted when the auxiliary state of the timeline changes.
+     * A signal emitted when the auxiliary state of the timeline changes.
      */
     sl::Signal<void(State const &, AuxiliaryState const &)> on_aux_change;
 
@@ -46,7 +46,7 @@ class Timeline
 
   public:
     /**
-     * @brief Add a new state to the timeline.
+     * Add a new state to the timeline.
      * @param state The new state to be added.
      * @return void.
      */
@@ -64,7 +64,7 @@ class Timeline
     }
 
     /**
-     * @brief Get the current state.
+     * Get the current state.
      * @return The current state, the auxiliary state is from the last call to add_state
      * or undo/redo, not necessarily the latest.
      */
@@ -77,7 +77,7 @@ class Timeline
     }
 
     /**
-     * @brief Undo the last operation.
+     * Undo the last operation.
      * @return true if undo was successful, false otherwise.
      */
     auto undo() -> bool
@@ -98,7 +98,7 @@ class Timeline
     }
 
     /**
-     * @brief Redo the last undone operation.
+     * Redo the last undone operation.
      * @return true if redo was successful, false otherwise.
      */
     auto redo() -> bool
@@ -120,7 +120,7 @@ class Timeline
     }
 
     /**
-     * @brief Get the time of the last update.
+     * Get the time of the last update.
      * @return The time of the last update.
      * @note This function is thread-safe.
      */
@@ -132,7 +132,7 @@ class Timeline
     }
 
     /**
-     * @brief Set the auxiliary state.
+     * Set the auxiliary state.
      * @param aux The auxiliary state.
      * @note This function is thread-safe and does not update the last update time or
      * emit the on_state_change signal.
@@ -148,7 +148,7 @@ class Timeline
     }
 
     /**
-     * @brief Get the auxiliary state.
+     * Get the auxiliary state.
      * @return A copy of the current auxiliary state.
      * @note This function is thread-safe.
      */

@@ -19,7 +19,7 @@ namespace xen
 // the end of the command string.
 
 /**
- * @brief Generate guide text that completes the `partial_command` and lists argument
+ * Generate guide text that completes the `partial_command` and lists argument
  * info if applicable.
  *
  * @param command_tree The command tree to use for autocompletion.
@@ -31,7 +31,7 @@ namespace xen
     -> std::string;
 
 /**
- * @brief Generate the missing part of the last word in `partial_command` from the
+ * Generate the missing part of the last word in `partial_command` from the
  * command tree.
  *
  * @param command_tree The command tree to use for autocompletion.

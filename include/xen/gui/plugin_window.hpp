@@ -34,7 +34,7 @@ namespace xen::gui
 {
 
 /**
- * @brief The main window for the plugin, holding all other components.
+ * The main window for the plugin, holding all other components.
  *
  * This component's main purpose is as a box of other components. It is responsible for
  * updating all child components with the current state of the timeline.
@@ -56,7 +56,7 @@ class PluginWindow : public juce::Component
 
   public:
     /**
-     * @brief Update all child components with the current state of the timeline.
+     * Update all child components with the current state of the timeline.
      *
      * @param state The current state of the timeline
      * @param aux The current aux state of the timeline
@@ -66,7 +66,7 @@ class PluginWindow : public juce::Component
         -> void;
 
     /**
-     * @brief Set the focus of the plugin window by ComponentID
+     * Set the focus of the plugin window by ComponentID
      *
      * @param component_id The ComponentID of the component to focus
      * @throws std::invalid_argument if the ComponentID is not found

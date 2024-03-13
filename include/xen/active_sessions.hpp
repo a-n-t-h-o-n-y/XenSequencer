@@ -31,7 +31,7 @@ namespace xen
 // Messages
 
 /**
- * @brief Sent by an instance when it shuts down.
+ * Sent by an instance when it shuts down.
  */
 struct InstanceShutdown
 {
@@ -39,7 +39,7 @@ struct InstanceShutdown
 };
 
 /**
- * @brief Sent by an instance when it starts up or changes its display name.
+ * Sent by an instance when it starts up or changes its display name.
  */
 struct IDUpdate
 {
@@ -48,7 +48,7 @@ struct IDUpdate
 };
 
 /**
- * @brief Sent by an instance to request the current state of receivier's the timeline.
+ * Sent by an instance to request the current state of receivier's the timeline.
  */
 struct StateRequest
 {
@@ -56,7 +56,7 @@ struct StateRequest
 };
 
 /**
- * @brief Sent by an instance in response to a StateRequest.
+ * Sent by an instance in response to a StateRequest.
  */
 struct StateResponse
 {
@@ -64,7 +64,7 @@ struct StateResponse
 };
 
 /**
- * @brief Sent by an instance to request the display name of another instance.
+ * Sent by an instance to request the display name of another instance.
  */
 struct DisplayNameRequest
 {
@@ -75,19 +75,19 @@ using Message = std::variant<InstanceShutdown, IDUpdate, StateRequest, StateResp
                              DisplayNameRequest>;
 
 /**
- * @brief Serialize a message to a JSON string.
+ * Serialize a message to a JSON string.
  */
 [[nodiscard]] auto serialize(Message const &m) -> std::string;
 
 /**
- * @brief Deserialize a JSON string to a message.
+ * Deserialize a JSON string to a message.
  */
 [[nodiscard]] auto deserialize(std::string const &x) -> Message;
 
 /*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
 
 /**
- * @brief Sends a heartbeat to the instance directory at a regular interval via a timer.
+ * Sends a heartbeat to the instance directory at a regular interval via a timer.
  */
 class HeartbeatSender : private juce::Timer
 {
@@ -131,7 +131,7 @@ class HeartbeatSender : private juce::Timer
 /*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
 
 /**
- * @brief Trim dead sessions from the instance directory with a timer.
+ * Trim dead sessions from the instance directory with a timer.
  */
 class DeadSessionTrimmer : private juce::Timer
 {
@@ -260,7 +260,7 @@ class ThisInstance
 /*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
 
 /**
- * @brief Class for managing active sessions across processes.
+ * Class for managing active sessions across processes.
  *
  * This class owns the InterProcessRelay, InstanceDirectory, ThisInstance,
  * and DeadSessionTrimmer. It translates messages from the relay into signals
@@ -318,7 +318,7 @@ class ActiveSessions
 
   public:
     /**
-     * @brief Puts in a request to each instance for its display name.
+     * Puts in a request to each instance for its display name.
      *
      * This does not block until the request is fulfilled. Instead, the
      * on_id_update signal will be emitted when the response is received.
@@ -360,7 +360,7 @@ class ActiveSessions
     }
 
     /**
-     * @brief Puts in a request to the given instance for its current state.
+     * Puts in a request to the given instance for its current state.
      *
      * This does not block until the request is fulfilled. Instead, the
      * on_state_response signal will be emitted when the response is received.
@@ -375,7 +375,7 @@ class ActiveSessions
     }
 
     /**
-     * @brief Sends an IDUpdate message to all other instances.
+     * Sends an IDUpdate message to all other instances.
      *
      * @param name New display name.
      * @throws std::runtime_error if any errors encountered.

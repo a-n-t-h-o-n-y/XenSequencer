@@ -5,7 +5,7 @@
 namespace xen::gui::utility
 {
 /**
- * @brief An iterator that dereferences its elements in operator*.
+ * An iterator that dereferences its elements in operator*.
  *
  * Works for containers of pointers or other dereferencable types.
  *
@@ -68,7 +68,7 @@ class DereferenceIterator
 };
 
 /**
- * @brief A const iterator that dereferences its elements in operator*.
+ * A const iterator that dereferences its elements in operator*.
  *
  * Works for containers of pointers or other dereferencable types.
  *

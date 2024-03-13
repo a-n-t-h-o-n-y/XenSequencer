@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @brief A component that can be given focus and visually display it.
+ * A component that can be given focus and visually display it.
  *
  * @details Focus can be given by tab focus cycling or left mouse click.
  */

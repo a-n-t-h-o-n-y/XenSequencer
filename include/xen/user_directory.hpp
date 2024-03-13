@@ -6,14 +6,14 @@ namespace xen
 {
 
 /**
- * @brief Retrieve the location of the user data directory for the current OS.
+ * Retrieve the location of the user data directory for the current OS.
  *
  * @return The filesystem path of the user data directory.
  */
 [[nodiscard]] auto get_user_data_directory() -> std::filesystem::path;
 
 /**
- * @brief Retrieve the location of the projects directory.
+ * Retrieve the location of the projects directory.
  *
  * If the directory does not exist, it will be created.
  *
@@ -22,7 +22,7 @@ namespace xen
 [[nodiscard]] auto get_projects_directory() -> std::filesystem::path;
 
 /**
- * @brief Retrieve the location of a specific project directory.
+ * Retrieve the location of a specific project directory.
  *
  * If the directory does not exist, it will be created.
  *
@@ -33,7 +33,7 @@ namespace xen
     -> std::filesystem::path;
 
 /**
- * @brief Retrieve the location of the default keys.yml configuration file.
+ * Retrieve the location of the default keys.yml configuration file.
  *
  * If the file does not exist, it will be created.
  *
@@ -43,7 +43,7 @@ namespace xen
 [[nodiscard]] auto get_default_keys_file() -> std::filesystem::path;
 
 /**
- * @brief Retrieve the location of the user keybinding configuration file.
+ * Retrieve the location of the user keybinding configuration file.
  *
  * If the file does not exist, it will be created.
  *

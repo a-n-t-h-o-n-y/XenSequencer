@@ -17,7 +17,7 @@ namespace xen
 {
 
 /**
- * @brief A struct that contains information about a command argument.
+ * A struct that contains information about a command argument.
  *
  * Does not contain the actual value of the argument.
  *
@@ -41,7 +41,7 @@ struct Signature
 };
 
 /**
- * @brief Holds display information about a command signature.
+ * Holds display information about a command signature.
  *
  * Used to display pieces of the command as it is typed into the CommandBar.
  */
@@ -54,7 +54,7 @@ struct SignatureDisplay
 // -----------------------------------------------------------------------------
 
 /**
- * @brief Stringify the given template type parameter.
+ * Stringify the given template type parameter.
  *
  * @tparam T The type to stringify.
  * @return std::string The type as string.
@@ -103,7 +103,7 @@ template <typename T>
 }
 
 /**
- * @brief Stringify the given argument info.
+ * Stringify the given argument info.
  *
  * @tparam T The type of the argument.
  * @param arg The argument info.
@@ -151,7 +151,7 @@ template <typename ID_t, typename... Args, std::size_t... I>
 }
 
 /**
- * @brief Generate a signature display for the given command name and arg infos.
+ * Generate a signature display for the given command name and arg infos.
  *
  * @tparam Args The types of the arguments.
  * @param id The id of the command.

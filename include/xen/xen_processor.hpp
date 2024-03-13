@@ -51,7 +51,7 @@ class XenProcessor : public PluginProcessor
 
   private:
     /**
-     * @brief Render the current State to MIDI and save in rendered_ and update time.
+     * Render the current State to MIDI and save in rendered_ and update time.
      */
     auto render() -> void;
 

@@ -17,7 +17,7 @@ namespace juce
 {
 
 /**
- * @brief Compares two juce::KeyPress objects.
+ * Compares two juce::KeyPress objects.
  *
  * @param lhs The left-hand side juce::KeyPress.
  * @param rhs The right-hand side juce::KeyPress.
@@ -42,7 +42,7 @@ class KeyCore
 {
   public:
     /**
-     * @brief Constructs a new KeyCore object.
+     * Constructs a new KeyCore object.
      *
      * @param configs A vector of KeyConfig objects to initialize the KeyCore.
      */
@@ -50,7 +50,7 @@ class KeyCore
 
   public:
     /**
-     * @brief Finds an associated command.
+     * Finds an associated command.
      *
      * @param key The juce::KeyPress to search for.
      * @param mode The current InputMode.

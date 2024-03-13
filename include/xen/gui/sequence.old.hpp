@@ -31,7 +31,7 @@ class Cell : public FocusableComponent
     // them as a function if needed.
 
     /**
-     * @brief Callback for when a split request is made.
+     * Callback for when a split request is made.
      *
      * A split request is to transform a single Note or Rest into a Sequence of
      * duplicate Notes or Rests.
@@ -42,7 +42,7 @@ class Cell : public FocusableComponent
     std::function<void(sequence::Cell const &, std::size_t)> on_split_request;
 
     /**
-     * @brief Callback for when the cell is updated.
+     * Callback for when the cell is updated.
      *
      * This is used by derived classes to notify of changes to the sequencer. These
      * events should eventually cause a sequence::Sequence and sequence::Phrase to be
@@ -51,7 +51,7 @@ class Cell : public FocusableComponent
     std::function<void()> on_update;
 
     /**
-     * @brief Callback for when a cell swap request is made.
+     * Callback for when a cell swap request is made.
      *
      * A cell swap is when this cell wants to be deleted and replaced with a new cell.
      * Be careful with this callback, once it is called it will have deleted *this and
@@ -63,7 +63,7 @@ class Cell : public FocusableComponent
 
   public:
     /**
-     * @brief An abstract increment function that is used by keyboard input.
+     * An abstract increment function that is used by keyboard input.
      *
      * Any positive or negative amount can be passed to this function.
      *
@@ -82,7 +82,7 @@ class Cell : public FocusableComponent
     virtual auto set_tuning_length(std::size_t length) -> void = 0;
 
     /**
-     * @brief This should flip between cell types, rest to note and note to rest.
+     * This should flip between cell types, rest to note and note to rest.
      */
     virtual auto flip_cell() -> void = 0;
 
@@ -220,7 +220,7 @@ class Cell : public FocusableComponent
 
   protected:
     /**
-     * @brief Get the increment for a given number of units.
+     * Get the increment for a given number of units.
      *
      * Units are going to be pixels in this context. Used for mouse drag.
      *
@@ -580,7 +580,7 @@ class SubSequence : public Cell
     }
 
     /**
-     * @brief Set the SubSequence's data with a sequence::Sequence.
+     * Set the SubSequence's data with a sequence::Sequence.
      */
     auto set(sequence::Sequence const &sequence, bool clear = true) -> void
     {
@@ -665,7 +665,7 @@ class SubSequence : public Cell
 
   private:
     /**
-     * @brief Transform a sequence::Cell into a gui::Cell and push it onto the end of
+     * Transform a sequence::Cell into a gui::Cell and push it onto the end of
      * the cells_ sequence.
      *
      * @param cell The sequence::Cell to transform and push onto the end of the
@@ -690,7 +690,7 @@ class SubSequence : public Cell
     }
 
     /**
-     * @brief Attach to the split request signal of a Cell.
+     * Attach to the split request signal of a Cell.
      *
      * The passed in cell should be a child Cell of this, this allows this new child
      * cell to also be split when requested.
@@ -732,7 +732,7 @@ class SubSequence : public Cell
     }
 
     /**
-     * @brief Attach to the update signal of a child Cell so this will emit its own
+     * Attach to the update signal of a child Cell so this will emit its own
      * update signal.
      *
      * @param cell The Cell to attach to.
@@ -798,7 +798,7 @@ class Sequence : public juce::Component
     }
 
     /**
-     * @brief Convinience wrapper around get_cell_data which returns a
+     * Convinience wrapper around get_cell_data which returns a
      * sequence::Sequence instead of sequence::Cell.
      *
      * @return sequence::Sequence The sequence::Sequence data.

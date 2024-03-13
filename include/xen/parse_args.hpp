@@ -163,7 +163,7 @@ template <typename T = float>
 }
 
 /**
- * @brief Parses a string into a TimeSignature.
+ * Parses a string into a TimeSignature.
  *
  * @param x The input string, formatted as "x/y" or "x".
  * @return A TimeSignature object containing the parsed numerator and denominator.
@@ -183,7 +183,7 @@ template <typename T = float>
 }
 
 /**
- * @brief Parses a string into a type T object.
+ * Parses a string into a type T object.
  */
 template <typename T>
 [[nodiscard]] auto parse(std::string const &x) -> T
@@ -253,14 +253,14 @@ template <typename T>
 }
 
 /**
- * @brief Splits a string into arguments, considering quotes.
+ * Splits a string into arguments, considering quotes.
  *
  * @param s The string to split.
  */
 [[nodiscard]] auto split_args(std::string const &s) -> std::vector<std::string>;
 
 /**
- * @brief Extracts argument at index I from the given argument list.
+ * Extracts argument at index I from the given argument list.
  *
  * @tparam I The index of the argument to extract.
  * @param args The argument list as strings.

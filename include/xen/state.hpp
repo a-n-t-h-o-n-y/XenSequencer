@@ -23,7 +23,7 @@ struct Metadata
 };
 
 /**
- * @brief The state of the internal sequencer for the plugin.
+ * The state of the internal sequencer for the plugin.
  */
 struct State
 {
@@ -33,7 +33,7 @@ struct State
 };
 
 /**
- * @brief The state of the current selection in the sequencer.
+ * The state of the current selection in the sequencer.
  */
 struct SelectedState
 {
@@ -45,7 +45,7 @@ struct SelectedState
 };
 
 /**
- * @brief The state of the auxiliary controls in the plugin, for Timeline use.
+ * The state of the auxiliary controls in the plugin, for Timeline use.
  */
 struct AuxState
 {
@@ -54,7 +54,7 @@ struct AuxState
 };
 
 /**
- * @brief The state of the DAW.
+ * The state of the DAW.
  */
 struct DAWState
 {
@@ -78,7 +78,7 @@ struct DAWState
 }
 
 /**
- * @brief Generates a demo state for testing.
+ * Generates a demo state for testing.
  *
  * @return State
  */

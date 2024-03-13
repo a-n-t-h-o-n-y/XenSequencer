@@ -13,7 +13,7 @@ class MantissaBox : public NumberBox<T>
 {
   public:
     /**
-     * @brief Constructs a MantissaBox to display the fractional part of a floating
+     * Constructs a MantissaBox to display the fractional part of a floating
      * point number.
      *
      * If `initial` is not in the range [0, 1), the integral part is discarded.
@@ -40,7 +40,7 @@ class MantissaBox : public NumberBox<T>
 
   public:
     /**
-     * @brief Sets the value using the fractional part of the provided number.
+     * Sets the value using the fractional part of the provided number.
      *
      * If there is an integer part of value, that is emitted with the on_overflow
      * callback.

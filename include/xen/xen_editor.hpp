@@ -26,7 +26,7 @@ class XenEditor : public juce::AudioProcessorEditor
     auto update(State const &, AuxState const &, Metadata const &) -> void;
 
     /**
-     * @brief Set or Update the key listeners for the plugin window.
+     * Set or Update the key listeners for the plugin window.
      *
      * @param default_keys The path to the default key configuration file
      * @param user_keys The path to the user key configuration file

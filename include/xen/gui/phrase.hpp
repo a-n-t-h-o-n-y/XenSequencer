@@ -96,7 +96,7 @@ class Phrase : public juce::Component
 
 //   public:
 //     /**
-//      * @brief Called when the phrase is updated.
+//      * Called when the phrase is updated.
 //      */
 //     std::function<void()> on_update;
 

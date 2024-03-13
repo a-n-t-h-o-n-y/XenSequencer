@@ -25,7 +25,7 @@ namespace xen
 {
 
 /**
- * @brief Normalize a command string so it can be parsed easily.
+ * Normalize a command string so it can be parsed easily.
  */
 [[nodiscard]] inline auto normalize_command_string(std::string const &command_str)
     -> std::string
@@ -226,7 +226,7 @@ template <typename Command_t, typename T>
 // -----------------------------------------------------------------------------
 
 /**
- * @brief Execute a Command object.
+ * Execute a Command object.
  *
  * @param command The command to execute.
  * @param tl The timeline to execute the command on.
@@ -254,7 +254,7 @@ template <typename ID_t, typename Fn, typename... Args>
 }
 
 /**
- * @brief Execute a Command object that takes a PatternPrefix.
+ * Execute a Command object that takes a PatternPrefix.
  *
  * @param command The command to execute.
  * @param tl The timeline to execute the command on.
@@ -284,7 +284,7 @@ template <typename ID_t, typename Fn, typename... Args>
 }
 
 /**
- * @brief Execute a CommandGroup object.
+ * Execute a CommandGroup object.
  *
  * This will pop off the first word of the command_str and use it to find the matching
  * command in the CommandGroup, then it will forward the rest of the command_str to the
@@ -338,7 +338,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 }
 
 /**
- * @brief Execute a CommandGroup object that takes a PatternPrefix.
+ * Execute a CommandGroup object that takes a PatternPrefix.
  *
  * This will pop off the first word of the command_str and use it to find the matching
  * command in the CommandGroup, then it will forward the rest of the command_str to the
@@ -394,7 +394,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 }
 
 /**
- * @brief Execute a PatternPrefix object.
+ * Execute a PatternPrefix object.
  *
  * This will parse a Pattern from the front of the command string and pass the Pattern
  * and the remaining command string on to its child command. A pattern string can be

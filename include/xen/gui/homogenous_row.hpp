@@ -17,7 +17,7 @@ namespace xen::gui
 {
 
 /**
- * @brief A row of components of the same type.
+ * A row of components of the same type.
  *
  * This container owns the child components.
  *
@@ -37,7 +37,7 @@ class HomogenousRow : public juce::Component
 
   public:
     /**
-     * @brief Create an empty HomogenousRow.
+     * Create an empty HomogenousRow.
      *
      * @param flex The FlexItem to use as the default for each child.
      */
@@ -59,7 +59,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Emplace a child component at the given index.
+     * Emplace a child component at the given index.
      *
      * @tparam Args The types of the arguments to forward to the child's constructor.
      *
@@ -83,7 +83,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Emplace a child component at the end of the row.
+     * Emplace a child component at the end of the row.
      *
      * @tparam Args The types of the arguments to forward to the child's constructor.
      *
@@ -97,7 +97,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Insert a child component at the given index.
+     * Insert a child component at the given index.
      *
      * @param at The index to insert the child at.
      * @param child The child to insert.
@@ -120,7 +120,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Insert a child component at the end of the row.
+     * Insert a child component at the end of the row.
      *
      * @param child The child to insert.
      * @return A reference to the newly created child.
@@ -165,7 +165,7 @@ class HomogenousRow : public juce::Component
 
   public:
     /**
-     * @brief Remove all children from the row.
+     * Remove all children from the row.
      */
     void clear() noexcept
     {
@@ -175,7 +175,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Remove the child at the given index.
+     * Remove the child at the given index.
      *
      * @param index The index of the child to remove.
      *
@@ -194,7 +194,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Return a reference to the child at the given index.
+     * Return a reference to the child at the given index.
      *
      * @param index The index of the child to return.
      * @return A reference to the child at the given index.
@@ -212,7 +212,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Return a const reference to the child at the given index.
+     * Return a const reference to the child at the given index.
      *
      * @param index The index of the child to return.
      * @return A const reference to the child at the given index.
@@ -311,7 +311,7 @@ class HomogenousRow : public juce::Component
 
   private:
     /**
-     * @brief Initialize a child component for use in the row.
+     * Initialize a child component for use in the row.
      */
     auto initialize_child(T &child) -> void
     {
@@ -320,7 +320,7 @@ class HomogenousRow : public juce::Component
     }
 
     /**
-     * @brief Uninitialize a child component for use in the row.
+     * Uninitialize a child component for use in the row.
      */
     auto uninitialize_child(T &child) -> void
     {

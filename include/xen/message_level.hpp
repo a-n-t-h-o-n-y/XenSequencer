@@ -56,7 +56,7 @@ enum class MessageLevel : std::uint8_t
 }
 
 /**
- * @brief Return a MessageLevel::Debug message pair.
+ * Return a MessageLevel::Debug message pair.
  */
 [[nodiscard]] inline auto mdebug(std::string msg)
     -> std::pair<MessageLevel, std::string>
@@ -65,7 +65,7 @@ enum class MessageLevel : std::uint8_t
 }
 
 /**
- * @brief Return a MessageLevel::Info message pair.
+ * Return a MessageLevel::Info message pair.
  */
 [[nodiscard]] inline auto minfo(std::string msg) -> std::pair<MessageLevel, std::string>
 {
@@ -73,7 +73,7 @@ enum class MessageLevel : std::uint8_t
 }
 
 /**
- * @brief Return a MessageLevel::Warning message pair.
+ * Return a MessageLevel::Warning message pair.
  */
 [[nodiscard]] inline auto mwarning(std::string msg)
     -> std::pair<MessageLevel, std::string>
@@ -82,7 +82,7 @@ enum class MessageLevel : std::uint8_t
 }
 
 /**
- * @brief Return a MessageLevel::Error message pair.
+ * Return a MessageLevel::Error message pair.
  */
 [[nodiscard]] inline auto merror(std::string msg)
     -> std::pair<MessageLevel, std::string>

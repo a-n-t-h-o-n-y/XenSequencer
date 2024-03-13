@@ -12,7 +12,7 @@ namespace xen
 {
 
 /**
- * @brief Converts the state of the plugin to a MIDI Event timeline.
+ * Converts the state of the plugin to a MIDI Event timeline.
  *
  * @param state The state of the plugin.
  * @return sequence::midi::EventTimeline
@@ -21,7 +21,7 @@ namespace xen
     -> sequence::midi::EventTimeline;
 
 /**
- * @brief Renders a sequence library midi::EventTimeline as a MIDI buffer.
+ * Renders a sequence library midi::EventTimeline as a MIDI buffer.
  *
  * @param timeline The MIDI Event timeline.
  * @return juce::MidiBuffer
@@ -30,7 +30,7 @@ namespace xen
     -> juce::MidiBuffer;
 
 /**
- * @brief Finds the subset of MIDI messages in a buffer between two samples, half-open
+ * Finds the subset of MIDI messages in a buffer between two samples, half-open
  * [begin, end).
  *
  * @param buffer The MIDI buffer.
@@ -71,7 +71,7 @@ namespace xen
     -> std::optional<juce::MidiMessage>;
 
 /**
- * @brief Get the last MIDI pitch bend message from a JUCE MidiBuffer.
+ * Get the last MIDI pitch bend message from a JUCE MidiBuffer.
  *
  * @param midi_buffer The MidiBuffer to read from.
  * @return std::optional<juce::MidiMessage> The last MidiMessage pitch bend if
@@ -81,7 +81,7 @@ namespace xen
     -> std::optional<juce::MidiMessage>;
 
 /**
- * @brief Get the last MIDI Note on or off message from a JUCE MidiBuffer.
+ * Get the last MIDI Note on or off message from a JUCE MidiBuffer.
  *
  * @param midi_buffer The MidiBuffer to read from.
  * @return std::optional<juce::MidiMessage> The last MidiMessage Note on or off if

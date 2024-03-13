@@ -7,7 +7,7 @@ namespace xen
 {
 
 /**
- * @brief Converts a string to lowercase.
+ * Converts a string to lowercase.
  *
  * @param x The string to convert.
  * @return std::string The converted string.
@@ -15,12 +15,12 @@ namespace xen
 [[nodiscard]] auto to_lower(std::string x) -> std::string;
 
 /**
- * @brief Return string with leading and trailing whitespace removed.
+ * Return string with leading and trailing whitespace removed.
  */
 [[nodiscard]] auto strip(std::string const &input) -> std::string;
 
 /**
- * @brief Minimizes spaces in a given string, while preserving spaces within double
+ * Minimizes spaces in a given string, while preserving spaces within double
  * quotes.
  *
  * Removes leading, trailing, and adjacent spaces.
@@ -31,7 +31,7 @@ namespace xen
 [[nodiscard]] auto minimize_spaces(std::string const &input) -> std::string;
 
 /**
- * @brief Returns the first word from a given string, considering double quotes.
+ * Returns the first word from a given string, considering double quotes.
  *
  * Words are space delimited, unless within double quotes.
  *
@@ -41,7 +41,7 @@ namespace xen
 [[nodiscard]] auto get_first_word(std::string const &input) -> std::string;
 
 /**
- * @brief Returns the remaining part of the string after extracting the first word.
+ * Returns the remaining part of the string after extracting the first word.
  *
  * Words are space delimited, unless within double quotes.
  *
@@ -51,7 +51,7 @@ namespace xen
 [[nodiscard]] auto pop_first_word(std::string const &input) -> std::string;
 
 /**
- * @brief Counts the number of words in a string.
+ * Counts the number of words in a string.
  *
  * This function takes a string and counts the number of words separated by spaces.
  * It also takes into account words enclosed in double quotes.

@@ -23,10 +23,9 @@ namespace
 using namespace xen;
 
 /**
- * @brief Merge two YAML files into a single YAML::Node, with the overlay taking
- * precedence.
-
- * This is not a general solution, this is specific to the XenSequencer key
+ * Merge two YAML files into a single YAML::Node, with the overlay taking precedence.
+ *
+ * @details This is not a general solution, this is specific to the XenSequencer key
  * config. This will remove the 'version' top-level key from base.
  *
  * @param base_filepath The base YAML file.
@@ -193,11 +192,12 @@ auto const key_map = [] {
     return x;
 }();
 
-/** @brief Parses the given YAML node to a KeyConfig
+/**
+ * Parses the given YAML node to a KeyConfig
  *
- *  @param key_combo_str The key combination string
- *  @param command The associated command
- *  @return A KeyConfig object
+ * @param key_combo_str The key combination string
+ * @param command The associated command
+ * @return A KeyConfig object
  */
 [[nodiscard]] auto parse_key_config(std::string const &key_combo_str,
                                     std::string const &command) -> KeyConfig
@@ -270,10 +270,11 @@ auto const key_map = [] {
     return KeyConfig{mode, juce::KeyPress(key_code, modifiers, 0), command};
 }
 
-/** @brief Parse a YAML::Node into a collection of KeyCore objects.
+/**
+ * Parse a YAML::Node into a collection of KeyCore objects.
  *
  * @param root The root YAML node.
- *  @return A map of KeyCore objects, one for each component.
+ * @return A map of KeyCore objects, one for each component.
  */
 [[nodiscard]] auto create_component_key_cores(YAML::Node const &root)
     -> std::unordered_map<std::string, KeyCore>

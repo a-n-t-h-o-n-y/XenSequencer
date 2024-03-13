@@ -24,7 +24,7 @@ namespace xen
 {
 
 /**
- * @brief Create a command tree, each GUI should have its own on_focus_change_request
+ * Create a command tree, each GUI should have its own on_focus_change_request
  * signal, and therefore should have its own command tree.
  *
  * Each of the passed in parameter l-val references should outlive the command tree.

@@ -13,7 +13,7 @@ namespace xen
 {
 
 /**
- * @brief Custom toupper function that also handles some keyboard symbols.
+ * Custom toupper function that also handles some keyboard symbols.
  *
  * @param ch Input character.
  * @return Uppercased character or the corresponding shifted keyboard symbol.
@@ -21,7 +21,7 @@ namespace xen
 [[nodiscard]] auto keyboard_toupper(char ch) -> char;
 
 /**
- * @brief Custom tolower function that also handles some keyboard symbols.
+ * Custom tolower function that also handles some keyboard symbols.
  *
  * @param ch Input character.
  * @return Lowercased character or the corresponding unshifted keyboard symbol.
@@ -29,7 +29,7 @@ namespace xen
 [[nodiscard]] auto keyboard_tolower(char ch) -> char;
 
 /**
- * @brief False type for else conditions in constexpr if statements.
+ * False type for else conditions in constexpr if statements.
  */
 template <typename T>
 struct always_false : std::false_type
@@ -37,7 +37,7 @@ struct always_false : std::false_type
 };
 
 /**
- * @brief Reads the content of a text file into a std::string.
+ * Reads the content of a text file into a std::string.
  *
  * @param filepath Path of the text file to read.
  * @return std::string Contents of the text file.
@@ -47,7 +47,7 @@ struct always_false : std::false_type
     -> std::string;
 
 /**
- * @brief Writes a std::string to a text file.
+ * Writes a std::string to a text file.
  *
  * @param filepath Path of the text file to write.
  * @param content Content to write to the text file.
@@ -57,7 +57,7 @@ auto write_string_to_file(std::filesystem::path const &filepath,
                           std::string const &content) -> void;
 
 /**
- * @brief Checks if a tuple contains a single element that satisfies a given predicate.
+ * Checks if a tuple contains a single element that satisfies a given predicate.
  *
  * @param predicate The predicate function to apply.
  * @param tupl The tuple to check.
@@ -86,7 +86,7 @@ struct ErrorNoMatch
 };
 
 /**
- * @brief Applies a function to the first element in a tuple that satisfies a given
+ * Applies a function to the first element in a tuple that satisfies a given
  * predicate.
  *
  * @tparam R The type of the result.
@@ -128,7 +128,7 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 }
 
 /**
- * @brief Normalizes an interval to the range [0, length).
+ * Normalizes an interval to the range [0, length).
  *
  * -1 wraps around to length - 1.
  */

@@ -8,7 +8,7 @@ namespace xen::gui
 {
 
 /**
- * @brief Collapsible component with a title and a child component.
+ * Collapsible component with a title and a child component.
  */
 template <typename ChildComponentType>
 class Accordion : public juce::Component
@@ -65,7 +65,7 @@ class Accordion : public juce::Component
 
       private:
         /**
-         * @brief Helper to create a triangle path.
+         * Helper to create a triangle path.
          */
         [[nodiscard]] static auto create_triangle_path(bool pointingDown) -> juce::Path
         {

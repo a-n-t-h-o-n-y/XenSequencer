@@ -29,7 +29,7 @@ class MainComponent : public juce::Component
     }
 
     /**
-     * @brief Handles key events.
+     * Handles key events.
      *
      * @param key The key event.
      * @return True if key is handled, otherwise false.

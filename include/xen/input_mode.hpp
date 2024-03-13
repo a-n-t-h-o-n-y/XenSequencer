@@ -7,7 +7,7 @@ namespace xen
 {
 
 /**
- * @brief The input mode of the Sequence editor.
+ * The input mode of the Sequence editor.
  */
 enum class InputMode
 {

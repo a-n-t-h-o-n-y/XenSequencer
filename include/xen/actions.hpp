@@ -20,7 +20,7 @@ namespace xen
 {
 
 /**
- * @brief Increment the state by applying a function to the selected Cell.
+ * Increment the state by applying a function to the selected Cell.
  *
  * This is a convinience function for Command implementations. It will create a copy of
  * the current state, call the given funtion with the selected cell as first parameter,

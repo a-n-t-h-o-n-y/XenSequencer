@@ -27,9 +27,9 @@ auto copy_buffer = std::optional<sequence::Cell>{std::nullopt};
 auto copy_buffer_mtx = std::mutex{};
 
 /**
- * @brief Set the key listeners for the plugin window.
+ * Set the key listeners for the plugin window.
  *
- * This removes previous_listeners and adds new_listeners. update_key_listeners
+ * @details This removes previous_listeners and adds new_listeners. update_key_listeners
  * should be used in most cases.
  */
 auto set_key_listeners(std::map<std::string, xen::KeyConfigListener> previous_listeners,

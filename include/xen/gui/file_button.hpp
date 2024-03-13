@@ -10,7 +10,7 @@ namespace xen::gui
 {
 
 /**
- * @brief A button that opens a file dialog for loading a file.
+ * A button that opens a file dialog for loading a file.
  *
  * Calls on_file_selected with the selected std::filesystem::path.
  */
@@ -41,7 +41,7 @@ class LoadFileButton : public juce::TextButton
 };
 
 /**
- * @brief A button that opens a file dialog for saving a file.
+ * A button that opens a file dialog for saving a file.
  */
 class SaveFileButton : public juce::TextButton
 {

@@ -13,7 +13,7 @@ namespace xen
 /**
  * @class ListenSocket
  *
- * @brief Resource-managing class for NNG socket that listens.
+ * Resource-managing class for NNG socket that listens.
  */
 class ListenSocket
 {
@@ -99,7 +99,7 @@ class InterProcessRelay : private juce::Thread
 
   public:
     /**
-     * @brief Send a message to a specific instance.
+     * Send a message to a specific instance.
      *
      * This does not wait for a response, any response will come in via the
      * on_message signal.

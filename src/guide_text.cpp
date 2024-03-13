@@ -65,10 +65,9 @@ template <typename... Args>
 // --------------------------------------------------------------------------
 
 /**
- * @brief Checks if a string is a prefix of another string.
+ * Checks if a string is a prefix of another string.
  *
- * An empty string is not a prefix of another.
- *
+ * @details An empty string is not a prefix of another.
  * @param candidate The potential prefix of `target`.
  * @param target The string to check against.
  * @return bool True if `candidate` is a prefix of `target`, otherwise false.

@@ -21,7 +21,7 @@ namespace
 {
 
 /**
- * @brief Compares two juce::MidiMessage objects for equality.
+ * Compares two juce::MidiMessage objects for equality.
  *
  * @param a First MidiMessage to compare.
  * @param b Second MidiMessage to compare.

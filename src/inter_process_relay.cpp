@@ -13,10 +13,9 @@ namespace
 {
 
 /**
- * @brief Create a new NNG REQ (request) protocol socket.
+ * Create a new NNG REQ (request) protocol socket.
  *
- * Opens and dials to the given address.
- *
+ * @details Opens and dials to the given address.
  * @param address Address to connect to.
  * @param timeout Timeout in milliseconds, if zero, no timeout applied.
  * @return nng_socket New socket.
@@ -55,10 +54,9 @@ namespace
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
 /**
- * @brief Create a new NNG REP (reply) protocol socket.
+ * Create a new NNG REP (reply) protocol socket.
  *
- * Opens and listens on the given address.
- *
+ * @details Opens and listens on the given address.
  * @param address Address to listen on.
  * @param timeout Timeout in milliseconds, if zero, no timeout applied.
  * @return nng_socket New socket.

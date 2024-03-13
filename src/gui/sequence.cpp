@@ -21,7 +21,7 @@ namespace
 using namespace xen;
 
 /**
- * @brief Computes the corner radius for a rectangle based on its width.
+ * Computes the corner radius for a rectangle based on its width.
  *
  * @param bounds The bounds of the rectangle.
  * @param min_radius The minimum corner radius.
@@ -38,7 +38,7 @@ using namespace xen;
 }
 
 /**
- * @brief Computes the Rectangle bounds for a given note interval and tuning length.
+ * Computes the Rectangle bounds for a given note interval and tuning length.
  *
  * @param component_bounds  The bounds of the component in which the note will
  * be displayed.

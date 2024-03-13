@@ -199,7 +199,7 @@ class Measure : public juce::Component
 
 //   public:
 //     /**
-//      * @brief Called when the measure is updated.
+//      * Called when the measure is updated.
 //      */
 //     std::function<void()> on_update;
 

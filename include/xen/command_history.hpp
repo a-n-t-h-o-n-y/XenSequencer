@@ -9,7 +9,7 @@ namespace xen
 {
 
 /**
- * @brief A class that stores a history of commands.
+ * A class that stores a history of commands.
  *
  * This has the concept of a 'current' command, which has no state
  * stored here and returns std::nullopt when retrieved. As commands are added
@@ -25,7 +25,7 @@ class CommandHistory
 
   public:
     /**
-     * @brief Adds a command to the history and erases all items from the current
+     * Adds a command to the history and erases all items from the current
      * index to the end.
      *
      * If the new command is a duplicate of the last, it is ignored.
@@ -49,7 +49,7 @@ class CommandHistory
     }
 
     /**
-     * @brief Returns the previous command and sets the current command to it.
+     * Returns the previous command and sets the current command to it.
      *
      * @return The previous command string if available; std::nullopt if at the
      * 'current' position.
@@ -70,7 +70,7 @@ class CommandHistory
     }
 
     /**
-     * @brief Returns the next command and sets the current command to it.
+     * Returns the next command and sets the current command to it.
      *
      * @return The next command string if available; std::nullopt if at the
      * 'current' position.
@@ -91,7 +91,7 @@ class CommandHistory
     }
 
     /**
-     * @brief Returns the current command.
+     * Returns the current command.
      *
      * @return The current command string if available; std::nullopt if at the
      * 'current' position.

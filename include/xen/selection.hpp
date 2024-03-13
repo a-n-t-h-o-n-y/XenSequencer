@@ -11,7 +11,7 @@ namespace xen
 {
 
 /**
- * @brief Returns a reference to the selected Cell based on the given index vector.
+ * Returns a reference to the selected Cell based on the given index vector.
  *
  * @param phrase The Phrase to select from.
  * @param indices A vector containing the indices to navigate through the nested
@@ -25,7 +25,7 @@ namespace xen
                                      SelectedState const &selected) -> sequence::Cell *;
 
 /**
- * @brief Returns a reference to the selected Cell based on the given index vector.
+ * Returns a reference to the selected Cell based on the given index vector.
  *
  * @param phrase The Phrase to select from.
  * @param indices A vector containing the indices to navigate through the nested

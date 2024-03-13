@@ -6,13 +6,13 @@ namespace xen::gui
 {
 
 /**
- * @brief A Label for displaying a heading.
+ * A Label for displaying a heading.
  */
 class Heading : public juce::Label
 {
   public:
     /**
-     * @brief Construct a new Heading object
+     * Construct a new Heading object
      *
      * @param text The text to display
      * @param padding The padding around the text
@@ -32,7 +32,7 @@ class Heading : public juce::Label
 
   public:
     /**
-     * @brief Set the text to display.
+     * Set the text to display.
      *
      * @param text The text to display
      * @param notificationType The type of notification to send

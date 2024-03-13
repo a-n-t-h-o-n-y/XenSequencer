@@ -18,7 +18,7 @@ class InstanceModel : public juce::ListBoxModel
 
   public:
     /**
-     * @brief Add an item to the listbox.
+     * Add an item to the listbox.
      *
      * @param uuid The UUID of the instance.
      * @param item The display name of the instance.
@@ -26,7 +26,7 @@ class InstanceModel : public juce::ListBoxModel
     auto add_item(juce::Uuid const &uuid, std::string const &name) -> void;
 
     /**
-     * @brief Add or update an item's name in the listbox.
+     * Add or update an item's name in the listbox.
      *
      * If the item is not found by the given UUID, it is added.
      *
@@ -36,7 +36,7 @@ class InstanceModel : public juce::ListBoxModel
     auto add_or_update_item(juce::Uuid const &uuid, std::string const &name) -> void;
 
     /**
-     * @brief Remove an item from the listbox.
+     * Remove an item from the listbox.
      *
      * @param uuid The UUID of the instance to remove.
      */
@@ -58,7 +58,7 @@ class InstanceModel : public juce::ListBoxModel
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
 /**
- * @brief A label that can be edited.
+ * A label that can be edited.
  */
 class NameEdit : public juce::Label
 {
@@ -81,14 +81,14 @@ class ActiveSessions : public juce::Component
 
   public:
     /**
-     * @brief Update the name of 'this' instance.
+     * Update the name of 'this' instance.
      *
      * @param name The new name of this instance.
      */
     auto update_this_instance_name(std::string const &name) -> void;
 
     /**
-     * @brief Add or update an instance in the listbox.
+     * Add or update an instance in the listbox.
      *
      * @param uuid The UUID of the instance.
      * @param name The display name of the instance.
@@ -97,7 +97,7 @@ class ActiveSessions : public juce::Component
         -> void;
 
     /**
-     * @brief Remove an instance from the listbox.
+     * Remove an instance from the listbox.
      *
      * @param uuid The UUID of the instance to remove.
      */

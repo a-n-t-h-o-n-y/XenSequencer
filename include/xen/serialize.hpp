@@ -9,7 +9,7 @@ namespace xen
 {
 
 /**
- * @brief Serialize a State object to a JSON string.
+ * Serialize a State object to a JSON string.
  *
  * @param state The State object to serialize.
  * @return std::string The JSON string.
@@ -17,7 +17,7 @@ namespace xen
 [[nodiscard]] auto serialize_state(State const &state) -> std::string;
 
 /**
- * @brief Deserialize a JSON string to a State object.
+ * Deserialize a JSON string to a State object.
  *
  * @param json_str The JSON string to deserialize.
  * @return State The deserialized State object.
@@ -26,7 +26,7 @@ namespace xen
 [[nodiscard]] auto deserialize_state(std::string const &json_str) -> State;
 
 /**
- * @brief Serialize the full plugin state to a JSON string.
+ * Serialize the full plugin state to a JSON string.
  *
  * @param state The plugin state to serialize.
  * @param metadata The plugin metadata to serialize.
@@ -36,7 +36,7 @@ namespace xen
     -> std::string;
 
 /**
- * @brief Deserialize a JSON string to a plugin state and metadata.
+ * Deserialize a JSON string to a plugin state and metadata.
  *
  * @param json_str The JSON string to deserialize.
  * @return std::pair<State, Metadata> The deserialized plugin state and metadata.

@@ -25,7 +25,7 @@ namespace xen::gui
 {
 
 /**
- * @brief Provides signals not provided by TextEditor
+ * Provides signals not provided by TextEditor
  */
 class CommandInput : public juce::TextEditor
 {
@@ -74,7 +74,7 @@ class CommandInput : public juce::TextEditor
 };
 
 /**
- * @brief JUCE component that provides an interactive command bar for sending commands
+ * JUCE component that provides an interactive command bar for sending commands
  * to the command core.
  */
 class CommandBar : public juce::Component
@@ -166,7 +166,7 @@ class CommandBar : public juce::Component
 
   private:
     /**
-     * @brief Sends a command string to the command core and display the result.
+     * Sends a command string to the command core and display the result.
      * @param command The command string to send.
      */
     auto do_send_command() -> void
@@ -179,7 +179,7 @@ class CommandBar : public juce::Component
     }
 
     /**
-     * @brief Add ghost text that attempts to autocomplete the currently typed command
+     * Add ghost text that attempts to autocomplete the currently typed command
      * and displays info about arguments.
      */
     auto add_guide_text() -> void
@@ -243,7 +243,7 @@ class CommandBar : public juce::Component
     }
 
     /**
-     * @brief Counts the number of words in a string.
+     * Counts the number of words in a string.
      *
      * @param input_str The string to count words in.
      * @return The number of words.

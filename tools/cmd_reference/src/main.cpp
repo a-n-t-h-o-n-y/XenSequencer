@@ -9,7 +9,7 @@
 #include "make_command_reference.hpp"
 
 /**
- * @brief Generate a markdown document containing a reference for all commands
+ * Generate a markdown document containing a reference for all commands
  */
 int main(int argc, char const *argv[])
 {
