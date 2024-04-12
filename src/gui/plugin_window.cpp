@@ -33,12 +33,14 @@ namespace xen::gui
 
 PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
                            XenCommandTree const &command_tree)
-    : phrase_directory_view{tl.get_aux_state().current_phrase_directory},
+    : phrase_directory_view_accordion{"Phrase Explorer",
+                                      tl.get_aux_state().current_phrase_directory},
+      phrase_directory_view{phrase_directory_view_accordion.child},
       active_sessions_accordion{"Active Sessions"},
       active_sessions{active_sessions_accordion.child},
       command_bar{tl, cmd_history, command_tree}
 {
-    this->addAndMakeVisible(phrase_directory_view);
+    this->addAndMakeVisible(phrase_directory_view_accordion);
     this->addAndMakeVisible(active_sessions_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
@@ -118,7 +120,7 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(juce::FlexItem(phrase_directory_view).withHeight(100.f));
+    flexbox.items.add(phrase_directory_view_accordion.get_flexitem());
     flexbox.items.add(active_sessions_accordion.get_flexitem());
     flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));

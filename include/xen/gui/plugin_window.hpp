@@ -43,7 +43,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    gui::PhraseDirectoryViewComponent phrase_directory_view;
+    gui::Accordion<gui::PhraseDirectoryViewComponent> phrase_directory_view_accordion;
+    gui::PhraseDirectoryViewComponent &phrase_directory_view;
     gui::Accordion<gui::ActiveSessions> active_sessions_accordion;
     gui::ActiveSessions &active_sessions;
     gui::Timeline gui_timeline;
