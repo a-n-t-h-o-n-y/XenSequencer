@@ -203,7 +203,9 @@ namespace xen
 
         cmd("dataDirectory",
             "Display the path to the directory where user data is stored.",
-            [](auto &) { return minfo(get_user_data_directory().string()); }),
+            [](auto &) {
+                return minfo(get_user_data_directory().getFullPathName().toStdString());
+            }),
 
         cmd("UUID", "Display the UUID for this instance.",
             [uuid](auto &) { return minfo(uuid.toString().toStdString()); }),

@@ -54,7 +54,7 @@ struct AuxState
 {
     SelectedState selected;
     InputMode input_mode = InputMode::Movement;
-    juce::File current_phrase_directory{get_projects_directory().string()};
+    juce::File current_phrase_directory{get_projects_directory()};
     juce::String current_phrase_name{""};
 
     // TODO current_tuning_name

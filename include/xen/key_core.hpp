@@ -90,8 +90,8 @@ class KeyConfigListener : public juce::KeyListener
     XenTimeline const &tl_;
 };
 
-[[nodiscard]] auto build_key_listeners(std::filesystem::path const &default_keys,
-                                       std::filesystem::path const &user_keys,
+[[nodiscard]] auto build_key_listeners(juce::File const &default_keys,
+                                       juce::File const &user_keys,
                                        XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>;
 

@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <signals_light/signal.hpp>
@@ -33,8 +34,8 @@ class XenEditor : public juce::AudioProcessorEditor
      * @throws std::runtime_error if the key configuration files cannot be read or have
      * errors
      */
-    auto update_key_listeners(std::filesystem::path const &default_keys,
-                              std::filesystem::path const &user_keys) -> void;
+    auto update_key_listeners(juce::File const &default_keys,
+                              juce::File const &user_keys) -> void;
 
   protected:
     auto resized() -> void override;
@@ -55,4 +56,4 @@ class XenEditor : public juce::AudioProcessorEditor
     PluginWindow plugin_window_;
 };
 
-} // namespace xen
+} // namespace xen::gui

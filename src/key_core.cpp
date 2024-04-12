@@ -385,11 +385,13 @@ auto KeyConfigListener::keyStateChanged(bool isKeyDown, juce::Component *) -> bo
     return isKeyDown && !juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 }
 
-auto build_key_listeners(std::filesystem::path const &default_keys,
-                         std::filesystem::path const &user_keys, XenTimeline const &tl)
+auto build_key_listeners(juce::File const &default_keys, juce::File const &user_keys,
+                         XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>
 {
-    auto const keys_node = merge_yaml_files(default_keys, user_keys);
+    auto const keys_node =
+        merge_yaml_files(default_keys.getFullPathName().toStdString(),
+                         user_keys.getFullPathName().toStdString());
     auto key_cores = create_component_key_cores(keys_node);
     auto result = std::map<std::string, KeyConfigListener>{};
 

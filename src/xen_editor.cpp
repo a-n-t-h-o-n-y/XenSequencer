@@ -171,8 +171,8 @@ auto XenEditor::update(State const &state, AuxState const &aux,
     // TODO set base frequency?
 }
 
-auto XenEditor::update_key_listeners(std::filesystem::path const &default_keys,
-                                     std::filesystem::path const &user_keys) -> void
+auto XenEditor::update_key_listeners(juce::File const &default_keys,
+                                     juce::File const &user_keys) -> void
 {
     auto previous_listeners = std::move(key_config_listeners_);
     key_config_listeners_ = build_key_listeners(default_keys, user_keys, timeline_);
