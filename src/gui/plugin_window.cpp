@@ -33,7 +33,8 @@ namespace xen::gui
 
 PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
                            XenCommandTree const &command_tree)
-    : active_sessions_accordion{"Active Sessions"},
+    : phrase_directory_view{tl.get_aux_state().current_phrase_directory},
+      active_sessions_accordion{"Active Sessions"},
       active_sessions{active_sessions_accordion.child},
       command_bar{tl, cmd_history, command_tree}
 {
@@ -51,12 +52,18 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
     this->addAndMakeVisible(status_bar);
 
     phrase_directory_view.on_file_selected.connect([&](juce::File const &file) {
-        auto const [mlevel, response] =
-            execute(command_tree, tl,
-                    normalize_command_string("load state \"" +
-                                             file.getFullPathName().toStdString()) +
-                        '\"');
+        auto const [mlevel, response] = execute(
+            command_tree, tl,
+            normalize_command_string("load state \"" +
+                                     file.getFileNameWithoutExtension().toStdString()) +
+                '\"');
         status_bar.message_display.set_status(mlevel, response);
+    });
+
+    phrase_directory_view.on_directory_change.connect([&](juce::File const &directory) {
+        auto aux = tl.get_aux_state();
+        aux.current_phrase_directory = directory;
+        tl.set_aux_state(std::move(aux), false);
     });
 
     command_bar.on_command_response.connect(

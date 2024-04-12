@@ -7,12 +7,15 @@
 #include <variant>
 #include <vector>
 
+#include <juce_core/juce_core.h>
+
 #include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
 #include <sequence/modify.hpp>
 #include <sequence/tuning.hpp>
 
 #include <xen/input_mode.hpp>
+#include <xen/user_directory.hpp>
 
 namespace xen
 {
@@ -51,8 +54,11 @@ struct AuxState
 {
     SelectedState selected;
     InputMode input_mode = InputMode::Movement;
-    // Current Directory
-    // Loaded Phrase Name - optional?
+    juce::File current_phrase_directory{get_projects_directory().string()};
+    juce::String current_phrase_name{""};
+
+    // TODO current_tuning_name
+    // TODO current_tuning_directory
 };
 
 /**

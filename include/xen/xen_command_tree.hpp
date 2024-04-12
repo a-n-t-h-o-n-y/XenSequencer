@@ -113,17 +113,38 @@ namespace xen
             "load", ArgInfo<std::string>{"filetype"},
 
             cmd(
-                "state", "Load a full plugin State from a file.",
-                [](XenTimeline &tl, std::filesystem::path const &filepath) {
-                    // Call first in case of error
-                    auto new_state = action::load_state(filepath);
+                "state",
+                "Load a full plugin State from a file in the current directory. Do not "
+                "include the .json extension in the filename you provide.",
+                [](XenTimeline &tl, std::string const &filename) {
+                    auto const cd = tl.get_aux_state().current_phrase_directory;
+                    if (!cd.isDirectory())
+                    {
+                        return merror("Invalid Current Phrase Directory");
+                    }
 
-                    // Manually reset selection on overwrite
-                    tl.set_aux_state({{0, {}}}, false);
+                    auto const filepath = cd.getChildFile(filename + ".json");
+                    if (!filepath.exists())
+                    {
+                        return merror("File Not Found: " +
+                                      filepath.getFullPathName().toStdString());
+                    }
+
+                    // Call early in case of error
+                    auto new_state =
+                        action::load_state(filepath.getFullPathName().toStdString());
+
+                    // Manually reset selection and phrase name on overwrite
+                    auto aux = tl.get_aux_state();
+                    aux.selected = {0, {}};
+                    aux.current_phrase_name = juce::String{filename};
+                    tl.set_aux_state(std::move(aux), false);
+
                     tl.add_state(std::move(new_state));
+
                     return minfo("State Loaded");
                 },
-                ArgInfo<std::filesystem::path>{"filepath"}),
+                ArgInfo<std::string>{"filename"}),
 
             cmd("keys", "Load keys.yml and user_keys.yml.",
                 [&on_load_keys_request, &on_load_keys_request_mtx](XenTimeline &) {
@@ -144,12 +165,41 @@ namespace xen
         cmd_group("save", ArgInfo<std::string>{"filetype"},
 
                   cmd(
-                      "state", "Save the current plugin State to a file.",
-                      [](XenTimeline &tl, std::filesystem::path const &filepath) {
+                      "state",
+                      "Save the current plugin State to a file in the current phrase "
+                      "directory. Do not include any extension in the filename you "
+                      "provide. This will overwrite any existing file.",
+                      [](XenTimeline &tl, std::string filename) {
+                          auto const cd = tl.get_aux_state().current_phrase_directory;
+                          if (!cd.isDirectory())
+                          {
+                              return merror("Invalid Current Phrase Directory");
+                          }
+
+                          if (filename.empty())
+                          {
+                              filename =
+                                  tl.get_aux_state().current_phrase_name.toStdString();
+                              if (filename.empty())
+                              {
+                                  return merror("No Phrase Name Found.");
+                              }
+                          }
+                          else // store new phrase name
+                          {
+                              auto aux = tl.get_aux_state();
+                              aux.current_phrase_name = juce::String{filename};
+                              tl.set_aux_state(std::move(aux));
+                          }
+
+                          auto const filepath = cd.getChildFile(filename + ".json")
+                                                    .getFullPathName()
+                                                    .toStdString();
+
                           action::save_state(tl, filepath);
-                          return minfo("State Saved to '" + filepath.string() + '\'');
+                          return minfo("State Saved to '" + filepath + '\'');
                       },
-                      ArgInfo<std::filesystem::path>{"filepath"})),
+                      ArgInfo<std::string>{"filename", ""})),
 
         cmd("dataDirectory",
             "Display the path to the directory where user data is stored.",
@@ -399,7 +449,17 @@ namespace xen
                     tl.add_state(action::set_base_frequency(tl, freq));
                     return minfo("Base Frequency Set");
                 },
-                ArgInfo<float>{"freq", 440.f}))),
+                ArgInfo<float>{"freq", 440.f}),
+
+            cmd(
+                "phraseName", "Set the name of the current Phrase to `name`.",
+                [](XenTimeline &tl, sequence::Pattern const &, std::string name) {
+                    auto aux = tl.get_aux_state();
+                    aux.current_phrase_name = std::move(name);
+                    tl.set_aux_state(std::move(aux));
+                    return minfo("Phrase Name Set");
+                },
+                ArgInfo<std::string>{"name"}))),
 
         pattern(cmd_group(
             "shift", ArgInfo<std::string>{"trait"},

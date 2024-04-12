@@ -134,6 +134,7 @@ class Timeline
     /**
      * Set the auxiliary state.
      * @param aux The auxiliary state.
+     * @param emit_change Whether to emit the on_aux_change signal.
      * @note This function is thread-safe and does not update the last update time or
      * emit the on_state_change signal.
      */

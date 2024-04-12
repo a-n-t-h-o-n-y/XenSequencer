@@ -20,11 +20,13 @@ class PhraseDirectoryViewComponent : public juce::Component,
 
   public:
     sl::Signal<void(juce::File const &)> on_file_selected;
+    sl::Signal<void(juce::File const &)> on_directory_change;
 
   public:
     explicit PhraseDirectoryViewComponent(juce::File const &initial_directory)
     {
         directory_contents_list_.setDirectory(initial_directory, true, true);
+        this->on_directory_change(initial_directory);
         directory_contents_list_.addChangeListener(this);
         list_box_.setModel(this);
         this->addAndMakeVisible(list_box_);
@@ -68,6 +70,19 @@ class PhraseDirectoryViewComponent : public juce::Component,
         this->item_selected(lastRowSelected);
     }
 
+    auto keyPressed(juce::KeyPress const &key) -> bool override
+    {
+        if (key.getTextCharacter() == 'j')
+        {
+            return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::downKey, 0, 0));
+        }
+        else if (key.getTextCharacter() == 'k')
+        {
+            return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::upKey, 0, 0));
+        }
+        return list_box_.keyPressed(key);
+    }
+
   private:
     auto getNumRows() -> int override
     {
@@ -92,10 +107,10 @@ class PhraseDirectoryViewComponent : public juce::Component,
                 auto const file = directory_contents_list_.getFile(rowNumber);
                 return file.isDirectory()
                            ? file.getFileName() + juce::File::getSeparatorChar()
-                           : file.getFileName();
+                           : file.getFileNameWithoutExtension();
             }();
 
-            g.setColour(juce::Colours::black);
+            g.setColour(juce::Colours::white);
             g.drawText(filename, 2, 0, width - 4, height,
                        juce::Justification::centredLeft, true);
         }
@@ -117,6 +132,7 @@ class PhraseDirectoryViewComponent : public juce::Component,
             auto const parent =
                 directory_contents_list_.getDirectory().getParentDirectory();
             directory_contents_list_.setDirectory(parent, true, true);
+            this->on_directory_change(parent);
             list_box_.selectRow(0);
             return;
         }
@@ -125,6 +141,7 @@ class PhraseDirectoryViewComponent : public juce::Component,
         if (file.isDirectory())
         {
             directory_contents_list_.setDirectory(file, true, true);
+            this->on_directory_change(file);
             list_box_.selectRow(0);
         }
         else
