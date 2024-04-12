@@ -51,6 +51,8 @@ struct AuxState
 {
     SelectedState selected;
     InputMode input_mode = InputMode::Movement;
+    // Current Directory
+    // Loaded Phrase Name - optional?
 };
 
 /**

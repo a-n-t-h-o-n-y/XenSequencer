@@ -70,14 +70,8 @@ class Accordion : public juce::Component
         [[nodiscard]] static auto create_triangle_path(bool pointing_down) -> juce::Path
         {
             auto path = juce::Path{};
-            if (pointing_down)
-            {
-                path.addTriangle({0.f, 0.f}, {10.f, 5.f}, {0.f, 10.f});
-            }
-            else
-            {
-                path.addTriangle({0.f, 0.f}, {10.f, 0.f}, {5.f, 10.f});
-            }
+            pointing_down ? path.addTriangle({2.f, 2.f}, {8.f, 5.f}, {2.f, 8.f})
+                          : path.addTriangle({2.f, 2.f}, {8.f, 2.f}, {5.f, 8.f});
             return path;
         }
 
@@ -109,6 +103,9 @@ class Accordion : public juce::Component
     }
 
   public:
+    /**
+     * Get the flex item for the current stat of the accordion, for use by parent.
+     */
     [[nodiscard]] auto get_flexitem() -> juce::FlexItem
     {
         return is_expanded_ ? juce::FlexItem{*this}.withFlex(1.f)

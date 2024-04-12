@@ -18,9 +18,11 @@
 #include <xen/gui/phrase_editor.hpp>
 
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/directory_view.hpp>
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
+#include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
 
 namespace xen
@@ -42,6 +44,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
+    gui::PhraseDirectoryViewComponent phrase_directory_view{
+        juce::File{get_projects_directory().string()}};
     gui::Accordion<gui::ActiveSessions> active_sessions_accordion;
     gui::ActiveSessions &active_sessions;
     gui::Timeline gui_timeline;

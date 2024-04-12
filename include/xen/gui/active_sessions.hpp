@@ -28,8 +28,7 @@ class InstanceModel : public juce::ListBoxModel
     /**
      * Add or update an item's name in the listbox.
      *
-     * If the item is not found by the given UUID, it is added.
-     *
+     * @details If the item is not found by the given UUID, it is added.
      * @param uuid The UUID of the instance.
      * @param name The new display name of the instance.
      */
@@ -51,7 +50,7 @@ class InstanceModel : public juce::ListBoxModel
     auto listBoxItemDoubleClicked(int row, const juce::MouseEvent &) -> void override;
 
   private:
-    // Instance UUID, Display Name
+    // {Instance UUID, Display Name}
     std::vector<std::pair<juce::Uuid, std::string>> items_;
 };
 

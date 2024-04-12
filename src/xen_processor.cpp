@@ -233,9 +233,3 @@ auto XenProcessor::add_midi_corrections(
 }
 
 } // namespace xen
-
-// This creates new instances of the plugin. Must be in the global namespace.
-juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
-{
-    return new xen::XenProcessor{};
-}

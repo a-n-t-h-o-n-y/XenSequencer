@@ -62,6 +62,7 @@ target_link_libraries(XenSequencerLib
 
 target_sources(XenSequencerLib
     PUBLIC
+        src/main.cpp
         src/actions.cpp
         src/input_mode.cpp
         src/key_core.cpp
@@ -78,6 +79,7 @@ target_sources(XenSequencerLib
         src/inter_process_relay.cpp
 
         src/gui/active_sessions.cpp
+        src/gui/directory_view.cpp
         src/gui/sequence.cpp
         src/gui/timeline.cpp
         src/gui/plugin_window.cpp
@@ -114,6 +116,7 @@ target_sources(XenSequencerLib
         include/xen/gui/active_sessions.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/custom_look_and_feel.hpp
+        include/xen/gui/directory_view.hpp
         include/xen/gui/file_button.hpp
         include/xen/gui/focusable_component.hpp
         include/xen/gui/heading.hpp

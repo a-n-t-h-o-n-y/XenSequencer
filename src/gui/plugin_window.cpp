@@ -37,6 +37,7 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
       active_sessions{active_sessions_accordion.child},
       command_bar{tl, cmd_history, command_tree}
 {
+    this->addAndMakeVisible(phrase_directory_view);
     this->addAndMakeVisible(active_sessions_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
@@ -48,6 +49,15 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
     command_bar.setVisible(false);
 
     this->addAndMakeVisible(status_bar);
+
+    phrase_directory_view.on_file_selected.connect([&](juce::File const &file) {
+        auto const [mlevel, response] =
+            execute(command_tree, tl,
+                    normalize_command_string("load state \"" +
+                                             file.getFullPathName().toStdString()) +
+                        '\"');
+        status_bar.message_display.set_status(mlevel, response);
+    });
 
     command_bar.on_command_response.connect(
         [this](MessageLevel mlevel, std::string const &response) {
@@ -101,6 +111,7 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
+    flexbox.items.add(juce::FlexItem(phrase_directory_view).withHeight(100.f));
     flexbox.items.add(active_sessions_accordion.get_flexitem());
     flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));

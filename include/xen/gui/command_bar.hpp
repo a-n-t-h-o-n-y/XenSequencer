@@ -167,7 +167,6 @@ class CommandBar : public juce::Component
   private:
     /**
      * Sends a command string to the command core and display the result.
-     * @param command The command string to send.
      */
     auto do_send_command() -> void
     {
