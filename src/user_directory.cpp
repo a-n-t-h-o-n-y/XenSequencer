@@ -6,6 +6,7 @@
 #include <juce_core/juce_core.h>
 #include <yaml-cpp/yaml.h>
 
+#include <embed_demos.hpp>
 #include <embed_keys.hpp>
 
 #include <xen/constants.hpp>
@@ -48,8 +49,8 @@ auto get_default_keys_file() -> juce::File
 
     auto write_default_keys = [&key_file] {
         return key_file.create().wasOk() &&
-               key_file.replaceWithText(juce::String::fromUTF8(
-                   embed_keys::keys_yml, embed_keys::keys_ymlSize));
+               key_file.appendData(embed_keys::keys_yml,
+                                   (std::size_t)embed_keys::keys_ymlSize);
     };
 
     auto const file_exists = key_file.existsAsFile();
@@ -80,8 +81,8 @@ auto get_user_keys_file() -> juce::File
         // write out the default key file
         if (key_file.create().wasOk())
         {
-            key_file.replaceWithText(juce::String::fromUTF8(
-                embed_keys::user_keys_yml, embed_keys::user_keys_ymlSize));
+            key_file.appendData(embed_keys::user_keys_yml,
+                                (std::size_t)embed_keys::user_keys_ymlSize);
         }
         else
         {
@@ -91,6 +92,39 @@ auto get_user_keys_file() -> juce::File
     }
 
     return key_file;
+}
+
+auto initialize_demo_files() -> void
+{
+    auto const demos_dir = get_projects_directory().getChildFile("demos");
+    if (!demos_dir.exists() && !demos_dir.createDirectory().wasOk())
+    {
+        throw std::runtime_error("Unable to create demos directory: " +
+                                 demos_dir.getFullPathName().toStdString() + ".");
+    }
+
+    for (auto i = 0; i < embed_demos::namedResourceListSize; ++i)
+    {
+        int size = 0;
+        char const *name = embed_demos::namedResourceList[i];
+        char const *data = embed_demos::getNamedResource(name, size);
+        char const *filename = embed_demos::getNamedResourceOriginalFilename(name);
+
+        auto const file = demos_dir.getChildFile(filename);
+
+        if (!file.existsAsFile())
+        {
+            if (file.create().wasOk())
+            {
+                file.appendData(data, (std::size_t)size);
+            }
+            else
+            {
+                throw std::runtime_error("Unable to create demo file: " +
+                                         file.getFullPathName().toStdString() + ".");
+            }
+        }
+    }
 }
 
 } // namespace xen

@@ -14,6 +14,7 @@
 
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
+#include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
 
@@ -55,6 +56,8 @@ XenProcessor::XenProcessor()
       plugin_state_{init_state()}, last_rendered_time_{}
 
 {
+    initialize_demo_files();
+
     active_sessions.on_display_name_request.connect(
         [this] { return metadata.display_name; });
 

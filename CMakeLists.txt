@@ -41,9 +41,19 @@ juce_add_binary_data(EmbedKeys
     HEADER_NAME "embed_keys.hpp"
     NAMESPACE embed_keys
     SOURCES
-        keys.yml
-        user_keys.yml
+        data/keys/keys.yml
+        data/keys/user_keys.yml
 )
+
+# Add demo files as a binary resource
+juce_add_binary_data(EmbedDemos
+    HEADER_NAME "embed_demos.hpp"
+    NAMESPACE embed_demos
+    SOURCES
+        data/demos/double\ note.json
+        data/demos/double\ note\ 2.json
+)
+
 
 target_link_libraries(XenSequencerLib
     PUBLIC
@@ -53,6 +63,7 @@ target_link_libraries(XenSequencerLib
         yaml-cpp
         nlohmann_json::nlohmann_json
         EmbedKeys
+        EmbedDemos
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags

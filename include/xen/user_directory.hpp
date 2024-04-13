@@ -41,4 +41,9 @@ namespace xen
  */
 [[nodiscard]] auto get_user_keys_file() -> juce::File;
 
+/**
+ * Create a populate the demos/ directory with the demo files.
+ */
+auto initialize_demo_files() -> void;
+
 } // namespace xen
