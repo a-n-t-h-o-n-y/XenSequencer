@@ -29,17 +29,17 @@ auto get_user_data_directory() -> juce::File
     return data_dir;
 }
 
-auto get_projects_directory() -> juce::File
+auto get_phrases_directory() -> juce::File
 {
-    auto const projects_dir = get_user_data_directory().getChildFile("projects");
+    auto const phrases_dir = get_user_data_directory().getChildFile("phrases");
 
     // Create directory if it doesn't exist
-    if (!projects_dir.exists() && !projects_dir.createDirectory().wasOk())
+    if (!phrases_dir.exists() && !phrases_dir.createDirectory().wasOk())
     {
         throw std::runtime_error("Unable to create projects directory: " +
-                                 projects_dir.getFullPathName().toStdString() + ".");
+                                 phrases_dir.getFullPathName().toStdString() + ".");
     }
-    return projects_dir;
+    return phrases_dir;
 }
 
 auto get_default_keys_file() -> juce::File
@@ -96,7 +96,7 @@ auto get_user_keys_file() -> juce::File
 
 auto initialize_demo_files() -> void
 {
-    auto const demos_dir = get_projects_directory().getChildFile("demos");
+    auto const demos_dir = get_phrases_directory().getChildFile("demos");
     if (!demos_dir.exists() && !demos_dir.createDirectory().wasOk())
     {
         throw std::runtime_error("Unable to create demos directory: " +

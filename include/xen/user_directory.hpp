@@ -13,13 +13,13 @@ namespace xen
 [[nodiscard]] auto get_user_data_directory() -> juce::File;
 
 /**
- * Retrieve the location of the projects directory.
+ * Retrieve the location of the phrases directory.
  *
  * If the directory does not exist, it will be created.
  *
- * @return The filesystem path of the projects directory.
+ * @return The filesystem path of the phrases directory.
  */
-[[nodiscard]] auto get_projects_directory() -> juce::File;
+[[nodiscard]] auto get_phrases_directory() -> juce::File;
 
 /**
  * Retrieve the location of the default keys.yml configuration file.
