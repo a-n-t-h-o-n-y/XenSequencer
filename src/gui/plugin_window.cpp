@@ -33,27 +33,25 @@ namespace xen::gui
 
 PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
                            XenCommandTree const &command_tree)
-    : phrase_directory_view_accordion{"Phrase Explorer",
-                                      tl.get_aux_state().current_phrase_directory},
-      phrase_directory_view{phrase_directory_view_accordion.child},
-      active_sessions_accordion{"Active Sessions"},
-      active_sessions{active_sessions_accordion.child},
+    : phrases_view_accordion{"Phrases", tl.get_aux_state().current_phrase_directory},
+      phrases_view{phrases_view_accordion.child},
       command_bar{tl, cmd_history, command_tree}
 {
-    this->addAndMakeVisible(phrase_directory_view_accordion);
-    this->addAndMakeVisible(active_sessions_accordion);
+    this->addAndMakeVisible(phrases_view_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
 
     // TODO
     // this->addAndMakeVisible(tuning_box);
 
+    phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(200.f));
+
     this->addChildComponent(command_bar);
     command_bar.setVisible(false);
 
     this->addAndMakeVisible(status_bar);
 
-    phrase_directory_view.on_file_selected.connect([&](juce::File const &file) {
+    phrases_view.directory_view.on_file_selected.connect([&](juce::File const &file) {
         auto const [mlevel, response] = execute(
             command_tree, tl,
             normalize_command_string("load state \"" +
@@ -62,11 +60,12 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
         status_bar.message_display.set_status(mlevel, response);
     });
 
-    phrase_directory_view.on_directory_change.connect([&](juce::File const &directory) {
-        auto aux = tl.get_aux_state();
-        aux.current_phrase_directory = directory;
-        tl.set_aux_state(std::move(aux), false);
-    });
+    phrases_view.directory_view.on_directory_change.connect(
+        [&](juce::File const &directory) {
+            auto aux = tl.get_aux_state();
+            aux.current_phrase_directory = directory;
+            tl.set_aux_state(std::move(aux), false);
+        });
 
     command_bar.on_command_response.connect(
         [this](MessageLevel mlevel, std::string const &response) {
@@ -80,7 +79,7 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
 auto PluginWindow::update(State const &state, AuxState const &aux,
                           Metadata const &metadata) -> void
 {
-    active_sessions.update_this_instance_name(metadata.display_name);
+    phrases_view.active_sessions_view.update_this_instance_name(metadata.display_name);
 
     phrase_editor.phrase.set(state, aux.selected);
     phrase_editor.phrase.select(aux.selected);
@@ -120,8 +119,7 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(phrase_directory_view_accordion.get_flexitem());
-    flexbox.items.add(active_sessions_accordion.get_flexitem());
+    flexbox.items.add(phrases_view_accordion.get_flexitem());
     flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
     // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));

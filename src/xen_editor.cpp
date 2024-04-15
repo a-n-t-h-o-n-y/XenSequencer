@@ -107,7 +107,7 @@ XenEditor::XenEditor(XenProcessor &p)
     // ActiveSessions Signals/Slots
     {
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window_.active_sessions.remove_instance(uuid);
+            plugin_window_.phrases_view.active_sessions_view.remove_instance(uuid);
         }};
         slot.track(lifetime_);
         p.active_sessions.on_instance_shutdown.connect(slot);
@@ -115,8 +115,8 @@ XenEditor::XenEditor(XenProcessor &p)
     {
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window_.active_sessions.add_or_update_instance(uuid,
-                                                                      display_name);
+                plugin_window_.phrases_view.active_sessions_view.add_or_update_instance(
+                    uuid, display_name);
             }};
         slot.track(lifetime_);
         p.active_sessions.on_id_update.connect(slot);
@@ -136,12 +136,12 @@ XenEditor::XenEditor(XenProcessor &p)
     }
 
     // No lifetime tracking needed because its GUI->Processor
-    plugin_window_.active_sessions.on_instance_selected.connect(
+    plugin_window_.phrases_view.active_sessions_view.on_instance_selected.connect(
         [&p](juce::Uuid const &uuid) { p.active_sessions.request_state(uuid); });
 
     // No lifetime tracking needed because its GUI->Processor
-    plugin_window_.active_sessions.on_this_instance_name_change.connect(
-        [&p](std::string const &name) {
+    plugin_window_.phrases_view.active_sessions_view.on_this_instance_name_change
+        .connect([&p](std::string const &name) {
             p.metadata.display_name = name;
             p.active_sessions.notify_display_name_update(name);
         });

@@ -97,6 +97,8 @@ class Accordion : public juce::Component
         this->addAndMakeVisible(top_);
         this->addAndMakeVisible(child);
 
+        this->set_flexitem(juce::FlexItem{}.withFlex(1.f));
+
         top_.toggle_button.onClick = [this] { this->toggle_child_component(); };
 
         this->toggle_child_component();
@@ -104,12 +106,20 @@ class Accordion : public juce::Component
 
   public:
     /**
+     * Set the flex item for the accordion used when expanded, for use by parent.
+     */
+    auto set_flexitem(juce::FlexItem flexitem) -> void
+    {
+        flexitem.associatedComponent = this;
+        flexitem_ = std::move(flexitem);
+    }
+
+    /**
      * Get the flex item for the current stat of the accordion, for use by parent.
      */
     [[nodiscard]] auto get_flexitem() -> juce::FlexItem
     {
-        return is_expanded_ ? juce::FlexItem{*this}.withFlex(1.f)
-                            : juce::FlexItem{*this}.withHeight(20.f);
+        return is_expanded_ ? flexitem_ : juce::FlexItem{*this}.withHeight(20.f);
     }
 
   protected:
@@ -140,6 +150,7 @@ class Accordion : public juce::Component
 
   private:
     bool is_expanded_ = true;
+    juce::FlexItem flexitem_{};
 };
 
 } // namespace xen::gui

@@ -34,6 +34,40 @@ struct Metadata;
 namespace xen::gui
 {
 
+class PhrasesView : public juce::Component
+{
+  public:
+    juce::Label library_label;
+    PhraseDirectoryViewComponent directory_view;
+    juce::Label active_sessions_label;
+    ActiveSessions active_sessions_view;
+
+  public:
+    explicit PhrasesView(juce::File library_location)
+        : library_label{"Library Label", "Library"}, directory_view{library_location},
+          active_sessions_label{"Active Sessions View", "Active Sessions"}
+    {
+        this->addAndMakeVisible(library_label);
+        this->addAndMakeVisible(directory_view);
+        this->addAndMakeVisible(active_sessions_label);
+        this->addAndMakeVisible(active_sessions_view);
+    }
+
+  public:
+    auto resized() -> void override
+    {
+        auto flexbox = juce::FlexBox{};
+        flexbox.flexDirection = juce::FlexBox::Direction::column;
+
+        flexbox.items.add(juce::FlexItem{library_label}.withHeight(15.f));
+        flexbox.items.add(juce::FlexItem{directory_view}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{active_sessions_label}.withHeight(15.f));
+        flexbox.items.add(juce::FlexItem{active_sessions_view}.withFlex(0.5f));
+
+        flexbox.performLayout(this->getLocalBounds());
+    }
+};
+
 /**
  * The main window for the plugin, holding all other components.
  *
@@ -43,10 +77,8 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    gui::Accordion<gui::PhraseDirectoryViewComponent> phrase_directory_view_accordion;
-    gui::PhraseDirectoryViewComponent &phrase_directory_view;
-    gui::Accordion<gui::ActiveSessions> active_sessions_accordion;
-    gui::ActiveSessions &active_sessions;
+    Accordion<PhrasesView> phrases_view_accordion;
+    PhrasesView &phrases_view;
     gui::Timeline gui_timeline;
     gui::PhraseEditor phrase_editor;
     // gui::TuningBox tuning_box; // TODO
