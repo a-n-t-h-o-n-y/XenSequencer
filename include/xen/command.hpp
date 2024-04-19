@@ -290,9 +290,9 @@ template <typename ID_t, typename Fn, typename... Args>
 /**
  * Execute a CommandGroup object.
  *
- * This will pop off the first word of the command_str and use it to find the matching
- * command in the CommandGroup, then it will forward the rest of the command_str to the
- * command.
+ * @details This will pop off the first word of the command_str and use it to find the
+ * matching command in the CommandGroup, then it will forward the rest of the
+ * command_str to the command.
  *
  * @param command_group The command group to execute.
  * @param tl The timeline to execute the command on.

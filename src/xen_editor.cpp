@@ -9,6 +9,7 @@
 
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/user_directory.hpp>
@@ -84,7 +85,7 @@ XenEditor::XenEditor(XenProcessor &p)
     : AudioProcessorEditor{p}, timeline_{p.timeline},
       command_tree_{create_command_tree(on_focus_change_request_, on_load_keys_request,
                                         on_load_keys_request_mtx, copy_buffer,
-                                        copy_buffer_mtx, p.get_process_uuid())},
+                                        copy_buffer_mtx, p.get_process_uuid(), p.laf)},
       plugin_window_{p.timeline, p.command_history, command_tree_}
 {
     this->setResizable(true, true);
@@ -158,8 +159,8 @@ XenEditor::XenEditor(XenProcessor &p)
     }
     catch (std::exception const &e)
     {
-        plugin_window_.status_bar.message_display.set_error(
-            std::string{"Check `user_keys.yml`: "} + e.what());
+        plugin_window_.status_bar.message_display.set_status(
+            MessageLevel::Error, std::string{"Check `user_keys.yml`: "} + e.what());
     }
 }
 

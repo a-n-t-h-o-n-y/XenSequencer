@@ -23,8 +23,7 @@ namespace xen
  * Minimizes spaces in a given string, while preserving spaces within double
  * quotes.
  *
- * Removes leading, trailing, and adjacent spaces.
- *
+ * @details Removes leading, trailing, and adjacent spaces.
  * @param input The input string.
  * @return std::string The modified string with minimized spaces.
  */
@@ -33,8 +32,7 @@ namespace xen
 /**
  * Returns the first word from a given string, considering double quotes.
  *
- * Words are space delimited, unless within double quotes.
- *
+ * @details Words are space delimited, unless within double quotes.
  * @param input The input string.
  * @return std::string The first word, or empty string if no words.
  */
@@ -43,8 +41,7 @@ namespace xen
 /**
  * Returns the remaining part of the string after extracting the first word.
  *
- * Words are space delimited, unless within double quotes.
- *
+ * @details Words are space delimited, unless within double quotes.
  * @param input The input string.
  * @return std::string The string after popping the first word.
  */
@@ -53,11 +50,10 @@ namespace xen
 /**
  * Counts the number of words in a string.
  *
- * This function takes a string and counts the number of words separated by spaces.
- * It also takes into account words enclosed in double quotes.
+ * @details This function takes a string and counts the number of words separated by
+ * spaces. It also takes into account words enclosed in double quotes.
  * For example: word_count("hello world") will return 2.
  *              word_count("hello \"world again\"") will return 2.
- *
  * @param input The string in which to count the words.
  * @return std::size_t The number of words in the string.
  */

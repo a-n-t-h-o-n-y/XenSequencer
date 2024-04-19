@@ -31,6 +31,7 @@ class ModeDisplay : public juce::Component
     explicit ModeDisplay(InputMode mode)
     {
         this->addAndMakeVisible(label_);
+        this->colourChanged();
         auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 16.f,
                                      juce::Font::bold};
         label_.setFont(font);
@@ -44,7 +45,6 @@ class ModeDisplay : public juce::Component
         label_.setText(juce::String(std::string(1, first_letter)),
                        juce::dontSendNotification);
         label_.setJustificationType(juce::Justification::centred);
-        label_.setColour(juce::Label::textColourId, get_color(mode));
     }
 
   protected:
@@ -55,8 +55,14 @@ class ModeDisplay : public juce::Component
 
     auto paintOverChildren(juce::Graphics &g) -> void override
     {
-        g.setColour(juce::Colours::grey);
+        g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
         g.drawRect(this->getLocalBounds(), 1);
+    }
+
+    auto colourChanged() -> void override
+    {
+        label_.setColour(juce::Label::textColourId,
+                         this->findColour((int)StatusBarColorIDs::ModeLetter));
     }
 
   private:
@@ -65,25 +71,6 @@ class ModeDisplay : public juce::Component
         auto const str = to_string(mode);
         assert(!str.empty());
         return static_cast<char>(std::toupper(str[0]));
-    }
-
-    [[nodiscard]] auto static get_color(InputMode mode) -> juce::Colour
-    {
-        switch (mode)
-        {
-        case InputMode::Movement:
-            return juce::Colours::lightcoral;
-        case InputMode::Note:
-            return juce::Colours::lightgreen;
-        case InputMode::Velocity:
-            return juce::Colours::lightblue;
-        case InputMode::Delay:
-            return juce::Colours::lightgoldenrodyellow;
-        case InputMode::Gate:
-            return juce::Colours::lightpink;
-        }
-        throw std::invalid_argument{"Invalid input mode: " +
-                                    std::to_string(static_cast<int>(mode))};
     }
 
   private:
@@ -115,54 +102,15 @@ class MessageDisplay : public juce::Component
 
     auto set_status(MessageLevel level, std::string const &text) -> void
     {
+        current_level_ = level;
+
         if (level < minimum_level_)
         {
             return;
         }
 
-        switch (level)
-        {
-        case MessageLevel::Debug:
-            this->set_debug(text);
-            break;
-        case MessageLevel::Info:
-            this->set_info(text);
-            break;
-        case MessageLevel::Warning:
-            this->set_warning(text);
-            break;
-        case MessageLevel::Error:
-            this->set_error(text);
-            break;
-        default:
-            throw std::invalid_argument{
-                "Invalid MessageLevel: " +
-                std::to_string(
-                    static_cast<std::underlying_type_t<MessageLevel>>(level))};
-        }
-    }
-
-    auto set_debug(std::string const &text) -> void
-    {
-        label_.setColour(juce::Label::textColourId, juce::Colours::white);
-        label_.setText(text, juce::dontSendNotification);
-    }
-
-    auto set_info(std::string const &text) -> void
-    {
-        label_.setColour(juce::Label::textColourId, juce::Colours::white);
-        label_.setText(text, juce::dontSendNotification);
-    }
-
-    auto set_warning(std::string const &text) -> void
-    {
-        label_.setColour(juce::Label::textColourId, juce::Colour{0xFFFFBB33});
-        label_.setText(text, juce::dontSendNotification);
-    }
-
-    auto set_error(std::string const &text) -> void
-    {
-        label_.setColour(juce::Label::textColourId, juce::Colour{0xFFFF4444});
+        label_.setColour(juce::Label::textColourId,
+                         this->findColour((int)this->get_color_id(current_level_)));
         label_.setText(text, juce::dontSendNotification);
     }
 
@@ -177,9 +125,37 @@ class MessageDisplay : public juce::Component
         label_.setBounds(getLocalBounds());
     }
 
+    auto colourChanged() -> void override
+    {
+        label_.setColour(juce::Label::textColourId,
+                         this->findColour((int)this->get_color_id(current_level_)));
+    }
+
+  private:
+    [[nodiscard]] static auto get_color_id(MessageLevel level) -> StatusBarColorIDs
+    {
+        switch (level)
+        {
+        case MessageLevel::Debug:
+            return StatusBarColorIDs::DebugText;
+        case MessageLevel::Info:
+            return StatusBarColorIDs::InfoText;
+        case MessageLevel::Warning:
+            return StatusBarColorIDs::WarningText;
+        case MessageLevel::Error:
+            return StatusBarColorIDs::ErrorText;
+        default:
+            throw std::invalid_argument{
+                "Invalid MessageLevel: " +
+                std::to_string(
+                    static_cast<std::underlying_type_t<MessageLevel>>(level))};
+        }
+    }
+
   private:
     juce::Label label_;
     MessageLevel minimum_level_{MessageLevel::Info};
+    MessageLevel current_level_{MessageLevel::Info};
 };
 
 class StatusBar : public juce::Component
@@ -209,9 +185,14 @@ class StatusBar : public juce::Component
         flex.performLayout(this->getLocalBounds());
     }
 
+    auto paint(juce::Graphics &g) -> void override
+    {
+        g.fillAll(this->findColour((int)StatusBarColorIDs::Background));
+    }
+
     auto paintOverChildren(juce::Graphics &g) -> void override
     {
-        g.setColour(juce::Colours::grey);
+        g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
         g.drawRect(this->getLocalBounds(), 1);
     }
 };

@@ -4,6 +4,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <xen/gui/color_ids.hpp>
+
 namespace xen::gui
 {
 
@@ -22,26 +24,21 @@ class Accordion : public juce::Component
 
       public:
         explicit Top(juce::String const &title_)
-            : title{"title", title_},
+            : title{"accordion title", title_},
               toggle_button{"toggle_button",
                             juce::DrawableButton::ButtonStyle::ImageFitted}
         {
+            this->colourChanged();
+
             toggle_button.setWantsKeyboardFocus(false);
 
             this->addAndMakeVisible(title);
 
             open_triangle_.setPath(create_triangle_path(true));
             closed_triangle_.setPath(create_triangle_path(false));
-            open_triangle_.setFill(juce::Colours::white);
-            closed_triangle_.setFill(juce::Colours::white);
 
             toggle_button.setImages(&closed_triangle_);
             this->addAndMakeVisible(toggle_button);
-
-            toggle_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
-                                    juce::Colours::darkgrey);
-            title.setColour(juce::Label::ColourIds::backgroundColourId,
-                            juce::Colours::darkgrey);
         }
 
       public:
@@ -61,6 +58,24 @@ class Accordion : public juce::Component
             flexbox.items.add(juce::FlexItem{title}.withFlex(1.f));
 
             flexbox.performLayout(this->getLocalBounds());
+        }
+
+        auto colourChanged() -> void override
+        {
+            auto const background =
+                this->findColour((int)AccordionColorIDs::Background);
+            auto const text = this->findColour((int)AccordionColorIDs::Text);
+            auto const triangle = this->findColour((int)AccordionColorIDs::Triangle);
+
+            title.setColour(juce::Label::ColourIds::backgroundColourId, background);
+            title.setColour(juce::Label::ColourIds::textColourId, text);
+
+            toggle_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
+                                    background);
+
+            open_triangle_.setFill(triangle);
+            closed_triangle_.setFill(triangle);
+            toggle_button.setImages(is_expanded_ ? &open_triangle_ : &closed_triangle_);
         }
 
       private:

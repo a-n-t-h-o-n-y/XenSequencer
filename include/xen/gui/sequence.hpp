@@ -15,6 +15,7 @@
 
 #include <sequence/sequence.hpp>
 
+#include <xen/gui/color_ids.hpp>
 #include <xen/gui/homogenous_row.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
@@ -44,6 +45,15 @@ class Cell : public juce::Component
     }
 
   protected:
+    // auto paint(juce::Graphics &g) -> void override
+    // {
+    //     // g.setColour(this->findColour((int)MeasureColorIDs::Background));
+    //     std::cerr <<  "color value: " <<
+    //     this->findColour((int)MeasureColorIDs::Background).getARGB() << "\n";
+    //     g.setColour(juce::Colours::red);
+    //     g.fillAll();
+    // }
+
     auto paintOverChildren(juce::Graphics &g) -> void override
     {
         if (selected_)
@@ -55,7 +65,7 @@ class Cell : public juce::Component
             float const x_start = margin;
             float const x_end = static_cast<float>(this->getWidth() - margin);
 
-            g.setColour(juce::Colours::khaki);
+            g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
             g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
         }
     }
@@ -69,37 +79,35 @@ class Rest : public Cell
   public:
     explicit Rest(sequence::Rest)
     {
-        this->addAndMakeVisible(label_);
-
-        label_.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
-        label_.setColour(juce::Label::ColourIds::textColourId, juce::Colours::white);
-        label_.setJustificationType(juce::Justification::centred);
     }
 
   protected:
-    auto resized() -> void override
-    {
-        label_.setBounds(this->getLocalBounds());
-    }
-
     auto paint(juce::Graphics &g) -> void override
     {
+        g.setColour(this->findColour((int)MeasureColorIDs::Background));
+        g.fillAll();
+
         constexpr auto max_radius = 25.f;
         constexpr auto min_radius = 10.f;
 
-        auto const bounds = getLocalBounds().toFloat().reduced(2.f, 4.f);
+        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
         auto const width = static_cast<float>(getWidth());
         auto const corner_radius =
             juce::jlimit(min_radius, max_radius,
                          juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
         auto const line_thickness = 2.f;
 
-        g.setColour(juce::Colours::powderblue);
-        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
-    }
+        g.setColour(this->findColour((int)RestColorIDs::Foreground));
+        g.fillRoundedRectangle(bounds, corner_radius);
 
-  private:
-    juce::Label label_{"R", "R"};
+        g.setColour(this->findColour((int)RestColorIDs::Outline));
+        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+
+        auto const font = juce::Font{"Arial", "Normal", 16.f}.boldened();
+        g.setFont(font);
+        g.setColour(this->findColour((int)RestColorIDs::Text));
+        g.drawText("R", bounds, juce::Justification::centred);
+    }
 };
 
 class NoteInterval : public juce::Component
@@ -115,16 +123,25 @@ class NoteInterval : public juce::Component
   protected:
     auto paint(juce::Graphics &g) -> void override;
 
+    auto colourChanged() -> void override
+    {
+        this->set_velocity(velocity_);
+    }
+
   private:
     auto set_velocity(float vel) -> void
     {
+        velocity_ = vel;
         auto const brightness = std::lerp(0.5f, 1.f, vel);
-        bg_color_ = juce::Colour{0xFF0ad0f5}.withBrightness(
-            compare_within_tolerance(vel, 0.f, 1e-6f) ? 0.2f : brightness);
+        bg_color_ =
+            this->findColour((int)NoteColorIDs::Foreground)
+                .withBrightness(compare_within_tolerance(vel, 0.f, 1e-6f) ? 0.2f
+                                                                          : brightness);
         this->repaint();
     }
 
   private:
+    float velocity_;
     int interval_;
     std::size_t tuning_length_;
 
@@ -257,7 +274,7 @@ class SequenceIndicator : public juce::Component
         float const x_start = margin;
         float const x_end = static_cast<float>(this->getWidth() - margin);
 
-        g.setColour(juce::Colours::powderblue);
+        g.setColour(this->findColour((int)MeasureColorIDs::Outline));
         g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
     }
 };
@@ -281,6 +298,12 @@ class Sequence : public Cell
     }
 
   protected:
+    auto paint(juce::Graphics &g) -> void override
+    {
+        g.setColour(this->findColour((int)MeasureColorIDs::Background));
+        g.fillAll();
+    }
+
     auto resized() -> void override
     {
         auto flexbox = juce::FlexBox{};

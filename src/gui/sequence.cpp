@@ -12,6 +12,7 @@
 
 #include <sequence/sequence.hpp>
 
+#include <xen/gui/color_ids.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
@@ -77,9 +78,10 @@ using namespace xen;
 
 [[nodiscard]] auto from_gradient(float value, float min, float max) -> juce::Colour
 {
-    juce::Colour startColor = juce::Colour{0xFF020024};
-    juce::Colour middleColor = juce::Colour{0xFF125CB1};
-    juce::Colour endColor = juce::Colour{0xFFDA0000};
+    auto &laf = juce::LookAndFeel::getDefaultLookAndFeel();
+    juce::Colour startColor = laf.findColour((int)gui::NoteColorIDs::IntervalLow);
+    juce::Colour middleColor = laf.findColour((int)gui::NoteColorIDs::IntervalMid);
+    juce::Colour endColor = laf.findColour((int)gui::NoteColorIDs::IntervalHigh);
 
     juce::ColourGradient gradient;
     gradient.isRadial = false;
@@ -119,6 +121,9 @@ Sequence::Sequence(sequence::Sequence const &seq, State const &state)
 
 auto NoteInterval::paint(juce::Graphics &g) -> void
 {
+    g.setColour(this->findColour((int)MeasureColorIDs::Background));
+    g.fillAll();
+
     // Paint Background Rectangle ------------------------------------------------
     constexpr auto max_radius = 25.f;
     constexpr auto min_radius = 10.f;
@@ -150,7 +155,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
         auto font_size = std::min(16.f, interval_bounds.getHeight());
         auto font = juce::Font{"Arial", "Normal", font_size}.boldened();
         g.setFont(font);
-        g.setColour(juce::Colours::white);
+        g.setColour(this->findColour((int)NoteColorIDs::IntervalText));
 
         auto const margin = std::max(
             0.f, corner_radius - ((float)font.getStringWidth(interval_text) / 2.f));
@@ -173,7 +178,7 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
             octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
         }
 
-        g.setColour(juce::Colours::white);
+        g.setColour(this->findColour((int)NoteColorIDs::OctaveText));
         g.drawText(octave_text, this->getLocalBounds(), juce::Justification::centred);
     }
 }

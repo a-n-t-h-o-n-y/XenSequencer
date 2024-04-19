@@ -14,6 +14,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
+#include <xen/gui/color_ids.hpp>
 #include <xen/guide_text.hpp>
 #include <xen/message_level.hpp>
 #include <xen/signature.hpp>
@@ -41,10 +42,6 @@ class CommandInput : public juce::TextEditor
         this->setMultiLine(false, false);
         this->setReturnKeyStartsNewLine(false);
         this->setEscapeAndReturnKeysConsumed(true);
-        this->setOpaque(false);
-        this->setColour(juce::TextEditor::backgroundColourId,
-                        juce::Colours::transparentWhite);
-        this->setColour(juce::TextEditor::textColourId, juce::Colours::white);
     }
 
   public:
@@ -91,15 +88,18 @@ class CommandBar : public juce::Component
         this->setComponentID("CommandBar");
         this->setWantsKeyboardFocus(true);
 
+        this->colourChanged();
+
+        this->addAndMakeVisible(command_input_);
         this->addAndMakeVisible(ghost_text_);
+
         ghost_text_.setMultiLine(false, false);
         ghost_text_.setReadOnly(true);
         ghost_text_.setEnabled(false);
-        ghost_text_.setColour(juce::TextEditor::textColourId, juce::Colours::grey);
         ghost_text_.setInterceptsMouseClicks(false, false);
         ghost_text_.setWantsKeyboardFocus(false);
+        ghost_text_.setOpaque(false);
 
-        this->addAndMakeVisible(command_input_);
         command_input_.onReturnKey = [this] {
             this->do_send_command();
             this->clear();
@@ -162,6 +162,23 @@ class CommandBar : public juce::Component
     {
         // Forward focus to child component
         command_input_.grabKeyboardFocus();
+    }
+
+    auto colourChanged() -> void override
+    {
+        auto const bg = this->findColour((int)CommandBarColorIDs::Background);
+        auto const text = this->findColour((int)CommandBarColorIDs::Text);
+        auto const ghost = this->findColour((int)CommandBarColorIDs::GhostText);
+        auto const outline = this->findColour((int)CommandBarColorIDs::Outline);
+
+        command_input_.setColour(juce::TextEditor::backgroundColourId, bg);
+        command_input_.setColour(juce::TextEditor::textColourId, text);
+        command_input_.setColour(juce::TextEditor::focusedOutlineColourId, outline);
+        command_input_.setColour(juce::TextEditor::outlineColourId, outline);
+
+        ghost_text_.setColour(juce::TextEditor::textColourId, ghost);
+        ghost_text_.setColour(juce::TextEditor::backgroundColourId,
+                              juce::Colours::transparentWhite);
     }
 
   private:
@@ -278,7 +295,7 @@ class CommandBar : public juce::Component
     CommandInput command_input_;
     juce::TextEditor ghost_text_;
     CommandHistory &command_history_;
-    xen::XenCommandTree const& command_tree_;
+    xen::XenCommandTree const &command_tree_;
 };
 
 } // namespace xen::gui

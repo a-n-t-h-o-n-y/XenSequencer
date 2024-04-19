@@ -1,10 +1,11 @@
 #include <xen/gui/directory_view.hpp>
 
+#include <xen/gui/color_ids.hpp>
+
 namespace xen::gui
 {
 
-PhraseDirectoryViewComponent::PhraseDirectoryViewComponent(
-    juce::File const &initial_directory)
+PhraseDirectoryView::PhraseDirectoryView(juce::File const &initial_directory)
 {
     directory_contents_list_.setDirectory(initial_directory, true, true);
     this->on_directory_change(initial_directory);
@@ -15,20 +16,20 @@ PhraseDirectoryViewComponent::PhraseDirectoryViewComponent(
     dcl_thread_.startThread(juce::Thread::Priority::low);
 }
 
-PhraseDirectoryViewComponent::~PhraseDirectoryViewComponent()
+PhraseDirectoryView::~PhraseDirectoryView()
 {
     this->stopTimer();
     dcl_thread_.stopThread(3'000); // Allow some time for thread to finish
     directory_contents_list_.removeChangeListener(this);
 }
 
-auto PhraseDirectoryViewComponent::resized() -> void
+auto PhraseDirectoryView::resized() -> void
 {
     list_box_.setBounds(this->getLocalBounds());
 }
 
-auto PhraseDirectoryViewComponent::changeListenerCallback(
-    juce::ChangeBroadcaster *source) -> void
+auto PhraseDirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source)
+    -> void
 {
     if (source == &directory_contents_list_)
     {
@@ -37,8 +38,9 @@ auto PhraseDirectoryViewComponent::changeListenerCallback(
     }
 }
 
-auto PhraseDirectoryViewComponent::listBoxItemDoubleClicked(
-    int row, juce::MouseEvent const &mouse) -> void
+auto PhraseDirectoryView::listBoxItemDoubleClicked(int row,
+                                                   juce::MouseEvent const &mouse)
+    -> void
 {
     if (mouse.mods.isLeftButtonDown())
     {
@@ -46,12 +48,12 @@ auto PhraseDirectoryViewComponent::listBoxItemDoubleClicked(
     }
 }
 
-auto PhraseDirectoryViewComponent::returnKeyPressed(int lastRowSelected) -> void
+auto PhraseDirectoryView::returnKeyPressed(int lastRowSelected) -> void
 {
     this->item_selected(lastRowSelected);
 }
 
-auto PhraseDirectoryViewComponent::keyPressed(juce::KeyPress const &key) -> bool
+auto PhraseDirectoryView::keyPressed(juce::KeyPress const &key) -> bool
 {
     if (key.getTextCharacter() == 'j')
     {
@@ -64,21 +66,36 @@ auto PhraseDirectoryViewComponent::keyPressed(juce::KeyPress const &key) -> bool
     return list_box_.keyPressed(key);
 }
 
-auto PhraseDirectoryViewComponent::getNumRows() -> int
+auto PhraseDirectoryView::colourChanged() -> void
+{
+    list_box_.setColour(
+        juce::ListBox::backgroundColourId,
+        this->findColour((int)PhraseDirectoryViewColorIDs::ItemBackground));
+}
+
+auto PhraseDirectoryView::getNumRows() -> int
 {
     return directory_contents_list_.getNumFiles() + 1;
 }
 
-auto PhraseDirectoryViewComponent::paintListBoxItem(int rowNumber, juce::Graphics &g,
-                                                    int width, int height,
-                                                    bool rowIsSelected) -> void
+auto PhraseDirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
+                                           int height, bool rowIsSelected) -> void
 {
     if (rowNumber >= 0)
     {
         rowNumber -= 1;
         if (rowIsSelected)
         {
-            g.fillAll(juce::Colours::lightblue);
+            g.fillAll(this->findColour(
+                (int)PhraseDirectoryViewColorIDs::SelectedItemBackground));
+            g.setColour(
+                this->findColour((int)PhraseDirectoryViewColorIDs::SelectedItemText));
+        }
+        else
+        {
+            g.fillAll(
+                this->findColour((int)PhraseDirectoryViewColorIDs::ItemBackground));
+            g.setColour(this->findColour((int)PhraseDirectoryViewColorIDs::ItemText));
         }
         auto const filename = [&]() -> juce::String {
             if (rowNumber == -1)
@@ -91,18 +108,17 @@ auto PhraseDirectoryViewComponent::paintListBoxItem(int rowNumber, juce::Graphic
                        : file.getFileNameWithoutExtension();
         }();
 
-        g.setColour(juce::Colours::white);
         g.drawText(filename, 2, 0, width - 4, height, juce::Justification::centredLeft,
                    true);
     }
 }
 
-auto PhraseDirectoryViewComponent::timerCallback() -> void
+auto PhraseDirectoryView::timerCallback() -> void
 {
     directory_contents_list_.refresh();
 }
 
-auto PhraseDirectoryViewComponent::item_selected(int index) -> void
+auto PhraseDirectoryView::item_selected(int index) -> void
 {
     index -= 1;
 

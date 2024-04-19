@@ -18,6 +18,7 @@
 #include <xen/gui/phrase_editor.hpp>
 
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/color_ids.hpp>
 #include <xen/gui/directory_view.hpp>
 #include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
@@ -38,7 +39,7 @@ class PhrasesView : public juce::Component
 {
   public:
     juce::Label library_label;
-    PhraseDirectoryViewComponent directory_view;
+    PhraseDirectoryView directory_view;
     juce::Label active_sessions_label;
     ActiveSessions active_sessions_view;
 
@@ -65,6 +66,22 @@ class PhrasesView : public juce::Component
         flexbox.items.add(juce::FlexItem{active_sessions_view}.withFlex(0.5f));
 
         flexbox.performLayout(this->getLocalBounds());
+    }
+
+    auto colourChanged() -> void override
+    {
+        library_label.setColour(
+            juce::Label::textColourId,
+            this->findColour((int)PhraseDirectoryViewColorIDs::TitleText));
+        library_label.setColour(
+            juce::Label::backgroundColourId,
+            this->findColour((int)PhraseDirectoryViewColorIDs::TitleBackground));
+        active_sessions_label.setColour(
+            juce::Label::textColourId,
+            this->findColour((int)ActiveSessionsColorIDs::TitleText));
+        active_sessions_label.setColour(
+            juce::Label::backgroundColourId,
+            this->findColour((int)ActiveSessionsColorIDs::TitleBackground));
     }
 };
 

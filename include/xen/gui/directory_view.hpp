@@ -10,10 +10,10 @@
 namespace xen::gui
 {
 
-class PhraseDirectoryViewComponent : public juce::Component,
-                                     public juce::ListBoxModel,
-                                     public juce::ChangeListener,
-                                     private juce::Timer
+class PhraseDirectoryView : public juce::Component,
+                            public juce::ListBoxModel,
+                            public juce::ChangeListener,
+                            private juce::Timer
 {
   private:
     inline static constexpr auto POLLING_MS = 2'000;
@@ -23,9 +23,9 @@ class PhraseDirectoryViewComponent : public juce::Component,
     sl::Signal<void(juce::File const &)> on_directory_change;
 
   public:
-    explicit PhraseDirectoryViewComponent(juce::File const &initial_directory);
+    explicit PhraseDirectoryView(juce::File const &initial_directory);
 
-    ~PhraseDirectoryViewComponent() override;
+    ~PhraseDirectoryView() override;
 
   public:
     auto resized() -> void override;
@@ -38,6 +38,8 @@ class PhraseDirectoryViewComponent : public juce::Component,
     auto returnKeyPressed(int lastRowSelected) -> void override;
 
     auto keyPressed(juce::KeyPress const &key) -> bool override;
+
+    auto colourChanged() -> void override;
 
   private:
     auto getNumRows() -> int override;

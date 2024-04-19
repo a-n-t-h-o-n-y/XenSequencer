@@ -15,8 +15,10 @@
 
 #include <xen/actions.hpp>
 #include <xen/command.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
+#include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_timeline.hpp>
 
@@ -33,7 +35,7 @@ namespace xen
     sl::Signal<void(std::string const &)> &on_focus_change_request,
     sl::Signal<void()> &on_load_keys_request, std::mutex &on_load_keys_request_mtx,
     std::optional<sequence::Cell> &copy_buffer, std::mutex &copy_buffer_mtx,
-    juce::Uuid const &uuid)
+    juce::Uuid const &uuid, std::unique_ptr<juce::LookAndFeel> &laf_ref)
 {
     return cmd_group(
         "", ArgInfo<std::string>{"command_name"},
@@ -454,6 +456,24 @@ namespace xen
                 ArgInfo<float>{"freq", 440.f}),
 
             cmd(
+                "theme", "Set the color theme of the app by name.",
+                [&laf_ref](XenTimeline &, sequence::Pattern const &, std::string name) {
+                    name = to_lower(strip(name));
+                    if (name == "dark")
+                    {
+                        name = "apollo";
+                    }
+                    else if (name == "light")
+                    {
+                        name = "coal";
+                    }
+                    laf_ref = gui::find_theme(name);
+                    juce::LookAndFeel::setDefaultLookAndFeel(laf_ref.get());
+                    return minfo("Theme Set");
+                },
+                ArgInfo<std::string>{"name"}),
+
+            cmd(
                 "phraseName", "Set the name of the current Phrase to `name`.",
                 [](XenTimeline &tl, sequence::Pattern const &, std::string name) {
                     auto aux = tl.get_aux_state();
@@ -651,6 +671,7 @@ using XenCommandTree = decltype(create_command_tree(
     std::declval<sl::Signal<void(std::string const &)> &>(),
     std::declval<sl::Signal<void()> &>(), std::declval<std::mutex &>(),
     std::declval<std::optional<sequence::Cell> &>(), std::declval<std::mutex &>(),
-    std::declval<juce::Uuid const &>()));
+    std::declval<juce::Uuid const &>(),
+    std::declval<std::unique_ptr<juce::LookAndFeel> &>()));
 
 } // namespace xen

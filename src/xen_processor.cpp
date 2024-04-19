@@ -12,6 +12,7 @@
 #include <juce_core/juce_core.h>
 #include <sequence/measure.hpp>
 
+#include <xen/gui/themes.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/user_directory.hpp>
@@ -53,9 +54,11 @@ namespace xen
 XenProcessor::XenProcessor()
     : timeline{init_state(), {}},
       active_sessions{CURRENT_PROCESS_UUID, metadata.display_name},
-      plugin_state_{init_state()}, last_rendered_time_{}
+      laf{gui::find_theme("apollo")}, plugin_state_{init_state()}, last_rendered_time_{}
 
 {
+    juce::LookAndFeel::setDefaultLookAndFeel(laf.get());
+
     initialize_demo_files();
 
     active_sessions.on_display_name_request.connect(

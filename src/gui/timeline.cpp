@@ -9,6 +9,7 @@
 #include <sequence/measure.hpp>
 #include <sequence/utility.hpp>
 
+#include <xen/gui/color_ids.hpp>
 #include <xen/state.hpp>
 
 namespace
@@ -35,13 +36,14 @@ auto paint_notes(juce::Graphics &g, sequence::Cell const &cell,
                  juce::Rectangle<float> bounds) -> void
 {
     using namespace sequence;
+    auto const &laf = juce::LookAndFeel::getDefaultLookAndFeel();
     std::visit(utility::overload{
                    [&](Note const &) {
-                       g.setColour(juce::Colours::white);
+                       g.setColour(laf.findColour((int)gui::TimelineColorIDs::Note));
                        g.fillRoundedRectangle(bounds.toFloat().reduced(2.f, 0.f), 2.f);
                    },
                    [&](Rest const &) {
-                       g.setColour(juce::Colours::darkgrey);
+                       g.setColour(laf.findColour((int)gui::TimelineColorIDs::Rest));
                        g.fillRoundedRectangle(bounds.toFloat().reduced(2.f, 0.f), 2.f);
                    },
                    [&](Sequence const &s) {
@@ -69,7 +71,7 @@ void TimelineMeasure::paint(juce::Graphics &g)
 {
     if (selected_)
     {
-        g.setColour(juce::Colour{0xFFCFBC54});
+        g.setColour(this->findColour((int)TimelineColorIDs::SelectionHighlight));
         g.fillRoundedRectangle(this->getLocalBounds().toFloat(), 4.f);
     }
 
@@ -90,13 +92,16 @@ auto Timeline::set(sequence::Phrase const &phrase, SelectedState const &selected
 
 void Timeline::paint(juce::Graphics &g)
 {
-    g.setColour(juce::Colours::white);
+    g.fillAll(this->findColour((int)TimelineColorIDs::Background));
 
     auto const num_measures = measures_.size();
     if (num_measures == 0)
     {
         return;
     }
+
+    g.setColour(this->findColour((int)TimelineColorIDs::VerticalSeparator));
+
     for (auto i = std::size_t{0}; i < num_measures - 1; ++i)
     {
         auto const &left_measure = *measures_[i];

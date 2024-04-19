@@ -8,6 +8,8 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/color_ids.hpp>
+
 namespace xen::gui
 {
 
@@ -69,6 +71,8 @@ class NameEdit : public juce::Label
 
   protected:
     auto textWasEdited() -> void override;
+
+    auto colourChanged() -> void override;
 };
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -104,6 +108,8 @@ class ActiveSessions : public juce::Component
 
   protected:
     auto resized() -> void override;
+
+    auto colourChanged() -> void override;
 
   private:
     NameEdit name_edit_;

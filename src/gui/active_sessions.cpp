@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include <xen/gui/color_ids.hpp>
+
 namespace xen::gui
 {
 
@@ -47,9 +49,17 @@ auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
 {
     if (row >= 0 && row < this->getNumRows())
     {
+        auto &laf = juce::LookAndFeel::getDefaultLookAndFeel();
         if (rowIsSelected)
         {
-            g.fillAll(juce::Colours::lightblue);
+            g.fillAll(
+                laf.findColour((int)ActiveSessionsColorIDs::SelectedItemBackground));
+            g.setColour(laf.findColour((int)ActiveSessionsColorIDs::SelectedItemText));
+        }
+        else
+        {
+            g.fillAll(laf.findColour((int)ActiveSessionsColorIDs::ItemBackground));
+            g.setColour(laf.findColour((int)ActiveSessionsColorIDs::ItemText));
         }
 
         g.setColour(juce::Colours::white);
@@ -77,6 +87,22 @@ NameEdit::NameEdit()
 auto NameEdit::textWasEdited() -> void
 {
     on_name_changed(this->getText().toStdString());
+}
+
+auto NameEdit::colourChanged() -> void
+{
+    this->setColour(juce::Label::textColourId,
+                    this->findColour((int)ActiveSessionsColorIDs::CurrentItemText));
+    this->setColour(
+        juce::Label::backgroundColourId,
+        this->findColour((int)ActiveSessionsColorIDs::CurrentItemBackground));
+    this->setColour(juce::Label::outlineWhenEditingColourId,
+                    this->findColour((int)ActiveSessionsColorIDs::OutlineWhenEditing));
+    this->setColour(
+        juce::Label::backgroundWhenEditingColourId,
+        this->findColour((int)ActiveSessionsColorIDs::BackgroundWhenEditing));
+    this->setColour(juce::Label::textWhenEditingColourId,
+                    this->findColour((int)ActiveSessionsColorIDs::TextWhenEditing));
 }
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -122,6 +148,13 @@ auto ActiveSessions::resized() -> void
     flexbox.items.add(juce::FlexItem{instance_list_box_}.withFlex(1.0f));
 
     flexbox.performLayout(this->getLocalBounds());
+}
+
+auto ActiveSessions::colourChanged() -> void
+{
+    instance_list_box_.setColour(
+        juce::ListBox::backgroundColourId,
+        this->findColour((int)ActiveSessionsColorIDs::ItemBackground));
 }
 
 } // namespace xen::gui
