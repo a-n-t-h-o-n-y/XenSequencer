@@ -54,10 +54,10 @@ namespace xen
 XenProcessor::XenProcessor()
     : timeline{init_state(), {}},
       active_sessions{CURRENT_PROCESS_UUID, metadata.display_name},
-      laf{gui::find_theme("apollo")}, plugin_state_{init_state()}, last_rendered_time_{}
+      plugin_state_{init_state()}, last_rendered_time_{}
 
 {
-    juce::LookAndFeel::setDefaultLookAndFeel(laf.get());
+    this->set_look_and_feel(gui::find_theme("apollo"));
 
     initialize_demo_files();
 
@@ -71,11 +71,29 @@ XenProcessor::XenProcessor()
 
     active_sessions.on_state_response.connect(
         [this](State const &state) { timeline.add_state(state); });
+
+    on_theme_update_request.connect([this](std::string_view name) {
+        this->set_look_and_feel(gui::find_theme(name));
+    });
 }
 
 auto XenProcessor::get_process_uuid() const -> juce::Uuid
 {
     return CURRENT_PROCESS_UUID;
+}
+
+auto XenProcessor::set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void
+{
+    if (laf == nullptr)
+    {
+        throw std::invalid_argument{"LookAndFeel cannot be nullptr"};
+    }
+    auto *editor = this->getActiveEditor();
+    if (editor != nullptr)
+    {
+        editor->setLookAndFeel(laf.get());
+    }
+    laf_ = std::move(laf);
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -180,7 +198,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
 
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 {
-    return new gui::XenEditor{*this};
+    return new gui::XenEditor{*this, *laf_};
 }
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void

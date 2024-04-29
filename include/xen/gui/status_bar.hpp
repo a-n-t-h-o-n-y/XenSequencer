@@ -31,11 +31,12 @@ class ModeDisplay : public juce::Component
     explicit ModeDisplay(InputMode mode)
     {
         this->addAndMakeVisible(label_);
-        this->colourChanged();
         auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 16.f,
                                      juce::Font::bold};
         label_.setFont(font);
         this->set(mode);
+
+        this->lookAndFeelChanged();
     }
 
   public:
@@ -59,7 +60,7 @@ class ModeDisplay : public juce::Component
         g.drawRect(this->getLocalBounds(), 1);
     }
 
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
         label_.setColour(juce::Label::textColourId,
                          this->findColour((int)StatusBarColorIDs::ModeLetter));
@@ -125,7 +126,7 @@ class MessageDisplay : public juce::Component
         label_.setBounds(getLocalBounds());
     }
 
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
         label_.setColour(juce::Label::textColourId,
                          this->findColour((int)this->get_color_id(current_level_)));

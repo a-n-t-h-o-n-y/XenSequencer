@@ -38,9 +38,9 @@ namespace xen::gui
 class PhrasesView : public juce::Component
 {
   public:
-    juce::Label library_label;
+    LabelWithLine library_label;
     PhraseDirectoryView directory_view;
-    juce::Label active_sessions_label;
+    LabelWithLine active_sessions_label;
     ActiveSessions active_sessions_view;
 
   public:
@@ -48,6 +48,8 @@ class PhrasesView : public juce::Component
         : library_label{"Library Label", "Library"}, directory_view{library_location},
           active_sessions_label{"Active Sessions View", "Active Sessions"}
     {
+        library_label.setFont(library_label.getFont().boldened());
+        active_sessions_label.setFont(active_sessions_label.getFont().boldened());
         this->addAndMakeVisible(library_label);
         this->addAndMakeVisible(directory_view);
         this->addAndMakeVisible(active_sessions_label);
@@ -58,17 +60,28 @@ class PhrasesView : public juce::Component
     auto resized() -> void override
     {
         auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::column;
+        flexbox.flexDirection = juce::FlexBox::Direction::row;
 
-        flexbox.items.add(juce::FlexItem{library_label}.withHeight(15.f));
-        flexbox.items.add(juce::FlexItem{directory_view}.withFlex(1.f));
-        flexbox.items.add(juce::FlexItem{active_sessions_label}.withHeight(15.f));
-        flexbox.items.add(juce::FlexItem{active_sessions_view}.withFlex(0.5f));
+        auto flexbox_library = juce::FlexBox{};
+        flexbox_library.flexDirection = juce::FlexBox::Direction::column;
+
+        flexbox_library.items.add(juce::FlexItem{library_label}.withHeight(15.f));
+        flexbox_library.items.add(juce::FlexItem{directory_view}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{flexbox_library}.withFlex(1.f));
+
+        auto flexbox_active_sessions = juce::FlexBox{};
+        flexbox_active_sessions.flexDirection = juce::FlexBox::Direction::column;
+
+        flexbox_active_sessions.items.add(
+            juce::FlexItem{active_sessions_label}.withHeight(15.f));
+        flexbox_active_sessions.items.add(
+            juce::FlexItem{active_sessions_view}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{flexbox_active_sessions}.withFlex(1.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }
 
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
         library_label.setColour(
             juce::Label::textColourId,

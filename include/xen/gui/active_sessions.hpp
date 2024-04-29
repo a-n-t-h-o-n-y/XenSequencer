@@ -19,6 +19,11 @@ class InstanceModel : public juce::ListBoxModel
     sl::Signal<void(juce::Uuid const &)> on_instance_selected;
 
   public:
+    InstanceModel(juce::Component &parent) : parent_{parent}
+    {
+    }
+
+  public:
     /**
      * Add an item to the listbox.
      *
@@ -54,6 +59,7 @@ class InstanceModel : public juce::ListBoxModel
   private:
     // {Instance UUID, Display Name}
     std::vector<std::pair<juce::Uuid, std::string>> items_;
+    juce::Component &parent_;
 };
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -72,7 +78,7 @@ class NameEdit : public juce::Label
   protected:
     auto textWasEdited() -> void override;
 
-    auto colourChanged() -> void override;
+    auto lookAndFeelChanged() -> void override;
 };
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -109,12 +115,12 @@ class ActiveSessions : public juce::Component
   protected:
     auto resized() -> void override;
 
-    auto colourChanged() -> void override;
+    auto lookAndFeelChanged() -> void override;
 
   private:
     NameEdit name_edit_;
     juce::ListBox instance_list_box_;
-    InstanceModel instance_model_;
+    InstanceModel instance_model_{*this};
 
   public:
     sl::Signal<void(juce::Uuid const &)> &on_instance_selected{

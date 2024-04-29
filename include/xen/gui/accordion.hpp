@@ -9,6 +9,27 @@
 namespace xen::gui
 {
 
+class LabelWithLine : public juce::Label
+{
+  public:
+    explicit LabelWithLine(const juce::String &componentName = juce::String(),
+                           const juce::String &labelText = juce::String())
+        : juce::Label(componentName, labelText)
+    {
+    }
+
+  protected:
+    auto paint(juce::Graphics &g) -> void override
+    {
+        this->juce::Label::paint(g);
+
+        g.setColour(this->findColour((int)AccordionColorIDs::TitleUnderline));
+
+        g.fillRect(0.f, static_cast<float>(getHeight() - 1),
+                   static_cast<float>(getWidth()), 1.f);
+    }
+};
+
 /**
  * Collapsible component with a title and a child component.
  */
@@ -28,17 +49,18 @@ class Accordion : public juce::Component
               toggle_button{"toggle_button",
                             juce::DrawableButton::ButtonStyle::ImageFitted}
         {
-            this->colourChanged();
-
             toggle_button.setWantsKeyboardFocus(false);
 
             this->addAndMakeVisible(title);
+            title.setFont(title.getFont().boldened());
 
             open_triangle_.setPath(create_triangle_path(true));
             closed_triangle_.setPath(create_triangle_path(false));
 
             toggle_button.setImages(&closed_triangle_);
             this->addAndMakeVisible(toggle_button);
+
+            this->lookAndFeelChanged();
         }
 
       public:
@@ -60,7 +82,7 @@ class Accordion : public juce::Component
             flexbox.performLayout(this->getLocalBounds());
         }
 
-        auto colourChanged() -> void override
+        auto lookAndFeelChanged() -> void override
         {
             auto const background =
                 this->findColour((int)AccordionColorIDs::Background);
@@ -84,16 +106,17 @@ class Accordion : public juce::Component
          */
         [[nodiscard]] static auto create_triangle_path(bool pointing_down) -> juce::Path
         {
-            auto path = juce::Path{};
-            pointing_down ? path.addTriangle({2.f, 2.f}, {8.f, 5.f}, {2.f, 8.f})
-                          : path.addTriangle({2.f, 2.f}, {8.f, 2.f}, {5.f, 8.f});
-            return path;
+            return pointing_down
+                       ? juce::Drawable::parseSVGPath(
+                             "M480-345 240-585l56-56 184 184 184-184 56 56-240 240Z")
+                       : juce::Drawable::parseSVGPath(
+                             "M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z");
         }
 
       private:
         juce::DrawablePath open_triangle_;
         juce::DrawablePath closed_triangle_;
-        bool is_expanded_ = false;
+        bool is_expanded_ = true; // opposite, because we toggle on construction
     };
 
   private:
@@ -164,7 +187,7 @@ class Accordion : public juce::Component
     }
 
   private:
-    bool is_expanded_ = true;
+    bool is_expanded_ = true; // opposite, because we toggle on construction
     juce::FlexItem flexitem_{};
 };
 

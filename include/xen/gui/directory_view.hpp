@@ -39,7 +39,7 @@ class PhraseDirectoryView : public juce::Component,
 
     auto keyPressed(juce::KeyPress const &key) -> bool override;
 
-    auto colourChanged() -> void override;
+    auto lookAndFeelChanged() -> void override;
 
   private:
     auto getNumRows() -> int override;

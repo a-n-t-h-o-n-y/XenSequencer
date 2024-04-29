@@ -81,11 +81,12 @@ auto set_key_listeners(std::map<std::string, xen::KeyConfigListener> previous_li
 namespace xen::gui
 {
 
-XenEditor::XenEditor(XenProcessor &p)
+XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
     : AudioProcessorEditor{p}, timeline_{p.timeline},
       command_tree_{create_command_tree(on_focus_change_request_, on_load_keys_request,
-                                        on_load_keys_request_mtx, copy_buffer,
-                                        copy_buffer_mtx, p.get_process_uuid(), p.laf)},
+                                        on_load_keys_request_mtx,
+                                        p.on_theme_update_request, copy_buffer,
+                                        copy_buffer_mtx, p.get_process_uuid())},
       plugin_window_{p.timeline, p.command_history, command_tree_}
 {
     this->setResizable(true, true);
@@ -93,6 +94,8 @@ XenEditor::XenEditor(XenProcessor &p)
     this->setResizeLimits(400, 300, 1200, 900);
 
     this->addAndMakeVisible(&plugin_window_);
+
+    this->setLookAndFeel(&laf);
 
     {
         auto slot = sl::Slot<void(State const &, AuxState const &)>{

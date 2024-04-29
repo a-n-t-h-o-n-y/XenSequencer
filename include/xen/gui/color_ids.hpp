@@ -8,6 +8,7 @@ enum class AccordionColorIDs
     Background = 0xA000000,
     Text = 0xA000001,
     Triangle = 0xA000003,
+    TitleUnderline = 0xA000004,
 };
 
 enum class PhraseDirectoryViewColorIDs
@@ -17,7 +18,7 @@ enum class PhraseDirectoryViewColorIDs
     ItemBackground = 0xA000012,
     ItemText = 0xA000013,
     SelectedItemBackground = 0xA000014,
-    SelectedItemText = 0xA000015,
+    SelectedItemText = 0xA00001,
 };
 
 enum class ActiveSessionsColorIDs

@@ -2,9 +2,12 @@
 
 #include <chrono>
 #include <memory>
+#include <string_view>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+
+#include <signals_light/signal.hpp>
 
 #include <sequence/sequence.hpp>
 
@@ -30,7 +33,8 @@ class XenProcessor : public PluginProcessor
     XenTimeline timeline;
     CommandHistory command_history;
     ActiveSessions active_sessions;
-    std::unique_ptr<juce::LookAndFeel> laf;
+
+    sl::Signal<void(std::string_view)> on_theme_update_request;
 
   public:
     XenProcessor();
@@ -39,6 +43,8 @@ class XenProcessor : public PluginProcessor
 
   public:
     [[nodiscard]] auto get_process_uuid() const -> juce::Uuid;
+
+    auto set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void;
 
   protected:
     auto processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) -> void override;
@@ -69,6 +75,8 @@ class XenProcessor : public PluginProcessor
     bool is_playing_{false};
     juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
     juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
+
+    std::unique_ptr<juce::LookAndFeel> laf_{nullptr};
 };
 
 } // namespace xen

@@ -123,7 +123,7 @@ class NoteInterval : public juce::Component
   protected:
     auto paint(juce::Graphics &g) -> void override;
 
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
         this->set_velocity(velocity_);
     }

@@ -49,7 +49,7 @@ auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
 {
     if (row >= 0 && row < this->getNumRows())
     {
-        auto &laf = juce::LookAndFeel::getDefaultLookAndFeel();
+        auto &laf = parent_.getLookAndFeel();
         if (rowIsSelected)
         {
             g.fillAll(
@@ -62,7 +62,6 @@ auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
             g.setColour(laf.findColour((int)ActiveSessionsColorIDs::ItemText));
         }
 
-        g.setColour(juce::Colours::white);
         g.drawText(items_[(std::size_t)row].second, 2, 0, width - 4, height,
                    juce::Justification::centredLeft, true);
     }
@@ -89,7 +88,7 @@ auto NameEdit::textWasEdited() -> void
     on_name_changed(this->getText().toStdString());
 }
 
-auto NameEdit::colourChanged() -> void
+auto NameEdit::lookAndFeelChanged() -> void
 {
     this->setColour(juce::Label::textColourId,
                     this->findColour((int)ActiveSessionsColorIDs::CurrentItemText));
@@ -150,7 +149,7 @@ auto ActiveSessions::resized() -> void
     flexbox.performLayout(this->getLocalBounds());
 }
 
-auto ActiveSessions::colourChanged() -> void
+auto ActiveSessions::lookAndFeelChanged() -> void
 {
     instance_list_box_.setColour(
         juce::ListBox::backgroundColourId,

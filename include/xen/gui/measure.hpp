@@ -23,8 +23,8 @@ class TimeSignature : public juce::Label
     explicit TimeSignature(sequence::TimeSignature const &time_sig)
     {
         this->set(time_sig);
-        this->setFont(juce::Font{"Arial", "Bold", 14.f});
-        this->colourChanged();
+        this->setFont(juce::Font{"Arial", 14.f, juce::Font::bold});
+        this->lookAndFeelChanged();
     }
 
   private:
@@ -36,12 +36,14 @@ class TimeSignature : public juce::Label
     }
 
   protected:
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
+        std::cerr << "color changed ts\n";
         this->setColour(juce::Label::ColourIds::textColourId,
                         this->findColour((int)TimeSignatureColorIDs::Text));
         this->setColour(juce::Label::ColourIds::backgroundColourId,
                         this->findColour((int)TimeSignatureColorIDs::Background));
+        this->Label::lookAndFeelChanged();
     }
 };
 

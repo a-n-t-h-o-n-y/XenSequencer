@@ -4,6 +4,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -34,8 +35,9 @@ namespace xen
 [[nodiscard]] inline auto create_command_tree(
     sl::Signal<void(std::string const &)> &on_focus_change_request,
     sl::Signal<void()> &on_load_keys_request, std::mutex &on_load_keys_request_mtx,
+    sl::Signal<void(std::string_view)> &on_theme_change_request,
     std::optional<sequence::Cell> &copy_buffer, std::mutex &copy_buffer_mtx,
-    juce::Uuid const &uuid, std::unique_ptr<juce::LookAndFeel> &laf_ref)
+    juce::Uuid const &uuid)
 {
     return cmd_group(
         "", ArgInfo<std::string>{"command_name"},
@@ -457,7 +459,8 @@ namespace xen
 
             cmd(
                 "theme", "Set the color theme of the app by name.",
-                [&laf_ref](XenTimeline &, sequence::Pattern const &, std::string name) {
+                [&on_theme_change_request](XenTimeline &, sequence::Pattern const &,
+                                           std::string name) {
                     name = to_lower(strip(name));
                     if (name == "dark")
                     {
@@ -467,8 +470,7 @@ namespace xen
                     {
                         name = "coal";
                     }
-                    laf_ref = gui::find_theme(name);
-                    juce::LookAndFeel::setDefaultLookAndFeel(laf_ref.get());
+                    on_theme_change_request(name);
                     return minfo("Theme Set");
                 },
                 ArgInfo<std::string>{"name"}),
@@ -670,8 +672,8 @@ namespace xen
 using XenCommandTree = decltype(create_command_tree(
     std::declval<sl::Signal<void(std::string const &)> &>(),
     std::declval<sl::Signal<void()> &>(), std::declval<std::mutex &>(),
+    std::declval<sl::Signal<void(std::string_view)> &>(),
     std::declval<std::optional<sequence::Cell> &>(), std::declval<std::mutex &>(),
-    std::declval<juce::Uuid const &>(),
-    std::declval<std::unique_ptr<juce::LookAndFeel> &>()));
+    std::declval<juce::Uuid const &>()));
 
 } // namespace xen

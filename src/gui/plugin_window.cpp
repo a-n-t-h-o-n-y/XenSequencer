@@ -44,7 +44,7 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
     // TODO
     // this->addAndMakeVisible(tuning_box);
 
-    phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(200.f));
+    phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(125.f));
 
     this->addChildComponent(command_bar);
     command_bar.setVisible(false);

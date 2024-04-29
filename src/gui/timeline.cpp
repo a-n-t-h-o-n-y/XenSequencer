@@ -33,10 +33,9 @@ using namespace xen;
 }
 
 auto paint_notes(juce::Graphics &g, sequence::Cell const &cell,
-                 juce::Rectangle<float> bounds) -> void
+                 juce::Rectangle<float> bounds, juce::LookAndFeel const &laf) -> void
 {
     using namespace sequence;
-    auto const &laf = juce::LookAndFeel::getDefaultLookAndFeel();
     std::visit(utility::overload{
                    [&](Note const &) {
                        g.setColour(laf.findColour((int)gui::TimelineColorIDs::Note));
@@ -55,7 +54,7 @@ auto paint_notes(juce::Graphics &g, sequence::Cell const &cell,
                            bounds.withWidth(bounds.getWidth() / (float)s.cells.size());
                        for (auto const &c : s.cells)
                        {
-                           paint_notes(g, c, bounds);
+                           paint_notes(g, c, bounds, laf);
                            bounds.setX(bounds.getX() + bounds.getWidth());
                        }
                    }},
@@ -75,7 +74,8 @@ void TimelineMeasure::paint(juce::Graphics &g)
         g.fillRoundedRectangle(this->getLocalBounds().toFloat(), 4.f);
     }
 
-    paint_notes(g, measure_.cell, this->getLocalBounds().toFloat().reduced(4.f, 4.f));
+    paint_notes(g, measure_.cell, this->getLocalBounds().toFloat().reduced(4.f, 4.f),
+                this->getLookAndFeel());
 }
 
 auto Timeline::set(sequence::Phrase const &phrase, SelectedState const &selected)

@@ -39,10 +39,11 @@ struct Theme
     laf->setColour((int)AccordionColorIDs::Background, theme.background);
     laf->setColour((int)AccordionColorIDs::Text, theme.fg_high);
     laf->setColour((int)AccordionColorIDs::Triangle, theme.fg_low);
+    laf->setColour((int)AccordionColorIDs::TitleUnderline, theme.fg_low);
 
     laf->setColour((int)PhraseDirectoryViewColorIDs::TitleText, theme.fg_high);
     laf->setColour((int)PhraseDirectoryViewColorIDs::TitleBackground, theme.background);
-    laf->setColour((int)PhraseDirectoryViewColorIDs::ItemBackground, theme.bg_med);
+    laf->setColour((int)PhraseDirectoryViewColorIDs::ItemBackground, theme.bg_high);
     laf->setColour((int)PhraseDirectoryViewColorIDs::ItemText, theme.fg_high);
     laf->setColour((int)PhraseDirectoryViewColorIDs::SelectedItemBackground,
                    theme.bg_low);
@@ -50,7 +51,7 @@ struct Theme
 
     laf->setColour((int)ActiveSessionsColorIDs::TitleText, theme.fg_high);
     laf->setColour((int)ActiveSessionsColorIDs::TitleBackground, theme.background);
-    laf->setColour((int)ActiveSessionsColorIDs::ItemBackground, theme.bg_med);
+    laf->setColour((int)ActiveSessionsColorIDs::ItemBackground, theme.bg_high);
     laf->setColour((int)ActiveSessionsColorIDs::ItemText, theme.fg_high);
     laf->setColour((int)ActiveSessionsColorIDs::SelectedItemBackground, theme.bg_low);
     laf->setColour((int)ActiveSessionsColorIDs::SelectedItemText, theme.fg_high);
@@ -61,7 +62,7 @@ struct Theme
     laf->setColour((int)ActiveSessionsColorIDs::CurrentItemText, theme.fg_med);
 
     laf->setColour((int)TimelineColorIDs::Background, theme.bg_med);
-    laf->setColour((int)TimelineColorIDs::SelectionHighlight, theme.fg_med);
+    laf->setColour((int)TimelineColorIDs::SelectionHighlight, theme.fg_low);
     laf->setColour((int)TimelineColorIDs::VerticalSeparator, theme.fg_med);
     laf->setColour((int)TimelineColorIDs::Note, theme.fg_high);
     laf->setColour((int)TimelineColorIDs::Rest, theme.fg_low);

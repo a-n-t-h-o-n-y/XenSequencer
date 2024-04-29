@@ -66,7 +66,7 @@ auto PhraseDirectoryView::keyPressed(juce::KeyPress const &key) -> bool
     return list_box_.keyPressed(key);
 }
 
-auto PhraseDirectoryView::colourChanged() -> void
+auto PhraseDirectoryView::lookAndFeelChanged() -> void
 {
     list_box_.setColour(
         juce::ListBox::backgroundColourId,

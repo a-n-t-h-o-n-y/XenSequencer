@@ -88,8 +88,6 @@ class CommandBar : public juce::Component
         this->setComponentID("CommandBar");
         this->setWantsKeyboardFocus(true);
 
-        this->colourChanged();
-
         this->addAndMakeVisible(command_input_);
         this->addAndMakeVisible(ghost_text_);
 
@@ -124,6 +122,8 @@ class CommandBar : public juce::Component
                                      juce::Font::plain};
         command_input_.setFont(font);
         ghost_text_.setFont(font);
+
+        this->lookAndFeelChanged();
     }
 
   public:
@@ -164,7 +164,7 @@ class CommandBar : public juce::Component
         command_input_.grabKeyboardFocus();
     }
 
-    auto colourChanged() -> void override
+    auto lookAndFeelChanged() -> void override
     {
         auto const bg = this->findColour((int)CommandBarColorIDs::Background);
         auto const text = this->findColour((int)CommandBarColorIDs::Text);

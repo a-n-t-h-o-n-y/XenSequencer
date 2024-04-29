@@ -76,9 +76,9 @@ using namespace xen;
     };
 }
 
-[[nodiscard]] auto from_gradient(float value, float min, float max) -> juce::Colour
+[[nodiscard]] auto from_gradient(float value, float min, float max,
+                                 juce::LookAndFeel const &laf) -> juce::Colour
 {
-    auto &laf = juce::LookAndFeel::getDefaultLookAndFeel();
     juce::Colour startColor = laf.findColour((int)gui::NoteColorIDs::IntervalLow);
     juce::Colour middleColor = laf.findColour((int)gui::NoteColorIDs::IntervalMid);
     juce::Colour endColor = laf.findColour((int)gui::NoteColorIDs::IntervalHigh);
@@ -142,8 +142,8 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
 
     // Paint Note Interval ------------------------------------------------------
     auto const interval_bounds = compute_note_bounds(bounds, interval_, tuning_length_);
-    auto const note_color =
-        from_gradient((float)get_octave(interval_, tuning_length_), -4.f, 4.f);
+    auto const note_color = from_gradient((float)get_octave(interval_, tuning_length_),
+                                          -4.f, 4.f, this->getLookAndFeel());
 
     g.setColour(note_color);
     g.fillRect(interval_bounds);
