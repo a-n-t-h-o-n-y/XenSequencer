@@ -17,8 +17,8 @@
 namespace xen
 {
 
-auto state_to_timeline(DAWState const &daw_state, State const &state)
-    -> sequence::midi::EventTimeline
+auto state_to_timeline(DAWState const &daw_state,
+                       SequencerState const &state) -> sequence::midi::EventTimeline
 {
     return sequence::midi::translate_to_midi_timeline(
         state.phrase, daw_state.sample_rate, daw_state.bpm, state.tuning,
@@ -141,8 +141,8 @@ auto find_most_recent_pitch_bend_event(juce::MidiBuffer const &buffer,
     return most_recent_pitch_bend;
 }
 
-auto find_most_recent_note_event(juce::MidiBuffer const &buffer, long sample_begin)
-    -> std::optional<juce::MidiMessage>
+auto find_most_recent_note_event(juce::MidiBuffer const &buffer,
+                                 long sample_begin) -> std::optional<juce::MidiMessage>
 {
     auto most_recent_event = std::optional<juce::MidiMessage>{};
 

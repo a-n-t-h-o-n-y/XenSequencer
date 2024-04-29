@@ -29,7 +29,7 @@ namespace xen
  * @param tl The timeline to operate on.
  * @param fn The function to apply to the selected Cell.
  * @param args The arguments to pass to the function.
- * @return State The new state.
+ * @return SequencerState The new state.
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
@@ -68,40 +68,45 @@ namespace xen::action
 
 [[nodiscard]] auto copy(XenTimeline const &tl) -> sequence::Cell;
 
-[[nodiscard]] auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, State>;
+[[nodiscard]] auto cut(XenTimeline const &tl)
+    -> std::pair<sequence::Cell, SequencerState>;
 
 [[nodiscard]] auto paste(XenTimeline const &tl,
-                         std::optional<sequence::Cell> const &copy_buffer) -> State;
+                         std::optional<sequence::Cell> const &copy_buffer)
+    -> SequencerState;
 
-[[nodiscard]] auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, State>;
+[[nodiscard]] auto duplicate(XenTimeline const &tl)
+    -> std::pair<AuxState, SequencerState>;
 
 [[nodiscard]] auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
 
-[[nodiscard]] auto lift(XenTimeline const &tl) -> std::pair<State, AuxState>;
+[[nodiscard]] auto lift(XenTimeline const &tl) -> std::pair<SequencerState, AuxState>;
 
 [[nodiscard]] auto shift_note_octave(XenTimeline const &tl,
-                                     sequence::Pattern const &pattern, int amount)
-    -> State;
+                                     sequence::Pattern const &pattern,
+                                     int amount) -> SequencerState;
 
 [[nodiscard]] auto set_note_octave(XenTimeline const &tl,
-                                   sequence::Pattern const &pattern, int octave)
-    -> State;
+                                   sequence::Pattern const &pattern,
+                                   int octave) -> SequencerState;
 
 [[nodiscard]] auto append_measure(XenTimeline const &tl, sequence::TimeSignature ts)
-    -> std::pair<AuxState, State>;
+    -> std::pair<AuxState, SequencerState>;
 
 [[nodiscard]] auto insert_measure(XenTimeline const &tl, sequence::TimeSignature ts)
-    -> std::pair<AuxState, State>;
+    -> std::pair<AuxState, SequencerState>;
 
-[[nodiscard]] auto delete_cell(AuxState aux, State state) -> std::pair<AuxState, State>;
+[[nodiscard]] auto delete_cell(AuxState aux, SequencerState state)
+    -> std::pair<AuxState, SequencerState>;
 
 auto save_state(XenTimeline const &tl, std::filesystem::path const &filepath) -> void;
 
-[[nodiscard]] auto load_state(std::filesystem::path const &filepath) -> State;
+[[nodiscard]] auto load_state(std::filesystem::path const &filepath) -> SequencerState;
 
-[[nodiscard]] auto set_timesignature(XenTimeline const &tl, sequence::TimeSignature ts)
-    -> State;
+[[nodiscard]] auto set_timesignature(XenTimeline const &tl,
+                                     sequence::TimeSignature ts) -> SequencerState;
 
-[[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq) -> State;
+[[nodiscard]] auto set_base_frequency(XenTimeline const &tl,
+                                      float freq) -> SequencerState;
 
 } // namespace xen::action

@@ -70,7 +70,7 @@ XenProcessor::XenProcessor()
     });
 
     active_sessions.on_state_response.connect(
-        [this](State const &state) { timeline.add_state(state); });
+        [this](SequencerState const &state) { timeline.add_state(state); });
 
     on_theme_update_request.connect([this](std::string_view name) {
         this->set_look_and_feel(gui::find_theme(name));
@@ -129,7 +129,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     bool needs_corrections = !is_playing_; // Start was pressed
     is_playing_ = true;
 
-    // Separate if statements prevent State copies on BPM changes.
+    // Separate if statements prevent SequencerState copies on BPM changes.
     if (timeline.get_last_update_time() > last_rendered_time_)
     {
         plugin_state_ = timeline.get_state().first;

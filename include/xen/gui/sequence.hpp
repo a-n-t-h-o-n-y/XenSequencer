@@ -192,8 +192,8 @@ class TraitDisplay : public juce::Component
     }
 
   private:
-    [[nodiscard]] static auto make_display(std::string const &name, float value)
-        -> std::string
+    [[nodiscard]] static auto make_display(std::string const &name,
+                                           float value) -> std::string
     {
         auto oss = std::ostringstream{};
         oss << std::fixed << std::setprecision(2) << value;
@@ -282,7 +282,7 @@ class SequenceIndicator : public juce::Component
 class Sequence : public Cell
 {
   public:
-    explicit Sequence(sequence::Sequence const &seq, State const &state);
+    explicit Sequence(sequence::Sequence const &seq, SequencerState const &state);
 
   public:
     auto select_child(std::vector<std::size_t> const &indices) -> void override
@@ -325,7 +325,7 @@ class Sequence : public Cell
 class BuildAndAllocateCell
 {
   public:
-    BuildAndAllocateCell(State const &state) : state_{state}
+    BuildAndAllocateCell(SequencerState const &state) : state_{state}
     {
     }
 
@@ -346,7 +346,7 @@ class BuildAndAllocateCell
     }
 
   private:
-    State const &state_;
+    SequencerState const &state_;
 };
 
 } // namespace xen::gui

@@ -27,7 +27,7 @@
 
 namespace xen
 {
-struct State;
+struct SequencerState;
 struct AuxState;
 struct Metadata;
 } // namespace xen
@@ -127,8 +127,8 @@ class PluginWindow : public juce::Component
      * @param aux The current aux state of the timeline
      * @param metadata The current metadata of the timeline
      */
-    auto update(State const &state, AuxState const &aux, Metadata const &metadata)
-        -> void;
+    auto update(SequencerState const &state, AuxState const &aux,
+                Metadata const &metadata) -> void;
 
     /**
      * Set the focus of the plugin window by ComponentID

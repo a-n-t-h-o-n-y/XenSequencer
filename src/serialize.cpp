@@ -145,7 +145,7 @@ static void from_json(nlohmann::json const &j, Metadata &metadata)
     metadata.display_name = j.at("display_name").get<std::string>();
 }
 
-auto serialize_state(State const &state) -> std::string
+auto serialize_state(SequencerState const &state) -> std::string
 {
     auto const json = nlohmann::json{
         {"phrase", state.phrase},
@@ -156,11 +156,11 @@ auto serialize_state(State const &state) -> std::string
     return json.dump();
 }
 
-auto deserialize_state(std::string const &json_str) -> State
+auto deserialize_state(std::string const &json_str) -> SequencerState
 {
     auto const json = nlohmann::json::parse(json_str);
 
-    auto state = State{
+    auto state = SequencerState{
         .phrase = json.at("phrase").get<sequence::Phrase>(),
         .tuning = json.at("tuning").get<sequence::Tuning>(),
         .base_frequency = json.at("base_frequency").get<float>(),
@@ -169,7 +169,8 @@ auto deserialize_state(std::string const &json_str) -> State
     return state;
 }
 
-auto serialize_plugin(State const &state, Metadata const &metadata) -> std::string
+auto serialize_plugin(SequencerState const &state,
+                      Metadata const &metadata) -> std::string
 {
     auto const json = nlohmann::json{
         {"metadata", metadata},
@@ -184,13 +185,14 @@ auto serialize_plugin(State const &state, Metadata const &metadata) -> std::stri
     return json.dump();
 }
 
-auto deserialize_plugin(std::string const &json_str) -> std::pair<State, Metadata>
+auto deserialize_plugin(std::string const &json_str)
+    -> std::pair<SequencerState, Metadata>
 {
     auto const json = nlohmann::json::parse(json_str);
 
     json.at("state");
 
-    auto const state = State{
+    auto const state = SequencerState{
         .phrase = json.at("state").at("phrase").get<sequence::Phrase>(),
         .tuning = json.at("state").at("tuning").get<sequence::Tuning>(),
         .base_frequency = json.at("state").at("base_frequency").get<float>(),

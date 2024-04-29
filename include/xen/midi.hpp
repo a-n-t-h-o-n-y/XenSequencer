@@ -17,7 +17,8 @@ namespace xen
  * @param state The state of the plugin.
  * @return sequence::midi::EventTimeline
  */
-[[nodiscard]] auto state_to_timeline(DAWState const &daw_state, State const &state)
+[[nodiscard]] auto state_to_timeline(DAWState const &daw_state,
+                                     SequencerState const &state)
     -> sequence::midi::EventTimeline;
 
 /**

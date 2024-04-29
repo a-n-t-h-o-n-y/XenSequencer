@@ -9,6 +9,6 @@ namespace xen
 /**
  * The specific Timeline type for the Xen plugin.
  */
-using XenTimeline = Timeline<State, AuxState>;
+using XenTimeline = Timeline<SequencerState, AuxState>;
 
 } // namespace xen

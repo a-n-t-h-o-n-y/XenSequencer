@@ -60,7 +60,7 @@ struct StateRequest
  */
 struct StateResponse
 {
-    xen::State state;
+    xen::SequencerState state;
 };
 
 /**
@@ -272,8 +272,8 @@ class ActiveSessions
   public:
     sl::Signal<void(juce::Uuid const &)> on_instance_shutdown;
     sl::Signal<void(juce::Uuid const &, std::string const &)> on_id_update;
-    sl::Signal<State()> on_state_request;
-    sl::Signal<void(State const &)> on_state_response;
+    sl::Signal<SequencerState()> on_state_request;
+    sl::Signal<void(SequencerState const &)> on_state_response;
     sl::Signal<std::string()> on_display_name_request;
 
   public:

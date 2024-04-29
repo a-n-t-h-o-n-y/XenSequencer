@@ -17,7 +17,7 @@ namespace xen::gui
 class Phrase : public juce::Component
 {
   public:
-    auto set(State const &state, SelectedState const &selected) -> void
+    auto set(SequencerState const &state, SelectedState const &selected) -> void
     {
         measure_ptr_.reset();
         auto const &phrase = state.phrase;

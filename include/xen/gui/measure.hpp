@@ -50,7 +50,7 @@ class TimeSignature : public juce::Label
 class Measure : public juce::Component
 {
   public:
-    Measure(sequence::Measure const &measure, State const &state)
+    Measure(sequence::Measure const &measure, SequencerState const &state)
         : time_sig_{measure.time_signature}, cell_ptr_{make_cell(measure.cell, state)}
     {
         this->addAndMakeVisible(time_sig_);
@@ -76,7 +76,8 @@ class Measure : public juce::Component
     }
 
   private:
-    [[nodiscard]] static auto make_cell(sequence::Cell const &cell, State const &state)
+    [[nodiscard]] static auto make_cell(sequence::Cell const &cell,
+                                        SequencerState const &state)
         -> std::unique_ptr<Cell>
     {
         auto const builder = BuildAndAllocateCell{state};

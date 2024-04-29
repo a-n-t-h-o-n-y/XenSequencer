@@ -28,7 +28,7 @@ struct Metadata
 /**
  * The state of the internal sequencer for the plugin.
  */
-struct State
+struct SequencerState
 {
     sequence::Phrase phrase;
     sequence::Tuning tuning;
@@ -73,7 +73,7 @@ struct DAWState
 // bpm = 120.f,
 // sample rate = 44'100,
 
-[[nodiscard]] inline auto init_state() -> State
+[[nodiscard]] inline auto init_state() -> SequencerState
 {
     return {
         .phrase = {{
@@ -93,9 +93,9 @@ struct DAWState
 /**
  * Generates a demo state for testing.
  *
- * @return State
+ * @return SequencerState
  */
-[[nodiscard]] inline auto demo_state() -> State
+[[nodiscard]] inline auto demo_state() -> SequencerState
 {
     namespace seq = sequence;
 
@@ -126,7 +126,7 @@ struct DAWState
         phrase.push_back(measure);
     }
     // {0, 25, 50, 75, 100, 125, 150},
-    return State{
+    return SequencerState{
         .phrase = phrase,
         .tuning =
             {

@@ -30,8 +30,8 @@ using namespace xen;
  * @return The computed corner radius for the rectangle.
  */
 [[nodiscard]] auto compute_corner_radius(juce::Rectangle<float> const &bounds,
-                                         float const min_radius, float const max_radius)
-    -> float
+                                         float const min_radius,
+                                         float const max_radius) -> float
 {
     auto const width = bounds.getWidth();
     return juce::jlimit(min_radius, max_radius,
@@ -51,8 +51,8 @@ using namespace xen;
  * division by zero.
  */
 [[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &component_bounds,
-                                       int note_interval, size_t tuning_length)
-    -> juce::Rectangle<float>
+                                       int note_interval,
+                                       size_t tuning_length) -> juce::Rectangle<float>
 {
     if (tuning_length == 0)
     {
@@ -103,7 +103,7 @@ using namespace xen;
 namespace xen::gui
 {
 
-Sequence::Sequence(sequence::Sequence const &seq, State const &state)
+Sequence::Sequence(sequence::Sequence const &seq, SequencerState const &state)
     : cells_{juce::FlexItem{}.withFlex(1.f), false}
 {
     this->addAndMakeVisible(top_indicator_);

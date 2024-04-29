@@ -24,7 +24,7 @@ class XenEditor : public juce::AudioProcessorEditor
     explicit XenEditor(XenProcessor &, juce::LookAndFeel &);
 
   public:
-    auto update(State const &, AuxState const &, Metadata const &) -> void;
+    auto update(SequencerState const &, AuxState const &, Metadata const &) -> void;
 
     /**
      * Set or Update the key listeners for the plugin window.

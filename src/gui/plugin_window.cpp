@@ -76,7 +76,7 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
         [this] { phrase_editor.grabKeyboardFocus(); });
 }
 
-auto PluginWindow::update(State const &state, AuxState const &aux,
+auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
                           Metadata const &metadata) -> void
 {
     phrases_view.active_sessions_view.update_this_instance_name(metadata.display_name);

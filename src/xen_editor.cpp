@@ -98,8 +98,8 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
     this->setLookAndFeel(&laf);
 
     {
-        auto slot = sl::Slot<void(State const &, AuxState const &)>{
-            [this, &p](State const &state, AuxState const &aux) {
+        auto slot = sl::Slot<void(SequencerState const &, AuxState const &)>{
+            [this, &p](SequencerState const &state, AuxState const &aux) {
                 this->update(state, aux, p.metadata);
             }};
         slot.track(lifetime_);
@@ -167,7 +167,7 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
     }
 }
 
-auto XenEditor::update(State const &state, AuxState const &aux,
+auto XenEditor::update(SequencerState const &state, AuxState const &aux,
                        Metadata const &metadata) -> void
 {
     plugin_window_.update(state, aux, metadata);

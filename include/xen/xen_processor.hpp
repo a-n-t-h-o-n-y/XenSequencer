@@ -28,6 +28,10 @@ class XenProcessor : public PluginProcessor
     juce::Uuid const CURRENT_PROCESS_UUID = juce::Uuid{};
 
   public:
+    // struct PluginState
+    // {
+    // } state;
+
     Metadata metadata{.display_name = "XenSequencer"};
     DAWState daw_state;
     XenTimeline timeline;
@@ -59,7 +63,7 @@ class XenProcessor : public PluginProcessor
 
   private:
     /**
-     * Render the current State to MIDI and save in rendered_ and update time.
+     * Render the current SequencerState to MIDI and save in rendered_ and update time.
      */
     auto render() -> void;
 
@@ -68,7 +72,7 @@ class XenProcessor : public PluginProcessor
                               long samples_in_phrase) -> void;
 
   private:
-    State plugin_state_; // Convenience variable, not necessary but saves cycles
+    SequencerState plugin_state_; // Its a copy, not necessary but saves cycles
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;
 
