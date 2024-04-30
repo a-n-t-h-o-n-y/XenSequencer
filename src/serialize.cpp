@@ -133,18 +133,6 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 namespace xen
 {
 
-static void to_json(nlohmann::json &j, Metadata const &metadata)
-{
-    j = nlohmann::json{
-        {"display_name", metadata.display_name},
-    };
-}
-
-static void from_json(nlohmann::json const &j, Metadata &metadata)
-{
-    metadata.display_name = j.at("display_name").get<std::string>();
-}
-
 auto serialize_state(SequencerState const &state) -> std::string
 {
     auto const json = nlohmann::json{
@@ -170,10 +158,10 @@ auto deserialize_state(std::string const &json_str) -> SequencerState
 }
 
 auto serialize_plugin(SequencerState const &state,
-                      Metadata const &metadata) -> std::string
+                      std::string const &display_name) -> std::string
 {
     auto const json = nlohmann::json{
-        {"metadata", metadata},
+        {"display_name", display_name},
         {"state",
          {
              {"phrase", state.phrase},
@@ -186,7 +174,7 @@ auto serialize_plugin(SequencerState const &state,
 }
 
 auto deserialize_plugin(std::string const &json_str)
-    -> std::pair<SequencerState, Metadata>
+    -> std::pair<SequencerState, std::string>
 {
     auto const json = nlohmann::json::parse(json_str);
 
@@ -198,9 +186,9 @@ auto deserialize_plugin(std::string const &json_str)
         .base_frequency = json.at("state").at("base_frequency").get<float>(),
     };
 
-    auto const metadata = json.at("metadata").get<Metadata>();
+    auto const display_name = json.at("display_name").get<std::string>();
 
-    return {state, metadata};
+    return {state, display_name};
 }
 
 } // namespace xen

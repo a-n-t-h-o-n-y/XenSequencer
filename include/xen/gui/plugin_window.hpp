@@ -125,10 +125,10 @@ class PluginWindow : public juce::Component
      *
      * @param state The current state of the timeline
      * @param aux The current aux state of the timeline
-     * @param metadata The current metadata of the timeline
+     * @param display_name The name of the current instance
      */
     auto update(SequencerState const &state, AuxState const &aux,
-                Metadata const &metadata) -> void;
+                std::string const &display_name) -> void;
 
     /**
      * Set the focus of the plugin window by ComponentID

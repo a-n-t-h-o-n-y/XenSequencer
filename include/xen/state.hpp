@@ -20,11 +20,6 @@
 namespace xen
 {
 
-struct Metadata
-{
-    std::string display_name;
-};
-
 /**
  * The state of the internal sequencer for the plugin.
  */

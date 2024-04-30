@@ -52,9 +52,9 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : timeline{init_state(), {}},
-      active_sessions{CURRENT_PROCESS_UUID, metadata.display_name},
-      plugin_state_{init_state()}, last_rendered_time_{}
+    : plugin_state{}, timeline{init_state(), {}},
+      active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
+      sequencer_state_copy_{init_state()}, last_rendered_time_{}
 
 {
     this->set_look_and_feel(gui::find_theme("apollo"));
@@ -62,7 +62,7 @@ XenProcessor::XenProcessor()
     initialize_demo_files();
 
     active_sessions.on_display_name_request.connect(
-        [this] { return metadata.display_name; });
+        [this] { return plugin_state.display_name; });
 
     active_sessions.on_state_request.connect([this] {
         auto const [state, _] = timeline.get_state();
@@ -75,11 +75,6 @@ XenProcessor::XenProcessor()
     on_theme_update_request.connect([this](std::string_view name) {
         this->set_look_and_feel(gui::find_theme(name));
     });
-}
-
-auto XenProcessor::get_process_uuid() const -> juce::Uuid
-{
-    return CURRENT_PROCESS_UUID;
 }
 
 auto XenProcessor::set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void
@@ -132,7 +127,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // Separate if statements prevent SequencerState copies on BPM changes.
     if (timeline.get_last_update_time() > last_rendered_time_)
     {
-        plugin_state_ = timeline.get_state().first;
+        sequencer_state_copy_ = timeline.get_state().first;
         this->render();
         needs_corrections = true;
     }
@@ -148,7 +143,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     // Find current MIDI events to send according to PlayHead position
     auto const samples_in_phrase = sequence::samples_count(
-        plugin_state_.phrase, daw_state.sample_rate, daw_state.bpm);
+        sequencer_state_copy_.phrase, daw_state.sample_rate, daw_state.bpm);
 
     // Empty Phrase - No MIDI
     if (samples_in_phrase == 0)
@@ -203,7 +198,8 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
 {
-    auto const json_str = serialize_plugin(timeline.get_state().first, metadata);
+    auto const json_str =
+        serialize_plugin(timeline.get_state().first, plugin_state.display_name);
     dest_data.setSize(json_str.size());
     std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
 }
@@ -212,14 +208,14 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
 {
     auto const json_str =
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-    auto [state, md] = deserialize_plugin(json_str);
-    metadata = std::move(md);
+    auto [state, dn] = deserialize_plugin(json_str);
+    plugin_state.display_name = std::move(dn);
     timeline.add_state(std::move(state));
 }
 
 auto XenProcessor::render() -> void
 {
-    rendered_ = render_to_midi(state_to_timeline(daw_state, plugin_state_));
+    rendered_ = render_to_midi(state_to_timeline(daw_state, sequencer_state_copy_));
     last_rendered_time_ = std::chrono::high_resolution_clock::now();
 }
 

@@ -24,15 +24,13 @@ namespace xen
 
 class XenProcessor : public PluginProcessor
 {
-  private:
-    juce::Uuid const CURRENT_PROCESS_UUID = juce::Uuid{};
-
   public:
-    // struct PluginState
-    // {
-    // } state;
+    struct PluginState
+    {
+        juce::Uuid const PROCESS_UUID = juce::Uuid{};
+        std::string display_name = "XenSequencer";
+    } plugin_state;
 
-    Metadata metadata{.display_name = "XenSequencer"};
     DAWState daw_state;
     XenTimeline timeline;
     CommandHistory command_history;
@@ -46,8 +44,6 @@ class XenProcessor : public PluginProcessor
     ~XenProcessor() override = default;
 
   public:
-    [[nodiscard]] auto get_process_uuid() const -> juce::Uuid;
-
     auto set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void;
 
   protected:
@@ -72,7 +68,7 @@ class XenProcessor : public PluginProcessor
                               long samples_in_phrase) -> void;
 
   private:
-    SequencerState plugin_state_; // Its a copy, not necessary but saves cycles
+    SequencerState sequencer_state_copy_; // Not necessary, but saves cycles.
     juce::MidiBuffer rendered_;
     std::chrono::high_resolution_clock::time_point last_rendered_time_;
 

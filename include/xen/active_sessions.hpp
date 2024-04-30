@@ -15,7 +15,6 @@
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
-#include <nng/nng.h>
 #include <signals_light/signal.hpp>
 
 #include <sequence/utility.hpp>

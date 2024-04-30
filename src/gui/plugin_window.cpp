@@ -77,9 +77,9 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
 }
 
 auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
-                          Metadata const &metadata) -> void
+                          std::string const &display_name) -> void
 {
-    phrases_view.active_sessions_view.update_this_instance_name(metadata.display_name);
+    phrases_view.active_sessions_view.update_this_instance_name(display_name);
 
     phrase_editor.phrase.set(state, aux.selected);
     phrase_editor.phrase.select(aux.selected);

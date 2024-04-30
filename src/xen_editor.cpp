@@ -86,7 +86,7 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
       command_tree_{create_command_tree(on_focus_change_request_, on_load_keys_request,
                                         on_load_keys_request_mtx,
                                         p.on_theme_update_request, copy_buffer,
-                                        copy_buffer_mtx, p.get_process_uuid())},
+                                        copy_buffer_mtx, p.plugin_state.PROCESS_UUID)},
       plugin_window_{p.timeline, p.command_history, command_tree_}
 {
     this->setResizable(true, true);
@@ -100,7 +100,7 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
     {
         auto slot = sl::Slot<void(SequencerState const &, AuxState const &)>{
             [this, &p](SequencerState const &state, AuxState const &aux) {
-                this->update(state, aux, p.metadata);
+                this->update(state, aux, p.plugin_state.display_name);
             }};
         slot.track(lifetime_);
 
@@ -146,7 +146,7 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
     // No lifetime tracking needed because its GUI->Processor
     plugin_window_.phrases_view.active_sessions_view.on_this_instance_name_change
         .connect([&p](std::string const &name) {
-            p.metadata.display_name = name;
+            p.plugin_state.display_name = name;
             p.active_sessions.notify_display_name_update(name);
         });
 
@@ -154,7 +154,7 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
 
     // Initialize GUI
     auto const [state, aux] = timeline_.get_state();
-    this->update(state, aux, p.metadata);
+    this->update(state, aux, p.plugin_state.display_name);
 
     try
     {
@@ -168,9 +168,9 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
 }
 
 auto XenEditor::update(SequencerState const &state, AuxState const &aux,
-                       Metadata const &metadata) -> void
+                       std::string const &display_name) -> void
 {
-    plugin_window_.update(state, aux, metadata);
+    plugin_window_.update(state, aux, display_name);
 
     // TODO set base frequency?
 }
