@@ -1,9 +1,11 @@
 #include <xen/xen_editor.hpp>
 
-#include <filesystem>
+#include <iterator>
+#include <map>
 #include <mutex>
-#include <optional>
+#include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <sequence/sequence.hpp>
 
@@ -18,14 +20,6 @@
 
 namespace
 {
-
-// Shared amongst plugin instances if not sandboxed.
-auto on_load_keys_request = sl::Signal<void()>{};
-auto on_load_keys_request_mtx = std::mutex{};
-
-// Shared amongst plugin instances if not sandboxed.
-auto copy_buffer = std::optional<sequence::Cell>{std::nullopt};
-auto copy_buffer_mtx = std::mutex{};
 
 /**
  * Set the key listeners for the plugin window.
@@ -81,13 +75,16 @@ auto set_key_listeners(std::map<std::string, xen::KeyConfigListener> previous_li
 namespace xen::gui
 {
 
-XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
-    : AudioProcessorEditor{p}, timeline_{p.timeline},
-      command_tree_{create_command_tree(on_focus_change_request_, on_load_keys_request,
-                                        on_load_keys_request_mtx,
-                                        p.on_theme_update_request, copy_buffer,
-                                        copy_buffer_mtx, p.plugin_state.PROCESS_UUID)},
-      plugin_window_{p.timeline, p.command_history, command_tree_}
+XenEditor::XenEditor(XenProcessor &p)
+    : AudioProcessorEditor{p}, timeline_{p.plugin_state.timeline},
+      command_tree_{create_command_tree(
+          on_focus_change_request_, p.plugin_state.shared.on_load_keys_request,
+          p.plugin_state.shared.on_load_keys_request_mtx, p.plugin_state.shared.theme,
+          p.plugin_state.shared.on_theme_update, p.plugin_state.shared.theme_mtx,
+          p.plugin_state.shared.copy_buffer, p.plugin_state.shared.copy_buffer_mtx,
+          p.plugin_state.PROCESS_UUID)},
+      plugin_window_{p.plugin_state.timeline, p.plugin_state.command_history,
+                     command_tree_}
 {
     this->setResizable(true, true);
     this->setSize(1000, 300);
@@ -95,7 +92,17 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
 
     this->addAndMakeVisible(&plugin_window_);
 
-    this->setLookAndFeel(&laf);
+    { // Initialize LookAndFeel
+        if (p.plugin_state.laf == nullptr)
+        {
+            auto const theme = [&] {
+                auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
+                return p.plugin_state.shared.theme;
+            }();
+            p.plugin_state.laf = gui::make_laf(theme);
+        }
+        this->setLookAndFeel(p.plugin_state.laf.get());
+    }
 
     {
         auto slot = sl::Slot<void(SequencerState const &, AuxState const &)>{
@@ -106,6 +113,16 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
 
         timeline_.on_state_change.connect(slot);
         timeline_.on_aux_change.connect(slot);
+    }
+
+    {
+        auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
+            p.plugin_state.laf = gui::make_laf(theme);
+            this->setLookAndFeel(p.plugin_state.laf.get());
+        }};
+        slot.track(lifetime_);
+        auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
+        p.plugin_state.shared.on_theme_update.connect(slot);
     }
 
     // ActiveSessions Signals/Slots
@@ -135,8 +152,9 @@ XenEditor::XenEditor(XenProcessor &p, juce::LookAndFeel &laf)
             this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
         }};
         slot.track(lifetime_);
-        auto const lock = std::lock_guard{on_load_keys_request_mtx};
-        on_load_keys_request.connect(slot);
+        auto const lock =
+            std::lock_guard{p.plugin_state.shared.on_load_keys_request_mtx};
+        p.plugin_state.shared.on_load_keys_request.connect(slot);
     }
 
     // No lifetime tracking needed because its GUI->Processor

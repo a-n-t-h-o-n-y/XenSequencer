@@ -21,7 +21,7 @@ namespace xen::gui
 class XenEditor : public juce::AudioProcessorEditor
 {
   public:
-    explicit XenEditor(XenProcessor &, juce::LookAndFeel &);
+    explicit XenEditor(XenProcessor &);
 
   public:
     auto update(SequencerState const &, AuxState const &, std::string const &) -> void;

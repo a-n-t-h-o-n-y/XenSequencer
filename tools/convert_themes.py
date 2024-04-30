@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 def hex_to_juce_color(hex_color):
     """Converts hex color format to JUCE color format."""
-    return f'juce::Colour{{0xFF{hex_color.upper()[1:]}}}'
+    return f'0xFF{hex_color.upper()[1:]}'
 
 def get_element_color(element, element_id):
     """Retrieve color from an element by id."""

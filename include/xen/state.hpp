@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -12,8 +14,12 @@
 #include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
 #include <sequence/modify.hpp>
+#include <sequence/sequence.hpp>
 #include <sequence/tuning.hpp>
 
+#include <signals_light/signal.hpp>
+
+#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/user_directory.hpp>
 
@@ -28,6 +34,22 @@ struct SequencerState
     sequence::Phrase phrase;
     sequence::Tuning tuning;
     float base_frequency;
+};
+
+/**
+ * State shared across plugin instances if the DAW does not sandbox.
+ */
+struct SharedState
+{
+    sl::Signal<void()> on_load_keys_request{};
+    std::mutex on_load_keys_request_mtx{};
+
+    std::optional<sequence::Cell> copy_buffer{std::nullopt};
+    std::mutex copy_buffer_mtx{};
+
+    gui::Theme theme{gui::find_theme("apollo")}; // Needed for editor startup.
+    sl::Signal<void(gui::Theme const &)> on_theme_update{};
+    std::mutex theme_mtx{};
 };
 
 /**

@@ -2,10 +2,12 @@
 
 #include <chrono>
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <signals_light/signal.hpp>
 
@@ -14,6 +16,7 @@
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/plugin_processor.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -29,22 +32,20 @@ class XenProcessor : public PluginProcessor
     {
         juce::Uuid const PROCESS_UUID = juce::Uuid{};
         std::string display_name = "XenSequencer";
+        // std::string component_in_focus{"TODO"};
+        DAWState daw_state{};
+        CommandHistory command_history{};
+        XenTimeline timeline;
+        inline static SharedState shared{};
+        std::unique_ptr<juce::LookAndFeel> laf{nullptr};
     } plugin_state;
 
-    DAWState daw_state;
-    XenTimeline timeline;
-    CommandHistory command_history;
     ActiveSessions active_sessions;
-
-    sl::Signal<void(std::string_view)> on_theme_update_request;
 
   public:
     XenProcessor();
 
     ~XenProcessor() override = default;
-
-  public:
-    auto set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void;
 
   protected:
     auto processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) -> void override;
@@ -75,8 +76,6 @@ class XenProcessor : public PluginProcessor
     bool is_playing_{false};
     juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
     juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1, 0x2000)};
-
-    std::unique_ptr<juce::LookAndFeel> laf_{nullptr};
 };
 
 } // namespace xen

@@ -12,7 +12,6 @@
 #include <juce_core/juce_core.h>
 #include <sequence/measure.hpp>
 
-#include <xen/gui/themes.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/user_directory.hpp>
@@ -52,43 +51,23 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{}, timeline{init_state(), {}},
+    : plugin_state{.timeline = XenTimeline{init_state(), {}}},
       active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
       sequencer_state_copy_{init_state()}, last_rendered_time_{}
-
 {
-    this->set_look_and_feel(gui::find_theme("apollo"));
-
     initialize_demo_files();
 
     active_sessions.on_display_name_request.connect(
         [this] { return plugin_state.display_name; });
 
     active_sessions.on_state_request.connect([this] {
-        auto const [state, _] = timeline.get_state();
+        auto const [state, _] = plugin_state.timeline.get_state();
         return state;
     });
 
-    active_sessions.on_state_response.connect(
-        [this](SequencerState const &state) { timeline.add_state(state); });
-
-    on_theme_update_request.connect([this](std::string_view name) {
-        this->set_look_and_feel(gui::find_theme(name));
+    active_sessions.on_state_response.connect([this](SequencerState const &state) {
+        plugin_state.timeline.add_state(state);
     });
-}
-
-auto XenProcessor::set_look_and_feel(std::unique_ptr<juce::LookAndFeel> laf) -> void
-{
-    if (laf == nullptr)
-    {
-        throw std::invalid_argument{"LookAndFeel cannot be nullptr"};
-    }
-    auto *editor = this->getActiveEditor();
-    if (editor != nullptr)
-    {
-        editor->setLookAndFeel(laf.get());
-    }
-    laf_ = std::move(laf);
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -125,25 +104,27 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     is_playing_ = true;
 
     // Separate if statements prevent SequencerState copies on BPM changes.
-    if (timeline.get_last_update_time() > last_rendered_time_)
+    if (plugin_state.timeline.get_last_update_time() > last_rendered_time_)
     {
-        sequencer_state_copy_ = timeline.get_state().first;
+        sequencer_state_copy_ = plugin_state.timeline.get_state().first;
         this->render();
         needs_corrections = true;
     }
-    if (!compare_within_tolerance(daw_state.bpm, bpm_daw, 0.00001f) ||
-        !compare_within_tolerance((double)daw_state.sample_rate, this->getSampleRate(),
-                                  0.1))
+    if (!compare_within_tolerance(plugin_state.daw_state.bpm, bpm_daw, 0.00001f) ||
+        !compare_within_tolerance((double)plugin_state.daw_state.sample_rate,
+                                  this->getSampleRate(), 0.1))
     {
-        daw_state.sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-        daw_state.bpm = bpm_daw;
+        plugin_state.daw_state.sample_rate =
+            static_cast<std::uint32_t>(this->getSampleRate());
+        plugin_state.daw_state.bpm = bpm_daw;
         this->render();
         needs_corrections = true;
     }
 
     // Find current MIDI events to send according to PlayHead position
     auto const samples_in_phrase = sequence::samples_count(
-        sequencer_state_copy_.phrase, daw_state.sample_rate, daw_state.bpm);
+        sequencer_state_copy_.phrase, plugin_state.daw_state.sample_rate,
+        plugin_state.daw_state.bpm);
 
     // Empty Phrase - No MIDI
     if (samples_in_phrase == 0)
@@ -193,13 +174,13 @@ auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
 
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 {
-    return new gui::XenEditor{*this, *laf_};
+    return new gui::XenEditor{*this};
 }
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
 {
-    auto const json_str =
-        serialize_plugin(timeline.get_state().first, plugin_state.display_name);
+    auto const json_str = serialize_plugin(plugin_state.timeline.get_state().first,
+                                           plugin_state.display_name);
     dest_data.setSize(json_str.size());
     std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
 }
@@ -210,12 +191,13 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
     auto [state, dn] = deserialize_plugin(json_str);
     plugin_state.display_name = std::move(dn);
-    timeline.add_state(std::move(state));
+    plugin_state.timeline.add_state(std::move(state));
 }
 
 auto XenProcessor::render() -> void
 {
-    rendered_ = render_to_midi(state_to_timeline(daw_state, sequencer_state_copy_));
+    rendered_ = render_to_midi(
+        state_to_timeline(plugin_state.daw_state, sequencer_state_copy_));
     last_rendered_time_ = std::chrono::high_resolution_clock::now();
 }
 

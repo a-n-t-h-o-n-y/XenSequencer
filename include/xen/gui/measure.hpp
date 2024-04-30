@@ -38,7 +38,6 @@ class TimeSignature : public juce::Label
   protected:
     auto lookAndFeelChanged() -> void override
     {
-        std::cerr << "color changed ts\n";
         this->setColour(juce::Label::ColourIds::textColourId,
                         this->findColour((int)TimeSignatureColorIDs::Text));
         this->setColour(juce::Label::ColourIds::backgroundColourId,

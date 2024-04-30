@@ -35,9 +35,9 @@ namespace xen
 [[nodiscard]] inline auto create_command_tree(
     sl::Signal<void(std::string const &)> &on_focus_change_request,
     sl::Signal<void()> &on_load_keys_request, std::mutex &on_load_keys_request_mtx,
-    sl::Signal<void(std::string_view)> &on_theme_change_request,
-    std::optional<sequence::Cell> &copy_buffer, std::mutex &copy_buffer_mtx,
-    juce::Uuid const &uuid)
+    gui::Theme &shared_theme, sl::Signal<void(gui::Theme const &)> &on_theme_update,
+    std::mutex &theme_mtx, std::optional<sequence::Cell> &copy_buffer,
+    std::mutex &copy_buffer_mtx, juce::Uuid const &uuid)
 {
     return cmd_group(
         "", ArgInfo<std::string>{"command_name"},
@@ -459,8 +459,8 @@ namespace xen
 
             cmd(
                 "theme", "Set the color theme of the app by name.",
-                [&on_theme_change_request](XenTimeline &, sequence::Pattern const &,
-                                           std::string name) {
+                [&shared_theme, &on_theme_update, &theme_mtx](
+                    XenTimeline &, sequence::Pattern const &, std::string name) {
                     name = to_lower(strip(name));
                     if (name == "dark")
                     {
@@ -470,8 +470,20 @@ namespace xen
                     {
                         name = "coal";
                     }
-                    on_theme_change_request(name);
-                    return minfo("Theme Set");
+                    try
+                    {
+                        auto const theme = gui::find_theme(name);
+                        {
+                            auto const lock = std::lock_guard{theme_mtx};
+                            shared_theme = theme;
+                            on_theme_update(shared_theme);
+                        }
+                        return minfo("Theme Set");
+                    }
+                    catch (std::exception const &e)
+                    {
+                        return merror("Failed to Load Theme: " + std::string{e.what()});
+                    }
                 },
                 ArgInfo<std::string>{"name"}),
 
@@ -672,8 +684,9 @@ namespace xen
 using XenCommandTree = decltype(create_command_tree(
     std::declval<sl::Signal<void(std::string const &)> &>(),
     std::declval<sl::Signal<void()> &>(), std::declval<std::mutex &>(),
-    std::declval<sl::Signal<void(std::string_view)> &>(),
-    std::declval<std::optional<sequence::Cell> &>(), std::declval<std::mutex &>(),
-    std::declval<juce::Uuid const &>()));
+    std::declval<gui::Theme &>(),
+    std::declval<sl::Signal<void(gui::Theme const &)> &>(),
+    std::declval<std::mutex &>(), std::declval<std::optional<sequence::Cell> &>(),
+    std::declval<std::mutex &>(), std::declval<juce::Uuid const &>()));
 
 } // namespace xen
