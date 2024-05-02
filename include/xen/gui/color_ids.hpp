@@ -11,7 +11,7 @@ enum class AccordionColorIDs
     TitleUnderline = 0xA000004,
 };
 
-enum class PhraseDirectoryViewColorIDs
+enum class DirectoryViewColorIDs
 {
     TitleText = 0xA000010,
     TitleBackground = 0xA000011,

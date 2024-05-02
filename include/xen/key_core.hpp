@@ -11,7 +11,7 @@
 #include <signals_light/signal.hpp>
 
 #include <xen/input_mode.hpp>
-#include <xen/xen_timeline.hpp>
+#include <xen/state.hpp>
 
 namespace juce
 {
@@ -23,8 +23,8 @@ namespace juce
  * @param rhs The right-hand side juce::KeyPress.
  * @return true if lhs is less than rhs, false otherwise.
  */
-[[nodiscard]] auto operator<(juce::KeyPress const &lhs, juce::KeyPress const &rhs)
-    -> bool;
+[[nodiscard]] auto operator<(juce::KeyPress const &lhs,
+                             juce::KeyPress const &rhs) -> bool;
 
 } // namespace juce
 
@@ -57,8 +57,8 @@ class KeyCore
      * @return An optional string, which contains the associated command if the search
      * is successful.
      */
-    [[nodiscard]] auto find_action(const juce::KeyPress &key, InputMode mode) const
-        -> std::optional<std::string>;
+    [[nodiscard]] auto find_action(const juce::KeyPress &key,
+                                   InputMode mode) const -> std::optional<std::string>;
 
   private:
     struct KeyAction
@@ -80,8 +80,8 @@ class KeyConfigListener : public juce::KeyListener
     KeyConfigListener(KeyCore key_core, XenTimeline const &tl);
 
   protected:
-    auto keyPressed(juce::KeyPress const &key, juce::Component *origin)
-        -> bool override;
+    auto keyPressed(juce::KeyPress const &key,
+                    juce::Component *origin) -> bool override;
 
     auto keyStateChanged(bool, juce::Component *) -> bool override;
 
@@ -90,9 +90,8 @@ class KeyConfigListener : public juce::KeyListener
     XenTimeline const &tl_;
 };
 
-[[nodiscard]] auto build_key_listeners(juce::File const &default_keys,
-                                       juce::File const &user_keys,
-                                       XenTimeline const &tl)
-    -> std::map<std::string, KeyConfigListener>;
+[[nodiscard]] auto build_key_listeners(
+    juce::File const &default_keys, juce::File const &user_keys,
+    XenTimeline const &tl) -> std::map<std::string, KeyConfigListener>;
 
 } // namespace xen

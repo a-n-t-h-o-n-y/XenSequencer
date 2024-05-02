@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
@@ -19,8 +21,11 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/command_history.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
+#include <xen/state.hpp>
+#include <xen/timeline.hpp>
 #include <xen/user_directory.hpp>
 
 namespace xen
@@ -89,6 +94,24 @@ struct DAWState
 
 // bpm = 120.f,
 // sample rate = 44'100,
+
+/**
+ * The specific Timeline type for the Xen plugin.
+ */
+using XenTimeline = Timeline<SequencerState, AuxState>;
+
+struct PluginState
+{
+    juce::Uuid const PROCESS_UUID = juce::Uuid{};
+    std::string display_name = "XenSequencer";
+    sl::Signal<void(std::string const &)> on_focus_request{};
+    sl::Signal<void(std::string const &)> on_show_request{};
+    DAWState daw_state{};
+    CommandHistory command_history{};
+    XenTimeline timeline;
+    inline static SharedState shared{};
+    std::unique_ptr<juce::LookAndFeel> laf{nullptr};
+};
 
 [[nodiscard]] inline auto init_state() -> SequencerState
 {

@@ -644,12 +644,12 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
     sc(AccordionColorIDs::Triangle, theme.fg_low);
     sc(AccordionColorIDs::TitleUnderline, theme.fg_low);
 
-    sc(PhraseDirectoryViewColorIDs::TitleText, theme.fg_high);
-    sc(PhraseDirectoryViewColorIDs::TitleBackground, theme.background);
-    sc(PhraseDirectoryViewColorIDs::ItemBackground, theme.bg_high);
-    sc(PhraseDirectoryViewColorIDs::ItemText, theme.fg_high);
-    sc(PhraseDirectoryViewColorIDs::SelectedItemBackground, theme.bg_low);
-    sc(PhraseDirectoryViewColorIDs::SelectedItemText, theme.fg_high);
+    sc(DirectoryViewColorIDs::TitleText, theme.fg_high);
+    sc(DirectoryViewColorIDs::TitleBackground, theme.background);
+    sc(DirectoryViewColorIDs::ItemBackground, theme.bg_high);
+    sc(DirectoryViewColorIDs::ItemText, theme.fg_high);
+    sc(DirectoryViewColorIDs::SelectedItemBackground, theme.bg_low);
+    sc(DirectoryViewColorIDs::SelectedItemText, theme.fg_high);
 
     sc(ActiveSessionsColorIDs::TitleText, theme.fg_high);
     sc(ActiveSessionsColorIDs::TitleBackground, theme.background);

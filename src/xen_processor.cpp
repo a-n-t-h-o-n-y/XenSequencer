@@ -16,6 +16,7 @@
 #include <xen/serialize.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
+#include <xen/xen_command_tree.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace
@@ -53,7 +54,8 @@ namespace xen
 XenProcessor::XenProcessor()
     : plugin_state{.timeline = XenTimeline{init_state(), {}}},
       active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
-      sequencer_state_copy_{init_state()}, last_rendered_time_{}
+      command_tree{create_command_tree()}, sequencer_state_copy_{init_state()},
+      last_rendered_time_{}
 {
     initialize_demo_files();
 

@@ -10,10 +10,10 @@
 #include <signals_light/signal.hpp>
 
 #include <xen/gui/plugin_window.hpp>
+#include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
-#include <xen/xen_timeline.hpp>
 
 namespace xen::gui
 {
@@ -21,10 +21,14 @@ namespace xen::gui
 class XenEditor : public juce::AudioProcessorEditor
 {
   public:
+    PluginWindow plugin_window;
+
+  public:
     explicit XenEditor(XenProcessor &);
 
   public:
-    auto update(SequencerState const &, AuxState const &, std::string const &) -> void;
+    auto update_ui(SequencerState const &, AuxState const &,
+                   std::string const &display_name) -> void;
 
     /**
      * Set or Update the key listeners for the plugin window.
@@ -40,20 +44,32 @@ class XenEditor : public juce::AudioProcessorEditor
   protected:
     auto resized() -> void override;
 
-    auto paint(juce::Graphics &g) -> void override;
+  private:
+    /**
+     * Execute a command string in the plugin window.
+     *
+     * @details This will normalize the input string, execute it on
+     * processor_.plugin_state and send the resulting status to the status bar.
+     * @param command_string The command string to execute
+     */
+    auto execute_command_string(std::string const &command_string) -> void;
+
+    /**
+     * Set the key listeners for the plugin window.
+     *
+     * @details This removes previous_listeners and adds new_listeners.
+     * update_key_listeners should be used in most cases.
+     */
+    auto set_key_listeners(
+        std::map<std::string, xen::KeyConfigListener> previous_listeners,
+        std::map<std::string, xen::KeyConfigListener> &new_listeners) -> void;
 
   private:
-    XenTimeline &timeline_;
+    XenProcessor &processor_;
 
     std::map<std::string, KeyConfigListener> key_config_listeners_;
 
     sl::Lifetime lifetime_;
-
-    sl::Signal<void(std::string const &)> on_focus_change_request_;
-
-    XenCommandTree command_tree_;
-
-    PluginWindow plugin_window_;
 };
 
 } // namespace xen::gui

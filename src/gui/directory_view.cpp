@@ -5,31 +5,34 @@
 namespace xen::gui
 {
 
-PhraseDirectoryView::PhraseDirectoryView(juce::File const &initial_directory)
+DirectoryView::DirectoryView(juce::File const &initial_directory,
+                             juce::WildcardFileFilter const &file_filter)
+    : file_filter_{file_filter}
 {
+    this->setWantsKeyboardFocus(false); // ListBox child will handle keyboard focus.
     directory_contents_list_.setDirectory(initial_directory, true, true);
     this->on_directory_change(initial_directory);
     directory_contents_list_.addChangeListener(this);
     list_box_.setModel(this);
+    list_box_.setWantsKeyboardFocus(true); // This is default, but just to be explicit.
     this->addAndMakeVisible(list_box_);
     this->startTimer(POLLING_MS);
     dcl_thread_.startThread(juce::Thread::Priority::low);
 }
 
-PhraseDirectoryView::~PhraseDirectoryView()
+DirectoryView::~DirectoryView()
 {
     this->stopTimer();
     dcl_thread_.stopThread(3'000); // Allow some time for thread to finish
     directory_contents_list_.removeChangeListener(this);
 }
 
-auto PhraseDirectoryView::resized() -> void
+auto DirectoryView::resized() -> void
 {
     list_box_.setBounds(this->getLocalBounds());
 }
 
-auto PhraseDirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source)
-    -> void
+auto DirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source) -> void
 {
     if (source == &directory_contents_list_)
     {
@@ -38,9 +41,8 @@ auto PhraseDirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source
     }
 }
 
-auto PhraseDirectoryView::listBoxItemDoubleClicked(int row,
-                                                   juce::MouseEvent const &mouse)
-    -> void
+auto DirectoryView::listBoxItemDoubleClicked(int row,
+                                             juce::MouseEvent const &mouse) -> void
 {
     if (mouse.mods.isLeftButtonDown())
     {
@@ -48,12 +50,12 @@ auto PhraseDirectoryView::listBoxItemDoubleClicked(int row,
     }
 }
 
-auto PhraseDirectoryView::returnKeyPressed(int lastRowSelected) -> void
+auto DirectoryView::returnKeyPressed(int lastRowSelected) -> void
 {
     this->item_selected(lastRowSelected);
 }
 
-auto PhraseDirectoryView::keyPressed(juce::KeyPress const &key) -> bool
+auto DirectoryView::keyPressed(juce::KeyPress const &key) -> bool
 {
     if (key.getTextCharacter() == 'j')
     {
@@ -66,36 +68,33 @@ auto PhraseDirectoryView::keyPressed(juce::KeyPress const &key) -> bool
     return list_box_.keyPressed(key);
 }
 
-auto PhraseDirectoryView::lookAndFeelChanged() -> void
+auto DirectoryView::lookAndFeelChanged() -> void
 {
-    list_box_.setColour(
-        juce::ListBox::backgroundColourId,
-        this->findColour((int)PhraseDirectoryViewColorIDs::ItemBackground));
+    list_box_.setColour(juce::ListBox::backgroundColourId,
+                        this->findColour((int)DirectoryViewColorIDs::ItemBackground));
 }
 
-auto PhraseDirectoryView::getNumRows() -> int
+auto DirectoryView::getNumRows() -> int
 {
     return directory_contents_list_.getNumFiles() + 1;
 }
 
-auto PhraseDirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
-                                           int height, bool rowIsSelected) -> void
+auto DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
+                                     int height, bool rowIsSelected) -> void
 {
     if (rowNumber >= 0)
     {
         rowNumber -= 1;
         if (rowIsSelected)
         {
-            g.fillAll(this->findColour(
-                (int)PhraseDirectoryViewColorIDs::SelectedItemBackground));
-            g.setColour(
-                this->findColour((int)PhraseDirectoryViewColorIDs::SelectedItemText));
+            g.fillAll(
+                this->findColour((int)DirectoryViewColorIDs::SelectedItemBackground));
+            g.setColour(this->findColour((int)DirectoryViewColorIDs::SelectedItemText));
         }
         else
         {
-            g.fillAll(
-                this->findColour((int)PhraseDirectoryViewColorIDs::ItemBackground));
-            g.setColour(this->findColour((int)PhraseDirectoryViewColorIDs::ItemText));
+            g.fillAll(this->findColour((int)DirectoryViewColorIDs::ItemBackground));
+            g.setColour(this->findColour((int)DirectoryViewColorIDs::ItemText));
         }
         auto const filename = [&]() -> juce::String {
             if (rowNumber == -1)
@@ -113,12 +112,12 @@ auto PhraseDirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int
     }
 }
 
-auto PhraseDirectoryView::timerCallback() -> void
+auto DirectoryView::timerCallback() -> void
 {
     directory_contents_list_.refresh();
 }
 
-auto PhraseDirectoryView::item_selected(int index) -> void
+auto DirectoryView::item_selected(int index) -> void
 {
     index -= 1;
 
@@ -143,6 +142,24 @@ auto PhraseDirectoryView::item_selected(int index) -> void
     {
         this->on_file_selected(file);
     }
+}
+
+// -------------------------------------------------------------------------------------
+
+PhraseDirectoryView::PhraseDirectoryView(juce::File const &initial_directory)
+    : DirectoryView{initial_directory,
+                    juce::WildcardFileFilter{"*.json", "*", "JSON filter"}}
+{
+    this->setComponentID("PhraseLibrary");
+}
+
+// -------------------------------------------------------------------------------------
+
+TuningDirectoryView::TuningDirectoryView(juce::File const &initial_directory)
+    : DirectoryView{initial_directory,
+                    juce::WildcardFileFilter{"*.scl", "*", "scala filter"}}
+{
+    this->setComponentID("TuningLibrary");
 }
 
 } // namespace xen::gui

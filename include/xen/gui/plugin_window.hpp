@@ -85,10 +85,10 @@ class PhrasesView : public juce::Component
     {
         library_label.setColour(
             juce::Label::textColourId,
-            this->findColour((int)PhraseDirectoryViewColorIDs::TitleText));
+            this->findColour((int)DirectoryViewColorIDs::TitleText));
         library_label.setColour(
             juce::Label::backgroundColourId,
-            this->findColour((int)PhraseDirectoryViewColorIDs::TitleBackground));
+            this->findColour((int)DirectoryViewColorIDs::TitleBackground));
         active_sessions_label.setColour(
             juce::Label::textColourId,
             this->findColour((int)ActiveSessionsColorIDs::TitleText));
@@ -116,8 +116,7 @@ class PluginWindow : public juce::Component
     gui::StatusBar status_bar;
 
   public:
-    PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
-                 XenCommandTree const &command_tree);
+    PluginWindow(XenTimeline &tl, CommandHistory &cmd_history);
 
   public:
     /**
@@ -137,6 +136,14 @@ class PluginWindow : public juce::Component
      * @throws std::invalid_argument if the ComponentID is not found
      */
     auto set_focus(std::string component_id) -> void;
+
+    /**
+     * Lookup up the component by ComponentID and update the GUI to show it.
+     *
+     * @param component_id The ComponentID of the component to show
+     * @throws std::invalid_argument if the ComponentID is not found
+     */
+    auto show_component(std::string component_id) -> void;
 
   protected:
     auto resized() -> void override;

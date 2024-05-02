@@ -11,6 +11,9 @@
 #include <utility>
 #include <vector>
 
+#include <sequence/time_signature.hpp>
+
+#include <xen/input_mode.hpp>
 #include <xen/utility.hpp>
 
 namespace xen

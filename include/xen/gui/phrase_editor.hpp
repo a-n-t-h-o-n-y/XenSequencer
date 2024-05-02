@@ -23,6 +23,8 @@ class PhraseEditor : public juce::Component
     {
         this->setComponentID("PhraseEditor");
         this->addAndMakeVisible(phrase);
+
+        // Uses a key listener set up by XenEditor.
         this->setWantsKeyboardFocus(true);
     }
 

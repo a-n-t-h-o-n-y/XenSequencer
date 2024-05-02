@@ -12,15 +12,12 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/gui/color_ids.hpp>
-#include <xen/guide_text.hpp>
 #include <xen/message_level.hpp>
 #include <xen/signature.hpp>
+#include <xen/state.hpp>
 #include <xen/string_manip.hpp>
-#include <xen/xen_command_tree.hpp>
-#include <xen/xen_timeline.hpp>
 
 namespace xen::gui
 {
@@ -28,7 +25,7 @@ namespace xen::gui
 /**
  * Provides signals not provided by TextEditor
  */
-class CommandInput : public juce::TextEditor
+class CommandInputComponent : public juce::TextEditor
 {
   public:
     std::function<bool()> onTabKey;
@@ -36,7 +33,7 @@ class CommandInput : public juce::TextEditor
     std::function<bool()> onArrowDownKey;
 
   public:
-    CommandInput()
+    CommandInputComponent()
     {
         this->setWantsKeyboardFocus(true);
         this->setMultiLine(false, false);
@@ -77,16 +74,15 @@ class CommandInput : public juce::TextEditor
 class CommandBar : public juce::Component
 {
   public:
-    sl::Signal<void()> on_escape_request;
-    sl::Signal<void(MessageLevel, std::string const &)> on_command_response;
+    sl::Signal<void(std::string const &)> on_command_request;
+    sl::Signal<std::string(std::string const &)> on_guide_text_request;
+    sl::Signal<std::string(std::string const &)> on_complete_id_request;
 
   public:
-    CommandBar(XenTimeline &tl, CommandHistory &cmd_history,
-               xen::XenCommandTree const &command_tree)
-        : timeline_{tl}, command_history_{cmd_history}, command_tree_{command_tree}
+    CommandBar(CommandHistory &cmd_history) : command_history_{cmd_history}
     {
         this->setComponentID("CommandBar");
-        this->setWantsKeyboardFocus(true);
+        this->setWantsKeyboardFocus(false);
 
         this->addAndMakeVisible(command_input_);
         this->addAndMakeVisible(ghost_text_);
@@ -139,7 +135,7 @@ class CommandBar : public juce::Component
     auto open() -> void
     {
         this->setVisible(true);
-        this->grabKeyboardFocus();
+        command_input_.grabKeyboardFocus();
     }
 
     /**
@@ -156,12 +152,6 @@ class CommandBar : public juce::Component
     {
         ghost_text_.setBounds(0, 0, this->getWidth(), this->getHeight());
         command_input_.setBounds(0, 0, this->getWidth(), this->getHeight());
-    }
-
-    auto focusGained(FocusChangeType) -> void override
-    {
-        // Forward focus to child component
-        command_input_.grabKeyboardFocus();
     }
 
     auto lookAndFeelChanged() -> void override
@@ -189,9 +179,7 @@ class CommandBar : public juce::Component
     {
         auto const command = command_input_.getText().toStdString();
         command_history_.add_command(command);
-        auto const [mlevel, message] =
-            execute(command_tree_, timeline_, normalize_command_string(command));
-        this->on_command_response(mlevel, message);
+        this->on_command_request(command);
     }
 
     /**
@@ -202,10 +190,12 @@ class CommandBar : public juce::Component
     {
         auto const input = command_input_.getText().toStdString();
 
-        auto const guide_text =
-            std::string(input.size(), ' ') + generate_guide_text(command_tree_, input);
-
-        ghost_text_.setText(guide_text, juce::NotificationType::dontSendNotification);
+        auto const gt = this->on_guide_text_request(input);
+        if (gt.has_value())
+        {
+            ghost_text_.setText(std::string(input.size(), ' ') + *gt,
+                                juce::NotificationType::dontSendNotification);
+        }
     }
 
     auto do_tab_press() -> void
@@ -216,18 +206,21 @@ class CommandBar : public juce::Component
         }
 
         auto const input = command_input_.getText().toStdString();
-        auto const completed_id = complete_id(command_tree_, input);
-        auto const completed_text =
-            input + completed_id + (completed_id.empty() ? "" : " ");
-        command_input_.setText(completed_text,
-                               juce::NotificationType::dontSendNotification);
-        ghost_text_.clear();
-        this->add_guide_text();
+        auto const id = this->on_complete_id_request(input);
+        // auto const completed_id = complete_id(command_tree_, input);
+        if (id.has_value())
+        {
+            auto const completed_text = input + *id + (id->empty() ? "" : " ");
+            command_input_.setText(completed_text,
+                                   juce::NotificationType::dontSendNotification);
+            ghost_text_.clear();
+            this->add_guide_text();
+        }
     }
 
     auto do_escape() -> void
     {
-        on_escape_request();
+        this->on_command_request("focus PhraseEditor");
     }
 
     auto do_history_next() -> void
@@ -291,11 +284,10 @@ class CommandBar : public juce::Component
     }
 
   private:
-    XenTimeline &timeline_;
-    CommandInput command_input_;
+    CommandInputComponent command_input_;
     juce::TextEditor ghost_text_;
+
     CommandHistory &command_history_;
-    xen::XenCommandTree const &command_tree_;
 };
 
 } // namespace xen::gui

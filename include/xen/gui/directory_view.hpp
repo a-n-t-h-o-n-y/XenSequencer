@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -10,10 +11,10 @@
 namespace xen::gui
 {
 
-class PhraseDirectoryView : public juce::Component,
-                            public juce::ListBoxModel,
-                            public juce::ChangeListener,
-                            private juce::Timer
+class DirectoryView : public juce::Component,
+                      public juce::ListBoxModel,
+                      public juce::ChangeListener,
+                      private juce::Timer
 {
   private:
     inline static constexpr auto POLLING_MS = 2'000;
@@ -23,17 +24,18 @@ class PhraseDirectoryView : public juce::Component,
     sl::Signal<void(juce::File const &)> on_directory_change;
 
   public:
-    explicit PhraseDirectoryView(juce::File const &initial_directory);
+    DirectoryView(juce::File const &initial_directory,
+                  juce::WildcardFileFilter const &file_filter);
 
-    ~PhraseDirectoryView() override;
+    ~DirectoryView() override;
 
   public:
     auto resized() -> void override;
 
     auto changeListenerCallback(juce::ChangeBroadcaster *source) -> void override;
 
-    auto listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)
-        -> void override;
+    auto listBoxItemDoubleClicked(int row,
+                                  juce::MouseEvent const &mouse) -> void override;
 
     auto returnKeyPressed(int lastRowSelected) -> void override;
 
@@ -55,9 +57,21 @@ class PhraseDirectoryView : public juce::Component,
 
   private:
     juce::TimeSliceThread dcl_thread_{"DirectoryViewComponentThread"};
-    juce::WildcardFileFilter file_filter_{"*.json", "*", "JSON filter"};
+    juce::WildcardFileFilter file_filter_;
     juce::DirectoryContentsList directory_contents_list_{&file_filter_, dcl_thread_};
     juce::ListBox list_box_;
+};
+
+class PhraseDirectoryView : public DirectoryView
+{
+  public:
+    PhraseDirectoryView(juce::File const &initial_directory);
+};
+
+class TuningDirectoryView : public DirectoryView
+{
+  public:
+    TuningDirectoryView(juce::File const &initial_directory);
 };
 
 } // namespace xen::gui

@@ -12,85 +12,26 @@
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/gui/themes.hpp>
+#include <xen/guide_text.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
 
-namespace
-{
-
-/**
- * Set the key listeners for the plugin window.
- *
- * @details This removes previous_listeners and adds new_listeners. update_key_listeners
- * should be used in most cases.
- */
-auto set_key_listeners(std::map<std::string, xen::KeyConfigListener> previous_listeners,
-                       std::map<std::string, xen::KeyConfigListener> &new_listeners,
-                       xen::gui::PluginWindow &plugin_window,
-                       xen::XenCommandTree const &command_tree,
-                       xen::XenTimeline &timeline) -> void
-{
-    using namespace xen;
-    // This relies on Component::getComponentID();
-    auto const remove_listener = [&previous_listeners](juce::Component &component) {
-        auto const id = to_lower(component.getComponentID().toStdString());
-        auto const iter = previous_listeners.find(id);
-        if (iter != std::cend(previous_listeners))
-        {
-            component.removeKeyListener(&(iter->second));
-        }
-    };
-
-    auto const add_listener = [&](juce::Component &component) {
-        auto const id = to_lower(component.getComponentID().toStdString());
-        component.addKeyListener(&new_listeners.at(id));
-        new_listeners.at(id).on_command.connect([&](std::string const &command) {
-            auto const [mlevel, msg] =
-                execute(command_tree, timeline, normalize_command_string(command));
-            plugin_window.status_bar.message_display.set_status(mlevel, msg);
-        });
-    };
-
-    try
-    {
-        remove_listener(plugin_window.phrase_editor);
-        add_listener(plugin_window.phrase_editor);
-
-        // TODO
-        // remove_listener(plugin_window.tuning_box);
-        // add_listener(plugin_window.tuning_box);
-    }
-    catch (std::exception const &e)
-    {
-        throw std::runtime_error("Failed to set key listeners: " +
-                                 std::string{e.what()});
-    }
-}
-
-} // namespace
-
 namespace xen::gui
 {
 
 XenEditor::XenEditor(XenProcessor &p)
-    : AudioProcessorEditor{p}, timeline_{p.plugin_state.timeline},
-      command_tree_{create_command_tree(
-          on_focus_change_request_, p.plugin_state.shared.on_load_keys_request,
-          p.plugin_state.shared.on_load_keys_request_mtx, p.plugin_state.shared.theme,
-          p.plugin_state.shared.on_theme_update, p.plugin_state.shared.theme_mtx,
-          p.plugin_state.shared.copy_buffer, p.plugin_state.shared.copy_buffer_mtx,
-          p.plugin_state.PROCESS_UUID)},
-      plugin_window_{p.plugin_state.timeline, p.plugin_state.command_history,
-                     command_tree_}
+    : AudioProcessorEditor{p},
+      plugin_window{p.plugin_state.timeline, p.plugin_state.command_history},
+      processor_{p}
 {
     this->setResizable(true, true);
     this->setSize(1000, 300);
     this->setResizeLimits(400, 300, 1200, 900);
 
-    this->addAndMakeVisible(&plugin_window_);
+    this->addAndMakeVisible(&plugin_window);
 
     { // Initialize LookAndFeel
         if (p.plugin_state.laf == nullptr)
@@ -104,18 +45,44 @@ XenEditor::XenEditor(XenProcessor &p)
         this->setLookAndFeel(p.plugin_state.laf.get());
     }
 
-    {
+    // CommandBar Execute Request
+    plugin_window.command_bar.on_command_request.connect(
+        [this](std::string const &command_string) {
+            this->execute_command_string(command_string);
+        });
+
+    // CommandBar Guide Text Request
+    plugin_window.command_bar.on_guide_text_request.connect(
+        [this](std::string const &partial_command) -> std::string {
+            return generate_guide_text(processor_.command_tree, partial_command);
+        });
+
+    // CommandBar ID Completion Request
+    plugin_window.command_bar.on_complete_id_request.connect(
+        [this](std::string const &partial_command) -> std::string {
+            return complete_id(processor_.command_tree, partial_command);
+        });
+
+    // On Sequence File Selected
+    plugin_window.phrases_view.directory_view.on_file_selected.connect(
+        [this](juce::File const &file) {
+            this->execute_command_string(
+                "load state \"" + file.getFileNameWithoutExtension().toStdString() +
+                '\"');
+        });
+
+    { // Timeline State Change
         auto slot = sl::Slot<void(SequencerState const &, AuxState const &)>{
             [this, &p](SequencerState const &state, AuxState const &aux) {
-                this->update(state, aux, p.plugin_state.display_name);
+                this->update_ui(state, aux, p.plugin_state.display_name);
             }};
         slot.track(lifetime_);
 
-        timeline_.on_state_change.connect(slot);
-        timeline_.on_aux_change.connect(slot);
+        p.plugin_state.timeline.on_state_change.connect(slot);
+        p.plugin_state.timeline.on_aux_change.connect(slot);
     }
 
-    {
+    { // Theme Changed
         auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
             p.plugin_state.laf = gui::make_laf(theme);
             this->setLookAndFeel(p.plugin_state.laf.get());
@@ -125,29 +92,43 @@ XenEditor::XenEditor(XenProcessor &p)
         p.plugin_state.shared.on_theme_update.connect(slot);
     }
 
-    // ActiveSessions Signals/Slots
-    {
+    { // ActiveSessions Shutdown
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window_.phrases_view.active_sessions_view.remove_instance(uuid);
+            plugin_window.phrases_view.active_sessions_view.remove_instance(uuid);
         }};
         slot.track(lifetime_);
         p.active_sessions.on_instance_shutdown.connect(slot);
     }
-    {
+
+    { // ActiveSession ID Update
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window_.phrases_view.active_sessions_view.add_or_update_instance(
+                plugin_window.phrases_view.active_sessions_view.add_or_update_instance(
                     uuid, display_name);
             }};
         slot.track(lifetime_);
         p.active_sessions.on_id_update.connect(slot);
     }
 
-    // No lifetime tracking needed signal is owned by *this.
-    on_focus_change_request_.connect(
-        [this](std::string const &name) { plugin_window_.set_focus(name); });
+    { // Focus Change Request
+        auto slot = sl::Slot<void(std::string const &)>{
+            [this](std::string const &component_id) {
+                plugin_window.set_focus(component_id);
+            }};
+        slot.track(lifetime_);
+        p.plugin_state.on_focus_request.connect(slot);
+    }
 
-    {
+    { // Show Component Request
+        auto slot = sl::Slot<void(std::string const &)>{
+            [this](std::string const &component_id) {
+                plugin_window.show_component(component_id);
+            }};
+        slot.track(lifetime_);
+        p.plugin_state.on_show_request.connect(slot);
+    }
+
+    { // Load Keys File Request
         auto slot = sl::Slot<void()>{[this] {
             this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
         }};
@@ -157,12 +138,12 @@ XenEditor::XenEditor(XenProcessor &p)
         p.plugin_state.shared.on_load_keys_request.connect(slot);
     }
 
-    // No lifetime tracking needed because its GUI->Processor
-    plugin_window_.phrases_view.active_sessions_view.on_instance_selected.connect(
+    // ActiveSession Selected
+    plugin_window.phrases_view.active_sessions_view.on_instance_selected.connect(
         [&p](juce::Uuid const &uuid) { p.active_sessions.request_state(uuid); });
 
-    // No lifetime tracking needed because its GUI->Processor
-    plugin_window_.phrases_view.active_sessions_view.on_this_instance_name_change
+    // ActiveSession Name Change
+    plugin_window.phrases_view.active_sessions_view.on_this_instance_name_change
         .connect([&p](std::string const &name) {
             p.plugin_state.display_name = name;
             p.active_sessions.notify_display_name_update(name);
@@ -171,8 +152,8 @@ XenEditor::XenEditor(XenProcessor &p)
     p.active_sessions.request_other_session_ids();
 
     // Initialize GUI
-    auto const [state, aux] = timeline_.get_state();
-    this->update(state, aux, p.plugin_state.display_name);
+    auto const [state, aux] = p.plugin_state.timeline.get_state();
+    this->update_ui(state, aux, p.plugin_state.display_name);
 
     try
     {
@@ -180,15 +161,15 @@ XenEditor::XenEditor(XenProcessor &p)
     }
     catch (std::exception const &e)
     {
-        plugin_window_.status_bar.message_display.set_status(
+        plugin_window.status_bar.message_display.set_status(
             MessageLevel::Error, std::string{"Check `user_keys.yml`: "} + e.what());
     }
 }
 
-auto XenEditor::update(SequencerState const &state, AuxState const &aux,
-                       std::string const &display_name) -> void
+auto XenEditor::update_ui(SequencerState const &state, AuxState const &aux,
+                          std::string const &display_name) -> void
 {
-    plugin_window_.update(state, aux, display_name);
+    plugin_window.update(state, aux, display_name);
 
     // TODO set base frequency?
 }
@@ -197,19 +178,64 @@ auto XenEditor::update_key_listeners(juce::File const &default_keys,
                                      juce::File const &user_keys) -> void
 {
     auto previous_listeners = std::move(key_config_listeners_);
-    key_config_listeners_ = build_key_listeners(default_keys, user_keys, timeline_);
-    set_key_listeners(std::move(previous_listeners), key_config_listeners_,
-                      plugin_window_, command_tree_, timeline_);
+    key_config_listeners_ =
+        build_key_listeners(default_keys, user_keys, processor_.plugin_state.timeline);
+    this->set_key_listeners(std::move(previous_listeners), key_config_listeners_);
 }
 
 auto XenEditor::resized() -> void
 {
-    plugin_window_.setBounds(this->getLocalBounds());
+    plugin_window.setBounds(this->getLocalBounds());
 }
 
-auto XenEditor::paint(juce::Graphics &g) -> void
+auto XenEditor::execute_command_string(std::string const &command_string) -> void
 {
-    g.fillAll(juce::Colours::black);
+    auto &ps = processor_.plugin_state;
+
+    auto const [mlevel, msg] =
+        execute(processor_.command_tree, ps, normalize_command_string(command_string));
+
+    this->update_ui(ps.timeline.get_state().first, ps.timeline.get_aux_state(),
+                    ps.display_name);
+
+    plugin_window.status_bar.message_display.set_status(mlevel, msg);
+}
+
+auto XenEditor::set_key_listeners(
+    std::map<std::string, xen::KeyConfigListener> previous_listeners,
+    std::map<std::string, xen::KeyConfigListener> &new_listeners) -> void
+{
+    // This relies on Component::getComponentID();
+    auto const remove_listener = [&previous_listeners](juce::Component &component) {
+        auto const id = to_lower(component.getComponentID().toStdString());
+        auto const iter = previous_listeners.find(id);
+        if (iter != std::cend(previous_listeners))
+        {
+            component.removeKeyListener(&(iter->second));
+        }
+    };
+
+    auto const add_listener = [&](juce::Component &component) {
+        auto const id = to_lower(component.getComponentID().toStdString());
+        component.addKeyListener(&new_listeners.at(id));
+        new_listeners.at(id).on_command.connect([&](std::string const &command_string) {
+            this->execute_command_string(command_string);
+        });
+    };
+
+    try
+    {
+        remove_listener(plugin_window.phrase_editor);
+        add_listener(plugin_window.phrase_editor);
+        // TODO
+        // remove_listener(plugin_window.tuning_box);
+        // add_listener(plugin_window.tuning_box);
+    }
+    catch (std::exception const &e)
+    {
+        throw std::runtime_error("Failed to set key listeners: " +
+                                 std::string{e.what()});
+    }
 }
 
 } // namespace xen::gui

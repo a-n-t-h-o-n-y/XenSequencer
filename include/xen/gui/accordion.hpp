@@ -12,9 +12,9 @@ namespace xen::gui
 class LabelWithLine : public juce::Label
 {
   public:
-    explicit LabelWithLine(const juce::String &componentName = juce::String(),
-                           const juce::String &labelText = juce::String())
-        : juce::Label(componentName, labelText)
+    explicit LabelWithLine(const juce::String &component_name = juce::String(),
+                           const juce::String &label_text = juce::String())
+        : juce::Label(component_name, label_text)
     {
     }
 

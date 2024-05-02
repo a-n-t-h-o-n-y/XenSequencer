@@ -17,9 +17,9 @@
 #include <xen/message_level.hpp>
 #include <xen/parse_args.hpp>
 #include <xen/signature.hpp>
+#include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
-#include <xen/xen_timeline.hpp>
 
 namespace xen
 {
@@ -220,8 +220,8 @@ template <typename ID_t, typename ChildID_t, typename... Args, typename T>
  */
 template <typename Command_t, typename T>
 [[nodiscard]] auto is_match(PatternPrefix<Command_t> const &pattern,
-                            std::string command_str, std::optional<T> const &default_id)
-    -> bool
+                            std::string command_str,
+                            std::optional<T> const &default_id) -> bool
 {
     return sequence::contains_valid_pattern(command_str) &&
            is_match(pattern.command, sequence::pop_pattern_chars(command_str),
@@ -234,7 +234,7 @@ template <typename Command_t, typename T>
  * Execute a Command object.
  *
  * @param command The command to execute.
- * @param tl The timeline to execute the command on.
+ * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse, this will only consist of arguments
  * to the command, the name will be stripped off before this function is called.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
@@ -242,14 +242,14 @@ template <typename Command_t, typename T>
  * command's signature.
  */
 template <typename ID_t, typename Fn, typename... Args>
-[[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, XenTimeline &tl,
+[[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, PluginState &ps,
                            std::string command_str)
     -> std::pair<MessageLevel, std::string>
 {
     try
     {
         command_str = pop_first_word(command_str);
-        return invoke_with_args(command.fn, tl, command_str, command.signature.args);
+        return invoke_with_args(command.fn, ps, command_str, command.signature.args);
     }
     catch (std::exception const &e)
     {
@@ -261,7 +261,7 @@ template <typename ID_t, typename Fn, typename... Args>
  * Execute a Command object that takes a PatternPrefix.
  *
  * @param command The command to execute.
- * @param tl The timeline to execute the command on.
+ * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse, this will only consist of arguments
  * to the command, the name will be stripped off before this function is called.
  * @param pattern The pattern to use for iteration over Sequences.
@@ -271,14 +271,14 @@ template <typename ID_t, typename Fn, typename... Args>
  * command's signature.
  */
 template <typename ID_t, typename Fn, typename... Args>
-[[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, XenTimeline &tl,
+[[nodiscard]] auto execute(Command<ID_t, Fn, Args...> const &command, PluginState &ps,
                            std::string command_str, sequence::Pattern pattern)
     -> std::pair<MessageLevel, std::string>
 {
     try
     {
         command_str = pop_first_word(command_str);
-        return invoke_with_args(command.fn, tl, pattern, command_str,
+        return invoke_with_args(command.fn, ps, pattern, command_str,
                                 command.signature.args);
     }
     catch (std::exception const &e)
@@ -295,7 +295,7 @@ template <typename ID_t, typename Fn, typename... Args>
  * command_str to the command.
  *
  * @param command_group The command group to execute.
- * @param tl The timeline to execute the command on.
+ * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
  *
@@ -305,7 +305,7 @@ template <typename ID_t, typename Fn, typename... Args>
  */
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto execute(
-    CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, XenTimeline &tl,
+    CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, PluginState &ps,
     std::string command_str) -> std::pair<MessageLevel, std::string>
 {
     try
@@ -328,7 +328,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
                 return is_match(command, command_str,
                                 command_group.commands.id_info.default_value);
             },
-            [&](auto const &command) { return execute(command, tl, command_str); },
+            [&](auto const &command) { return execute(command, ps, command_str); },
             command_group.commands.commands);
     }
     catch (ErrorNoMatch const &)
@@ -348,7 +348,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
  * matching command in the CommandGroup, then it will forward the rest of the
  * command_str to the command.
  * @param command_group The command group to execute.
- * @param tl The timeline to execute the command on.
+ * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse.
  * @param pattern The pattern to use for iteration over Sequences.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
@@ -358,9 +358,9 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
  */
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto execute(
-    CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, XenTimeline &tl,
-    std::string command_str, sequence::Pattern pattern)
-    -> std::pair<MessageLevel, std::string>
+    CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, PluginState &ps,
+    std::string command_str,
+    sequence::Pattern pattern) -> std::pair<MessageLevel, std::string>
 {
     try
     {
@@ -381,7 +381,7 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
                                 command_group.commands.id_info.default_value);
             },
             [&](auto const &command) {
-                return execute(command, tl, command_str, std::move(pattern));
+                return execute(command, ps, command_str, std::move(pattern));
             },
             command_group.commands.commands);
     }
@@ -402,13 +402,13 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
  * Pattern and the remaining command string on to its child command. A pattern string
  * can be empty and will default to Pattern{0, {1}}.
  * @param pattern The pattern prefix to execute.
- * @param tl The timeline to execute the command on.
+ * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
  * @exception std::invalid_argument Thrown when the pattern string is invalid.
  */
 template <typename Command_t>
-[[nodiscard]] auto execute(PatternPrefix<Command_t> const &pattern_cmd, XenTimeline &tl,
+[[nodiscard]] auto execute(PatternPrefix<Command_t> const &pattern_cmd, PluginState &ps,
                            std::string command_str)
     -> std::pair<MessageLevel, std::string>
 {
@@ -416,7 +416,7 @@ template <typename Command_t>
     {
         auto pattern = sequence::parse_pattern(command_str);
         command_str = sequence::pop_pattern_chars(command_str);
-        return execute(pattern_cmd.command, tl, std::move(command_str),
+        return execute(pattern_cmd.command, ps, std::move(command_str),
                        std::move(pattern));
     }
     catch (std::invalid_argument const &e)

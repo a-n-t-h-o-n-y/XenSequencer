@@ -14,7 +14,6 @@
 #include <xen/input_mode.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
-#include <xen/xen_timeline.hpp>
 
 namespace xen
 {

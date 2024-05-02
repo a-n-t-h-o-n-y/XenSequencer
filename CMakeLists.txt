@@ -122,7 +122,6 @@ target_sources(XenSequencerLib
         include/xen/xen_command_tree.hpp
         include/xen/xen_editor.hpp
         include/xen/xen_processor.hpp
-        include/xen/xen_timeline.hpp
 
         include/xen/gui/accordion.hpp
         include/xen/gui/active_sessions.hpp

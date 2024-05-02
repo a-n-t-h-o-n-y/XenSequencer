@@ -31,18 +31,13 @@
 namespace xen::gui
 {
 
-PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
-                           XenCommandTree const &command_tree)
+PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history)
     : phrases_view_accordion{"Phrases", tl.get_aux_state().current_phrase_directory},
-      phrases_view{phrases_view_accordion.child},
-      command_bar{tl, cmd_history, command_tree}
+      phrases_view{phrases_view_accordion.child}, command_bar{cmd_history}
 {
     this->addAndMakeVisible(phrases_view_accordion);
     this->addAndMakeVisible(gui_timeline);
     this->addAndMakeVisible(phrase_editor);
-
-    // TODO
-    // this->addAndMakeVisible(tuning_box);
 
     phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(125.f));
 
@@ -51,29 +46,12 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history,
 
     this->addAndMakeVisible(status_bar);
 
-    phrases_view.directory_view.on_file_selected.connect([&](juce::File const &file) {
-        auto const [mlevel, response] = execute(
-            command_tree, tl,
-            normalize_command_string("load state \"" +
-                                     file.getFileNameWithoutExtension().toStdString()) +
-                '\"');
-        status_bar.message_display.set_status(mlevel, response);
-    });
-
     phrases_view.directory_view.on_directory_change.connect(
         [&](juce::File const &directory) {
             auto aux = tl.get_aux_state();
             aux.current_phrase_directory = directory;
             tl.set_aux_state(std::move(aux), false);
         });
-
-    command_bar.on_command_response.connect(
-        [this](MessageLevel mlevel, std::string const &response) {
-            status_bar.message_display.set_status(mlevel, response);
-        });
-
-    command_bar.on_escape_request.connect(
-        [this] { phrase_editor.grabKeyboardFocus(); });
 }
 
 auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
@@ -95,23 +73,54 @@ auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
 auto PluginWindow::set_focus(std::string component_id) -> void
 {
     component_id = to_lower(component_id);
+    // TODO use a lambda to check if visible then to set focus.
+
     if (component_id == to_lower(command_bar.getComponentID().toStdString()))
     {
-        command_bar.open();
+        if (command_bar.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        // command_bar.open();
     }
     else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
     {
-        phrase_editor.grabKeyboardFocus();
+        if (phrase_editor.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        // Uses a key listener set up by XenEditor.
+        // phrase_editor.grabKeyboardFocus();
     }
     else
     {
         throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
     }
-    // TODO
-    // else if (name == to_lower(tuning_box.getComponentID().toStdString()))
-    // {
-    //     tuning_box.grabKeyboardFocus();
-    // }
+    // TODO SequencesLibrary
+    // TODO ActiveSessions
+    // TODO TuningsLibrary
+    // you'll need to expose the list box or provide some function to set focus
+    // to the list box via this function,
+}
+
+auto PluginWindow::show_component(std::string component_id) -> void
+{
+    component_id = to_lower(component_id);
+
+    if (component_id == to_lower(command_bar.getComponentID().toStdString()))
+    {
+        // command_bar.setVisible(true);
+    }
+    else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
+    {
+        // phrase_editor.setVisible(true);
+    }
+    else
+    {
+        throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
+    }
+    // TODO Library
+    // TODO Sequencer
 }
 
 auto PluginWindow::resized() -> void

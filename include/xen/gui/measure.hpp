@@ -52,6 +52,7 @@ class Measure : public juce::Component
     Measure(sequence::Measure const &measure, SequencerState const &state)
         : time_sig_{measure.time_signature}, cell_ptr_{make_cell(measure.cell, state)}
     {
+        this->setWantsKeyboardFocus(false);
         this->addAndMakeVisible(time_sig_);
         this->addAndMakeVisible(*cell_ptr_);
     }

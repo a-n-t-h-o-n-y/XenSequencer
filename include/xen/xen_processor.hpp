@@ -20,7 +20,6 @@
 #include <xen/plugin_processor.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
-#include <xen/xen_timeline.hpp>
 
 namespace xen
 {
@@ -28,19 +27,9 @@ namespace xen
 class XenProcessor : public PluginProcessor
 {
   public:
-    struct PluginState
-    {
-        juce::Uuid const PROCESS_UUID = juce::Uuid{};
-        std::string display_name = "XenSequencer";
-        // std::string component_in_focus{"TODO"};
-        DAWState daw_state{};
-        CommandHistory command_history{};
-        XenTimeline timeline;
-        inline static SharedState shared{};
-        std::unique_ptr<juce::LookAndFeel> laf{nullptr};
-    } plugin_state;
-
+    PluginState plugin_state;
     ActiveSessions active_sessions;
+    XenCommandTree command_tree;
 
   public:
     XenProcessor();
