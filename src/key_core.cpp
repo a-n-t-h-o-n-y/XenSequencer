@@ -332,8 +332,8 @@ KeyCore::KeyCore(std::vector<KeyConfig> const &configs)
     }
 }
 
-auto KeyCore::find_action(const juce::KeyPress &key, InputMode mode) const
-    -> std::optional<std::string>
+auto KeyCore::find_action(const juce::KeyPress &key,
+                          InputMode mode) const -> std::optional<std::string>
 {
     // Check mode-sensitive actions first
     auto const it_mode = mode_sensitive_actions_.find(mode);
@@ -369,7 +369,7 @@ KeyConfigListener::KeyConfigListener(KeyCore key_core, XenTimeline const &tl)
 
 auto KeyConfigListener::keyPressed(juce::KeyPress const &key, juce::Component *) -> bool
 {
-    auto const action = key_core_.find_action(key, tl_.get_aux_state().input_mode);
+    auto const action = key_core_.find_action(key, tl_.get_state().aux.input_mode);
     if (action)
     {
         on_command.emit(*action);

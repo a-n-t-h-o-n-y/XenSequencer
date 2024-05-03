@@ -1,183 +1,160 @@
 #pragma once
 
 #include <cassert>
-#include <chrono>
+#include <cstddef>
 #include <mutex>
 #include <utility>
 #include <vector>
-
-#include <signals_light/signal.hpp>
 
 namespace xen
 {
 
 /**
- * A timeline of states.
+ * A timeline/history of States.
  *
- * This class represents a timeline of states that can be navigated using undo and redo
- * operations. The timeline is thread-safe and can be used from multiple threads.
- *
+ * @details The timeline can have State staged to it, which can be written to the
+ * timeline with a commit() call. You can move through commit history with undo/redo
+ * commands and truncate history with new writes after an undo. The timeline is
+ * thread-safe.
  * @tparam State The type of the states stored in the timeline.
  */
-template <typename State, typename AuxiliaryState>
+template <typename State>
 class Timeline
 {
   public:
     /**
-     * A signal emitted when the state of the timeline changes.
+     * Construct a new timeline with an initial state.
      *
-     * This signal is emitted whenever a new state is added to the timeline or the
-     * current state is changed. The signal carries the new state as an argument.
+     * @details The Timeline is never empty, there is always an initial state.
      */
-    sl::Signal<void(State const &, AuxiliaryState const &)> on_state_change;
-
-    /**
-     * A signal emitted when the auxiliary state of the timeline changes.
-     */
-    sl::Signal<void(State const &, AuxiliaryState const &)> on_aux_change;
-
-  public:
-    explicit Timeline(State state, AuxiliaryState aux)
-        : history_{{std::move(state), aux}}, current_state_index_{0},
-          auxiliary_state_{aux},
-          last_update_time_{std::chrono::high_resolution_clock::now()}
+    explicit Timeline(State state) : stage_{std::move(state)}, timeline_{stage_}
     {
     }
 
   public:
     /**
-     * Add a new state to the timeline.
-     * @param state The new state to be added.
-     * @return void.
+     * Stage a new state that can be committed to the Timeline later.
+     *
+     * @details Any subsequent calls will overwrite the staged state. Store changes by
+     * committing them once staged.
+     * @param state The new state to be staged.
      */
-    auto add_state(State state) -> void
+    auto stage(State state) -> void
     {
-        std::lock_guard<std::mutex> lock{mutex_};
-
-        if (current_state_index_ + 1 < history_.size())
-        {
-            history_.resize(current_state_index_ + 1);
-        }
-        history_.push_back({std::move(state), auxiliary_state_});
-        ++current_state_index_;
-        this->emit_state_change();
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        stage_ = std::move(state);
     }
 
     /**
-     * Get the current state.
-     * @return The current state, the auxiliary state is from the last call to add_state
-     * or undo/redo, not necessarily the latest.
+     * Commit previously staged state to the timeline.
+     *
+     * @details This always appends the staged state to the timeline, which is a copy of
+     * the previous state if nothing has been staged since the previous commit. Use
+     * set_commit_flag() and get_commit_flag() to notify yourself if a commit should
+     * happen. If the timeline is in the past, the future is truncated.
      */
-    [[nodiscard]] auto get_state() const -> std::pair<State, AuxiliaryState>
+    auto commit() -> void
     {
-        std::lock_guard<std::mutex> lock{mutex_};
-
-        assert(!history_.empty());
-        return history_[current_state_index_];
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        at_ = at_ + 1;
+        timeline_.resize(at_);
+        timeline_.push_back(stage_);
+        should_commit_ = false;
     }
 
     /**
-     * Undo the last operation.
-     * @return true if undo was successful, false otherwise.
+     * Retrieve the latest state.
+     *
+     * @details This is the state that was last staged or a previous commit if undo has
+     * been called.
+     */
+    [[nodiscard]] auto get_state() const -> State
+    {
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        return stage_;
+    }
+
+    /**
+     * Go back one state in the timeline.
+     *
+     * @details This causes get_state() to return the previous state. If the timeline is
+     * at the beginning, nothing happens. The current staged state is overwritten by the
+     * previous state and any changes will occur from there. If a commit is not made, a
+     * redo() is possible to go back to the latest state.
      */
     auto undo() -> bool
     {
-        std::lock_guard<std::mutex> lock{mutex_};
-
-        if (current_state_index_ == 0)
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        if (at_ > 0)
         {
-            return false;
-        }
-        --current_state_index_;
-
-        // Update aux state to reflect undo
-        auxiliary_state_ = history_[current_state_index_].second;
-        this->emit_state_change();
-        this->emit_aux_change();
-        return true;
-    }
-
-    /**
-     * Redo the last undone operation.
-     * @return true if redo was successful, false otherwise.
-     */
-    auto redo() -> bool
-    {
-        std::lock_guard<std::mutex> lock{mutex_};
-
-        if (current_state_index_ + 1 < history_.size())
-        {
-            ++current_state_index_;
-
-            // Update aux state to reflect redo
-            auxiliary_state_ = history_[current_state_index_].second;
-            this->emit_state_change();
-            this->emit_aux_change();
-            last_update_time_ = std::chrono::high_resolution_clock::now();
+            at_ = at_ - 1;
+            stage_ = timeline_[at_];
             return true;
         }
         return false;
     }
 
     /**
-     * Get the time of the last update.
-     * @return The time of the last update.
-     * @note This function is thread-safe.
+     * Go forward one state in the timeline.
+     *
+     * @details This causes get_state() to return the next state. If the timeline is at
+     * the end, nothing happens. The current staged state is overwritten by the next
+     * state and any changes will occur from there.
      */
-    [[nodiscard]] auto get_last_update_time() const
-        -> std::chrono::high_resolution_clock::time_point
+    auto redo() -> bool
     {
-        std::lock_guard<std::mutex> lock{mutex_};
-        return last_update_time_;
-    }
-
-    /**
-     * Set the auxiliary state.
-     * @param aux The auxiliary state.
-     * @param emit_change Whether to emit the on_aux_change signal.
-     * @note This function is thread-safe and does not update the last update time or
-     * emit the on_state_change signal.
-     */
-    auto set_aux_state(AuxiliaryState aux, bool emit_change = true) -> void
-    {
-        std::lock_guard<std::mutex> lock{mutex_};
-        auxiliary_state_ = std::move(aux);
-        if (emit_change)
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        if (at_ + 1 < std::size(timeline_))
         {
-            this->emit_aux_change();
+            at_ = at_ + 1;
+            stage_ = timeline_[at_];
+            return true;
         }
+        return false;
     }
 
     /**
-     * Get the auxiliary state.
-     * @return A copy of the current auxiliary state.
-     * @note This function is thread-safe.
+     * Set an internal flag that can be used by the user to determine if a commit should
+     * happen.
+     *
+     * @details This is not used by the Timeline class itself, but can be used by the
+     * user to determine if a commit should happen. It is set to `false` by Timeline
+     * after a commit.
      */
-    [[nodiscard]] auto get_aux_state() const -> AuxiliaryState
+    auto set_commit_flag() -> void
     {
-        std::lock_guard<std::mutex> lock{mutex_};
-        return auxiliary_state_;
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        should_commit_ = true;
+    }
+
+    /**
+     * Get the commit flag value.
+     */
+    [[nodiscard]] auto get_commit_flag() const -> bool
+    {
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        return should_commit_;
+    }
+
+    /**
+     * Reset the staged state to the current commit point.
+     *
+     * @details This erases any staged changes that have not been committed. Useful if
+     * you need to revert state that has not been committed because of an error.
+     */
+    auto reset_stage() -> void
+    {
+        auto const lock = std::lock_guard<std::mutex>{mtx_};
+        stage_ = timeline_[at_];
     }
 
   private:
-    auto emit_state_change() -> void
-    {
-        on_state_change.emit(history_[current_state_index_].first,
-                             history_[current_state_index_].second);
-        last_update_time_ = std::chrono::high_resolution_clock::now();
-    }
+    mutable std::mutex mtx_{};
 
-    auto emit_aux_change() -> void
-    {
-        on_aux_change.emit(history_[current_state_index_].first, auxiliary_state_);
-    }
-
-  private:
-    mutable std::mutex mutex_;
-    std::vector<std::pair<State, AuxiliaryState>> history_;
-    size_t current_state_index_;
-    AuxiliaryState auxiliary_state_;
-    std::chrono::high_resolution_clock::time_point last_update_time_;
+    State stage_; // Staged state to be committed. Also the 'current' state.
+    std::vector<State> timeline_;
+    std::size_t at_{0};
+    bool should_commit_{false};
 };
 
 } // namespace xen

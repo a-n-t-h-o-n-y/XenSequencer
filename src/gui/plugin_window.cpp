@@ -31,8 +31,9 @@
 namespace xen::gui
 {
 
-PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history)
-    : phrases_view_accordion{"Phrases", tl.get_aux_state().current_phrase_directory},
+PluginWindow::PluginWindow(juce::File const &phrase_library_dir,
+                           CommandHistory &cmd_history)
+    : phrases_view_accordion{"Phrases", phrase_library_dir},
       phrases_view{phrases_view_accordion.child}, command_bar{cmd_history}
 {
     this->addAndMakeVisible(phrases_view_accordion);
@@ -45,13 +46,6 @@ PluginWindow::PluginWindow(XenTimeline &tl, CommandHistory &cmd_history)
     command_bar.setVisible(false);
 
     this->addAndMakeVisible(status_bar);
-
-    phrases_view.directory_view.on_directory_change.connect(
-        [&](juce::File const &directory) {
-            auto aux = tl.get_aux_state();
-            aux.current_phrase_directory = directory;
-            tl.set_aux_state(std::move(aux), false);
-        });
 }
 
 auto PluginWindow::update(SequencerState const &state, AuxState const &aux,

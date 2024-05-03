@@ -29,7 +29,6 @@ namespace xen
 {
 struct SequencerState;
 struct AuxState;
-struct Metadata;
 } // namespace xen
 
 namespace xen::gui
@@ -116,7 +115,7 @@ class PluginWindow : public juce::Component
     gui::StatusBar status_bar;
 
   public:
-    PluginWindow(XenTimeline &tl, CommandHistory &cmd_history);
+    PluginWindow(juce::File const &phrase_library_dir, CommandHistory &cmd_history);
 
   public:
     /**

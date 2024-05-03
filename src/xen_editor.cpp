@@ -23,8 +23,8 @@ namespace xen::gui
 {
 
 XenEditor::XenEditor(XenProcessor &p)
-    : AudioProcessorEditor{p},
-      plugin_window{p.plugin_state.timeline, p.plugin_state.command_history},
+    : AudioProcessorEditor{p}, plugin_window{p.plugin_state.current_phrase_directory,
+                                             p.plugin_state.command_history},
       processor_{p}
 {
     this->setResizable(true, true);
@@ -70,17 +70,6 @@ XenEditor::XenEditor(XenProcessor &p)
                 "load state \"" + file.getFileNameWithoutExtension().toStdString() +
                 '\"');
         });
-
-    { // Timeline State Change
-        auto slot = sl::Slot<void(SequencerState const &, AuxState const &)>{
-            [this, &p](SequencerState const &state, AuxState const &aux) {
-                this->update_ui(state, aux, p.plugin_state.display_name);
-            }};
-        slot.track(lifetime_);
-
-        p.plugin_state.timeline.on_state_change.connect(slot);
-        p.plugin_state.timeline.on_aux_change.connect(slot);
-    }
 
     { // Theme Changed
         auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
@@ -138,6 +127,12 @@ XenEditor::XenEditor(XenProcessor &p)
         p.plugin_state.shared.on_load_keys_request.connect(slot);
     }
 
+    // Phrase Library Directory Change
+    plugin_window.phrases_view.directory_view.on_directory_change.connect(
+        [&](juce::File const &directory) {
+            p.plugin_state.current_phrase_directory = directory;
+        });
+
     // ActiveSession Selected
     plugin_window.phrases_view.active_sessions_view.on_instance_selected.connect(
         [&p](juce::Uuid const &uuid) { p.active_sessions.request_state(uuid); });
@@ -152,8 +147,7 @@ XenEditor::XenEditor(XenProcessor &p)
     p.active_sessions.request_other_session_ids();
 
     // Initialize GUI
-    auto const [state, aux] = p.plugin_state.timeline.get_state();
-    this->update_ui(state, aux, p.plugin_state.display_name);
+    this->update_ui();
 
     try
     {
@@ -166,10 +160,10 @@ XenEditor::XenEditor(XenProcessor &p)
     }
 }
 
-auto XenEditor::update_ui(SequencerState const &state, AuxState const &aux,
-                          std::string const &display_name) -> void
+auto XenEditor::update_ui() -> void
 {
-    plugin_window.update(state, aux, display_name);
+    auto const &[state, aux] = processor_.plugin_state.timeline.get_state();
+    plugin_window.update(state, aux, processor_.plugin_state.display_name);
 
     // TODO set base frequency?
 }
@@ -195,8 +189,7 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
     auto const [mlevel, msg] =
         execute(processor_.command_tree, ps, normalize_command_string(command_string));
 
-    this->update_ui(ps.timeline.get_state().first, ps.timeline.get_aux_state(),
-                    ps.display_name);
+    this->update_ui();
 
     plugin_window.status_bar.message_display.set_status(mlevel, msg);
 }

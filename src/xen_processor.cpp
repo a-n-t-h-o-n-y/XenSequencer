@@ -52,7 +52,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{init_state(), {}}},
+    : plugin_state{.timeline = XenTimeline{{init_state(), {}}}},
       active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
       command_tree{create_command_tree()}, sequencer_state_copy_{init_state()},
       last_rendered_time_{}
@@ -68,7 +68,18 @@ XenProcessor::XenProcessor()
     });
 
     active_sessions.on_state_response.connect([this](SequencerState const &state) {
-        plugin_state.timeline.add_state(state);
+        auto const im = plugin_state.timeline.get_state().aux.input_mode;
+        plugin_state.timeline.stage({state, {.input_mode = im}});
+        plugin_state.timeline.commit();
+        auto *const editor_base = this->getActiveEditor();
+        if (editor_base != nullptr)
+        {
+            auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
+            if (editor != nullptr)
+            {
+                editor->update_ui();
+            }
+        }
     });
 }
 
@@ -105,10 +116,10 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     bool needs_corrections = !is_playing_; // Start was pressed
     is_playing_ = true;
 
-    // Separate if statements prevent SequencerState copies on BPM changes.
-    if (plugin_state.timeline.get_last_update_time() > last_rendered_time_)
+    // Separate if statements prevent SequencerState copies on BPM changes
+    if (sequencer_state_copy_ != plugin_state.timeline.get_state().sequencer)
     {
-        sequencer_state_copy_ = plugin_state.timeline.get_state().first;
+        sequencer_state_copy_ = plugin_state.timeline.get_state().sequencer;
         this->render();
         needs_corrections = true;
     }
@@ -181,7 +192,7 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 
 auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
 {
-    auto const json_str = serialize_plugin(plugin_state.timeline.get_state().first,
+    auto const json_str = serialize_plugin(plugin_state.timeline.get_state().sequencer,
                                            plugin_state.display_name);
     dest_data.setSize(json_str.size());
     std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
@@ -193,7 +204,17 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
     auto [state, dn] = deserialize_plugin(json_str);
     plugin_state.display_name = std::move(dn);
-    plugin_state.timeline.add_state(std::move(state));
+    plugin_state.timeline.stage({std::move(state), {}});
+    plugin_state.timeline.commit();
+    auto *const editor_base = this->getActiveEditor();
+    if (editor_base != nullptr)
+    {
+        auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
+        if (editor != nullptr)
+        {
+            editor->update_ui();
+        }
+    }
 }
 
 auto XenProcessor::render() -> void

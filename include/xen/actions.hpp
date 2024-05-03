@@ -23,7 +23,7 @@ namespace xen
  *
  * This is a convinience function for Command implementations. It will create a copy of
  * the current state, call the given funtion with the selected cell as first parameter,
- * then save this state to the timeline.
+ * then stage this state to the timeline. Does not flag the Timeline for commit.
  *
  * @param tl The timeline to operate on.
  * @param fn The function to apply to the selected Cell.
@@ -38,8 +38,7 @@ auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>,
         "Function must be invocable with a Cell and Args... and return a Cell.");
 
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     auto *selected = get_selected_cell(state.phrase, aux.selected);
 
     if (selected == nullptr)
@@ -49,7 +48,7 @@ auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
 
     *selected = std::forward<Fn>(fn)(*selected, std::forward<Args>(args)...);
 
-    tl.add_state(std::move(state));
+    tl.stage({std::move(state), std::move(aux)});
 }
 
 } // namespace xen
@@ -74,12 +73,11 @@ namespace xen::action
                          std::optional<sequence::Cell> const &copy_buffer)
     -> SequencerState;
 
-[[nodiscard]] auto duplicate(XenTimeline const &tl)
-    -> std::pair<AuxState, SequencerState>;
+[[nodiscard]] auto duplicate(XenTimeline const &tl) -> TrackedState;
 
 [[nodiscard]] auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
 
-[[nodiscard]] auto lift(XenTimeline const &tl) -> std::pair<SequencerState, AuxState>;
+[[nodiscard]] auto lift(XenTimeline const &tl) -> TrackedState;
 
 [[nodiscard]] auto shift_note_octave(XenTimeline const &tl,
                                      sequence::Pattern const &pattern,
@@ -89,16 +87,10 @@ namespace xen::action
                                    sequence::Pattern const &pattern,
                                    int octave) -> SequencerState;
 
-[[nodiscard]] auto append_measure(XenTimeline const &tl, sequence::TimeSignature ts)
-    -> std::pair<AuxState, SequencerState>;
+[[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
 
-[[nodiscard]] auto insert_measure(XenTimeline const &tl, sequence::TimeSignature ts)
-    -> std::pair<AuxState, SequencerState>;
-
-[[nodiscard]] auto delete_cell(AuxState aux, SequencerState state)
-    -> std::pair<AuxState, SequencerState>;
-
-auto save_state(XenTimeline const &tl, std::filesystem::path const &filepath) -> void;
+auto save_state(SequencerState const &state,
+                std::filesystem::path const &filepath) -> void;
 
 [[nodiscard]] auto load_state(std::filesystem::path const &filepath) -> SequencerState;
 

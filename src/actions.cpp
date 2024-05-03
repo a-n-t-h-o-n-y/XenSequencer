@@ -48,46 +48,41 @@ namespace xen::action
 
 auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
-    auto aux = tl.get_aux_state();
-    auto const phrase = tl.get_state().first.phrase;
-    if (!phrase.empty())
+    auto [state, aux] = tl.get_state();
+    if (!state.phrase.empty())
     {
-        aux.selected = move_left(phrase, aux.selected, amount);
+        aux.selected = move_left(state.phrase, aux.selected, amount);
     }
-
     return aux;
 }
 
 auto move_right(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
-    auto aux = tl.get_aux_state();
-    auto const phrase = tl.get_state().first.phrase;
-    if (!phrase.empty())
+    auto [state, aux] = tl.get_state();
+    if (!state.phrase.empty())
     {
-        aux.selected = move_right(phrase, aux.selected, amount);
+        aux.selected = move_right(state.phrase, aux.selected, amount);
     }
     return aux;
 }
 
 auto move_up(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
-    auto aux = tl.get_aux_state();
+    auto [_, aux] = tl.get_state();
     aux.selected = xen::move_up(aux.selected, amount);
     return aux;
 }
 
 auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
-    auto aux = tl.get_aux_state();
-    auto const phrase = tl.get_state().first.phrase;
-    aux.selected = xen::move_down(phrase, aux.selected, amount);
+    auto [state, aux] = tl.get_state();
+    aux.selected = xen::move_down(state.phrase, aux.selected, amount);
     return aux;
 }
 
 auto copy(XenTimeline const &tl) -> sequence::Cell
 {
-    auto const aux = tl.get_aux_state();
-    auto const state = tl.get_state().first;
+    auto const [state, aux] = tl.get_state();
     auto const *selected = get_selected_cell_const(state.phrase, aux.selected);
     if (selected == nullptr)
     {
@@ -100,8 +95,7 @@ auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
 {
     auto const buffer = ::xen::action::copy(tl);
 
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     auto *selected = get_selected_cell(state.phrase, aux.selected);
     if (selected == nullptr)
     {
@@ -114,30 +108,28 @@ auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
 auto paste(XenTimeline const &tl,
            std::optional<sequence::Cell> const &copy_buffer) -> SequencerState
 {
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     return paste_logic(state, aux, copy_buffer);
 }
 
-auto duplicate(XenTimeline const &tl) -> std::pair<AuxState, SequencerState>
+auto duplicate(XenTimeline const &tl) -> TrackedState
 {
     auto const buffer = ::xen::action::copy(tl);
-    auto const aux = ::xen::action::move_right(tl, 1);
-    auto state = tl.get_state().first;
-    return {aux, ::paste_logic(state, aux, buffer)};
+    auto aux = ::xen::action::move_right(tl, 1);
+    auto [state, _] = tl.get_state();
+    return {::paste_logic(state, aux, buffer), std::move(aux)};
 }
 
 auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
 {
-    auto aux = tl.get_aux_state();
+    auto [_, aux] = tl.get_state();
     aux.input_mode = mode;
     return aux;
 }
 
-auto lift(XenTimeline const &tl) -> std::pair<SequencerState, AuxState>
+auto lift(XenTimeline const &tl) -> TrackedState
 {
-    auto aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     sequence::Cell *parent = get_parent_of_selected(state.phrase, aux.selected);
     if (parent == nullptr)
     {
@@ -157,8 +149,7 @@ auto lift(XenTimeline const &tl) -> std::pair<SequencerState, AuxState>
 auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
                        int amount) -> SequencerState
 {
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     auto *cell = get_selected_cell(state.phrase, aux.selected);
     if (cell)
     {
@@ -172,8 +163,7 @@ auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
 auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
                      int octave) -> SequencerState
 {
-    auto const aux = tl.get_aux_state();
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
     auto const tuning_length = state.tuning.intervals.size();
     auto *cell = get_selected_cell(state.phrase, aux.selected);
     if (cell)
@@ -183,45 +173,27 @@ auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
     return state;
 }
 
-auto append_measure(XenTimeline const &tl,
-                    sequence::TimeSignature ts) -> std::pair<AuxState, SequencerState>
-{
-    auto state = tl.get_state().first;
-    state.phrase.push_back(sequence::Measure{sequence::Rest{}, ts});
-    return {{{state.phrase.size() - 1, {}}}, state};
-}
-
-auto insert_measure(XenTimeline const &tl,
-                    sequence::TimeSignature ts) -> std::pair<AuxState, SequencerState>
-{
-    auto state = tl.get_state().first;
-    auto const current_measure = tl.get_aux_state().selected.measure;
-    state.phrase.insert(
-        std::next(std::begin(state.phrase), (std::ptrdiff_t)current_measure),
-        sequence::Measure{sequence::Rest{}, ts});
-    return {{{current_measure, {}}}, state};
-}
-
-auto delete_cell(AuxState aux,
-                 SequencerState state) -> std::pair<AuxState, SequencerState>
+auto delete_cell(TrackedState ts) -> TrackedState
 {
     // delete selected cell, if the selected cell is the top level then delete the
     // measure from phrase
-    if (state.phrase.empty())
+    if (ts.sequencer.phrase.empty())
     {
-        return {aux, state};
+        return ts;
     }
 
-    sequence::Cell *parent = get_parent_of_selected(state.phrase, aux.selected);
+    sequence::Cell *parent =
+        get_parent_of_selected(ts.sequencer.phrase, ts.aux.selected);
     if (parent == nullptr)
     {
         // Delete Measure
-        state.phrase.erase(std::next(
-            std::begin(state.phrase),
-            (std::vector<sequence::Measure>::difference_type)aux.selected.measure));
+        ts.sequencer.phrase.erase(std::next(
+            std::begin(ts.sequencer.phrase),
+            (std::vector<sequence::Measure>::difference_type)ts.aux.selected.measure));
 
-        aux.selected.measure = std::min(aux.selected.measure, state.phrase.size() - 1);
-        aux.selected.cell.clear();
+        ts.aux.selected.measure =
+            std::min(ts.aux.selected.measure, ts.sequencer.phrase.size() - 1);
+        ts.aux.selected.cell.clear();
     }
     else
     {
@@ -233,26 +205,27 @@ auto delete_cell(AuxState aux,
         auto &cells = std::get<sequence::Sequence>(*parent).cells;
         cells.erase(std::next(
             std::begin(cells),
-            (std::vector<sequence::Cell>::difference_type)aux.selected.cell.back()));
+            (std::vector<sequence::Cell>::difference_type)ts.aux.selected.cell.back()));
 
         if (cells.empty())
         {
-            aux.selected = xen::move_up(aux.selected, 1);
-            return delete_cell(aux, state);
+            ts.aux.selected = xen::move_up(ts.aux.selected, 1);
+            return delete_cell(ts);
         }
         else
         {
-            aux.selected.cell.back() =
-                std::min(aux.selected.cell.back(), cells.size() - 1);
+            ts.aux.selected.cell.back() =
+                std::min(ts.aux.selected.cell.back(), cells.size() - 1);
         }
     }
 
-    return {aux, state};
+    return ts;
 }
 
-auto save_state(XenTimeline const &tl, std::filesystem::path const &filepath) -> void
+auto save_state(SequencerState const &state,
+                std::filesystem::path const &filepath) -> void
 {
-    auto const json_str = serialize_state(tl.get_state().first);
+    auto const json_str = serialize_state(state);
     write_string_to_file(filepath, json_str);
 }
 
@@ -265,8 +238,8 @@ auto load_state(std::filesystem::path const &filepath) -> SequencerState
 auto set_timesignature(XenTimeline const &tl,
                        sequence::TimeSignature ts) -> SequencerState
 {
-    auto const measure_index = tl.get_aux_state().selected.measure;
-    auto state = tl.get_state().first;
+    auto [state, aux] = tl.get_state();
+    auto const measure_index = aux.selected.measure;
     auto &measure = state.phrase[measure_index];
     measure.time_signature = ts;
     return state;
@@ -274,7 +247,7 @@ auto set_timesignature(XenTimeline const &tl,
 
 auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState
 {
-    auto state = tl.get_state().first;
+    auto [state, _] = tl.get_state();
     state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
     return state;
 }

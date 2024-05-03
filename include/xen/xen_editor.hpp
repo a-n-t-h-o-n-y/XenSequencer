@@ -27,8 +27,10 @@ class XenEditor : public juce::AudioProcessorEditor
     explicit XenEditor(XenProcessor &);
 
   public:
-    auto update_ui(SequencerState const &, AuxState const &,
-                   std::string const &display_name) -> void;
+    /**
+     * Updates GUI components using the current processor_.plugin_state member.
+     */
+    auto update_ui() -> void;
 
     /**
      * Set or Update the key listeners for the plugin window.

@@ -39,7 +39,44 @@ struct SequencerState
     sequence::Phrase phrase;
     sequence::Tuning tuning;
     float base_frequency;
+
+    auto operator==(SequencerState const &) const -> bool = default;
+    auto operator!=(SequencerState const &) const -> bool = default;
 };
+
+/**
+ * The state of the current selection in the sequencer.
+ */
+struct SelectedState
+{
+    /// The index of the currently selected Measure in the current Phrase.
+    std::size_t measure{0};
+
+    /// The index of the currently selected Cell in the current Measure.
+    std::vector<std::size_t> cell{};
+};
+
+/**
+ * The state of the auxiliary controls in the plugin, for Timeline use.
+ */
+struct AuxState
+{
+    SelectedState selected{};
+    InputMode input_mode = InputMode::Movement;
+};
+
+struct TrackedState
+{
+    SequencerState sequencer;
+    AuxState aux;
+};
+
+/**
+ * The specific Timeline type for the Xen plugin.
+ */
+using XenTimeline = Timeline<TrackedState>;
+
+// -------------------------------------------------------------------------------------
 
 /**
  * State shared across plugin instances if the DAW does not sandbox.
@@ -58,32 +95,6 @@ struct SharedState
 };
 
 /**
- * The state of the current selection in the sequencer.
- */
-struct SelectedState
-{
-    /// The index of the currently selected Measure in the current Phrase.
-    std::size_t measure;
-
-    /// The index of the currently selected Cell in the current Measure.
-    std::vector<std::size_t> cell{};
-};
-
-/**
- * The state of the auxiliary controls in the plugin, for Timeline use.
- */
-struct AuxState
-{
-    SelectedState selected;
-    InputMode input_mode = InputMode::Movement;
-    juce::File current_phrase_directory{get_phrases_directory()};
-    juce::String current_phrase_name{""};
-
-    // TODO current_tuning_name
-    // TODO current_tuning_directory
-};
-
-/**
  * The state of the DAW.
  */
 struct DAWState
@@ -95,15 +106,17 @@ struct DAWState
 // bpm = 120.f,
 // sample rate = 44'100,
 
-/**
- * The specific Timeline type for the Xen plugin.
- */
-using XenTimeline = Timeline<SequencerState, AuxState>;
-
 struct PluginState
 {
     juce::Uuid const PROCESS_UUID = juce::Uuid{};
     std::string display_name = "XenSequencer";
+
+    juce::File current_phrase_directory{get_phrases_directory()};
+    std::string current_phrase_name{""};
+
+    // TODO current_tuning_name
+    // TODO current_tuning_directory
+
     sl::Signal<void(std::string const &)> on_focus_request{};
     sl::Signal<void(std::string const &)> on_show_request{};
     DAWState daw_state{};

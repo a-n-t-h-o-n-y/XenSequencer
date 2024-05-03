@@ -64,8 +64,10 @@ namespace xen
         cmd("cut",
             "Put the current selection in the copy buffer and replace it with a Rest.",
             [](PS &ps) {
+                auto [_, aux] = ps.timeline.get_state();
                 auto [buffer, state] = action::cut(ps.timeline);
-                ps.timeline.add_state(std::move(state));
+                ps.timeline.stage({std::move(state), std::move(aux)});
+                ps.timeline.set_commit_flag();
                 {
                     auto const lock = std::lock_guard{ps.shared.copy_buffer_mtx};
                     ps.shared.copy_buffer = std::move(buffer);
@@ -76,20 +78,23 @@ namespace xen
         cmd("paste",
             "Overwrite the current selection with what is stored in the copy buffer.",
             [](PS &ps) {
+                auto [_, aux] = ps.timeline.get_state();
                 {
                     auto const lock = std::lock_guard{ps.shared.copy_buffer_mtx};
-                    ps.timeline.add_state(
-                        action::paste(ps.timeline, ps.shared.copy_buffer));
+                    ps.timeline.stage({
+                        action::paste(ps.timeline, ps.shared.copy_buffer),
+                        std::move(aux),
+                    });
                 }
+                ps.timeline.set_commit_flag();
                 return minfo("Pasted Over Selection");
             }),
 
         cmd("duplicate",
             "Duplicate the current selection by placing it in the right-adjacent Cell.",
             [](PS &ps) {
-                auto [aux, state] = action::duplicate(ps.timeline);
-                ps.timeline.set_aux_state(std::move(aux), false);
-                ps.timeline.add_state(std::move(state));
+                ps.timeline.stage(action::duplicate(ps.timeline));
+                ps.timeline.set_commit_flag();
                 return minfo("Duplicated Selection");
             }),
 
@@ -98,7 +103,11 @@ namespace xen
             "Change the input mode."
             "\n\nThe mode determines the behavior of the up/down keys.",
             [](PS &ps, InputMode mode) {
-                ps.timeline.set_aux_state(action::set_mode(ps.timeline, mode));
+                auto [state, _] = ps.timeline.get_state();
+                ps.timeline.stage({
+                    std::move(state),
+                    action::set_mode(ps.timeline, mode),
+                });
                 return minfo("Input Mode Set to '" + to_string(mode) + '\'');
             },
             ArgInfo<InputMode>{"mode"}),
@@ -127,8 +136,8 @@ namespace xen
                 "Load a full plugin State from a file in the current directory. Do not "
                 "include the .json extension in the filename you provide.",
                 [](PS &ps, std::string const &filename) {
-                    auto const cd =
-                        ps.timeline.get_aux_state().current_phrase_directory;
+                    auto aux = ps.timeline.get_state().aux;
+                    auto const cd = ps.current_phrase_directory;
                     if (!cd.isDirectory())
                     {
                         return merror("Invalid Current Phrase Directory");
@@ -146,12 +155,11 @@ namespace xen
                         action::load_state(filepath.getFullPathName().toStdString());
 
                     // Manually reset selection and phrase name on overwrite
-                    auto aux = ps.timeline.get_aux_state();
                     aux.selected = {0, {}};
-                    aux.current_phrase_name = juce::String{filename};
-                    ps.timeline.set_aux_state(std::move(aux), false);
+                    ps.current_phrase_name = filename;
 
-                    ps.timeline.add_state(std::move(new_state));
+                    ps.timeline.stage({std::move(new_state), std::move(aux)});
+                    ps.timeline.set_commit_flag();
 
                     return minfo("State Loaded");
                 },
@@ -162,8 +170,9 @@ namespace xen
                     try
                     {
                         {
-                            auto const lock =
-                                std::lock_guard{ps.shared.on_load_keys_request_mtx};
+                            auto const lock = std::lock_guard{
+                                ps.shared.on_load_keys_request_mtx,
+                            };
                             ps.shared.on_load_keys_request();
                         }
                         return minfo("Key Config Loaded");
@@ -182,8 +191,7 @@ namespace xen
                       "directory. Do not include any extension in the filename you "
                       "provide. This will overwrite any existing file.",
                       [](PS &ps, std::string filename) {
-                          auto const cd =
-                              ps.timeline.get_aux_state().current_phrase_directory;
+                          auto const cd = ps.current_phrase_directory;
                           if (!cd.isDirectory())
                           {
                               return merror("Invalid Current Phrase Directory");
@@ -191,8 +199,7 @@ namespace xen
 
                           if (filename.empty())
                           {
-                              filename = ps.timeline.get_aux_state()
-                                             .current_phrase_name.toStdString();
+                              filename = ps.current_phrase_name;
                               if (filename.empty())
                               {
                                   return merror("No Phrase Name Found.");
@@ -200,16 +207,15 @@ namespace xen
                           }
                           else // store new phrase name
                           {
-                              auto aux = ps.timeline.get_aux_state();
-                              aux.current_phrase_name = juce::String{filename};
-                              ps.timeline.set_aux_state(std::move(aux));
+                              ps.current_phrase_name = filename;
                           }
 
                           auto const filepath = cd.getChildFile(filename + ".json")
                                                     .getFullPathName()
                                                     .toStdString();
 
-                          action::save_state(ps.timeline, filepath);
+                          action::save_state(ps.timeline.get_state().sequencer,
+                                             filepath);
                           return minfo("State Saved to '" + filepath + '\'');
                       },
                       ArgInfo<std::string>{"filename", ""})),
@@ -229,7 +235,11 @@ namespace xen
             cmd(
                 "left", "Move the selection left, or wrap around.",
                 [](PS &ps, std::size_t amount) {
-                    ps.timeline.set_aux_state(action::move_left(ps.timeline, amount));
+                    auto [state, _] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        std::move(state),
+                        action::move_left(ps.timeline, amount),
+                    });
                     return mdebug("Moved Left " + std::to_string(amount) + " Times");
                 },
                 ArgInfo<std::size_t>{"amount", 1}),
@@ -237,7 +247,11 @@ namespace xen
             cmd(
                 "right", "Move the selection right, or wrap around.",
                 [](PS &ps, std::size_t amount) {
-                    ps.timeline.set_aux_state(action::move_right(ps.timeline, amount));
+                    auto [state, _] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        std::move(state),
+                        action::move_right(ps.timeline, amount),
+                    });
                     return mdebug("Moved Right " + std::to_string(amount) + " Times");
                 },
                 ArgInfo<std::size_t>{"amount", 1}),
@@ -245,7 +259,11 @@ namespace xen
             cmd(
                 "up", "Move the selection up one level to a parent sequence.",
                 [](PS &ps, std::size_t amount) {
-                    ps.timeline.set_aux_state(action::move_up(ps.timeline, amount));
+                    auto [state, _] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        std::move(state),
+                        action::move_up(ps.timeline, amount),
+                    });
                     return mdebug("Moved Up " + std::to_string(amount) + " Times");
                 },
                 ArgInfo<std::size_t>{"amount", 1}),
@@ -253,36 +271,14 @@ namespace xen
             cmd(
                 "down", "Move the selection down one level.",
                 [](PS &ps, std::size_t amount) {
-                    ps.timeline.set_aux_state(action::move_down(ps.timeline, amount));
+                    auto [state, _] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        std::move(state),
+                        action::move_down(ps.timeline, amount),
+                    });
                     return mdebug("Moved Down " + std::to_string(amount) + " Times");
                 },
                 ArgInfo<std::size_t>{"amount", 1})),
-
-        cmd_group("append", ArgInfo<std::string>{"item", "measure"},
-
-                  cmd(
-                      "measure", "Append a measure to the current phrase.",
-                      [](PS &ps, sequence::TimeSignature const &ts) {
-                          auto [aux, state] = action::append_measure(ps.timeline, ts);
-                          ps.timeline.set_aux_state(std::move(aux), false);
-                          ps.timeline.add_state(std::move(state));
-                          return minfo("Appended Measure");
-                      },
-                      ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
-
-        cmd_group(
-            "insert", ArgInfo<std::string>{"item", "measure"},
-
-            cmd(
-                "measure",
-                "Insert a measure at the current location inside the current phrase.",
-                [](PS &ps, sequence::TimeSignature const &ts) {
-                    auto [aux, state] = action::insert_measure(ps.timeline, ts);
-                    ps.timeline.set_aux_state(std::move(aux), false);
-                    ps.timeline.add_state(std::move(state));
-                    return minfo("Inserted Measure");
-                },
-                ArgInfo<sequence::TimeSignature>{"duration", {{4, 4}}})),
 
         cmd(
             "note", "Create a new Note, overwritting the current selection.",
@@ -293,6 +289,7 @@ namespace xen
                         return sequence::modify::note(args...);
                     },
                     interval, velocity, delay, gate);
+                ps.timeline.set_commit_flag();
                 return minfo("Note Created");
             },
             ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
@@ -304,6 +301,7 @@ namespace xen
                                 [](sequence::Cell const &) -> sequence::Cell {
                                     return sequence::modify::rest();
                                 });
+                ps.timeline.set_commit_flag();
                 return minfo("Rest Created");
             }),
 
@@ -314,6 +312,7 @@ namespace xen
                     [](PS &ps, sequence::Pattern const &pattern) {
                         increment_state(ps.timeline, &sequence::modify::flip, pattern,
                                         sequence::Note{});
+                        ps.timeline.set_commit_flag();
                         return minfo("Flipped Selection");
                     })),
 
@@ -321,11 +320,9 @@ namespace xen
 
                   cmd("selection", "Delete the current selection.",
                       [](PS &ps) {
-                          auto [aux, state] =
-                              action::delete_cell(ps.timeline.get_aux_state(),
-                                                  ps.timeline.get_state().first);
-                          ps.timeline.set_aux_state(aux, false);
-                          ps.timeline.add_state(std::move(state));
+                          ps.timeline.stage(
+                              action::delete_cell(ps.timeline.get_state()));
+                          ps.timeline.set_commit_flag();
                           return minfo("Deleted Selection");
                       })),
 
@@ -335,6 +332,7 @@ namespace xen
             "current selection.",
             [](PS &ps, std::size_t count) {
                 increment_state(ps.timeline, &sequence::modify::repeat, count);
+                ps.timeline.set_commit_flag();
                 return minfo("Split Selection " + std::to_string(count) + " Times");
             },
             ArgInfo<std::size_t>{"count", 2}),
@@ -344,9 +342,8 @@ namespace xen
             "with "
             "itself.",
             [](PS &ps) {
-                auto [state, aux] = action::lift(ps.timeline);
-                ps.timeline.set_aux_state(aux, false);
-                ps.timeline.add_state(state);
+                ps.timeline.stage(action::lift(ps.timeline));
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Lifted One Layer");
             }),
 
@@ -361,6 +358,7 @@ namespace xen
             [](PS &ps, sequence::Pattern const &pattern, std::size_t count) {
                 increment_state(ps.timeline, &sequence::modify::stretch, pattern,
                                 count);
+                ps.timeline.set_commit_flag();
                 return minfo("Stretched Selection by " + std::to_string(count));
             },
             ArgInfo<std::size_t>{"count", 2})),
@@ -377,6 +375,7 @@ namespace xen
                 else
                 {
                     increment_state(ps.timeline, &sequence::modify::compress, pattern);
+                    ps.timeline.set_commit_flag();
                     return minfo("Compressed Selection");
                 }
             })),
@@ -392,6 +391,7 @@ namespace xen
                    float velocity, float delay, float gate) {
                     increment_state(ps.timeline, &sequence::modify::notes_fill, pattern,
                                     sequence::Note{interval, velocity, delay, gate});
+                    ps.timeline.set_commit_flag();
                     return minfo("Filled Selection With Notes");
                 },
                 ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
@@ -403,6 +403,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern) {
                     increment_state(ps.timeline, &sequence::modify::rests_fill,
                                     pattern);
+                    ps.timeline.set_commit_flag();
                     return minfo("Filled Selection With Rests");
                 }))),
 
@@ -414,6 +415,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, int interval) {
                     increment_state(ps.timeline, &sequence::modify::set_interval,
                                     pattern, interval);
+                    ps.timeline.set_commit_flag();
                     return minfo("Note Set");
                 },
                 ArgInfo<int>{"interval", 0}),
@@ -421,8 +423,12 @@ namespace xen
             cmd(
                 "octave", "Set the octave of any selected Notes.",
                 [](PS &ps, sequence::Pattern const &pattern, int octave) {
-                    ps.timeline.add_state(
-                        action::set_note_octave(ps.timeline, pattern, octave));
+                    auto [_, aux] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        action::set_note_octave(ps.timeline, pattern, octave),
+                        std::move(aux),
+                    });
+                    ps.timeline.set_commit_flag();
                     return minfo("Octave Set");
                 },
                 ArgInfo<int>{"octave", 0}),
@@ -432,6 +438,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float velocity) {
                     increment_state(ps.timeline, &sequence::modify::set_velocity,
                                     pattern, velocity);
+                    ps.timeline.set_commit_flag();
                     return minfo("Velocity Set");
                 },
                 ArgInfo<float>{"velocity", 0.8f}),
@@ -441,6 +448,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float delay) {
                     increment_state(ps.timeline, &sequence::modify::set_delay, pattern,
                                     delay);
+                    ps.timeline.set_commit_flag();
                     return minfo("Delay Set");
                 },
                 ArgInfo<float>{"delay", 0.f}),
@@ -450,6 +458,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float gate) {
                     increment_state(ps.timeline, &sequence::modify::set_gate, pattern,
                                     gate);
+                    ps.timeline.set_commit_flag();
                     return minfo("Gate Set");
                 },
                 ArgInfo<float>{"gate", 1.f}),
@@ -459,7 +468,12 @@ namespace xen
                 "Set the time signature of the current Measure. Ignores Pattern.",
                 [](PS &ps, sequence::Pattern const &,
                    sequence::TimeSignature const &ts) {
-                    ps.timeline.add_state(action::set_timesignature(ps.timeline, ts));
+                    auto [_, aux] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        action::set_timesignature(ps.timeline, ts),
+                        std::move(aux),
+                    });
+                    ps.timeline.set_commit_flag();
                     return minfo("TimeSignature Set");
                 },
                 ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}),
@@ -468,8 +482,12 @@ namespace xen
                 "baseFrequency",
                 "Set the base note (interval zero) frequency to `freq`.",
                 [](PS &ps, sequence::Pattern const &, float freq) {
-                    ps.timeline.add_state(
-                        action::set_base_frequency(ps.timeline, freq));
+                    auto [_, aux] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        action::set_base_frequency(ps.timeline, freq),
+                        std::move(aux),
+                    });
+                    ps.timeline.set_commit_flag();
                     return minfo("Base Frequency Set");
                 },
                 ArgInfo<float>{"freq", 440.f}),
@@ -506,9 +524,7 @@ namespace xen
             cmd(
                 "phraseName", "Set the name of the current Phrase to `name`.",
                 [](PS &ps, sequence::Pattern const &, std::string name) {
-                    auto aux = ps.timeline.get_aux_state();
-                    aux.current_phrase_name = std::move(name);
-                    ps.timeline.set_aux_state(std::move(aux));
+                    ps.current_phrase_name = std::move(name);
                     return minfo("Phrase Name Set");
                 },
                 ArgInfo<std::string>{"name"}))),
@@ -521,6 +537,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, int amount) {
                     increment_state(ps.timeline, &sequence::modify::shift_interval,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Note Shifted");
                 },
                 ArgInfo<int>{"amount", 1}),
@@ -528,8 +545,12 @@ namespace xen
             cmd(
                 "octave", "Increment/Decrement the octave of any selected Notes.",
                 [](PS &ps, sequence::Pattern const &pattern, int amount) {
-                    ps.timeline.add_state(
-                        action::shift_note_octave(ps.timeline, pattern, amount));
+                    auto [_, aux] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        action::shift_note_octave(ps.timeline, pattern, amount),
+                        std::move(aux),
+                    });
+                    ps.timeline.set_commit_flag();
                     return minfo("Octave Shifted");
                 },
                 ArgInfo<int>{"amount", 1}),
@@ -539,6 +560,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::shift_velocity,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Velocity Shifted");
                 },
                 ArgInfo<float>{"amount", 0.1f}),
@@ -548,6 +570,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::shift_delay,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Delay Shifted");
                 },
                 ArgInfo<float>{"amount", 0.1f}),
@@ -557,6 +580,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::shift_gate, pattern,
                                     amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Gate Shifted");
                 },
                 ArgInfo<float>{"amount", 0.1f}))),
@@ -570,6 +594,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::humanize_velocity,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Humanized Velocity");
                 },
                 ArgInfo<float>{"amount", 0.1f}),
@@ -580,6 +605,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::humanize_delay,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Humanized Delay");
                 },
                 ArgInfo<float>{"amount", 0.1f}),
@@ -590,6 +616,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float amount) {
                     increment_state(ps.timeline, &sequence::modify::humanize_gate,
                                     pattern, amount);
+                    ps.timeline.set_commit_flag();
                     return minfo("Humanized Gate");
                 },
                 ArgInfo<float>{"amount", 0.1f}))),
@@ -603,6 +630,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, int min, int max) {
                     increment_state(ps.timeline, &sequence::modify::randomize_intervals,
                                     pattern, min, max);
+                    ps.timeline.set_commit_flag();
                     return minfo("Randomized Note");
                 },
                 ArgInfo<int>{"min", -12}, ArgInfo<int>{"max", 12}),
@@ -613,6 +641,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float min, float max) {
                     increment_state(ps.timeline, &sequence::modify::randomize_velocity,
                                     pattern, min, max);
+                    ps.timeline.set_commit_flag();
                     return minfo("Randomized Velocity");
                 },
                 ArgInfo<float>{"min", 0.01f}, ArgInfo<float>{"max", 1.f}),
@@ -623,6 +652,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float min, float max) {
                     increment_state(ps.timeline, &sequence::modify::randomize_delay,
                                     pattern, min, max);
+                    ps.timeline.set_commit_flag();
                     return minfo("Randomized Delay");
                 },
                 ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}),
@@ -633,6 +663,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, float min, float max) {
                     increment_state(ps.timeline, &sequence::modify::randomize_gate,
                                     pattern, min, max);
+                    ps.timeline.set_commit_flag();
                     return minfo("Randomized Gate");
                 },
                 ArgInfo<float>{"min", 0.f}, ArgInfo<float>{"max", 0.95f}))),
@@ -640,6 +671,7 @@ namespace xen
         cmd("shuffle", "Randomly shuffle Notes and Rests in current selection.",
             [](PS &ps) {
                 increment_state(ps.timeline, &sequence::modify::shuffle);
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Shuffled");
             }),
 
@@ -649,6 +681,7 @@ namespace xen
             " Positive values shift right, negative values shift left.",
             [](PS &ps, int amount) {
                 increment_state(ps.timeline, &sequence::modify::rotate, amount);
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Rotated");
             },
             ArgInfo<int>{"amount", 1}),
@@ -657,6 +690,7 @@ namespace xen
             "Reverse the order of all Notes and Rests in the current selection.",
             [](PS &ps) {
                 increment_state(ps.timeline, &sequence::modify::reverse);
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Reversed");
             }),
 
@@ -666,6 +700,7 @@ namespace xen
             [](PS &ps, sequence::Pattern const &pattern, int center_note) {
                 increment_state(ps.timeline, &sequence::modify::mirror, pattern,
                                 center_note);
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Mirrored");
             },
             ArgInfo<int>{"centerNote", 0})),
@@ -676,6 +711,7 @@ namespace xen
                     [](PS &ps, sequence::Pattern const &pattern) {
                         increment_state(ps.timeline, &sequence::modify::quantize,
                                         pattern);
+                        ps.timeline.set_commit_flag();
                         return minfo("Selection Quantized");
                     })),
 
@@ -684,6 +720,7 @@ namespace xen
             "Set the delay of every other Note in the current selection to `amount`.",
             [](PS &ps, float amount) {
                 increment_state(ps.timeline, &sequence::modify::swing, amount, false);
+                ps.timeline.set_commit_flag();
                 return minfo("Selection Swung by " + std::to_string(amount));
             },
             ArgInfo<float>{"amount", 0.1f}),
@@ -691,9 +728,12 @@ namespace xen
         // Temporary --------------------------------------------------------------
 
         cmd("demo", "Reset the state to a demo Phrase.", [](PS &ps) {
-            ps.timeline.set_aux_state({{0, {}}},
-                                      false); // Manually reset selection on overwrite
-            ps.timeline.add_state(demo_state());
+            // Manually reset selection on overwrite
+            ps.timeline.stage({
+                demo_state(),
+                {{0, {}}},
+            });
+            ps.timeline.set_commit_flag();
             return minfo("Demo State Loaded");
         }));
 }
