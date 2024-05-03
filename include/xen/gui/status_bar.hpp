@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <cctype>
 #include <stdexcept>
 #include <string>
@@ -15,80 +14,18 @@ namespace xen::gui
 {
 
 /**
- * Displays a single letter representing the current InputMode.
- */
-class ModeDisplay : public juce::Component
-{
-  public:
-    static constexpr auto preferred_size = 23.f;
-
-  public:
-    /**
-     * Constructs a ModeDisplay with a specific InputMode.
-     *
-     * @param input_mode The mode for which to display.
-     */
-    explicit ModeDisplay(InputMode mode)
-    {
-        this->addAndMakeVisible(label_);
-        auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 16.f,
-                                     juce::Font::bold};
-        label_.setFont(font);
-        this->set(mode);
-
-        this->lookAndFeelChanged();
-    }
-
-  public:
-    auto set(InputMode mode) -> void
-    {
-        auto const first_letter = get_first_letter(mode);
-        label_.setText(juce::String(std::string(1, first_letter)),
-                       juce::dontSendNotification);
-        label_.setJustificationType(juce::Justification::centred);
-    }
-
-  protected:
-    auto resized() -> void override
-    {
-        label_.setBounds(this->getLocalBounds());
-    }
-
-    auto paintOverChildren(juce::Graphics &g) -> void override
-    {
-        g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
-        g.drawRect(this->getLocalBounds(), 1);
-    }
-
-    auto lookAndFeelChanged() -> void override
-    {
-        label_.setColour(juce::Label::textColourId,
-                         this->findColour((int)StatusBarColorIDs::ModeLetter));
-    }
-
-  private:
-    [[nodiscard]] static auto get_first_letter(InputMode mode) -> char
-    {
-        auto const str = to_string(mode);
-        assert(!str.empty());
-        return static_cast<char>(std::toupper(str[0]));
-    }
-
-  private:
-    juce::Label label_;
-};
-
-/**
  * Single line message display.
  */
-class MessageDisplay : public juce::Component
+class StatusBar : public juce::Component
 {
   public:
     /**
-     * Constructs a MessageDisplay with no text.
+     * Constructs a StatusBar with no text.
      */
-    MessageDisplay()
+    StatusBar()
     {
+        this->setComponentID("StatusBar");
+
         label_.setJustificationType(juce::Justification::left);
         label_.setEditable(false, false, false);
 
@@ -107,7 +44,7 @@ class MessageDisplay : public juce::Component
 
         if (current_level_ < minimum_level_)
         {
-            text.clear(); // So it will erase any leftover message.
+            return;
         }
 
         label_.setColour(juce::Label::textColourId,
@@ -120,16 +57,24 @@ class MessageDisplay : public juce::Component
         label_.setText("", juce::dontSendNotification);
     }
 
-  protected:
+  public:
     auto resized() -> void override
     {
-        label_.setBounds(getLocalBounds());
+        label_.setBounds(this->getLocalBounds());
     }
 
     auto lookAndFeelChanged() -> void override
     {
         label_.setColour(juce::Label::textColourId,
                          this->findColour((int)this->get_color_id(current_level_)));
+        label_.setColour(juce::Label::backgroundColourId,
+                         this->findColour((int)StatusBarColorIDs::Background));
+    }
+
+    auto paintOverChildren(juce::Graphics &g) -> void override
+    {
+        g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
+        g.drawRect(this->getLocalBounds(), 1);
     }
 
   private:
@@ -159,43 +104,42 @@ class MessageDisplay : public juce::Component
     MessageLevel current_level_{MessageLevel::Info};
 };
 
-class StatusBar : public juce::Component
-{
-  public:
-    ModeDisplay mode_display;
-    MessageDisplay message_display;
+// class StatusBar : public juce::Component
+// {
+//   public:
+//     StatusBar message_display;
 
-  public:
-    StatusBar() : mode_display{InputMode::Movement}
-    {
-        this->addAndMakeVisible(mode_display);
-        this->addAndMakeVisible(message_display);
-    }
+//   public:
+//     StatusBar() : input_mode_indicator{InputMode::Movement}
+//     {
+//         this->addAndMakeVisible(input_mode_indicator);
+//         this->addAndMakeVisible(message_display);
+//     }
 
-  protected:
-    auto resized() -> void override
-    {
-        auto flex = juce::FlexBox{};
-        flex.flexDirection = juce::FlexBox::Direction::row;
+//   protected:
+//     auto resized() -> void override
+//     {
+//         auto flex = juce::FlexBox{};
+//         flex.flexDirection = juce::FlexBox::Direction::row;
 
-        flex.items.add(juce::FlexItem{mode_display}
-                           .withWidth(ModeDisplay::preferred_size)
-                           .withHeight(ModeDisplay::preferred_size));
-        flex.items.add(juce::FlexItem{message_display}.withFlex(1));
+//         flex.items.add(juce::FlexItem{input_mode_indicator}
+//                            .withWidth(InputModeIndicator::preferred_size)
+//                            .withHeight(InputModeIndicator::preferred_size));
+//         flex.items.add(juce::FlexItem{message_display}.withFlex(1));
 
-        flex.performLayout(this->getLocalBounds());
-    }
+//         flex.performLayout(this->getLocalBounds());
+//     }
 
-    auto paint(juce::Graphics &g) -> void override
-    {
-        g.fillAll(this->findColour((int)StatusBarColorIDs::Background));
-    }
+//     auto paint(juce::Graphics &g) -> void override
+//     {
+//         g.fillAll(this->findColour((int)StatusBarColorIDs::Background));
+//     }
 
-    auto paintOverChildren(juce::Graphics &g) -> void override
-    {
-        g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
-        g.drawRect(this->getLocalBounds(), 1);
-    }
-};
+//     auto paintOverChildren(juce::Graphics &g) -> void override
+//     {
+//         g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
+//         g.drawRect(this->getLocalBounds(), 1);
+//     }
+// };
 
 } // namespace xen::gui

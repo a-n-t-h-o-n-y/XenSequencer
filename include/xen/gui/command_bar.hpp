@@ -32,6 +32,8 @@ class CommandInputComponent : public juce::TextEditor
     std::function<bool()> onArrowUpKey;
     std::function<bool()> onArrowDownKey;
 
+    std::function<void()> focus_lost;
+
   public:
     CommandInputComponent()
     {
@@ -47,7 +49,7 @@ class CommandInputComponent : public juce::TextEditor
         return this->getCaretPosition() == this->getText().length();
     }
 
-  protected:
+  public:
     auto keyPressed(juce::KeyPress const &key) -> bool override
     {
         if (key == juce::KeyPress::tabKey && onTabKey)
@@ -65,6 +67,15 @@ class CommandInputComponent : public juce::TextEditor
 
         return juce::TextEditor::keyPressed(key);
     }
+
+    auto focusLost(juce::Component::FocusChangeType cause) -> void override
+    {
+        if (cause != juce::Component::FocusChangeType::focusChangedDirectly &&
+            focus_lost)
+        {
+            this->focus_lost();
+        }
+    }
 };
 
 /**
@@ -79,7 +90,7 @@ class CommandBar : public juce::Component
     sl::Signal<std::string(std::string const &)> on_complete_id_request;
 
   public:
-    CommandBar(CommandHistory &cmd_history) : command_history_{cmd_history}
+    explicit CommandBar(CommandHistory &cmd_history) : command_history_{cmd_history}
     {
         this->setComponentID("CommandBar");
         this->setWantsKeyboardFocus(false);
@@ -114,6 +125,10 @@ class CommandBar : public juce::Component
             return true;
         };
 
+        command_input_.focus_lost = [this] {
+            this->on_command_request("show StatusBar");
+        };
+
         auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,
                                      juce::Font::plain};
         command_input_.setFont(font);
@@ -129,29 +144,20 @@ class CommandBar : public juce::Component
         ghost_text_.setText("");
     }
 
-    /**
-     * Opens the command bar by making it visible and grabing keyboard focus.
-     */
-    auto show() -> void
-    {
-        this->setVisible(true);
-    }
-
     auto focus() -> void
     {
         command_input_.grabKeyboardFocus();
     }
 
     /**
-     * Closes the command bar by making it invisible and releasing keyboard focus.
+     * Closes the command bar by sending the command to show the status bar.
      */
     auto close() -> void
     {
-        this->do_escape();
-        this->setVisible(false);
+        this->on_command_request("show StatusBar;focus PhraseEditor");
     }
 
-  protected:
+  public:
     auto resized() -> void override
     {
         ghost_text_.setBounds(0, 0, this->getWidth(), this->getHeight());
@@ -220,11 +226,6 @@ class CommandBar : public juce::Component
             ghost_text_.clear();
             this->add_guide_text();
         }
-    }
-
-    auto do_escape() -> void
-    {
-        this->on_command_request("focus PhraseEditor");
     }
 
     auto do_history_next() -> void

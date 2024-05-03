@@ -43,8 +43,11 @@ class XenEditor : public juce::AudioProcessorEditor
     auto update_key_listeners(juce::File const &default_keys,
                               juce::File const &user_keys) -> void;
 
-  protected:
+  public:
     auto resized() -> void override;
+
+    [[nodiscard]] auto createKeyboardFocusTraverser()
+        -> std::unique_ptr<juce::ComponentTraverser> override;
 
   private:
     /**

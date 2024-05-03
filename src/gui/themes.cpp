@@ -692,7 +692,8 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
     sc(StatusBarColorIDs::DebugText, theme.fg_high);
     sc(StatusBarColorIDs::WarningText, theme.fg_med);
     sc(StatusBarColorIDs::ErrorText, theme.fg_med);
-    sc(StatusBarColorIDs::ModeLetter, theme.fg_med);
+    sc(StatusBarColorIDs::InputModeLetter, theme.fg_med);
+    sc(StatusBarColorIDs::LibrarySequencerToggleLetter, theme.fg_med);
     sc(StatusBarColorIDs::Outline, theme.fg_low);
 
     sc(CommandBarColorIDs::Background, theme.bg_med);

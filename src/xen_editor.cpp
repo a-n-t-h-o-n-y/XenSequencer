@@ -3,6 +3,7 @@
 #include <cassert>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -21,6 +22,26 @@
 #include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
 
+namespace
+{
+
+class NoTabFocusTraverser : public juce::KeyboardFocusTraverser
+{
+  public:
+    [[nodiscard]] auto getNextComponent(juce::Component *) -> juce::Component * override
+    {
+        return nullptr;
+    }
+
+    [[nodiscard]] auto getPreviousComponent(juce::Component *)
+        -> juce::Component * override
+    {
+        return nullptr;
+    }
+};
+
+} // namespace
+
 namespace xen::gui
 {
 
@@ -29,6 +50,8 @@ XenEditor::XenEditor(XenProcessor &p)
                                              p.plugin_state.command_history},
       processor_{p}
 {
+    this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
+
     this->setResizable(true, true);
     this->setSize(1000, 300);
     this->setResizeLimits(400, 300, 1200, 900);
@@ -48,19 +71,19 @@ XenEditor::XenEditor(XenProcessor &p)
     }
 
     // CommandBar Execute Request
-    plugin_window.command_bar.on_command_request.connect(
+    plugin_window.bottom_bar.command_bar.on_command_request.connect(
         [this](std::string const &command_string) {
             this->execute_command_string(command_string);
         });
 
     // CommandBar Guide Text Request
-    plugin_window.command_bar.on_guide_text_request.connect(
+    plugin_window.bottom_bar.command_bar.on_guide_text_request.connect(
         [this](std::string const &partial_command) -> std::string {
             return generate_guide_text(processor_.command_tree, partial_command);
         });
 
     // CommandBar ID Completion Request
-    plugin_window.command_bar.on_complete_id_request.connect(
+    plugin_window.bottom_bar.command_bar.on_complete_id_request.connect(
         [this](std::string const &partial_command) -> std::string {
             return complete_id(processor_.command_tree, partial_command);
         });
@@ -157,9 +180,15 @@ XenEditor::XenEditor(XenProcessor &p)
     }
     catch (std::exception const &e)
     {
-        plugin_window.status_bar.message_display.set_status(
+        plugin_window.bottom_bar.status_bar.set_status(
             MessageLevel::Error, std::string{"Check `user_keys.yml`: "} + e.what());
     }
+}
+
+auto XenEditor::createKeyboardFocusTraverser()
+    -> std::unique_ptr<juce::ComponentTraverser>
+{
+    return std::make_unique<NoTabFocusTraverser>();
 }
 
 auto XenEditor::update_ui() -> void
@@ -190,8 +219,6 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
 
     auto const commands = split(command_string, ';');
     auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-    std::cerr << "SIZE: " << commands.size() << "\n";
-    std::cerr << "COMMAND: " << command_string << "\n";
     try
     {
         for (auto const &command : commands)
@@ -215,8 +242,13 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
         ps.timeline.reset_stage();
         status = {MessageLevel::Error, e.what()};
     }
+    catch (...)
+    {
+        ps.timeline.reset_stage();
+        status = {MessageLevel::Error, "Unknown error"};
+    }
 
-    plugin_window.status_bar.message_display.set_status(status.first, status.second);
+    plugin_window.bottom_bar.status_bar.set_status(status.first, status.second);
 }
 
 auto XenEditor::set_key_listeners(

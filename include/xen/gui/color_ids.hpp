@@ -82,8 +82,9 @@ enum class StatusBarColorIDs
     InfoText = 0xA000082,
     WarningText = 0xA000083,
     ErrorText = 0xA000084,
-    ModeLetter = 0xA000085,
-    Outline = 0xA000086,
+    InputModeLetter = 0xA000085,
+    LibrarySequencerToggleLetter = 0xA000086,
+    Outline = 0xA000087,
 };
 
 enum class CommandBarColorIDs

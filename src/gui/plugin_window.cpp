@@ -18,9 +18,9 @@
 
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
+#include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/phrase_editor.hpp>
-#include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
@@ -34,7 +34,7 @@ namespace xen::gui
 PluginWindow::PluginWindow(juce::File const &phrase_library_dir,
                            CommandHistory &cmd_history)
     : phrases_view_accordion{"Phrases", phrase_library_dir},
-      phrases_view{phrases_view_accordion.child}, command_bar{cmd_history}
+      phrases_view{phrases_view_accordion.child}, bottom_bar{cmd_history}
 {
     this->addAndMakeVisible(phrases_view_accordion);
     this->addAndMakeVisible(gui_timeline);
@@ -42,10 +42,7 @@ PluginWindow::PluginWindow(juce::File const &phrase_library_dir,
 
     phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(125.f));
 
-    this->addChildComponent(command_bar);
-    command_bar.setVisible(false);
-
-    this->addAndMakeVisible(status_bar);
+    this->addAndMakeVisible(bottom_bar);
 }
 
 auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
@@ -56,7 +53,7 @@ auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
     phrase_editor.phrase.set(state, aux.selected);
     phrase_editor.phrase.select(aux.selected);
 
-    status_bar.mode_display.set(aux.input_mode);
+    bottom_bar.input_mode_indicator.set(aux.input_mode);
 
     gui_timeline.set(state.phrase, aux.selected);
 
@@ -69,13 +66,13 @@ auto PluginWindow::set_focus(std::string component_id) -> void
     component_id = to_lower(component_id);
     // TODO use a lambda to check if visible then to set focus.
 
-    if (component_id == to_lower(command_bar.getComponentID().toStdString()))
+    if (component_id == to_lower(bottom_bar.command_bar.getComponentID().toStdString()))
     {
-        if (command_bar.hasKeyboardFocus(true))
+        if (bottom_bar.command_bar.hasKeyboardFocus(true))
         {
             return;
         }
-        command_bar.focus();
+        bottom_bar.command_bar.focus();
     }
     else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
     {
@@ -83,8 +80,7 @@ auto PluginWindow::set_focus(std::string component_id) -> void
         {
             return;
         }
-        // Uses a key listener set up by XenEditor.
-        // phrase_editor.grabKeyboardFocus();
+        phrase_editor.grabKeyboardFocus();
     }
     else
     {
@@ -101,9 +97,14 @@ auto PluginWindow::show_component(std::string component_id) -> void
 {
     component_id = to_lower(component_id);
 
-    if (component_id == to_lower(command_bar.getComponentID().toStdString()))
+    if (component_id == to_lower(bottom_bar.command_bar.getComponentID().toStdString()))
     {
-        command_bar.show();
+        bottom_bar.show_command_bar();
+    }
+    else if (component_id ==
+             to_lower(bottom_bar.status_bar.getComponentID().toStdString()))
+    {
+        bottom_bar.show_status_bar();
     }
     else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
     {
@@ -115,6 +116,8 @@ auto PluginWindow::show_component(std::string component_id) -> void
     }
     // TODO Library
     // TODO Sequencer
+    // TODO These Library/Sequencer changes should also call down to the status bar's
+    // indicator to change the letter displayed.
 }
 
 auto PluginWindow::resized() -> void
@@ -127,13 +130,9 @@ auto PluginWindow::resized() -> void
     flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
     // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));
     flexbox.items.add(
-        juce::FlexItem(status_bar).withHeight(ModeDisplay::preferred_size));
+        juce::FlexItem(bottom_bar).withHeight(InputModeIndicator::preferred_size));
 
     flexbox.performLayout(this->getLocalBounds());
-
-    // Overlaps, so outside of flexbox
-    command_bar.setBounds(0, this->getHeight() - 23 - status_bar.getHeight(),
-                          getWidth(), 23);
 }
 
 } // namespace xen::gui

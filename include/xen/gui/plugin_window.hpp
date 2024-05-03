@@ -18,9 +18,9 @@
 #include <xen/gui/phrase_editor.hpp>
 
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/directory_view.hpp>
-#include <xen/gui/status_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -111,8 +111,7 @@ class PluginWindow : public juce::Component
     gui::Timeline gui_timeline;
     gui::PhraseEditor phrase_editor;
     // gui::TuningBox tuning_box; // TODO
-    gui::CommandBar command_bar;
-    gui::StatusBar status_bar;
+    gui::BottomBar bottom_bar;
 
   public:
     PluginWindow(juce::File const &phrase_library_dir, CommandHistory &cmd_history);

@@ -125,6 +125,7 @@ target_sources(XenSequencerLib
 
         include/xen/gui/accordion.hpp
         include/xen/gui/active_sessions.hpp
+        include/xen/gui/bottom_bar.hpp
         include/xen/gui/color_ids.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/themes.hpp
