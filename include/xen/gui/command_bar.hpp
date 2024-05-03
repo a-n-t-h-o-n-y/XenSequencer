@@ -132,9 +132,13 @@ class CommandBar : public juce::Component
     /**
      * Opens the command bar by making it visible and grabing keyboard focus.
      */
-    auto open() -> void
+    auto show() -> void
     {
         this->setVisible(true);
+    }
+
+    auto focus() -> void
+    {
         command_input_.grabKeyboardFocus();
     }
 

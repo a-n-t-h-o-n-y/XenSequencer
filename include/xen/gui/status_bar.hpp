@@ -101,13 +101,13 @@ class MessageDisplay : public juce::Component
         minimum_level_ = level;
     }
 
-    auto set_status(MessageLevel level, std::string const &text) -> void
+    auto set_status(MessageLevel level, std::string text) -> void
     {
         current_level_ = level;
 
-        if (level < minimum_level_)
+        if (current_level_ < minimum_level_)
         {
-            return;
+            text.clear(); // So it will erase any leftover message.
         }
 
         label_.setColour(juce::Label::textColourId,

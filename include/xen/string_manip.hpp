@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace xen
 {
@@ -58,5 +59,15 @@ namespace xen
  * @return std::size_t The number of words in the string.
  */
 [[nodiscard]] auto word_count(std::string const &input) -> std::size_t;
+
+/**
+ * Splits a string into a vector of strings based on a delimiter.
+ *
+ * @param input The string to split.
+ * @param delimiter The character to split on.
+ * @return Container of strings, without the delimiter.
+ */
+[[nodiscard]] auto split(std::string const &input,
+                         char delimiter) -> std::vector<std::string>;
 
 } // namespace xen

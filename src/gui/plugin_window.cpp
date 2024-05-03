@@ -75,7 +75,7 @@ auto PluginWindow::set_focus(std::string component_id) -> void
         {
             return;
         }
-        // command_bar.open();
+        command_bar.focus();
     }
     else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
     {
@@ -103,7 +103,7 @@ auto PluginWindow::show_component(std::string component_id) -> void
 
     if (component_id == to_lower(command_bar.getComponentID().toStdString()))
     {
-        // command_bar.setVisible(true);
+        command_bar.show();
     }
     else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
     {

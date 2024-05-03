@@ -6,6 +6,7 @@
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace xen
 {
@@ -158,6 +159,20 @@ auto word_count(std::string const &input) -> std::size_t
         }
     }
     return count;
+}
+
+auto split(std::string const &input, char delimiter) -> std::vector<std::string>
+{
+    auto result = std::vector<std::string>{};
+    auto stream = std::istringstream{input};
+    auto word = std::string{};
+
+    while (std::getline(stream, word, delimiter))
+    {
+        result.push_back(word);
+    }
+
+    return result;
 }
 
 } // namespace xen

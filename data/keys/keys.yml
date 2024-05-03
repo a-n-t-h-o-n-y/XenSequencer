@@ -21,7 +21,7 @@ PhraseEditor:
   "g": "mode gate"
 
   # Focus
-  "Shift + :": "focus commandbar"
+  "Shift + :": "show commandbar;focus commandbar"
 
   # Copy/Paste, etc...
   "Cmd + c": "copy"

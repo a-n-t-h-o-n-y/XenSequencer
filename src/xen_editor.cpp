@@ -1,5 +1,6 @@
 #include <xen/xen_editor.hpp>
 
+#include <cassert>
 #include <iterator>
 #include <map>
 #include <mutex>
@@ -15,6 +16,7 @@
 #include <xen/guide_text.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
+#include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
@@ -186,12 +188,35 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
 {
     auto &ps = processor_.plugin_state;
 
-    auto const [mlevel, msg] =
-        execute(processor_.command_tree, ps, normalize_command_string(command_string));
+    auto const commands = split(command_string, ';');
+    auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+    std::cerr << "SIZE: " << commands.size() << "\n";
+    std::cerr << "COMMAND: " << command_string << "\n";
+    try
+    {
+        for (auto const &command : commands)
+        {
+            status =
+                execute(processor_.command_tree, ps, normalize_command_string(command));
+        }
+        if (ps.timeline.get_commit_flag())
+        {
+            ps.timeline.commit();
+        }
+        this->update_ui();
+    }
+    catch (ErrorNoMatch const &)
+    {
+        ps.timeline.reset_stage();
+        status = {MessageLevel::Error, "Command not found: " + command_string};
+    }
+    catch (std::exception const &e)
+    {
+        ps.timeline.reset_stage();
+        status = {MessageLevel::Error, e.what()};
+    }
 
-    this->update_ui();
-
-    plugin_window.status_bar.message_display.set_status(mlevel, msg);
+    plugin_window.status_bar.message_display.set_status(status.first, status.second);
 }
 
 auto XenEditor::set_key_listeners(

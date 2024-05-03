@@ -246,15 +246,8 @@ template <typename ID_t, typename Fn, typename... Args>
                            std::string command_str)
     -> std::pair<MessageLevel, std::string>
 {
-    try
-    {
-        command_str = pop_first_word(command_str);
-        return invoke_with_args(command.fn, ps, command_str, command.signature.args);
-    }
-    catch (std::exception const &e)
-    {
-        return {MessageLevel::Error, e.what()};
-    }
+    command_str = pop_first_word(command_str);
+    return invoke_with_args(command.fn, ps, command_str, command.signature.args);
 }
 
 /**
@@ -266,7 +259,6 @@ template <typename ID_t, typename Fn, typename... Args>
  * to the command, the name will be stripped off before this function is called.
  * @param pattern The pattern to use for iteration over Sequences.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
- *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
  */
@@ -275,16 +267,9 @@ template <typename ID_t, typename Fn, typename... Args>
                            std::string command_str, sequence::Pattern pattern)
     -> std::pair<MessageLevel, std::string>
 {
-    try
-    {
-        command_str = pop_first_word(command_str);
-        return invoke_with_args(command.fn, ps, pattern, command_str,
-                                command.signature.args);
-    }
-    catch (std::exception const &e)
-    {
-        return {MessageLevel::Error, e.what()};
-    }
+    command_str = pop_first_word(command_str);
+    return invoke_with_args(command.fn, ps, pattern, command_str,
+                            command.signature.args);
 }
 
 /**
@@ -298,7 +283,6 @@ template <typename ID_t, typename Fn, typename... Args>
  * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse.
  * @return std::pair<MessageLevel, std::string> The message type and message string.
- *
  * @exception std::invalid_argument Thrown when the command string does not match the
  * command's signature.
  * @exception std::runtime_error Thrown when no command with the given ID is found.
@@ -308,37 +292,26 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, PluginState &ps,
     std::string command_str) -> std::pair<MessageLevel, std::string>
 {
-    try
+    // Don't pop off first word if CommandGroup ID is empty.
+    if constexpr (std::is_same_v<ID_t, std::string_view>)
     {
-        // Don't pop off first word if CommandGroup ID is empty.
-        if constexpr (std::is_same_v<ID_t, std::string_view>)
-        {
-            if (!command_group.id.empty())
-            {
-                command_str = pop_first_word(command_str);
-            }
-        }
-        else
+        if (!command_group.id.empty())
         {
             command_str = pop_first_word(command_str);
         }
+    }
+    else
+    {
+        command_str = pop_first_word(command_str);
+    }
 
-        return apply_if<std::pair<MessageLevel, std::string>>(
-            [&](auto const &command) {
-                return is_match(command, command_str,
-                                command_group.commands.id_info.default_value);
-            },
-            [&](auto const &command) { return execute(command, ps, command_str); },
-            command_group.commands.commands);
-    }
-    catch (ErrorNoMatch const &)
-    {
-        return {MessageLevel::Error, "Command Not Found: " + command_str};
-    }
-    catch (std::exception const &e)
-    {
-        return {MessageLevel::Error, e.what()};
-    }
+    return apply_if<std::pair<MessageLevel, std::string>>(
+        [&](auto const &command) {
+            return is_match(command, command_str,
+                            command_group.commands.id_info.default_value);
+        },
+        [&](auto const &command) { return execute(command, ps, command_str); },
+        command_group.commands.commands);
 }
 
 /**
@@ -362,37 +335,26 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     std::string command_str,
     sequence::Pattern pattern) -> std::pair<MessageLevel, std::string>
 {
-    try
+    if constexpr (std::is_same_v<ID_t, std::string_view>)
     {
-        if constexpr (std::is_same_v<ID_t, std::string_view>)
-        {
-            if (!command_group.id.empty())
-            {
-                command_str = pop_first_word(command_str);
-            }
-        }
-        else
+        if (!command_group.id.empty())
         {
             command_str = pop_first_word(command_str);
         }
-        return apply_if<std::pair<MessageLevel, std::string>>(
-            [&](auto const &command) {
-                return is_match(command, command_str,
-                                command_group.commands.id_info.default_value);
-            },
-            [&](auto const &command) {
-                return execute(command, ps, command_str, std::move(pattern));
-            },
-            command_group.commands.commands);
     }
-    catch (ErrorNoMatch const &)
+    else
     {
-        return {MessageLevel::Error, "Command Not Found: " + command_str};
+        command_str = pop_first_word(command_str);
     }
-    catch (std::exception const &e)
-    {
-        return {MessageLevel::Error, e.what()};
-    }
+    return apply_if<std::pair<MessageLevel, std::string>>(
+        [&](auto const &command) {
+            return is_match(command, command_str,
+                            command_group.commands.id_info.default_value);
+        },
+        [&](auto const &command) {
+            return execute(command, ps, command_str, std::move(pattern));
+        },
+        command_group.commands.commands);
 }
 
 /**
@@ -412,17 +374,9 @@ template <typename Command_t>
                            std::string command_str)
     -> std::pair<MessageLevel, std::string>
 {
-    try
-    {
-        auto pattern = sequence::parse_pattern(command_str);
-        command_str = sequence::pop_pattern_chars(command_str);
-        return execute(pattern_cmd.command, ps, std::move(command_str),
-                       std::move(pattern));
-    }
-    catch (std::invalid_argument const &e)
-    {
-        return {MessageLevel::Error, e.what()};
-    }
+    auto pattern = sequence::parse_pattern(command_str);
+    command_str = sequence::pop_pattern_chars(command_str);
+    return execute(pattern_cmd.command, ps, std::move(command_str), std::move(pattern));
 }
 
 } // namespace xen
