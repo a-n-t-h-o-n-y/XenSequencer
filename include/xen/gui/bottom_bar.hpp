@@ -188,10 +188,10 @@ class LibrarySequencerToggle : public LetterSquare
         switch (this->LetterSquare::get())
         {
         case 'L':
-            this->on_command("show SequenceView;focus SequenceEditor");
+            this->on_command("show SequenceView;focus SequenceView");
             break;
         case 'S':
-            this->on_command("show Library;focus MeasuresList");
+            this->on_command("show LibraryView;focus MeasuresList");
             break;
         default:
             assert(false);

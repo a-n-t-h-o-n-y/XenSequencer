@@ -45,15 +45,6 @@ class Cell : public juce::Component
     }
 
   protected:
-    // auto paint(juce::Graphics &g) -> void override
-    // {
-    //     // g.setColour(this->findColour((int)MeasureColorIDs::Background));
-    //     std::cerr <<  "color value: " <<
-    //     this->findColour((int)MeasureColorIDs::Background).getARGB() << "\n";
-    //     g.setColour(juce::Colours::red);
-    //     g.fillAll();
-    // }
-
     auto paintOverChildren(juce::Graphics &g) -> void override
     {
         if (selected_)
@@ -204,36 +195,6 @@ class TraitDisplay : public juce::Component
     juce::Label label_;
 };
 
-// class NoteTraits : public juce::Component
-// {
-//   public:
-//     NoteTraits(sequence::Note const &n)
-//         : delay_{"D", n.delay}, velocity_{"V", n.velocity}, gate_{"G", n.gate}
-//     {
-//         this->addAndMakeVisible(delay_);
-//         this->addAndMakeVisible(velocity_);
-//         this->addAndMakeVisible(gate_);
-//     }
-
-//   protected:
-//     auto resized() -> void override
-//     {
-//         auto flexbox = juce::FlexBox{};
-//         flexbox.flexDirection = juce::FlexBox::Direction::row;
-
-//         flexbox.items.add(juce::FlexItem(delay_).withFlex(1.f));
-//         flexbox.items.add(juce::FlexItem(velocity_).withFlex(1.f));
-//         flexbox.items.add(juce::FlexItem(gate_).withFlex(1.f));
-
-//         flexbox.performLayout(this->getLocalBounds());
-//     }
-
-//   private:
-//     TraitDisplay delay_;
-//     TraitDisplay velocity_;
-//     TraitDisplay gate_;
-// };
-
 class Note : public Cell
 {
   public:
@@ -241,7 +202,6 @@ class Note : public Cell
         : note_{note}, note_holder_{note, tuning_length} //, note_traits_{note}
     {
         this->addAndMakeVisible(note_holder_);
-        // this->addAndMakeVisible(note_traits_);
     }
 
   protected:
@@ -251,7 +211,6 @@ class Note : public Cell
         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
         flexbox.items.add(juce::FlexItem(note_holder_).withFlex(1.f));
-        // flexbox.items.add(juce::FlexItem(note_traits_).withHeight(30.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }
@@ -259,7 +218,6 @@ class Note : public Cell
   private:
     sequence::Note note_;
     NoteHolder note_holder_;
-    // NoteTraits note_traits_;
 };
 
 class SequenceIndicator : public juce::Component
@@ -282,7 +240,7 @@ class SequenceIndicator : public juce::Component
 class Sequence : public Cell
 {
   public:
-    explicit Sequence(sequence::Sequence const &seq, SequencerState const &state);
+    explicit Sequence(sequence::Sequence const &seq, std::size_t tuning_size);
 
   public:
     auto select_child(std::vector<std::size_t> const &indices) -> void override
@@ -325,7 +283,7 @@ class Sequence : public Cell
 class BuildAndAllocateCell
 {
   public:
-    BuildAndAllocateCell(SequencerState const &state) : state_{state}
+    BuildAndAllocateCell(std::size_t tuning_octave_size) : tos_{tuning_octave_size}
     {
     }
 
@@ -337,16 +295,16 @@ class BuildAndAllocateCell
 
     [[nodiscard]] auto operator()(sequence::Note n) const -> std::unique_ptr<Cell>
     {
-        return std::make_unique<Note>(n, state_.tuning.intervals.size());
+        return std::make_unique<Note>(n, tos_);
     }
 
     [[nodiscard]] auto operator()(sequence::Sequence s) const -> std::unique_ptr<Cell>
     {
-        return std::make_unique<Sequence>(s, state_);
+        return std::make_unique<Sequence>(s, tos_);
     }
 
   private:
-    SequencerState const &state_;
+    std::size_t tos_;
 };
 
 } // namespace xen::gui

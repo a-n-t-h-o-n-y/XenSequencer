@@ -117,6 +117,7 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     is_playing_ = true;
 
     // Separate if statements prevent SequencerState copies on BPM changes
+    // TODO only check the parts of sequencer_state that will affect MIDI
     if (sequencer_state_copy_ != plugin_state.timeline.get_state().sequencer)
     {
         sequencer_state_copy_ = plugin_state.timeline.get_state().sequencer;

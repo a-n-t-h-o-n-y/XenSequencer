@@ -37,8 +37,8 @@ PluginWindow::PluginWindow(juce::File const &phrase_library_dir,
       phrases_view{phrases_view_accordion.child}, bottom_bar{cmd_history}
 {
     this->addAndMakeVisible(phrases_view_accordion);
-    this->addAndMakeVisible(gui_timeline);
-    this->addAndMakeVisible(phrase_editor);
+    this->addAndMakeVisible(center_component);
+    // this->addAndMakeVisible(phrase_editor);
 
     phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(125.f));
 
@@ -50,21 +50,16 @@ auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
 {
     phrases_view.active_sessions_view.update_this_instance_name(display_name);
 
-    phrase_editor.phrase.set(state, aux.selected);
-    phrase_editor.phrase.select(aux.selected);
+    center_component.update_ui(state, aux);
+    center_component.sequence_view.select(aux.selected.cell);
 
     bottom_bar.input_mode_indicator.set(aux.input_mode);
-
-    gui_timeline.set(state.phrase, aux.selected);
-
-    // TODO
-    // tuning_box.set_tuning(state.tuning);
 }
 
 auto PluginWindow::set_focus(std::string component_id) -> void
 {
     component_id = to_lower(component_id);
-    // TODO use a lambda to check if visible then to set focus.
+    // TODO use a lambda to check if visible then to set focus that is generic for all.
 
     if (component_id == to_lower(bottom_bar.command_bar.getComponentID().toStdString()))
     {
@@ -74,23 +69,19 @@ auto PluginWindow::set_focus(std::string component_id) -> void
         }
         bottom_bar.command_bar.focus();
     }
-    else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
+    else if (component_id ==
+             to_lower(center_component.sequence_view.getComponentID().toStdString()))
     {
-        if (phrase_editor.hasKeyboardFocus(true))
+        if (center_component.sequence_view.hasKeyboardFocus(true))
         {
             return;
         }
-        phrase_editor.grabKeyboardFocus();
+        center_component.sequence_view.grabKeyboardFocus();
     }
     else
     {
         throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
     }
-    // TODO SequencesLibrary
-    // TODO ActiveSessions
-    // TODO TuningsLibrary
-    // you'll need to expose the list box or provide some function to set focus
-    // to the list box via this function,
 }
 
 auto PluginWindow::show_component(std::string component_id) -> void
@@ -106,18 +97,18 @@ auto PluginWindow::show_component(std::string component_id) -> void
     {
         bottom_bar.show_status_bar();
     }
-    else if (component_id == to_lower(phrase_editor.getComponentID().toStdString()))
+    else if (component_id ==
+             to_lower(center_component.sequence_view.getComponentID().toStdString()))
     {
-        // phrase_editor.setVisible(true);
+        center_component.sequence_view.setVisible(true);
     }
     else
     {
         throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
     }
     // TODO Library
-    // TODO Sequencer
     // TODO These Library/Sequencer changes should also call down to the status bar's
-    // indicator to change the letter displayed.
+    // indicator to change the letter displayed?
 }
 
 auto PluginWindow::resized() -> void
@@ -126,9 +117,7 @@ auto PluginWindow::resized() -> void
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
     flexbox.items.add(phrases_view_accordion.get_flexitem());
-    flexbox.items.add(juce::FlexItem(gui_timeline).withHeight(30.f));
-    flexbox.items.add(juce::FlexItem(phrase_editor).withFlex(1.f));
-    // flexbox.items.add(juce::FlexItem(tuning_box).withHeight(140.f));
+    flexbox.items.add(juce::FlexItem(center_component).withFlex(1.f));
     flexbox.items.add(
         juce::FlexItem(bottom_bar).withHeight(InputModeIndicator::preferred_size));
 

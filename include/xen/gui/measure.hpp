@@ -76,13 +76,14 @@ class Measure : public juce::Component
     }
 
   private:
-    [[nodiscard]] static auto make_cell(sequence::Cell const &cell,
-                                        SequencerState const &state)
+    [[nodiscard]] static auto make_cell(sequence::Cell const & /*cell*/,
+                                        SequencerState const & /*state*/)
         -> std::unique_ptr<Cell>
     {
-        auto const builder = BuildAndAllocateCell{state};
+        // auto const builder = BuildAndAllocateCell{state};
 
-        return std::visit(builder, cell);
+        // return std::visit(builder, cell);
+        return nullptr;
     }
 
   private:

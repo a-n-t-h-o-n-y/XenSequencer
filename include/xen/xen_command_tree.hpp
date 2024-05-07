@@ -129,8 +129,8 @@ namespace xen
             "load", ArgInfo<std::string>{"filetype"},
 
             cmd(
-                "state",
-                "Load a full plugin State from a file in the current directory. Do not "
+                "measure",
+                "Load a Measure from a file in the current phrase directory. Do not "
                 "include the .json extension in the filename you provide.",
                 [](PS &ps, std::string const &filename) {
                     auto aux = ps.timeline.get_state().aux;
@@ -151,9 +151,8 @@ namespace xen
                     auto new_state =
                         action::load_state(filepath.getFullPathName().toStdString());
 
-                    // Manually reset selection and phrase name on overwrite
-                    aux.selected = {0, {}};
-                    ps.current_phrase_name = filename;
+                    // Manually reset selection
+                    aux.selected = {aux.selected.measure, {}};
 
                     ps.timeline.stage({std::move(new_state), std::move(aux)});
                     ps.timeline.set_commit_flag();
@@ -180,42 +179,49 @@ namespace xen
                     }
                 })),
 
-        cmd_group("save", ArgInfo<std::string>{"filetype"},
+        cmd_group(
+            "save", ArgInfo<std::string>{"filetype"},
 
-                  cmd(
-                      "state",
-                      "Save the current plugin State to a file in the current phrase "
-                      "directory. Do not include any extension in the filename you "
-                      "provide. This will overwrite any existing file.",
-                      [](PS &ps, std::string filename) {
-                          auto const cd = ps.current_phrase_directory;
-                          if (!cd.isDirectory())
-                          {
-                              return merror("Invalid Current Phrase Directory");
-                          }
+            cmd(
+                "measure",
+                "Save the current measure to a file in the current phrase directory. "
+                "Do not include any extension in the filename you provide. This will "
+                "overwrite any existing file.",
+                [](PS &ps, std::string filename) {
+                    auto const cd = ps.current_phrase_directory;
+                    if (!cd.isDirectory())
+                    {
+                        return merror("Invalid Current Phrase Directory");
+                    }
 
-                          if (filename.empty())
-                          {
-                              filename = ps.current_phrase_name;
-                              if (filename.empty())
-                              {
-                                  return merror("No Phrase Name Found.");
-                              }
-                          }
-                          else // store new phrase name
-                          {
-                              ps.current_phrase_name = filename;
-                          }
+                    auto state = ps.timeline.get_state();
+                    if (filename.empty())
+                    {
+                        filename =
+                            state.sequencer.measure_names[state.aux.selected.measure];
 
-                          auto const filepath = cd.getChildFile(filename + ".json")
-                                                    .getFullPathName()
-                                                    .toStdString();
+                        if (filename.empty())
+                        {
+                            return merror("No Measure Name Found.");
+                        }
+                    }
+                    else // store new measure name
+                    {
+                        state.sequencer.measure_names[state.aux.selected.measure] =
+                            filename;
+                        ps.timeline.stage(
+                            {std::move(state.sequencer), std::move(state.aux)});
+                        ps.timeline.set_commit_flag();
+                    }
 
-                          action::save_state(ps.timeline.get_state().sequencer,
-                                             filepath);
-                          return minfo("State Saved to '" + filepath + '\'');
-                      },
-                      ArgInfo<std::string>{"filename", ""})),
+                    auto const filepath = cd.getChildFile(filename + ".json")
+                                              .getFullPathName()
+                                              .toStdString();
+
+                    action::save_state(ps.timeline.get_state().sequencer, filepath);
+                    return minfo("State Saved to '" + filepath + '\'');
+                },
+                ArgInfo<std::string>{"filename", ""})),
 
         cmd("dataDirectory",
             "Display the path to the directory where user data is stored.",
@@ -460,34 +466,67 @@ namespace xen
                 },
                 ArgInfo<float>{"gate", 1.f}),
 
-            cmd(
-                "timeSignature",
-                "Set the time signature of the current Measure. Ignores Pattern.",
-                [](PS &ps, sequence::Pattern const &,
-                   sequence::TimeSignature const &ts) {
-                    auto [_, aux] = ps.timeline.get_state();
-                    ps.timeline.stage({
-                        action::set_timesignature(ps.timeline, ts),
-                        std::move(aux),
-                    });
-                    ps.timeline.set_commit_flag();
-                    return minfo("TimeSignature Set");
-                },
-                ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}}),
+            cmd_group(
+                "measure", ArgInfo<std::string>{"trait"},
 
-            cmd(
-                "baseFrequency",
-                "Set the base note (interval zero) frequency to `freq`.",
-                [](PS &ps, sequence::Pattern const &, float freq) {
-                    auto [_, aux] = ps.timeline.get_state();
-                    ps.timeline.stage({
-                        action::set_base_frequency(ps.timeline, freq),
-                        std::move(aux),
-                    });
-                    ps.timeline.set_commit_flag();
-                    return minfo("Base Frequency Set");
-                },
-                ArgInfo<float>{"freq", 440.f}),
+                cmd(
+                    "name",
+                    "Set the name of a Measure. If no index is given, set the "
+                    "name of the current Measure. Ignores Pattern.",
+                    [](PS &ps, sequence::Pattern const &, std::string name, int index) {
+                        auto state = ps.timeline.get_state();
+                        index = (index == -1) ? (int)state.aux.selected.measure : index;
+                        state.sequencer.measure_names[state.aux.selected.measure] =
+                            std::move(name);
+                        ps.timeline.stage(std::move(state));
+                        ps.timeline.set_commit_flag();
+                        return minfo("Measure Name Set");
+                    },
+                    ArgInfo<std::string>{"name"}, ArgInfo<int>{"index", -1}),
+
+                cmd(
+                    "timeSignature",
+                    "Set the time signature of a Measure. If no index is given, set "
+                    "the time signature of the current Measure. Ignores Pattern.",
+                    [](PS &ps, sequence::Pattern const &,
+                       sequence::TimeSignature const &ts, int index) {
+                        auto state = ps.timeline.get_state();
+                        index = (index == -1) ? (int)state.aux.selected.measure : index;
+                        state.sequencer.phrase[state.aux.selected.measure]
+                            .time_signature = ts;
+                        ps.timeline.stage(std::move(state));
+                        ps.timeline.set_commit_flag();
+                        return minfo("TimeSignature Set");
+                    },
+                    ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}},
+                    ArgInfo<int>{"index", -1})),
+
+            cmd_group("tuning", ArgInfo<std::string>{"trait"},
+
+                      cmd(
+                          "name",
+                          "Set the name of the current tuning. Ignores Pattern.",
+                          [](PS &ps, sequence::Pattern const &, std::string name) {
+                              auto state = ps.timeline.get_state();
+                              state.sequencer.tuning_name = std::move(name);
+                              ps.timeline.stage(std::move(state));
+                              ps.timeline.set_commit_flag();
+                              return minfo("Tuning Name Set");
+                          },
+                          ArgInfo<std::string>{"name"}),
+                      cmd(
+                          "baseFrequency",
+                          "Set the base note (interval zero) frequency to `freq` Hz.",
+                          [](PS &ps, sequence::Pattern const &, float freq) {
+                              auto [_, aux] = ps.timeline.get_state();
+                              ps.timeline.stage({
+                                  action::set_base_frequency(ps.timeline, freq),
+                                  std::move(aux),
+                              });
+                              ps.timeline.set_commit_flag();
+                              return minfo("Base Frequency Set");
+                          },
+                          ArgInfo<float>{"freq", 440.f})),
 
             cmd(
                 "theme", "Set the color theme of the app by name.",
@@ -521,7 +560,11 @@ namespace xen
             cmd(
                 "phraseName", "Set the name of the current Phrase to `name`.",
                 [](PS &ps, sequence::Pattern const &, std::string name) {
-                    ps.current_phrase_name = std::move(name);
+                    auto state = ps.timeline.get_state();
+                    state.sequencer.measure_names[state.aux.selected.measure] =
+                        std::move(name);
+                    ps.timeline.stage(std::move(state));
+                    ps.timeline.set_commit_flag();
                     return minfo("Phrase Name Set");
                 },
                 ArgInfo<std::string>{"name"}))),

@@ -11,7 +11,7 @@
 
 "version": "0.2.0"
 
-PhraseEditor:
+SequenceView:
   # Mode
   "m": "mode movement"
   "escape": "mode movement"

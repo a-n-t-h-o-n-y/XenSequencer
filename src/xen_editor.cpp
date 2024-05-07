@@ -71,7 +71,7 @@ XenEditor::XenEditor(XenProcessor &p)
     }
 
     // CommandBar Execute Request
-    plugin_window.bottom_bar.command_bar.on_command_request.connect(
+    plugin_window.bottom_bar.command_bar.on_command.connect(
         [this](std::string const &command_string) {
             this->execute_command_string(command_string);
         });
@@ -88,12 +88,24 @@ XenEditor::XenEditor(XenProcessor &p)
             return complete_id(processor_.command_tree, partial_command);
         });
 
-    // On Sequence File Selected
+    // Sequence File Selected
     plugin_window.phrases_view.directory_view.on_file_selected.connect(
         [this](juce::File const &file) {
             this->execute_command_string(
-                "load state \"" + file.getFileNameWithoutExtension().toStdString() +
+                "load measure \"" + file.getFileNameWithoutExtension().toStdString() +
                 '\"');
+        });
+
+    // SequenceView Command Requests
+    plugin_window.center_component.sequence_view.on_command.connect(
+        [this](std::string const &command_string) {
+            this->execute_command_string(command_string);
+        });
+
+    // Library/Sequencer Flip Request
+    plugin_window.bottom_bar.library_sequencer_toggle.on_command.connect(
+        [this](std::string const &command_string) {
+            this->execute_command_string(command_string);
         });
 
     { // Theme Changed
@@ -275,8 +287,11 @@ auto XenEditor::set_key_listeners(
 
     try
     {
-        remove_listener(plugin_window.phrase_editor);
-        add_listener(plugin_window.phrase_editor);
+        // remove_listener(plugin_window.phrase_editor);
+        // add_listener(plugin_window.phrase_editor);
+        remove_listener(plugin_window.center_component.sequence_view);
+        add_listener(plugin_window.center_component.sequence_view);
+
         // TODO
         // remove_listener(plugin_window.tuning_box);
         // add_listener(plugin_window.tuning_box);

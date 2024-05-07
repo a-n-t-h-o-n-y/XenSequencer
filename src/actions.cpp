@@ -235,16 +235,6 @@ auto load_state(std::filesystem::path const &filepath) -> SequencerState
     return deserialize_state(json_str);
 }
 
-auto set_timesignature(XenTimeline const &tl,
-                       sequence::TimeSignature ts) -> SequencerState
-{
-    auto [state, aux] = tl.get_state();
-    auto const measure_index = aux.selected.measure;
-    auto &measure = state.phrase[measure_index];
-    measure.time_signature = ts;
-    return state;
-}
-
 auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState
 {
     auto [state, _] = tl.get_state();

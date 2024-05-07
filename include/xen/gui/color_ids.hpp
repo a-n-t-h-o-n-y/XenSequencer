@@ -49,6 +49,7 @@ enum class TimeSignatureColorIDs
 {
     Background = 0xA000040,
     Text = 0xA000041,
+    Outline = 0xA000042,
 };
 
 enum class MeasureColorIDs

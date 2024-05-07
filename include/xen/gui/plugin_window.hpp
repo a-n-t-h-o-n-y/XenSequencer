@@ -14,6 +14,7 @@
 
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
+#include <xen/gui/center_component.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/phrase_editor.hpp>
 
@@ -108,9 +109,10 @@ class PluginWindow : public juce::Component
   public:
     Accordion<PhrasesView> phrases_view_accordion;
     PhrasesView &phrases_view;
-    gui::Timeline gui_timeline;
-    gui::PhraseEditor phrase_editor;
-    // gui::TuningBox tuning_box; // TODO
+
+    // gui::PhraseEditor phrase_editor;
+    gui::CenterComponent center_component;
+
     gui::BottomBar bottom_bar;
 
   public:

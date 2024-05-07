@@ -85,7 +85,7 @@ class CommandInputComponent : public juce::TextEditor
 class CommandBar : public juce::Component
 {
   public:
-    sl::Signal<void(std::string const &)> on_command_request;
+    sl::Signal<void(std::string const &)> on_command;
     sl::Signal<std::string(std::string const &)> on_guide_text_request;
     sl::Signal<std::string(std::string const &)> on_complete_id_request;
 
@@ -125,9 +125,7 @@ class CommandBar : public juce::Component
             return true;
         };
 
-        command_input_.focus_lost = [this] {
-            this->on_command_request("show StatusBar");
-        };
+        command_input_.focus_lost = [this] { this->on_command("show StatusBar"); };
 
         auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,
                                      juce::Font::plain};
@@ -154,7 +152,8 @@ class CommandBar : public juce::Component
      */
     auto close() -> void
     {
-        this->on_command_request("show StatusBar;focus PhraseEditor");
+        this->clear();
+        this->on_command("show StatusBar;focus SequenceView");
     }
 
   public:
@@ -189,7 +188,7 @@ class CommandBar : public juce::Component
     {
         auto const command = command_input_.getText().toStdString();
         command_history_.add_command(command);
-        this->on_command_request(command);
+        this->on_command(command);
     }
 
     /**

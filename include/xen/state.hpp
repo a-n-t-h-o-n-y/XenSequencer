@@ -37,7 +37,11 @@ namespace xen
 struct SequencerState
 {
     sequence::Phrase phrase;
+    std::array<std::string, 16> measure_names;
+
     sequence::Tuning tuning;
+    std::string tuning_name;
+
     float base_frequency;
 
     auto operator==(SequencerState const &) const -> bool = default;
@@ -112,9 +116,7 @@ struct PluginState
     std::string display_name = "XenSequencer";
 
     juce::File current_phrase_directory{get_phrases_directory()};
-    std::string current_phrase_name{""};
 
-    // TODO current_tuning_name
     // TODO current_tuning_directory
 
     sl::Signal<void(std::string const &)> on_focus_request{};
@@ -133,12 +135,14 @@ struct PluginState
             .cell = sequence::Rest{},
             .time_signature = {4, 4},
         }},
+        .measure_names = {"Init Test"},
         .tuning =
             {
                 .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
                               1100},
                 .octave = 1200,
             },
+        .tuning_name = "12EDO",
         .base_frequency = 440.f,
     };
 }
@@ -181,11 +185,13 @@ struct PluginState
     // {0, 25, 50, 75, 100, 125, 150},
     return SequencerState{
         .phrase = phrase,
+        .measure_names = {"Demo"},
         .tuning =
             {
                 .intervals = {0, 200, 400, 500, 700, 900, 1100},
                 .octave = 1200,
             },
+        .tuning_name = "Major",
         .base_frequency = 440.f,
     };
 }

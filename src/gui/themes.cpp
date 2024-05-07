@@ -14,6 +14,14 @@
 namespace
 {
 
+class CustomLookAndFeel : public juce::LookAndFeel_V4
+{
+  public:
+    auto drawCornerResizer(juce::Graphics &, int, int, bool, bool) -> void override
+    {
+    }
+};
+
 using xen::gui::Theme;
 
 /**
@@ -633,7 +641,7 @@ auto find_theme(std::string_view name) -> Theme
 
 auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
 {
-    auto laf = std::make_unique<juce::LookAndFeel_V4>();
+    auto laf = std::make_unique<CustomLookAndFeel>();
 
     auto sc = [&](auto id, std::uint32_t argb) {
         return laf->setColour((int)id, juce::Colour{argb});
@@ -671,6 +679,7 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
 
     sc(TimeSignatureColorIDs::Background, theme.background);
     sc(TimeSignatureColorIDs::Text, theme.fg_high);
+    sc(TimeSignatureColorIDs::Outline, theme.fg_low);
 
     sc(MeasureColorIDs::Background, theme.bg_med);
     sc(MeasureColorIDs::Outline, theme.fg_low);

@@ -94,9 +94,6 @@ auto save_state(SequencerState const &state,
 
 [[nodiscard]] auto load_state(std::filesystem::path const &filepath) -> SequencerState;
 
-[[nodiscard]] auto set_timesignature(XenTimeline const &tl,
-                                     sequence::TimeSignature ts) -> SequencerState;
-
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl,
                                       float freq) -> SequencerState;
 

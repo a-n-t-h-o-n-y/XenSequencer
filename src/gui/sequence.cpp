@@ -103,14 +103,14 @@ using namespace xen;
 namespace xen::gui
 {
 
-Sequence::Sequence(sequence::Sequence const &seq, SequencerState const &state)
+Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
     : cells_{juce::FlexItem{}.withFlex(1.f), false}
 {
     this->addAndMakeVisible(top_indicator_);
     this->addAndMakeVisible(cells_);
     this->addAndMakeVisible(bottom_indicator_);
 
-    auto const build_and_allocate_cell = BuildAndAllocateCell{state};
+    auto const build_and_allocate_cell = BuildAndAllocateCell{tuning_size};
 
     // for each sequence::Cell, construct it as a pointer and add it to cells_
     for (auto const &cell : seq.cells)

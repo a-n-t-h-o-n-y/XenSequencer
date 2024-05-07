@@ -21,11 +21,11 @@
 
 # Headings are necessary to group keys together per UI component.
 # Valid component headings are:
-# - PhraseEditor
+# - SequenceView
 
 # Example:
 
-# PhraseEditor:
+# SequenceView:
 #   "m": "mode movement"
 #   "escape": "mode movement"
 #   "n": "mode note"
@@ -33,4 +33,4 @@
 #   "d": "mode delay"
 #   "g": "mode gate"
 
-PhraseEditor:
+SequenceView:

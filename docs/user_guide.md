@@ -108,8 +108,8 @@ The colon key `:` opens the command bar, it is used to type and execute commands
 | `split [count=2]` | Split the current selection into two sequences. |
 | `[pattern] fill [note\|rest] ...` | Fill the current selection with the given note or rest. |
 | `[pattern] randomize [note\|velocity\|delay\|gate] ...` | Randomize the given property of the current selection. |
-| `save state [filepath]` | Save the plugin state to a `json` file. |
-| `load state [filepath]` | Load the plugin state from a `json` file. |
+| `save measure [filepath]` | Save the current measure to a `json` file. |
+| `load measure [filepath]` | Load the current measure from a `json` file. |
 
 ## Contact and Support
 Contact by opening an issue or starting a discussion at the [github page](https://github.com/a-n-t-h-o-n-y/XenSequencer) for this project.
