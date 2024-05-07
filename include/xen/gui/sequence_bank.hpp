@@ -12,7 +12,7 @@
 namespace xen::gui
 {
 
-class MeasureGrid : public juce::Component
+class SequenceBank : public juce::Component
 {
   public:
     // TODO emit this signal
@@ -21,7 +21,7 @@ class MeasureGrid : public juce::Component
   public:
     // TODO set font to monospace
     // TODO add color ids for this class and assign them theme values.
-    MeasureGrid()
+    SequenceBank()
     {
         auto i = 0;
         for (auto &btn : buttons_)

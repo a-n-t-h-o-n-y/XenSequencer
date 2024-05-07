@@ -14,8 +14,8 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/gui/measure_grid.hpp>
 #include <xen/gui/sequence.hpp>
+#include <xen/gui/sequence_bank.hpp>
 
 namespace xen::gui
 {
@@ -234,7 +234,7 @@ class SequenceView : public juce::Component
         this->setWantsKeyboardFocus(true);
 
         this->addAndMakeVisible(measure_info_);
-        this->addAndMakeVisible(measure_grid_);
+        this->addAndMakeVisible(sequence_bank_);
 
         measure_info_.on_command.connect(
             [this](std::string const &command) { this->on_command(command); });
@@ -272,7 +272,7 @@ class SequenceView : public juce::Component
         horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
         horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
         // TODO figure out how to make square
-        horizontal_flex.items.add(juce::FlexItem{measure_grid_}.withWidth(300));
+        horizontal_flex.items.add(juce::FlexItem{sequence_bank_}.withWidth(300));
 
         if (cell_ptr_ != nullptr)
         {
@@ -296,8 +296,8 @@ class SequenceView : public juce::Component
   private:
     MeasureInfo measure_info_;
     std::unique_ptr<Cell> cell_ptr_;
-    MeasureGrid measure_grid_;
-    // grid in accordion
+    SequenceBank sequence_bank_;
+    // TODO sequencebank in accordion
 };
 
 class LibraryView : public juce::Component

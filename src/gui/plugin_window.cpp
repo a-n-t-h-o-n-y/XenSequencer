@@ -20,7 +20,6 @@
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/gui/phrase_editor.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>

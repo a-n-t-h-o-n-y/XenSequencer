@@ -136,12 +136,11 @@ target_sources(XenSequencerLib
         include/xen/gui/homogenous_row.hpp
         include/xen/gui/mantissa_box.hpp
         include/xen/gui/measure.hpp
-        include/xen/gui/measure_grid.hpp
         include/xen/gui/number_box.hpp
         include/xen/gui/phrase.hpp
-        include/xen/gui/phrase_editor.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
+        include/xen/gui/sequence_bank.hpp
         include/xen/gui/sequence.old.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/timeline.hpp

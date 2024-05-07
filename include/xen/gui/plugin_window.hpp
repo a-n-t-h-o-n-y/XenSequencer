@@ -16,7 +16,6 @@
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/center_component.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/gui/phrase_editor.hpp>
 
 #include <xen/gui/accordion.hpp>
 #include <xen/gui/bottom_bar.hpp>
@@ -110,7 +109,6 @@ class PluginWindow : public juce::Component
     Accordion<PhrasesView> phrases_view_accordion;
     PhrasesView &phrases_view;
 
-    // gui::PhraseEditor phrase_editor;
     gui::CenterComponent center_component;
 
     gui::BottomBar bottom_bar;
