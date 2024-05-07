@@ -172,7 +172,16 @@ XenEditor::XenEditor(XenProcessor &p)
 
     // ActiveSession Selected
     plugin_window.phrases_view.active_sessions_view.on_instance_selected.connect(
-        [&p](juce::Uuid const &uuid) { p.active_sessions.request_state(uuid); });
+        // TODO This should pass in an index other than hardcoded 0.
+        // You'll have to update the UI to list all the instances and allow the user to
+        // select one to request the state from. Or, since there are always 16 you have
+        // some other method that doesn't require so much screen space.
+
+        // TODO You might want to display the measure names in the active sessions as
+        // well, in that case you do want to list all. It could be folded, then the user
+        // expands and then it takes less space and double clicking the instance will
+        // default to the zero index without having to expand.
+        [&p](juce::Uuid const &uuid) { p.active_sessions.request_measure(uuid, 0); });
 
     // ActiveSession Name Change
     plugin_window.phrases_view.active_sessions_view.on_this_instance_name_change

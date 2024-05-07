@@ -17,6 +17,7 @@
 #include <juce_events/juce_events.h>
 #include <signals_light/signal.hpp>
 
+#include <sequence/measure.hpp>
 #include <sequence/utility.hpp>
 
 #include <xen/instance_directory.hpp>
@@ -47,19 +48,20 @@ struct IDUpdate
 };
 
 /**
- * Sent by an instance to request the current state of receivier's the timeline.
+ * Sent by an instance to request a specific Measure of receivier's the timeline.
  */
-struct StateRequest
+struct MeasureRequest
 {
+    std::size_t measure_index;
     juce::Uuid reply_to;
 };
 
 /**
- * Sent by an instance in response to a StateRequest.
+ * Sent by an instance in response to a MeasureRequest.
  */
-struct StateResponse
+struct MeasureResponse
 {
-    xen::SequencerState state;
+    sequence::Measure measure;
 };
 
 /**
@@ -70,8 +72,8 @@ struct DisplayNameRequest
     juce::Uuid reply_to;
 };
 
-using Message = std::variant<InstanceShutdown, IDUpdate, StateRequest, StateResponse,
-                             DisplayNameRequest>;
+using Message = std::variant<InstanceShutdown, IDUpdate, MeasureRequest,
+                             MeasureResponse, DisplayNameRequest>;
 
 /**
  * Serialize a message to a JSON string.
@@ -271,8 +273,8 @@ class ActiveSessions
   public:
     sl::Signal<void(juce::Uuid const &)> on_instance_shutdown;
     sl::Signal<void(juce::Uuid const &, std::string const &)> on_id_update;
-    sl::Signal<SequencerState()> on_state_request;
-    sl::Signal<void(SequencerState const &)> on_state_response;
+    sl::Signal<sequence::Measure(std::size_t)> on_measure_request;
+    sl::Signal<void(sequence::Measure const &)> on_measure_response;
     sl::Signal<std::string()> on_display_name_request;
 
   public:
@@ -287,17 +289,20 @@ class ActiveSessions
                 sequence::utility::overload{
                     [this](InstanceShutdown const &x) { on_instance_shutdown(x.uuid); },
                     [this](IDUpdate const &x) { on_id_update(x.uuid, x.display_name); },
-                    [this](StateRequest const &x) {
-                        auto state = on_state_request();
-                        if (!state.has_value())
+                    [this](MeasureRequest const &x) {
+                        auto measure = on_measure_request(x.measure_index);
+                        if (!measure.has_value())
                         {
-                            throw std::logic_error{"on_state_request() returned "
+                            throw std::logic_error{"on_measure_request(index) returned "
                                                    "std::nullopt, no Slot connected"};
                         }
-                        relay_.send_to(x.reply_to, serialize(StateResponse{
-                                                       .state = std::move(*state)}));
+                        relay_.send_to(x.reply_to, serialize(MeasureResponse{
+                                                       .measure = std::move(*measure),
+                                                   }));
                     },
-                    [this](StateResponse const &x) { on_state_response(x.state); },
+                    [this](MeasureResponse const &x) {
+                        on_measure_response(x.measure);
+                    },
                     [this](DisplayNameRequest const &x) {
                         auto name = on_display_name_request();
                         if (!name.has_value())
@@ -359,18 +364,21 @@ class ActiveSessions
     }
 
     /**
-     * Puts in a request to the given instance for its current state.
+     * Puts in a request to the given instance for a specific Measure.
      *
-     * This does not block until the request is fulfilled. Instead, the
-     * on_state_response signal will be emitted when the response is received.
+     * @details This does not block until the request is fulfilled. Instead, the
+     * on_measure_response signal will be emitted when the response is received.
      *
      * @param uuid UUID of the instance to request the state from.
+     * @param index Index of the Measure to request from the sequence bank.
      * @throws std::runtime_error if the given UUID is not registered.
      */
-    auto request_state(juce::Uuid const &uuid) const -> void
+    auto request_measure(juce::Uuid const &uuid, std::size_t index) const -> void
     {
-        relay_.send_to(uuid,
-                       serialize(StateRequest{.reply_to = this_instance_.get_uuid()}));
+        relay_.send_to(uuid, serialize(MeasureRequest{
+                                 .measure_index = index,
+                                 .reply_to = this_instance_.get_uuid(),
+                             }));
     }
 
     /**

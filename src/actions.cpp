@@ -222,17 +222,17 @@ auto delete_cell(TrackedState ts) -> TrackedState
     return ts;
 }
 
-auto save_state(SequencerState const &state,
-                std::filesystem::path const &filepath) -> void
+auto save_measure(sequence::Measure const &measure,
+                  std::filesystem::path const &filepath) -> void
 {
-    auto const json_str = serialize_state(state);
+    auto const json_str = serialize_measure(measure);
     write_string_to_file(filepath, json_str);
 }
 
-auto load_state(std::filesystem::path const &filepath) -> SequencerState
+auto load_measure(std::filesystem::path const &filepath) -> sequence::Measure
 {
     auto const json_str = read_file_to_string(filepath);
-    return deserialize_state(json_str);
+    return deserialize_measure(json_str);
 }
 
 auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState

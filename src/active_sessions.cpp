@@ -31,17 +31,18 @@ auto serialize(Message const &m) -> std::string
                               }
                                   .dump();
                           },
-                          [](StateRequest const &x) {
+                          [](MeasureRequest const &x) {
                               return nlohmann::json{
-                                  {"type", "StateRequest"},
+                                  {"type", "MeasureRequest"},
+                                  {"measure_index", x.measure_index},
                                   {"reply_to", x.reply_to.toString().toStdString()},
                               }
                                   .dump();
                           },
-                          [](StateResponse const &x) {
+                          [](MeasureResponse const &x) {
                               return nlohmann::json{
-                                  {"type", "StateResponse"},
-                                  {"state", serialize_state(x.state)},
+                                  {"type", "MeasureResponse"},
+                                  {"measure", serialize_measure(x.measure)},
                               }
                                   .dump();
                           },
@@ -73,16 +74,17 @@ auto deserialize(std::string const &x) -> Message
             j.at("display_name").get<std::string>(),
         };
     }
-    else if (type == "StateRequest")
+    else if (type == "MeasureRequest")
     {
-        return StateRequest{
-            juce::Uuid{j.at("reply_to").get<std::string>()},
+        return MeasureRequest{
+            .measure_index = j.at("measure_index").get<std::size_t>(),
+            .reply_to = juce::Uuid{j.at("reply_to").get<std::string>()},
         };
     }
-    else if (type == "StateResponse")
+    else if (type == "MeasureResponse")
     {
-        return StateResponse{
-            deserialize_state(j.at("state").get<std::string>()),
+        return MeasureResponse{
+            deserialize_measure(j.at("measure").get<std::string>()),
         };
     }
     else if (type == "DisplayNameRequest")

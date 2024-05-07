@@ -3,27 +3,30 @@
 #include <string>
 #include <utility>
 
+#include <sequence/measure.hpp>
+
 #include <xen/state.hpp>
 
 namespace xen
 {
 
 /**
- * Serialize a SequencerState object to a JSON string.
+ * Serialize a sequence::Measure object to a JSON string.
  *
- * @param state The SequencerState object to serialize.
+ * @param state The sequence::Measure object to serialize.
  * @return std::string The JSON string.
  */
-[[nodiscard]] auto serialize_state(SequencerState const &state) -> std::string;
+[[nodiscard]] auto serialize_measure(sequence::Measure const &m) -> std::string;
 
 /**
- * Deserialize a JSON string to a SequencerState object.
+ * Deserialize a JSON string to a sequence::Measure object.
  *
  * @param json_str The JSON string to deserialize.
- * @return SequencerState The deserialized SequencerState object.
+ * @return Measure The deserialized Measure object.
  * @throw std::invalid_argument If the JSON string is invalid.
  */
-[[nodiscard]] auto deserialize_state(std::string const &json_str) -> SequencerState;
+[[nodiscard]] auto deserialize_measure(std::string const &json_str)
+    -> sequence::Measure;
 
 /**
  * Serialize the full plugin state to a JSON string.

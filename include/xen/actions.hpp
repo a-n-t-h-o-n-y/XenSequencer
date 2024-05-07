@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <utility>
 
+#include <sequence/measure.hpp>
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
@@ -89,10 +90,11 @@ namespace xen::action
 
 [[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
 
-auto save_state(SequencerState const &state,
-                std::filesystem::path const &filepath) -> void;
+auto save_measure(sequence::Measure const &measure,
+                  std::filesystem::path const &filepath) -> void;
 
-[[nodiscard]] auto load_state(std::filesystem::path const &filepath) -> SequencerState;
+[[nodiscard]] auto load_measure(std::filesystem::path const &filepath)
+    -> sequence::Measure;
 
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl,
                                       float freq) -> SequencerState;

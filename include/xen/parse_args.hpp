@@ -26,7 +26,8 @@ namespace xen
     {
         auto pos = std::size_t{0};
 
-        auto const result = std::stoi(x, &pos);
+        // Pass 0 as the base to auto-detect from the prefix
+        auto const result = std::stoi(x, &pos, 0);
 
         // This verifies the entire string was parsed.
         if (pos != x.size())

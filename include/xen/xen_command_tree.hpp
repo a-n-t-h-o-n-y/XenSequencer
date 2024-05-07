@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <mutex>
 #include <optional>
@@ -131,16 +132,21 @@ namespace xen
             cmd(
                 "measure",
                 "Load a Measure from a file in the current phrase directory. Do not "
-                "include the .json extension in the filename you provide.",
-                [](PS &ps, std::string const &filename) {
-                    auto aux = ps.timeline.get_state().aux;
+                "include the .xenseq extension in the filename you provide.",
+                [](PS &ps, std::string const &filename, int index) {
+                    auto [state, aux] = ps.timeline.get_state();
+                    index = (index == -1) ? (int)aux.selected.measure : index;
+                    if (index < 0 || index >= (int)state.phrase.size())
+                    {
+                        return merror("Invalid Measure Index");
+                    }
                     auto const cd = ps.current_phrase_directory;
                     if (!cd.isDirectory())
                     {
                         return merror("Invalid Current Phrase Directory");
                     }
 
-                    auto const filepath = cd.getChildFile(filename + ".json");
+                    auto const filepath = cd.getChildFile(filename + ".xenseq");
                     if (!filepath.exists())
                     {
                         return merror("File Not Found: " +
@@ -148,18 +154,22 @@ namespace xen
                     }
 
                     // Call early in case of error
-                    auto new_state =
-                        action::load_state(filepath.getFullPathName().toStdString());
+                    auto loaded_measure =
+                        action::load_measure(filepath.getFullPathName().toStdString());
 
-                    // Manually reset selection
-                    aux.selected = {aux.selected.measure, {}};
+                    state.phrase[(std::size_t)index] = std::move(loaded_measure);
+                    // Manually reset selection if overwriting current display measure.
+                    if ((std::size_t)index == aux.selected.measure)
+                    {
+                        aux.selected = {aux.selected.measure, {}};
+                    }
 
-                    ps.timeline.stage({std::move(new_state), std::move(aux)});
+                    ps.timeline.stage({std::move(state), std::move(aux)});
                     ps.timeline.set_commit_flag();
 
                     return minfo("State Loaded");
                 },
-                ArgInfo<std::string>{"filename"}),
+                ArgInfo<std::string>{"filename"}, ArgInfo<int>{"index", -1}),
 
             cmd("keys", "Load keys.yml and user_keys.yml.",
                 [](PS &ps) {
@@ -194,9 +204,9 @@ namespace xen
                         return merror("Invalid Current Phrase Directory");
                     }
 
-                    auto state = ps.timeline.get_state();
                     if (filename.empty())
                     {
+                        auto const state = ps.timeline.get_state();
                         filename =
                             state.sequencer.measure_names[state.aux.selected.measure];
 
@@ -207,6 +217,7 @@ namespace xen
                     }
                     else // store new measure name
                     {
+                        auto state = ps.timeline.get_state();
                         state.sequencer.measure_names[state.aux.selected.measure] =
                             filename;
                         ps.timeline.stage(
@@ -214,11 +225,15 @@ namespace xen
                         ps.timeline.set_commit_flag();
                     }
 
-                    auto const filepath = cd.getChildFile(filename + ".json")
+                    auto const filepath = cd.getChildFile(filename + ".xenseq")
                                               .getFullPathName()
                                               .toStdString();
 
-                    action::save_state(ps.timeline.get_state().sequencer, filepath);
+                    // TODO add index to this command with default for current selection
+                    auto const state = ps.timeline.get_state();
+                    auto const &measure =
+                        state.sequencer.phrase[state.aux.selected.measure];
+                    action::save_measure(measure, filepath);
                     return minfo("State Saved to '" + filepath + '\'');
                 },
                 ArgInfo<std::string>{"filename", ""})),
@@ -474,11 +489,14 @@ namespace xen
                     "Set the name of a Measure. If no index is given, set the "
                     "name of the current Measure. Ignores Pattern.",
                     [](PS &ps, sequence::Pattern const &, std::string name, int index) {
-                        auto state = ps.timeline.get_state();
-                        index = (index == -1) ? (int)state.aux.selected.measure : index;
-                        state.sequencer.measure_names[state.aux.selected.measure] =
-                            std::move(name);
-                        ps.timeline.stage(std::move(state));
+                        auto [state, aux] = ps.timeline.get_state();
+                        index = (index == -1) ? (int)aux.selected.measure : index;
+                        if (index < 0 || index >= (int)state.measure_names.size())
+                        {
+                            return merror("Invalid Measure Index");
+                        }
+                        state.measure_names[(std::size_t)index] = std::move(name);
+                        ps.timeline.stage({std::move(state), std::move(aux)});
                         ps.timeline.set_commit_flag();
                         return minfo("Measure Name Set");
                     },
@@ -490,11 +508,15 @@ namespace xen
                     "the time signature of the current Measure. Ignores Pattern.",
                     [](PS &ps, sequence::Pattern const &,
                        sequence::TimeSignature const &ts, int index) {
-                        auto state = ps.timeline.get_state();
-                        index = (index == -1) ? (int)state.aux.selected.measure : index;
-                        state.sequencer.phrase[state.aux.selected.measure]
-                            .time_signature = ts;
-                        ps.timeline.stage(std::move(state));
+                        auto [state, aux] = ps.timeline.get_state();
+                        index = (index == -1) ? (int)aux.selected.measure : index;
+                        if (index < 0 || index >= (int)state.phrase.size())
+                        {
+                            return merror("Invalid Measure Index");
+                        }
+
+                        state.phrase[(std::size_t)index].time_signature = ts;
+                        ps.timeline.stage({std::move(state), std::move(aux)});
                         ps.timeline.set_commit_flag();
                         return minfo("TimeSignature Set");
                     },
@@ -507,9 +529,9 @@ namespace xen
                           "name",
                           "Set the name of the current tuning. Ignores Pattern.",
                           [](PS &ps, sequence::Pattern const &, std::string name) {
-                              auto state = ps.timeline.get_state();
-                              state.sequencer.tuning_name = std::move(name);
-                              ps.timeline.stage(std::move(state));
+                              auto [state, aux] = ps.timeline.get_state();
+                              state.tuning_name = std::move(name);
+                              ps.timeline.stage({std::move(state), std::move(aux)});
                               ps.timeline.set_commit_flag();
                               return minfo("Tuning Name Set");
                           },
@@ -554,18 +576,6 @@ namespace xen
                     {
                         return merror("Failed to Load Theme: " + std::string{e.what()});
                     }
-                },
-                ArgInfo<std::string>{"name"}),
-
-            cmd(
-                "phraseName", "Set the name of the current Phrase to `name`.",
-                [](PS &ps, sequence::Pattern const &, std::string name) {
-                    auto state = ps.timeline.get_state();
-                    state.sequencer.measure_names[state.aux.selected.measure] =
-                        std::move(name);
-                    ps.timeline.stage(std::move(state));
-                    ps.timeline.set_commit_flag();
-                    return minfo("Phrase Name Set");
                 },
                 ArgInfo<std::string>{"name"}))),
 

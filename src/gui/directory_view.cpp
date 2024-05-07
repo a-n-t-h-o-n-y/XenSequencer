@@ -148,7 +148,7 @@ auto DirectoryView::item_selected(int index) -> void
 
 PhraseDirectoryView::PhraseDirectoryView(juce::File const &initial_directory)
     : DirectoryView{initial_directory,
-                    juce::WildcardFileFilter{"*.json", "*", "JSON filter"}}
+                    juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"}}
 {
     this->setComponentID("PhraseLibrary");
 }

@@ -62,25 +62,31 @@ XenProcessor::XenProcessor()
     active_sessions.on_display_name_request.connect(
         [this] { return plugin_state.display_name; });
 
-    active_sessions.on_state_request.connect([this] {
+    active_sessions.on_measure_request.connect([this](std::size_t measure_index) {
         auto const [state, _] = plugin_state.timeline.get_state();
-        return state;
+        return state.phrase[measure_index];
     });
 
-    active_sessions.on_state_response.connect([this](SequencerState const &state) {
-        auto const im = plugin_state.timeline.get_state().aux.input_mode;
-        plugin_state.timeline.stage({state, {.input_mode = im}});
-        plugin_state.timeline.commit();
-        auto *const editor_base = this->getActiveEditor();
-        if (editor_base != nullptr)
-        {
-            auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
-            if (editor != nullptr)
+    active_sessions.on_measure_response.connect(
+        [this](sequence::Measure const &measure) {
+            auto [state, aux] = plugin_state.timeline.get_state();
+
+            state.phrase[aux.selected.measure] = measure;
+            aux.selected.cell.clear();
+
+            plugin_state.timeline.stage({state, aux});
+            plugin_state.timeline.commit();
+
+            auto *const editor_base = this->getActiveEditor();
+            if (editor_base != nullptr)
             {
-                editor->update_ui();
+                auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
+                if (editor != nullptr)
+                {
+                    editor->update_ui();
+                }
             }
-        }
-    });
+        });
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,

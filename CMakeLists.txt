@@ -50,8 +50,8 @@ juce_add_binary_data(EmbedDemos
     HEADER_NAME "embed_demos.hpp"
     NAMESPACE embed_demos
     SOURCES
-        data/demos/double\ note.json
-        data/demos/double\ note\ 2.json
+        data/demos/empty.xenseq
+        data/demos/demo.xenseq
 )
 
 
