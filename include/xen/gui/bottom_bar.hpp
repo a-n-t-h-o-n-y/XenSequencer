@@ -188,10 +188,10 @@ class LibrarySequencerToggle : public LetterSquare
         switch (this->LetterSquare::get())
         {
         case 'L':
-            this->on_command("show SequenceView;focus SequenceView");
+            this->on_command("show LibraryView;focus SequencesList");
             break;
         case 'S':
-            this->on_command("show LibraryView;focus MeasuresList");
+            this->on_command("show SequenceView;focus SequenceView");
             break;
         default:
             assert(false);
@@ -235,7 +235,7 @@ class BottomBar : public juce::Component
 
         flexbox.items.add(juce::FlexItem{input_mode_indicator}.withWidth(
             InputModeIndicator::preferred_size));
-        flexbox.items.add(juce::FlexItem{this->currentCenterComponent()}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{this->current_component()}.withFlex(1.f));
         flexbox.items.add(juce::FlexItem{library_sequencer_toggle}.withWidth(
             LibrarySequencerToggle::preferred_size));
 
@@ -243,7 +243,7 @@ class BottomBar : public juce::Component
     }
 
   private:
-    auto currentCenterComponent() -> juce::Component &
+    [[nodiscard]] auto current_component() -> juce::Component &
     {
         if (status_bar.isVisible())
         {

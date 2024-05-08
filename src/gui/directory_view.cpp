@@ -146,20 +146,20 @@ auto DirectoryView::item_selected(int index) -> void
 
 // -------------------------------------------------------------------------------------
 
-PhraseDirectoryView::PhraseDirectoryView(juce::File const &initial_directory)
+SequencesList::SequencesList(juce::File const &initial_directory)
     : DirectoryView{initial_directory,
                     juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"}}
 {
-    this->setComponentID("PhraseLibrary");
+    this->setComponentID("SequencesList");
 }
 
 // -------------------------------------------------------------------------------------
 
-TuningDirectoryView::TuningDirectoryView(juce::File const &initial_directory)
+TuningsList::TuningsList(juce::File const &initial_directory)
     : DirectoryView{initial_directory,
                     juce::WildcardFileFilter{"*.scl", "*", "scala filter"}}
 {
-    this->setComponentID("TuningLibrary");
+    this->setComponentID("TuningsList");
 }
 
 } // namespace xen::gui

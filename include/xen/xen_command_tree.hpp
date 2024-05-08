@@ -238,10 +238,11 @@ namespace xen
                 },
                 ArgInfo<std::string>{"filename", ""})),
 
-        cmd("dataDirectory",
-            "Display the path to the directory where user data is stored.",
+        cmd("libraryDirectory",
+            "Display the path to the directory where the user library is stored.",
             [](PS &) {
-                return minfo(get_user_data_directory().getFullPathName().toStdString());
+                return minfo(
+                    get_user_library_directory().getFullPathName().toStdString());
             }),
 
         cmd("UUID", "Display the UUID for this instance.",

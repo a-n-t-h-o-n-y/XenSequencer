@@ -83,10 +83,10 @@ class NameEdit : public juce::Label
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
-class ActiveSessions : public juce::Component
+class ActiveSessionsList : public juce::Component
 {
   public:
-    ActiveSessions();
+    ActiveSessionsList();
 
   public:
     /**
@@ -102,8 +102,8 @@ class ActiveSessions : public juce::Component
      * @param uuid The UUID of the instance.
      * @param name The display name of the instance.
      */
-    auto add_or_update_instance(juce::Uuid const &uuid, std::string const &name)
-        -> void;
+    auto add_or_update_instance(juce::Uuid const &uuid,
+                                std::string const &name) -> void;
 
     /**
      * Remove an instance from the listbox.
@@ -112,7 +112,7 @@ class ActiveSessions : public juce::Component
      */
     auto remove_instance(juce::Uuid const &uuid) -> void;
 
-  protected:
+  public:
     auto resized() -> void override;
 
     auto lookAndFeelChanged() -> void override;

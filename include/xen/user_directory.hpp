@@ -6,20 +6,27 @@ namespace xen
 {
 
 /**
- * Retrieve the location of the user data directory for the current OS.
+ * Retrieve the location of the user library directory for the current OS.
  *
- * @return The filesystem path of the user data directory.
+ * @return The filesystem path of the user library directory.
  */
-[[nodiscard]] auto get_user_data_directory() -> juce::File;
+[[nodiscard]] auto get_user_library_directory() -> juce::File;
 
 /**
- * Retrieve the location of the phrases directory.
+ * Retrieve the location of the sequences directory.
  *
- * If the directory does not exist, it will be created.
- *
- * @return The filesystem path of the phrases directory.
+ * @details If the directory does not exist, it will be created.
+ * @return The filesystem path of the sequences directory.
  */
-[[nodiscard]] auto get_phrases_directory() -> juce::File;
+[[nodiscard]] auto get_sequences_directory() -> juce::File;
+
+/**
+ * Retrieve the location of the tunings directory.
+ *
+ * @details If the directory does not exist, it will be created.
+ * @return The filesystem path of the tunings directory.
+ */
+[[nodiscard]] auto get_tunings_directory() -> juce::File;
 
 /**
  * Retrieve the location of the default keys.yml configuration file.

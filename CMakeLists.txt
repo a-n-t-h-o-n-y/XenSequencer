@@ -134,6 +134,7 @@ target_sources(XenSequencerLib
         include/xen/gui/focusable_component.hpp
         include/xen/gui/heading.hpp
         include/xen/gui/homogenous_row.hpp
+        include/xen/gui/library_view.hpp
         include/xen/gui/mantissa_box.hpp
         include/xen/gui/measure.hpp
         include/xen/gui/number_box.hpp
@@ -141,7 +142,6 @@ target_sources(XenSequencerLib
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
-        include/xen/gui/sequence.old.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/timeline.hpp
         include/xen/gui/tuning.hpp

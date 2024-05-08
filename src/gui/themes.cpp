@@ -644,7 +644,7 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
     auto laf = std::make_unique<CustomLookAndFeel>();
 
     auto sc = [&](auto id, std::uint32_t argb) {
-        return laf->setColour((int)id, juce::Colour{argb});
+        laf->setColour((int)id, juce::Colour{argb});
     };
 
     sc(AccordionColorIDs::Background, theme.background);
@@ -654,14 +654,14 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
 
     sc(DirectoryViewColorIDs::TitleText, theme.fg_high);
     sc(DirectoryViewColorIDs::TitleBackground, theme.background);
-    sc(DirectoryViewColorIDs::ItemBackground, theme.bg_high);
+    sc(DirectoryViewColorIDs::ItemBackground, theme.bg_med);
     sc(DirectoryViewColorIDs::ItemText, theme.fg_high);
     sc(DirectoryViewColorIDs::SelectedItemBackground, theme.bg_low);
     sc(DirectoryViewColorIDs::SelectedItemText, theme.fg_high);
 
     sc(ActiveSessionsColorIDs::TitleText, theme.fg_high);
     sc(ActiveSessionsColorIDs::TitleBackground, theme.background);
-    sc(ActiveSessionsColorIDs::ItemBackground, theme.bg_high);
+    sc(ActiveSessionsColorIDs::ItemBackground, theme.bg_med);
     sc(ActiveSessionsColorIDs::ItemText, theme.fg_high);
     sc(ActiveSessionsColorIDs::SelectedItemBackground, theme.bg_low);
     sc(ActiveSessionsColorIDs::SelectedItemText, theme.fg_high);

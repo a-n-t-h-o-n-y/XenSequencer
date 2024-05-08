@@ -47,6 +47,7 @@ namespace xen::gui
 
 XenEditor::XenEditor(XenProcessor &p)
     : AudioProcessorEditor{p}, plugin_window{p.plugin_state.current_phrase_directory,
+                                             p.plugin_state.current_tuning_directory,
                                              p.plugin_state.command_history},
       processor_{p}
 {
@@ -89,10 +90,18 @@ XenEditor::XenEditor(XenProcessor &p)
         });
 
     // Sequence File Selected
-    plugin_window.phrases_view.directory_view.on_file_selected.connect(
+    plugin_window.center_component.library_view.sequences_list.on_file_selected.connect(
         [this](juce::File const &file) {
             this->execute_command_string(
                 "load measure \"" + file.getFileNameWithoutExtension().toStdString() +
+                '\"');
+        });
+
+    // Tuning File Selected
+    plugin_window.center_component.library_view.tunings_list.on_file_selected.connect(
+        [this](juce::File const &file) {
+            this->execute_command_string(
+                "load tuning \"" + file.getFileNameWithoutExtension().toStdString() +
                 '\"');
         });
 
@@ -120,7 +129,8 @@ XenEditor::XenEditor(XenProcessor &p)
 
     { // ActiveSessions Shutdown
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window.phrases_view.active_sessions_view.remove_instance(uuid);
+            plugin_window.center_component.library_view.active_sessions_list
+                .remove_instance(uuid);
         }};
         slot.track(lifetime_);
         p.active_sessions.on_instance_shutdown.connect(slot);
@@ -129,8 +139,8 @@ XenEditor::XenEditor(XenProcessor &p)
     { // ActiveSession ID Update
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window.phrases_view.active_sessions_view.add_or_update_instance(
-                    uuid, display_name);
+                plugin_window.center_component.library_view.active_sessions_list
+                    .add_or_update_instance(uuid, display_name);
             }};
         slot.track(lifetime_);
         p.active_sessions.on_id_update.connect(slot);
@@ -164,28 +174,37 @@ XenEditor::XenEditor(XenProcessor &p)
         p.plugin_state.shared.on_load_keys_request.connect(slot);
     }
 
-    // Phrase Library Directory Change
-    plugin_window.phrases_view.directory_view.on_directory_change.connect(
-        [&](juce::File const &directory) {
+    // Sequence Library Directory Change
+    plugin_window.center_component.library_view.sequences_list.on_directory_change
+        .connect([&](juce::File const &directory) {
             p.plugin_state.current_phrase_directory = directory;
         });
 
-    // ActiveSession Selected
-    plugin_window.phrases_view.active_sessions_view.on_instance_selected.connect(
-        // TODO This should pass in an index other than hardcoded 0.
-        // You'll have to update the UI to list all the instances and allow the user to
-        // select one to request the state from. Or, since there are always 16 you have
-        // some other method that doesn't require so much screen space.
+    // Tuning Library Directory Change
+    plugin_window.center_component.library_view.sequences_list.on_directory_change
+        .connect([&](juce::File const &directory) {
+            p.plugin_state.current_tuning_directory = directory;
+        });
 
-        // TODO You might want to display the measure names in the active sessions as
-        // well, in that case you do want to list all. It could be folded, then the user
-        // expands and then it takes less space and double clicking the instance will
-        // default to the zero index without having to expand.
-        [&p](juce::Uuid const &uuid) { p.active_sessions.request_measure(uuid, 0); });
+    // ActiveSession Selected
+    plugin_window.center_component.library_view.active_sessions_list
+        .on_instance_selected.connect(
+            // TODO This should pass in an index other than hardcoded 0.
+            // You'll have to update the UI to list all the instances and allow the user
+            // to select one to request the state from. Or, since there are always 16
+            // you have some other method that doesn't require so much screen space.
+
+            // TODO You might want to display the measure names in the active sessions
+            // as well, in that case you do want to list all. It could be folded, then
+            // the user expands and then it takes less space and double clicking the
+            // instance will default to the zero index without having to expand.
+            [&p](juce::Uuid const &uuid) {
+                p.active_sessions.request_measure(uuid, 0);
+            });
 
     // ActiveSession Name Change
-    plugin_window.phrases_view.active_sessions_view.on_this_instance_name_change
-        .connect([&p](std::string const &name) {
+    plugin_window.center_component.library_view.active_sessions_list
+        .on_this_instance_name_change.connect([&p](std::string const &name) {
             p.plugin_state.display_name = name;
             p.active_sessions.notify_display_name_update(name);
         });

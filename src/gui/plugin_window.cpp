@@ -19,6 +19,7 @@
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
+#include <xen/gui/color_ids.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
@@ -30,24 +31,30 @@
 namespace xen::gui
 {
 
-PluginWindow::PluginWindow(juce::File const &phrase_library_dir,
+PluginWindow::PluginWindow(juce::File const &sequence_library_dir,
+                           juce::File const &tuning_library_dir,
                            CommandHistory &cmd_history)
-    : phrases_view_accordion{"Phrases", phrase_library_dir},
-      phrases_view{phrases_view_accordion.child}, bottom_bar{cmd_history}
+    : center_component{sequence_library_dir, tuning_library_dir},
+      bottom_bar{cmd_history}
 {
-    this->addAndMakeVisible(phrases_view_accordion);
+    // TODO use custom font
+    label.setFont({
+        juce::Font::getDefaultMonospacedFontName(),
+        16.f,
+        juce::Font::bold,
+    });
+    label.setJustificationType(juce::Justification::centred);
+    label.setText("XenSequencer", juce::dontSendNotification);
+    this->addAndMakeVisible(label);
     this->addAndMakeVisible(center_component);
-    // this->addAndMakeVisible(phrase_editor);
-
-    phrases_view_accordion.set_flexitem(juce::FlexItem{}.withHeight(125.f));
-
     this->addAndMakeVisible(bottom_bar);
 }
 
 auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
                           std::string const &display_name) -> void
 {
-    phrases_view.active_sessions_view.update_this_instance_name(display_name);
+    center_component.library_view.active_sessions_list.update_this_instance_name(
+        display_name);
 
     center_component.update_ui(state, aux);
     center_component.sequence_view.select(aux.selected.cell);
@@ -77,6 +84,36 @@ auto PluginWindow::set_focus(std::string component_id) -> void
         }
         center_component.sequence_view.grabKeyboardFocus();
     }
+    else if (component_id ==
+             to_lower(center_component.library_view.sequences_list.getComponentID()
+                          .toStdString()))
+    {
+        if (center_component.library_view.sequences_list.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        center_component.library_view.sequences_list.grabKeyboardFocus();
+    }
+    else if (component_id == to_lower(center_component.library_view.active_sessions_list
+                                          .getComponentID()
+                                          .toStdString()))
+    {
+        if (center_component.library_view.active_sessions_list.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        center_component.library_view.active_sessions_list.grabKeyboardFocus();
+    }
+    else if (component_id ==
+             to_lower(center_component.library_view.tunings_list.getComponentID()
+                          .toStdString()))
+    {
+        if (center_component.library_view.tunings_list.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        center_component.library_view.tunings_list.grabKeyboardFocus();
+    }
     else
     {
         throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
@@ -99,7 +136,14 @@ auto PluginWindow::show_component(std::string component_id) -> void
     else if (component_id ==
              to_lower(center_component.sequence_view.getComponentID().toStdString()))
     {
-        center_component.sequence_view.setVisible(true);
+        center_component.show_sequence_view();
+        bottom_bar.library_sequencer_toggle.display_library_indicator();
+    }
+    else if (component_id ==
+             to_lower(center_component.library_view.getComponentID().toStdString()))
+    {
+        center_component.show_library_view();
+        bottom_bar.library_sequencer_toggle.display_sequencer_indicator();
     }
     else
     {
@@ -115,12 +159,25 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(phrases_view_accordion.get_flexitem());
+    flexbox.items.add(juce::FlexItem(label).withHeight(23.f));
     flexbox.items.add(juce::FlexItem(center_component).withFlex(1.f));
     flexbox.items.add(
         juce::FlexItem(bottom_bar).withHeight(InputModeIndicator::preferred_size));
 
     flexbox.performLayout(this->getLocalBounds());
+}
+
+auto PluginWindow::lookAndFeelChanged() -> void
+{
+    label.setColour(juce::Label::textColourId,
+                    label.findColour((int)DirectoryViewColorIDs::ItemText));
+    label.setColour(juce::Label::backgroundColourId,
+                    label.findColour((int)DirectoryViewColorIDs::ItemBackground));
+
+    // TODO move label into its own class, then you can remove this overload that has to
+    // call on each child manually
+    center_component.lookAndFeelChanged();
+    bottom_bar.lookAndFeelChanged();
 }
 
 } // namespace xen::gui

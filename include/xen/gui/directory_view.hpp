@@ -8,6 +8,8 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/color_ids.hpp>
+
 namespace xen::gui
 {
 
@@ -62,16 +64,16 @@ class DirectoryView : public juce::Component,
     juce::ListBox list_box_;
 };
 
-class PhraseDirectoryView : public DirectoryView
+class SequencesList : public DirectoryView
 {
   public:
-    PhraseDirectoryView(juce::File const &initial_directory);
+    explicit SequencesList(juce::File const &initial_directory);
 };
 
-class TuningDirectoryView : public DirectoryView
+class TuningsList : public DirectoryView
 {
   public:
-    TuningDirectoryView(juce::File const &initial_directory);
+    explicit TuningsList(juce::File const &initial_directory);
 };
 
 } // namespace xen::gui

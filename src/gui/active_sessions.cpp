@@ -12,8 +12,8 @@ auto InstanceModel::add_item(juce::Uuid const &uuid, std::string const &name) ->
     items_.emplace_back(uuid, name);
 }
 
-auto InstanceModel::add_or_update_item(juce::Uuid const &uuid, std::string const &name)
-    -> void
+auto InstanceModel::add_or_update_item(juce::Uuid const &uuid,
+                                       std::string const &name) -> void
 {
     auto const it = std::find_if(std::begin(items_), std::end(items_),
                                  [&](auto const &item) { return item.first == uuid; });
@@ -106,7 +106,7 @@ auto NameEdit::lookAndFeelChanged() -> void
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
-ActiveSessions::ActiveSessions()
+ActiveSessionsList::ActiveSessionsList()
 {
     name_edit_.setText("", juce::dontSendNotification);
     this->addAndMakeVisible(name_edit_);
@@ -119,26 +119,26 @@ ActiveSessions::ActiveSessions()
     // name_edit_.setWantsKeyboardFocus(false);
 }
 
-auto ActiveSessions::update_this_instance_name(std::string const &name) -> void
+auto ActiveSessionsList::update_this_instance_name(std::string const &name) -> void
 {
     name_edit_.setText(name, juce::dontSendNotification);
 }
 
-auto ActiveSessions::add_or_update_instance(juce::Uuid const &uuid,
-                                            std::string const &name) -> void
+auto ActiveSessionsList::add_or_update_instance(juce::Uuid const &uuid,
+                                                std::string const &name) -> void
 {
     instance_model_.add_or_update_item(uuid, name);
     instance_list_box_.updateContent();
     instance_list_box_.repaint(); // Shouldn't be needed but is
 }
 
-auto ActiveSessions::remove_instance(juce::Uuid const &uuid) -> void
+auto ActiveSessionsList::remove_instance(juce::Uuid const &uuid) -> void
 {
     instance_model_.remove_item(uuid);
     instance_list_box_.updateContent();
 }
 
-auto ActiveSessions::resized() -> void
+auto ActiveSessionsList::resized() -> void
 {
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
@@ -149,7 +149,7 @@ auto ActiveSessions::resized() -> void
     flexbox.performLayout(this->getLocalBounds());
 }
 
-auto ActiveSessions::lookAndFeelChanged() -> void
+auto ActiveSessionsList::lookAndFeelChanged() -> void
 {
     instance_list_box_.setColour(
         juce::ListBox::backgroundColourId,

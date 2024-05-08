@@ -14,37 +14,50 @@
 namespace xen
 {
 
-auto get_user_data_directory() -> juce::File
+auto get_user_library_directory() -> juce::File
 {
-    auto const data_dir =
+    auto const library_dir =
         juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
             .getChildFile("XenSequencer");
 
     // Create directory if it doesn't exist
-    if (!data_dir.exists() && !data_dir.createDirectory().wasOk())
+    if (!library_dir.exists() && !library_dir.createDirectory().wasOk())
     {
-        throw std::runtime_error("Unable to create user data directory: " +
-                                 data_dir.getFullPathName().toStdString() + ".");
+        throw std::runtime_error("Unable to create user library directory: " +
+                                 library_dir.getFullPathName().toStdString() + ".");
     }
-    return data_dir;
+    return library_dir;
 }
 
-auto get_phrases_directory() -> juce::File
+auto get_sequences_directory() -> juce::File
 {
-    auto const phrases_dir = get_user_data_directory().getChildFile("phrases");
+    auto const seq_dir = get_user_library_directory().getChildFile("sequences");
 
     // Create directory if it doesn't exist
-    if (!phrases_dir.exists() && !phrases_dir.createDirectory().wasOk())
+    if (!seq_dir.exists() && !seq_dir.createDirectory().wasOk())
     {
-        throw std::runtime_error("Unable to create projects directory: " +
-                                 phrases_dir.getFullPathName().toStdString() + ".");
+        throw std::runtime_error("Unable to create sequences directory: " +
+                                 seq_dir.getFullPathName().toStdString() + ".");
     }
-    return phrases_dir;
+    return seq_dir;
+}
+
+auto get_tunings_directory() -> juce::File
+{
+    auto const tunings_dir = get_user_library_directory().getChildFile("tunings");
+
+    // Create directory if it doesn't exist
+    if (!tunings_dir.exists() && !tunings_dir.createDirectory().wasOk())
+    {
+        throw std::runtime_error("Unable to create tunings directory: " +
+                                 tunings_dir.getFullPathName().toStdString() + ".");
+    }
+    return tunings_dir;
 }
 
 auto get_default_keys_file() -> juce::File
 {
-    auto const key_file = get_user_data_directory().getChildFile("keys.yml");
+    auto const key_file = get_user_library_directory().getChildFile("keys.yml");
     auto const full_path = key_file.getFullPathName().toStdString();
 
     auto write_default_keys = [&key_file] {
@@ -73,7 +86,7 @@ auto get_default_keys_file() -> juce::File
 
 auto get_user_keys_file() -> juce::File
 {
-    auto const key_file = get_user_data_directory().getChildFile("user_keys.yml");
+    auto const key_file = get_user_library_directory().getChildFile("user_keys.yml");
 
     // Check if the file exists, if not create it.
     if (!key_file.existsAsFile())
@@ -96,7 +109,7 @@ auto get_user_keys_file() -> juce::File
 
 auto initialize_demo_files() -> void
 {
-    auto const demos_dir = get_phrases_directory().getChildFile("demos");
+    auto const demos_dir = get_sequences_directory().getChildFile("demos");
     if (!demos_dir.exists() && !demos_dir.createDirectory().wasOk())
     {
         throw std::runtime_error("Unable to create demos directory: " +

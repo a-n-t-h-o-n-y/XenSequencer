@@ -14,6 +14,7 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 
@@ -300,10 +301,6 @@ class SequenceView : public juce::Component
     // TODO sequencebank in accordion
 };
 
-class LibraryView : public juce::Component
-{
-};
-
 class CenterComponent : public juce::Component
 {
   public:
@@ -311,7 +308,9 @@ class CenterComponent : public juce::Component
     LibraryView library_view;
 
   public:
-    CenterComponent()
+    CenterComponent(juce::File const &sequence_library_dir,
+                    juce::File const &tuning_library_dir)
+        : library_view{sequence_library_dir, tuning_library_dir}
     {
         this->addAndMakeVisible(sequence_view);
         this->addChildComponent(library_view);
@@ -322,12 +321,14 @@ class CenterComponent : public juce::Component
     {
         sequence_view.setVisible(true);
         library_view.setVisible(false);
+        this->resized();
     }
 
     auto show_library_view() -> void
     {
         sequence_view.setVisible(false);
         library_view.setVisible(true);
+        this->resized();
     }
 
     auto update_ui(SequencerState const &state, AuxState const &aux)
@@ -335,7 +336,8 @@ class CenterComponent : public juce::Component
         state_ = state;
         sequence_view.update_ui(state_, aux);
 
-        // TODO update library view
+        // TODO update library view? Is there anything? Are current directories updated
+        // via a separate mechanism?
     }
 
   public:

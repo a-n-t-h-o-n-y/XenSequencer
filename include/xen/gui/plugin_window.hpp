@@ -34,69 +34,6 @@ struct AuxState;
 namespace xen::gui
 {
 
-class PhrasesView : public juce::Component
-{
-  public:
-    LabelWithLine library_label;
-    PhraseDirectoryView directory_view;
-    LabelWithLine active_sessions_label;
-    ActiveSessions active_sessions_view;
-
-  public:
-    explicit PhrasesView(juce::File library_location)
-        : library_label{"Library Label", "Library"}, directory_view{library_location},
-          active_sessions_label{"Active Sessions View", "Active Sessions"}
-    {
-        library_label.setFont(library_label.getFont().boldened());
-        active_sessions_label.setFont(active_sessions_label.getFont().boldened());
-        this->addAndMakeVisible(library_label);
-        this->addAndMakeVisible(directory_view);
-        this->addAndMakeVisible(active_sessions_label);
-        this->addAndMakeVisible(active_sessions_view);
-    }
-
-  public:
-    auto resized() -> void override
-    {
-        auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::row;
-
-        auto flexbox_library = juce::FlexBox{};
-        flexbox_library.flexDirection = juce::FlexBox::Direction::column;
-
-        flexbox_library.items.add(juce::FlexItem{library_label}.withHeight(15.f));
-        flexbox_library.items.add(juce::FlexItem{directory_view}.withFlex(1.f));
-        flexbox.items.add(juce::FlexItem{flexbox_library}.withFlex(1.f));
-
-        auto flexbox_active_sessions = juce::FlexBox{};
-        flexbox_active_sessions.flexDirection = juce::FlexBox::Direction::column;
-
-        flexbox_active_sessions.items.add(
-            juce::FlexItem{active_sessions_label}.withHeight(15.f));
-        flexbox_active_sessions.items.add(
-            juce::FlexItem{active_sessions_view}.withFlex(1.f));
-        flexbox.items.add(juce::FlexItem{flexbox_active_sessions}.withFlex(1.f));
-
-        flexbox.performLayout(this->getLocalBounds());
-    }
-
-    auto lookAndFeelChanged() -> void override
-    {
-        library_label.setColour(
-            juce::Label::textColourId,
-            this->findColour((int)DirectoryViewColorIDs::TitleText));
-        library_label.setColour(
-            juce::Label::backgroundColourId,
-            this->findColour((int)DirectoryViewColorIDs::TitleBackground));
-        active_sessions_label.setColour(
-            juce::Label::textColourId,
-            this->findColour((int)ActiveSessionsColorIDs::TitleText));
-        active_sessions_label.setColour(
-            juce::Label::backgroundColourId,
-            this->findColour((int)ActiveSessionsColorIDs::TitleBackground));
-    }
-};
-
 /**
  * The main window for the plugin, holding all other components.
  *
@@ -106,15 +43,13 @@ class PhrasesView : public juce::Component
 class PluginWindow : public juce::Component
 {
   public:
-    Accordion<PhrasesView> phrases_view_accordion;
-    PhrasesView &phrases_view;
-
+    juce::Label label;
     gui::CenterComponent center_component;
-
     gui::BottomBar bottom_bar;
 
   public:
-    PluginWindow(juce::File const &phrase_library_dir, CommandHistory &cmd_history);
+    PluginWindow(juce::File const &sequence_library_dir,
+                 juce::File const &tuning_library_dir, CommandHistory &cmd_history);
 
   public:
     /**
@@ -143,8 +78,10 @@ class PluginWindow : public juce::Component
      */
     auto show_component(std::string component_id) -> void;
 
-  protected:
+  public:
     auto resized() -> void override;
+
+    auto lookAndFeelChanged() -> void override;
 };
 
 } // namespace xen::gui

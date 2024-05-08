@@ -118,9 +118,8 @@ struct PluginState
     juce::Uuid const PROCESS_UUID = juce::Uuid{};
     std::string display_name = "XenSequencer";
 
-    juce::File current_phrase_directory{get_phrases_directory()};
-
-    // TODO current_tuning_directory
+    juce::File current_phrase_directory{get_sequences_directory()};
+    juce::File current_tuning_directory{get_tunings_directory()};
 
     sl::Signal<void(std::string const &)> on_focus_request{};
     sl::Signal<void(std::string const &)> on_show_request{};
