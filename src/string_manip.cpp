@@ -175,4 +175,14 @@ auto split(std::string const &input, char delimiter) -> std::vector<std::string>
     return result;
 }
 
+auto double_quote(std::string const &input) -> std::string
+{
+    return '"' + input + '"';
+}
+
+auto single_quote(std::string const &input) -> std::string
+{
+    return '\'' + input + '\'';
+}
+
 } // namespace xen

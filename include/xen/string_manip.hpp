@@ -70,4 +70,22 @@ namespace xen
 [[nodiscard]] auto split(std::string const &input,
                          char delimiter) -> std::vector<std::string>;
 
+/**
+ * Surrounds a string with double quotes.
+ *
+ * @param input The string to surround with double quotes.
+ * @return std::string The string surrounded by double quotes.
+ */
+[[nodiscard]] auto double_quote(std::string const &input) -> std::string;
+
+// make single_quote() fn:
+
+/**
+ * Surrounds a string with single quotes.
+ *
+ * @param input The string to surround with single quotes.
+ * @return std::string The string surrounded by single quotes.
+ */
+[[nodiscard]] auto single_quote(std::string const &input) -> std::string;
+
 } // namespace xen

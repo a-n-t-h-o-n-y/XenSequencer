@@ -116,7 +116,8 @@ auto PluginWindow::set_focus(std::string component_id) -> void
     }
     else
     {
-        throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
+        throw std::invalid_argument("Invalid Component Given: " +
+                                    single_quote(component_id));
     }
 }
 
@@ -147,7 +148,8 @@ auto PluginWindow::show_component(std::string component_id) -> void
     }
     else
     {
-        throw std::invalid_argument("Invalid Component Given: '" + component_id + '\'');
+        throw std::invalid_argument("Invalid Component Given: " +
+                                    single_quote(component_id));
     }
     // TODO Library
     // TODO These Library/Sequencer changes should also call down to the status bar's

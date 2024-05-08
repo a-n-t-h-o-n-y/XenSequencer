@@ -17,6 +17,7 @@
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
+#include <xen/string_manip.hpp>
 
 namespace xen::gui
 {
@@ -147,11 +148,11 @@ class MeasureInfo : public juce::Component
         });
 
         measure_name_.on_text_change.connect([this](juce::String const &text) {
-            this->on_command("set measure name \"" + text.toStdString() + "\"");
+            this->on_command("set measure name " + double_quote(text.toStdString()));
         });
 
         tuning_name_.on_text_change.connect([this](juce::String const &text) {
-            this->on_command("set tuning name \"" + text.toStdString() + "\"");
+            this->on_command("set tuning name " + double_quote(text.toStdString()));
         });
 
         auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,

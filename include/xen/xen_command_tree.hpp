@@ -106,7 +106,7 @@ namespace xen
                     std::move(state),
                     action::set_mode(ps.timeline, mode),
                 });
-                return minfo("Input Mode Set to '" + to_string(mode) + '\'');
+                return minfo("Input Mode Set to " + single_quote(to_string(mode)));
             },
             ArgInfo<InputMode>{"mode"}),
 
@@ -114,7 +114,7 @@ namespace xen
             "focus", "Move the keyboard focus to the specified component.",
             [](PS &ps, std::string const &component_id) {
                 ps.on_focus_request(component_id);
-                return mdebug("Focus Set to '" + component_id + '\'');
+                return mdebug("Focus Set to " + single_quote(component_id));
             },
             ArgInfo<std::string>{"component_id"}),
 
@@ -122,7 +122,7 @@ namespace xen
             "show", "Update the GUI to display the specified component.",
             [](PS &ps, std::string const &component_id) {
                 ps.on_show_request(component_id);
-                return mdebug("Showing '" + component_id + '\'');
+                return mdebug("Showing " + single_quote(component_id));
             },
             ArgInfo<std::string>{"component_id"}),
 
@@ -143,7 +143,7 @@ namespace xen
                     auto const cd = ps.current_phrase_directory;
                     if (!cd.isDirectory())
                     {
-                        return merror("Invalid Current Phrase Directory");
+                        return merror("Invalid Current Sequence Library Directory");
                     }
 
                     auto const filepath = cd.getChildFile(filename + ".xenseq");
@@ -170,6 +170,40 @@ namespace xen
                     return minfo("State Loaded");
                 },
                 ArgInfo<std::string>{"filename"}, ArgInfo<int>{"index", -1}),
+
+            cmd(
+                "tuning",
+                "Load a tuning file (.scl) from the current `tunings` "
+                "Library directory. Do not include the .scl extension in the "
+                "filename you provide.",
+                [](PS &ps, std::string const &filename) {
+                    auto const cd = ps.current_tuning_directory;
+                    if (!cd.isDirectory())
+                    {
+                        return merror("Invalid Current Tuning Library Directory");
+                    }
+
+                    auto const filepath = cd.getChildFile(filename + ".scl");
+                    if (!filepath.exists())
+                    {
+                        return merror("File Not Found: " +
+                                      filepath.getFullPathName().toStdString());
+                    }
+
+                    auto [seq, aux] = ps.timeline.get_state();
+                    // TODO update tuning name from file contents?
+                    // TODO grab description from file contents, from_scala should do it
+                    seq.tuning_name =
+                        filepath.getFileNameWithoutExtension().toStdString();
+                    seq.tuning =
+                        sequence::from_scala(filepath.getFullPathName().toStdString());
+
+                    ps.timeline.stage({std::move(seq), std::move(aux)});
+                    ps.timeline.set_commit_flag();
+
+                    return minfo("Tuning Loaded");
+                },
+                ArgInfo<std::string>{"filename"}),
 
             cmd("keys", "Load keys.yml and user_keys.yml.",
                 [](PS &ps) {
@@ -234,7 +268,7 @@ namespace xen
                     auto const &measure =
                         state.sequencer.phrase[state.aux.selected.measure];
                     action::save_measure(measure, filepath);
-                    return minfo("State Saved to '" + filepath + '\'');
+                    return minfo("State Saved to " + single_quote(filepath));
                 },
                 ArgInfo<std::string>{"filename", ""})),
 

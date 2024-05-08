@@ -92,17 +92,16 @@ XenEditor::XenEditor(XenProcessor &p)
     // Sequence File Selected
     plugin_window.center_component.library_view.sequences_list.on_file_selected.connect(
         [this](juce::File const &file) {
-            this->execute_command_string(
-                "load measure \"" + file.getFileNameWithoutExtension().toStdString() +
-                "\";show SequenceView;focus SequenceView");
+            auto const filename = file.getFileNameWithoutExtension().toStdString();
+            this->execute_command_string("load measure " + double_quote(filename) +
+                                         ";show SequenceView;focus SequenceView");
         });
 
     // Tuning File Selected
     plugin_window.center_component.library_view.tunings_list.on_file_selected.connect(
         [this](juce::File const &file) {
-            this->execute_command_string(
-                "load tuning \"" + file.getFileNameWithoutExtension().toStdString() +
-                "\";show SequenceView;focus SequenceView");
+            auto const filename = file.getFileNameWithoutExtension().toStdString();
+            this->execute_command_string("load tuning " + double_quote(filename));
         });
 
     // SequenceView Command Requests
@@ -181,7 +180,7 @@ XenEditor::XenEditor(XenProcessor &p)
         });
 
     // Tuning Library Directory Change
-    plugin_window.center_component.library_view.sequences_list.on_directory_change
+    plugin_window.center_component.library_view.tunings_list.on_directory_change
         .connect([&](juce::File const &directory) {
             p.plugin_state.current_tuning_directory = directory;
         });
