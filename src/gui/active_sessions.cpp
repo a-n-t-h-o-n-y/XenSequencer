@@ -108,15 +108,14 @@ auto NameEdit::lookAndFeelChanged() -> void
 
 ActiveSessionsList::ActiveSessionsList()
 {
+    this->setComponentID("ActiveSessionsList");
+
     name_edit_.setText("", juce::dontSendNotification);
     this->addAndMakeVisible(name_edit_);
 
     instance_list_box_.setModel(&instance_model_);
     instance_list_box_.setRowHeight(20);
     this->addAndMakeVisible(instance_list_box_);
-
-    // instance_list_box_.setWantsKeyboardFocus(false);
-    // name_edit_.setWantsKeyboardFocus(false);
 }
 
 auto ActiveSessionsList::update_this_instance_name(std::string const &name) -> void

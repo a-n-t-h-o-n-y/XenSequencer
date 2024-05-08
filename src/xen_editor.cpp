@@ -94,7 +94,7 @@ XenEditor::XenEditor(XenProcessor &p)
         [this](juce::File const &file) {
             this->execute_command_string(
                 "load measure \"" + file.getFileNameWithoutExtension().toStdString() +
-                '\"');
+                "\";show SequenceView;focus SequenceView");
         });
 
     // Tuning File Selected
@@ -102,7 +102,7 @@ XenEditor::XenEditor(XenProcessor &p)
         [this](juce::File const &file) {
             this->execute_command_string(
                 "load tuning \"" + file.getFileNameWithoutExtension().toStdString() +
-                '\"');
+                "\";show SequenceView;focus SequenceView");
         });
 
     // SequenceView Command Requests
@@ -315,14 +315,18 @@ auto XenEditor::set_key_listeners(
 
     try
     {
-        // remove_listener(plugin_window.phrase_editor);
-        // add_listener(plugin_window.phrase_editor);
         remove_listener(plugin_window.center_component.sequence_view);
         add_listener(plugin_window.center_component.sequence_view);
 
-        // TODO
-        // remove_listener(plugin_window.tuning_box);
-        // add_listener(plugin_window.tuning_box);
+        remove_listener(plugin_window.center_component.library_view.sequences_list);
+        add_listener(plugin_window.center_component.library_view.sequences_list);
+
+        remove_listener(
+            plugin_window.center_component.library_view.active_sessions_list);
+        add_listener(plugin_window.center_component.library_view.active_sessions_list);
+
+        remove_listener(plugin_window.center_component.library_view.tunings_list);
+        add_listener(plugin_window.center_component.library_view.tunings_list);
     }
     catch (std::exception const &e)
     {

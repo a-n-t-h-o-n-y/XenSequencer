@@ -95,7 +95,7 @@ class LibraryView : public juce::Component
         auto lists_flexbox = juce::FlexBox{};
         lists_flexbox.flexDirection = juce::FlexBox::Direction::row;
 
-        outer_flexbox.items.add(juce::FlexItem{label}.withHeight(30.0f));
+        outer_flexbox.items.add(juce::FlexItem{label}.withHeight(23.0f));
         outer_flexbox.items.add(juce::FlexItem{divider_0}.withHeight(1.f));
         outer_flexbox.items.add(juce::FlexItem{lists_flexbox}.withFlex(1.0f));
 

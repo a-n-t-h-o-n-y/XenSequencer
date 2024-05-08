@@ -20,8 +20,9 @@ SequenceView:
   "d": "mode delay"
   "g": "mode gate"
 
-  # Focus
+  # UI Display
   "Shift + :": "show commandbar;focus commandbar"
+  "w" : "show LibraryView;focus SequencesList"
 
   # Copy/Paste, etc...
   "Cmd + c": "copy"
@@ -114,4 +115,27 @@ SequenceView:
   "[d] + t": "humanize delay 0.05"
   "[g] + t": "humanize gate 0.05"
 
-# TuningBox
+SequencesList:
+  "escape" : "show SequenceView;focus SequenceView"
+  "w" : "show SequenceView;focus SequenceView"
+  "Shift + ArrowLeft" : "focus TuningsList"
+  "Shift + h" : "focus TuningsList"
+  "Shift + ArrowRight" : "focus ActiveSessionsList"
+  "Shift + l" : "focus ActiveSessionsList"
+
+
+ActiveSessionsList:
+  "escape" : "show SequenceView;focus SequenceView"
+  "w" : "show SequenceView;focus SequenceView"
+  "Shift + ArrowLeft" : "focus SequencesList"
+  "Shift + h" : "focus SequencesList"
+  "Shift + ArrowRight" : "focus TuningsList"
+  "Shift + l" : "focus TuningsList"
+
+TuningsList:
+  "escape" : "show SequenceView;focus SequenceView"
+  "w" : "show SequenceView;focus SequenceView"
+  "Shift + ArrowLeft" : "focus ActiveSessionsList"
+  "Shift + h" : "focus ActiveSessionsList"
+  "Shift + ArrowRight" : "focus SequencesList"
+  "Shift + l" : "focus SequencesList"
