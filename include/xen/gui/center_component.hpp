@@ -14,6 +14,7 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/accordion.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
@@ -236,7 +237,7 @@ class SequenceView : public juce::Component
         this->setWantsKeyboardFocus(true);
 
         this->addAndMakeVisible(measure_info);
-        this->addAndMakeVisible(sequence_bank);
+        this->addAndMakeVisible(sequence_bank_accordion);
 
         measure_info.on_command.connect(
             [this](std::string const &command) { this->on_command(command); });
@@ -268,6 +269,9 @@ class SequenceView : public juce::Component
   public:
     auto resized() -> void override
     {
+        sequence_bank_accordion.set_flexitem(
+            juce::FlexItem{}.withWidth(this->getHeight()));
+
         auto flex_box = juce::FlexBox{};
         flex_box.flexDirection = juce::FlexBox::Direction::column;
 
@@ -278,7 +282,7 @@ class SequenceView : public juce::Component
             horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
         }
         // TODO figure out how to make square
-        horizontal_flex.items.add(juce::FlexItem{sequence_bank}.withWidth(300));
+        horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());
 
         if (cell_ptr_ != nullptr)
         {
@@ -306,8 +310,8 @@ class SequenceView : public juce::Component
     std::unique_ptr<Cell> cell_ptr_;
 
   public:
-    SequenceBankGrid sequence_bank;
-    // TODO sequencebank in accordion
+    HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
+    SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;
 };
 
 class CenterComponent : public juce::Component

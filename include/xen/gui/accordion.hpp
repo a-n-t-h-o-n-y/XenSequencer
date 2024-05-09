@@ -9,50 +9,83 @@
 namespace xen::gui
 {
 
-class LabelWithLine : public juce::Label
+class VLabel : public juce::Component
 {
   public:
-    explicit LabelWithLine(const juce::String &component_name = juce::String(),
-                           const juce::String &label_text = juce::String())
-        : juce::Label(component_name, label_text)
+    VLabel(juce::String const &text) : text_{text}
     {
     }
 
-  protected:
+  public:
+    auto set_text(juce::String const &text) -> void
+    {
+        text_ = text;
+        this->repaint();
+    }
+
+    auto set_letter_spacing(float spacing) -> void
+    {
+        letter_spacing_ = spacing;
+        this->repaint();
+    }
+
+  public:
     auto paint(juce::Graphics &g) -> void override
     {
-        this->juce::Label::paint(g);
+        g.fillAll(this->findColour((int)AccordionColorIDs::Background));
+        g.setColour(this->findColour((int)AccordionColorIDs::Text));
 
-        g.setColour(this->findColour((int)AccordionColorIDs::TitleUnderline));
+        g.setFont(font_);
+        auto const bounds = this->getLocalBounds();
+        auto const font_height = font_.getHeight();
 
-        g.fillRect(0.f, static_cast<float>(getHeight() - 1),
-                   static_cast<float>(getWidth()), 1.f);
+        auto const top_margin = 0;
+        auto y = top_margin;
+
+        for (auto const ch : text_)
+        {
+            g.drawText(juce::String{&ch, 1}, bounds.getX(), y, bounds.getWidth(),
+                       font_height, juce::Justification::centred);
+            y += font_height + letter_spacing_;
+            if (y > bounds.getHeight())
+            {
+                break;
+            }
+        }
     }
+
+  private:
+    juce::String text_;
+    float letter_spacing_ = 0.f;
+    juce::Font font_{
+        juce::Font::getDefaultMonospacedFontName(),
+        14.f,
+        juce::Font::plain,
+    };
 };
 
 /**
  * Collapsible component with a title and a child component.
  */
 template <typename ChildComponentType>
-class Accordion : public juce::Component
+class HAccordion : public juce::Component
 {
   private:
     class Top : public juce::Component
     {
       public:
-        juce::Label title;
+        VLabel title;
         juce::DrawableButton toggle_button;
 
       public:
         explicit Top(juce::String const &title_)
-            : title{"accordion title", title_},
+            : title{title_},
               toggle_button{"toggle_button",
                             juce::DrawableButton::ButtonStyle::ImageFitted}
         {
             toggle_button.setWantsKeyboardFocus(false);
 
             this->addAndMakeVisible(title);
-            title.setFont(title.getFont().boldened());
 
             open_triangle_.setPath(create_triangle_path(true));
             closed_triangle_.setPath(create_triangle_path(false));
@@ -74,9 +107,9 @@ class Accordion : public juce::Component
         auto resized() -> void override
         {
             auto flexbox = juce::FlexBox{};
-            flexbox.flexDirection = juce::FlexBox::Direction::row;
+            flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-            flexbox.items.add(juce::FlexItem{toggle_button}.withWidth(20.f));
+            flexbox.items.add(juce::FlexItem{toggle_button}.withHeight(23.f));
             flexbox.items.add(juce::FlexItem{title}.withFlex(1.f));
 
             flexbox.performLayout(this->getLocalBounds());
@@ -89,9 +122,6 @@ class Accordion : public juce::Component
             auto const text = this->findColour((int)AccordionColorIDs::Text);
             auto const triangle = this->findColour((int)AccordionColorIDs::Triangle);
 
-            title.setColour(juce::Label::ColourIds::backgroundColourId, background);
-            title.setColour(juce::Label::ColourIds::textColourId, text);
-
             toggle_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
                                     background);
 
@@ -100,17 +130,22 @@ class Accordion : public juce::Component
             toggle_button.setImages(is_expanded_ ? &open_triangle_ : &closed_triangle_);
         }
 
+        auto paintOverChildren(juce::Graphics &g) -> void override
+        {
+            g.setColour(this->findColour((int)AccordionColorIDs::TitleUnderline));
+            g.drawRect(this->getLocalBounds(), 1);
+        }
+
       private:
         /**
          * Helper to create a triangle path.
          */
-        [[nodiscard]] static auto create_triangle_path(bool pointing_down) -> juce::Path
+        [[nodiscard]] static auto create_triangle_path(bool open) -> juce::Path
         {
-            return pointing_down
-                       ? juce::Drawable::parseSVGPath(
-                             "M480-345 240-585l56-56 184 184 184-184 56 56-240 240Z")
-                       : juce::Drawable::parseSVGPath(
-                             "M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z");
+            return open ? juce::Drawable::parseSVGPath(
+                              "M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z")
+                        : juce::Drawable::parseSVGPath(
+                              "M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z");
         }
 
       private:
@@ -127,7 +162,7 @@ class Accordion : public juce::Component
 
   public:
     template <typename... Args>
-    explicit Accordion(juce::String const &title, Args &&...args)
+    explicit HAccordion(juce::String const &title, Args &&...args)
         : top_{title}, child{std::forward<Args>(args)...}
     {
         this->setWantsKeyboardFocus(false);
@@ -137,6 +172,7 @@ class Accordion : public juce::Component
 
         this->set_flexitem(juce::FlexItem{}.withFlex(1.f));
 
+        top_.title.set_letter_spacing(1.f);
         top_.toggle_button.onClick = [this] { this->toggle_child_component(); };
 
         this->toggle_child_component();
@@ -157,17 +193,17 @@ class Accordion : public juce::Component
      */
     [[nodiscard]] auto get_flexitem() -> juce::FlexItem
     {
-        return is_expanded_ ? flexitem_ : juce::FlexItem{*this}.withHeight(20.f);
+        return is_expanded_ ? flexitem_ : juce::FlexItem{*this}.withWidth(23.f);
     }
 
   protected:
     auto resized() -> void override
     {
         auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::column;
+        flexbox.flexDirection = juce::FlexBox::Direction::row;
 
-        flexbox.items.add(juce::FlexItem{top_}.withHeight(20.f));
         flexbox.items.add(juce::FlexItem{child}.withFlex(1.f));
+        flexbox.items.add(juce::FlexItem{top_}.withWidth(23.f));
 
         flexbox.performLayout(this->getLocalBounds());
     }

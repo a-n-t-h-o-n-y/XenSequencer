@@ -14,12 +14,10 @@
 
 #include <xen/command_history.hpp>
 #include <xen/gui/active_sessions.hpp>
-#include <xen/gui/center_component.hpp>
-#include <xen/gui/command_bar.hpp>
-
-#include <xen/gui/accordion.hpp>
 #include <xen/gui/bottom_bar.hpp>
+#include <xen/gui/center_component.hpp>
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/command_bar.hpp>
 #include <xen/gui/directory_view.hpp>
 #include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
