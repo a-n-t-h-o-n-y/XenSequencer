@@ -36,15 +36,7 @@ PluginWindow::PluginWindow(juce::File const &sequence_library_dir,
     : center_component{sequence_library_dir, tuning_library_dir},
       bottom_bar{cmd_history}
 {
-    // TODO use custom font
-    label.setFont({
-        juce::Font::getDefaultMonospacedFontName(),
-        16.f,
-        juce::Font::bold,
-    });
-    label.setJustificationType(juce::Justification::centred);
-    label.setText("XenSequencer", juce::dontSendNotification);
-    this->addAndMakeVisible(label);
+    this->addAndMakeVisible(title_bar);
     this->addAndMakeVisible(center_component);
     this->addAndMakeVisible(bottom_bar);
 }
@@ -150,9 +142,6 @@ auto PluginWindow::show_component(std::string component_id) -> void
         throw std::invalid_argument("Invalid Component Given: " +
                                     single_quote(component_id));
     }
-    // TODO Library
-    // TODO These Library/Sequencer changes should also call down to the status bar's
-    // indicator to change the letter displayed?
 }
 
 auto PluginWindow::resized() -> void
@@ -160,25 +149,12 @@ auto PluginWindow::resized() -> void
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(juce::FlexItem(label).withHeight(23.f));
+    flexbox.items.add(juce::FlexItem(title_bar).withHeight(23.f));
     flexbox.items.add(juce::FlexItem(center_component).withFlex(1.f));
     flexbox.items.add(
         juce::FlexItem(bottom_bar).withHeight(InputModeIndicator::preferred_size));
 
     flexbox.performLayout(this->getLocalBounds());
-}
-
-auto PluginWindow::lookAndFeelChanged() -> void
-{
-    label.setColour(juce::Label::textColourId,
-                    label.findColour((int)DirectoryViewColorIDs::ItemText));
-    label.setColour(juce::Label::backgroundColourId,
-                    label.findColour((int)DirectoryViewColorIDs::ItemBackground));
-
-    // TODO move label into its own class, then you can remove this overload that has to
-    // call on each child manually
-    center_component.lookAndFeelChanged();
-    bottom_bar.lookAndFeelChanged();
 }
 
 } // namespace xen::gui

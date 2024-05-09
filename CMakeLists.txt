@@ -140,6 +140,7 @@ target_sources(XenSequencerLib
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
+        include/xen/gui/title_bar.hpp
         include/xen/gui/tuning.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp

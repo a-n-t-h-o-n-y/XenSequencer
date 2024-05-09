@@ -19,6 +19,7 @@
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/directory_view.hpp>
+#include <xen/gui/title_bar.hpp>
 #include <xen/key_core.hpp>
 #include <xen/xen_command_tree.hpp>
 
@@ -41,6 +42,7 @@ class PluginWindow : public juce::Component
 {
   public:
     juce::Label label;
+    TitleBar title_bar;
     gui::CenterComponent center_component;
     gui::BottomBar bottom_bar;
 
@@ -77,8 +79,6 @@ class PluginWindow : public juce::Component
 
   public:
     auto resized() -> void override;
-
-    auto lookAndFeelChanged() -> void override;
 };
 
 } // namespace xen::gui
