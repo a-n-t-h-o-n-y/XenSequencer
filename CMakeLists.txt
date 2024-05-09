@@ -114,6 +114,7 @@ target_sources(XenSequencerLib
         include/xen/inter_process_relay.hpp
         include/xen/invoke.hpp
         include/xen/key_core.hpp
+        include/xen/lock_free_queue.hpp
         include/xen/message_level.hpp
         include/xen/midi.hpp
         include/xen/parse_args.hpp
