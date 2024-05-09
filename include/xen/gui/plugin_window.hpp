@@ -19,7 +19,6 @@
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/directory_view.hpp>
-#include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/xen_command_tree.hpp>
 

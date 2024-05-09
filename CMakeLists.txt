@@ -93,7 +93,6 @@ target_sources(XenSequencerLib
         src/gui/directory_view.cpp
         src/gui/sequence.cpp
         src/gui/themes.cpp
-        src/gui/timeline.cpp
         src/gui/plugin_window.cpp
 
         include/xen/actions.hpp
@@ -136,14 +135,11 @@ target_sources(XenSequencerLib
         include/xen/gui/homogenous_row.hpp
         include/xen/gui/library_view.hpp
         include/xen/gui/mantissa_box.hpp
-        include/xen/gui/measure.hpp
         include/xen/gui/number_box.hpp
-        include/xen/gui/phrase.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
-        include/xen/gui/timeline.hpp
         include/xen/gui/tuning.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp

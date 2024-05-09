@@ -21,7 +21,6 @@
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/gui/timeline.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
