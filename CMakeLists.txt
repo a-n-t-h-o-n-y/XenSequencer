@@ -54,6 +54,14 @@ juce_add_binary_data(EmbedDemos
         data/demos/demo.xenseq
 )
 
+# Add font files as a binary resource
+juce_add_binary_data(EmbedFonts
+    HEADER_NAME "embed_fonts.hpp"
+    NAMESPACE embed_fonts
+    SOURCES
+        data/font/Oswald-Regular.ttf
+)
+
 
 target_link_libraries(XenSequencerLib
     PUBLIC
@@ -64,6 +72,7 @@ target_link_libraries(XenSequencerLib
         nlohmann_json::nlohmann_json
         EmbedKeys
         EmbedDemos
+        EmbedFonts
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags

@@ -41,7 +41,6 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    juce::Label label;
     TitleBar title_bar;
     gui::CenterComponent center_component;
     gui::BottomBar bottom_bar;
