@@ -40,14 +40,9 @@ auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
         "Function must be invocable with a Cell and Args... and return a Cell.");
 
     auto [state, aux] = tl.get_state();
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
+    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
 
-    if (selected == nullptr)
-    {
-        throw std::runtime_error("No Cell Selected");
-    }
-
-    *selected = std::forward<Fn>(fn)(*selected, std::forward<Args>(args)...);
+    selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
 
     tl.stage({std::move(state), std::move(aux)});
 }
@@ -98,5 +93,7 @@ auto save_measure(sequence::Measure const &measure,
 
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl,
                                       float freq) -> SequencerState;
+
+[[nodiscard]] auto set_selected_sequence(AuxState aux, int index) -> AuxState;
 
 } // namespace xen::action

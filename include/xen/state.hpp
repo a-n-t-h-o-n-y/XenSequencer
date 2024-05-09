@@ -31,12 +31,14 @@
 namespace xen
 {
 
+using SequenceBank = std::array<sequence::Measure, 16>;
+
 /**
  * The state of the internal sequencer for the plugin.
  */
 struct SequencerState
 {
-    sequence::Phrase phrase;
+    SequenceBank sequence_bank;
     std::array<std::string, 16> measure_names;
 
     sequence::Tuning tuning;
@@ -56,7 +58,7 @@ struct SequencerState
  */
 struct SelectedState
 {
-    /// The index of the currently selected Measure in the current Phrase.
+    /// The index of the currently selected Measure in the SequenceBank.
     std::size_t measure{0};
 
     /// The index of the currently selected Cell in the current Measure.
@@ -132,11 +134,13 @@ struct PluginState
 
 [[nodiscard]] inline auto init_state() -> SequencerState
 {
-    return {
-        .phrase = {{
-            .cell = sequence::Rest{},
-            .time_signature = {4, 4},
-        }},
+    auto const init_measure = sequence::Measure{
+        .cell = sequence::Rest{},
+        .time_signature = {4, 4},
+    };
+
+    auto init = SequencerState{
+        .sequence_bank = {},
         .measure_names = {"Init Test"},
         .tuning =
             {
@@ -147,55 +151,13 @@ struct PluginState
         .tuning_name = "12EDO",
         .base_frequency = 440.f,
     };
-}
 
-/**
- * Generates a demo state for testing.
- *
- * @return SequencerState
- */
-[[nodiscard]] inline auto demo_state() -> SequencerState
-{
-    namespace seq = sequence;
-
-    auto phrase = seq::Phrase{};
-
-    for (auto i = 0; i < 2; ++i)
+    for (auto &measure : init.sequence_bank)
     {
-        auto measure = seq::create_measure(seq::TimeSignature{4, 4});
-        measure.cell = seq::generate::full(4, seq::Note{0, 1.0, 0.f, 0.8f});
-
-        measure.cell =
-            seq::modify::randomize_intervals(measure.cell, {0, {1}}, -40, 40);
-        measure.cell =
-            seq::modify::randomize_velocity(measure.cell, {0, {1}}, 0.f, 1.f);
-        measure.cell = seq::modify::randomize_delay(measure.cell, {0, {1}}, 0.f, 0.1f);
-        measure.cell = seq::modify::randomize_gate(measure.cell, {0, {1}}, 0.9f, 1.f);
-        if (i % 2 != 1)
-        {
-            measure.cell =
-                seq::modify::randomize_intervals(measure.cell, {0, {1}}, -20, 20);
-
-            std::get<sequence::Sequence>(measure.cell).cells[3] = seq::Sequence{{
-                seq::Note{5, 0.75f, 0.f, 0.3f},
-                seq::Rest{},
-                seq::Note{10, 0.5f, 0.25f, 1.f},
-            }};
-        }
-        phrase.push_back(measure);
+        measure = init_measure;
     }
-    // {0, 25, 50, 75, 100, 125, 150},
-    return SequencerState{
-        .phrase = phrase,
-        .measure_names = {"Demo"},
-        .tuning =
-            {
-                .intervals = {0, 200, 400, 500, 700, 900, 1100},
-                .octave = 1200,
-            },
-        .tuning_name = "Major",
-        .base_frequency = 440.f,
-    };
+
+    return init;
 }
 
 } // namespace xen

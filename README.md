@@ -83,7 +83,8 @@ cmake --build . --target XenTests
   - Any change in the state timeline triggers a complete GUI rebuild, which is lightweight enough to not introduce performance issues.
 
 - **MIDI Generation**:
-  - MIDI sequences for the current phrase are generated in bulk upon any modification to the state timeline or DAW state.
+  - MIDI sequences for the current SequenceBank are generated in bulk upon any
+  modification to the state timeline or DAW state.
   - These sequences are stored and later accessed each time `processBlock` is called on `XenProcessor`, writing to the MIDI buffer when needed.
 
 ## License

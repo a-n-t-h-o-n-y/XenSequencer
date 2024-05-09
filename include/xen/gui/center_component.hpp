@@ -173,7 +173,7 @@ class MeasureInfo : public juce::Component
     auto update_ui(SequencerState const &state, AuxState const &aux) -> void
     {
         {
-            auto &measure = state.phrase[aux.selected.measure];
+            auto &measure = state.sequence_bank[aux.selected.measure];
             auto const text = juce::String{measure.time_signature.numerator} + "/" +
                               juce::String{measure.time_signature.denominator};
             time_signature_.set_value(text);
@@ -235,23 +235,24 @@ class SequenceView : public juce::Component
         this->setComponentID("SequenceView");
         this->setWantsKeyboardFocus(true);
 
-        this->addAndMakeVisible(measure_info_);
-        this->addAndMakeVisible(sequence_bank_);
+        this->addAndMakeVisible(measure_info);
+        this->addAndMakeVisible(sequence_bank);
 
-        measure_info_.on_command.connect(
+        measure_info.on_command.connect(
             [this](std::string const &command) { this->on_command(command); });
     }
 
   public:
     auto update_ui(SequencerState const &state, AuxState const &aux) -> void
     {
-        measure_info_.update_ui(state, aux);
+        measure_info.update_ui(state, aux);
 
-        cell_ptr_ = make_cell(state.phrase[aux.selected.measure].cell,
+        // TODO can you do a simple equality check to conditionally rebuild the cell?
+        cell_ptr_ = make_cell(state.sequence_bank[aux.selected.measure].cell,
                               state.tuning.intervals.size());
         this->addAndMakeVisible(*cell_ptr_);
 
-        // TODO MeasureGrid
+        sequence_bank.update_ui(aux.selected.measure);
 
         this->resized();
     }
@@ -272,13 +273,16 @@ class SequenceView : public juce::Component
 
         auto horizontal_flex = juce::FlexBox{};
         horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
-        horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
+        if (cell_ptr_ != nullptr)
+        {
+            horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
+        }
         // TODO figure out how to make square
-        horizontal_flex.items.add(juce::FlexItem{sequence_bank_}.withWidth(300));
+        horizontal_flex.items.add(juce::FlexItem{sequence_bank}.withWidth(300));
 
         if (cell_ptr_ != nullptr)
         {
-            flex_box.items.add(juce::FlexItem{measure_info_}.withHeight(23.f));
+            flex_box.items.add(juce::FlexItem{measure_info}.withHeight(23.f));
             flex_box.items.add(juce::FlexItem{horizontal_flex}.withFlex(1));
         }
 
@@ -295,10 +299,14 @@ class SequenceView : public juce::Component
         return std::visit(builder, cell);
     }
 
+  public:
+    MeasureInfo measure_info;
+
   private:
-    MeasureInfo measure_info_;
     std::unique_ptr<Cell> cell_ptr_;
-    SequenceBank sequence_bank_;
+
+  public:
+    SequenceBankGrid sequence_bank;
     // TODO sequencebank in accordion
 };
 

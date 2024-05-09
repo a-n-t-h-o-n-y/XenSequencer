@@ -116,6 +116,12 @@ XenEditor::XenEditor(XenProcessor &p)
             this->execute_command_string(command_string);
         });
 
+    // Sequence Change Request
+    plugin_window.center_component.sequence_view.sequence_bank.on_index_selected
+        .connect([this](std::size_t index) {
+            this->execute_command_string("select sequence " + std::to_string(index));
+        });
+
     { // Theme Changed
         auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
             p.plugin_state.laf = gui::make_laf(theme);

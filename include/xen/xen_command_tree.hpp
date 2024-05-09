@@ -131,12 +131,12 @@ namespace xen
 
             cmd(
                 "measure",
-                "Load a Measure from a file in the current phrase directory. Do not "
+                "Load a Measure from a file in the current sequence directory. Do not "
                 "include the .xenseq extension in the filename you provide.",
                 [](PS &ps, std::string const &filename, int index) {
                     auto [state, aux] = ps.timeline.get_state();
                     index = (index == -1) ? (int)aux.selected.measure : index;
-                    if (index < 0 || index >= (int)state.phrase.size())
+                    if (index < 0 || index >= (int)state.sequence_bank.size())
                     {
                         return merror("Invalid Measure Index");
                     }
@@ -157,7 +157,7 @@ namespace xen
                     auto loaded_measure =
                         action::load_measure(filepath.getFullPathName().toStdString());
 
-                    state.phrase[(std::size_t)index] = std::move(loaded_measure);
+                    state.sequence_bank[(std::size_t)index] = std::move(loaded_measure);
                     // Manually reset selection if overwriting current display measure.
                     if ((std::size_t)index == aux.selected.measure)
                     {
@@ -228,7 +228,7 @@ namespace xen
 
             cmd(
                 "measure",
-                "Save the current measure to a file in the current phrase directory. "
+                "Save the current measure to a file in the current sequence directory. "
                 "Do not include any extension in the filename you provide. This will "
                 "overwrite any existing file.",
                 [](PS &ps, std::string filename) {
@@ -266,7 +266,7 @@ namespace xen
                     // TODO add index to this command with default for current selection
                     auto const state = ps.timeline.get_state();
                     auto const &measure =
-                        state.sequencer.phrase[state.aux.selected.measure];
+                        state.sequencer.sequence_bank[state.aux.selected.measure];
                     action::save_measure(measure, filepath);
                     return minfo("State Saved to " + single_quote(filepath));
                 },
@@ -460,6 +460,25 @@ namespace xen
                     return minfo("Filled Selection With Rests");
                 }))),
 
+        cmd_group("select", ArgInfo<std::string>{"type"},
+
+                  cmd(
+                      "sequence",
+                      "Change the current sequence from the SequenceBank to `index`. "
+                      "Zero-based.",
+                      [](PS &ps, int index) {
+                          auto [seq, aux] = ps.timeline.get_state();
+                          if (aux.selected.measure == (std::size_t)index)
+                          {
+                              return mwarning("Already Selected");
+                          }
+                          aux = action::set_selected_sequence(aux, index);
+                          ps.timeline.stage({std::move(seq), std::move(aux)});
+                          return mdebug("Sequence " + std::to_string(index) +
+                                        " Selected");
+                      },
+                      ArgInfo<int>("index"))),
+
         pattern(cmd_group(
             "set", ArgInfo<std::string>{"trait"},
 
@@ -545,12 +564,12 @@ namespace xen
                        sequence::TimeSignature const &ts, int index) {
                         auto [state, aux] = ps.timeline.get_state();
                         index = (index == -1) ? (int)aux.selected.measure : index;
-                        if (index < 0 || index >= (int)state.phrase.size())
+                        if (index < 0 || index >= (int)state.sequence_bank.size())
                         {
                             return merror("Invalid Measure Index");
                         }
 
-                        state.phrase[(std::size_t)index].time_signature = ts;
+                        state.sequence_bank[(std::size_t)index].time_signature = ts;
                         ps.timeline.stage({std::move(state), std::move(aux)});
                         ps.timeline.set_commit_flag();
                         return minfo("TimeSignature Set");
@@ -668,7 +687,22 @@ namespace xen
                     ps.timeline.set_commit_flag();
                     return minfo("Gate Shifted");
                 },
-                ArgInfo<float>{"amount", 0.1f}))),
+                ArgInfo<float>{"amount", 0.1f}),
+
+            cmd(
+                "selectedSequence",
+                "Change the selected/displayed sequence by `amount`. This wraps around "
+                "edges of the SequenceBank. `amount` can be positive or negative. "
+                "Pattern is ignored.",
+                [](PS &ps, sequence::Pattern const &, int amount) {
+                    auto [seq, aux] = ps.timeline.get_state();
+                    auto const index =
+                        (aux.selected.measure + amount) % seq.sequence_bank.size();
+                    aux = action::set_selected_sequence(aux, index);
+                    ps.timeline.stage({std::move(seq), std::move(aux)});
+                    return mdebug("Selected Sequence Shifted");
+                },
+                ArgInfo<int>{"amount"}))),
 
         pattern(cmd_group(
             "humanize", ArgInfo<InputMode>{"mode"},
@@ -808,19 +842,7 @@ namespace xen
                 ps.timeline.set_commit_flag();
                 return minfo("Selection Swung by " + std::to_string(amount));
             },
-            ArgInfo<float>{"amount", 0.1f}),
-
-        // Temporary --------------------------------------------------------------
-
-        cmd("demo", "Reset the state to a demo Phrase.", [](PS &ps) {
-            // Manually reset selection on overwrite
-            ps.timeline.stage({
-                demo_state(),
-                {{0, {}}},
-            });
-            ps.timeline.set_commit_flag();
-            return minfo("Demo State Loaded");
-        }));
+            ArgInfo<float>{"amount", 0.1f}));
 }
 
 using XenCommandTree = decltype(create_command_tree());

@@ -41,6 +41,14 @@ SequenceView:
   "[m] + ArrowDown": "move down"
   "[m] + k": "move up"
   "[m] + ArrowUp": "move up"
+  "[m] + Shift + ArrowRight": "shift selectedSequence +1"
+  "[m] + Shift + l": "shift selectedSequence +1"
+  "[m] + Shift + ArrowLeft": "shift selectedSequence -1"
+  "[m] + Shift + h": "shift selectedSequence -1"
+  "[m] + Shift + ArrowUp": "shift selectedSequence +4"
+  "[m] + Shift + k": "shift selectedSequence +4"
+  "[m] + Shift + ArrowDown": "shift selectedSequence -4"
+  "[m] + Shift + j": "shift selectedSequence -4"
 
   # ShiftNote
   "[n] + j": "shift Note -1"

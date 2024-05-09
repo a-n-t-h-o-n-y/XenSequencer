@@ -64,14 +64,14 @@ XenProcessor::XenProcessor()
 
     active_sessions.on_measure_request.connect([this](std::size_t measure_index) {
         auto const [state, _] = plugin_state.timeline.get_state();
-        return state.phrase[measure_index];
+        return state.sequence_bank[measure_index];
     });
 
     active_sessions.on_measure_response.connect(
         [this](sequence::Measure const &measure) {
             auto [state, aux] = plugin_state.timeline.get_state();
 
-            state.phrase[aux.selected.measure] = measure;
+            state.sequence_bank[aux.selected.measure] = measure;
             aux.selected.cell.clear();
 
             plugin_state.timeline.stage({state, aux});
@@ -141,12 +141,15 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         needs_corrections = true;
     }
 
+    // TODO below is hardcoded to use the first sequence in the bank
+    // the interface needs to change to work with bank?
+
     // Find current MIDI events to send according to PlayHead position
     auto const samples_in_phrase = sequence::samples_count(
-        sequencer_state_copy_.phrase, plugin_state.daw_state.sample_rate,
+        {sequencer_state_copy_.sequence_bank[0]}, plugin_state.daw_state.sample_rate,
         plugin_state.daw_state.bpm);
 
-    // Empty Phrase - No MIDI
+    // Empty Sequence - No MIDI
     if (samples_in_phrase == 0)
     {
         return;

@@ -20,8 +20,11 @@ namespace xen
 auto state_to_timeline(DAWState const &daw_state,
                        SequencerState const &state) -> sequence::midi::EventTimeline
 {
+    // TODO below is hardcoded to use the first sequence in the bank
+    // This will need to change where each gets its own timeline? you can't assign
+    // channels yet. I don't think.
     return sequence::midi::translate_to_midi_timeline(
-        state.phrase, daw_state.sample_rate, daw_state.bpm, state.tuning,
+        {state.sequence_bank[0]}, daw_state.sample_rate, daw_state.bpm, state.tuning,
         state.base_frequency);
 }
 

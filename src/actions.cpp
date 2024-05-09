@@ -30,12 +30,8 @@ namespace
     {
         throw std::runtime_error{"Copy Buffer Is Empty"};
     }
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-    if (!selected)
-    {
-        throw std::runtime_error{"No Selection"};
-    }
-    *selected = *copy_buffer;
+    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+    selected = *copy_buffer;
     return state;
 }
 
@@ -49,20 +45,14 @@ namespace xen::action
 auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto [state, aux] = tl.get_state();
-    if (!state.phrase.empty())
-    {
-        aux.selected = move_left(state.phrase, aux.selected, amount);
-    }
+    aux.selected = move_left(state.sequence_bank, aux.selected, amount);
     return aux;
 }
 
 auto move_right(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto [state, aux] = tl.get_state();
-    if (!state.phrase.empty())
-    {
-        aux.selected = move_right(state.phrase, aux.selected, amount);
-    }
+    aux.selected = move_right(state.sequence_bank, aux.selected, amount);
     return aux;
 }
 
@@ -76,19 +66,14 @@ auto move_up(XenTimeline const &tl, std::size_t amount) -> AuxState
 auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState
 {
     auto [state, aux] = tl.get_state();
-    aux.selected = xen::move_down(state.phrase, aux.selected, amount);
+    aux.selected = xen::move_down(state.sequence_bank, aux.selected, amount);
     return aux;
 }
 
 auto copy(XenTimeline const &tl) -> sequence::Cell
 {
     auto const [state, aux] = tl.get_state();
-    auto const *selected = get_selected_cell_const(state.phrase, aux.selected);
-    if (selected == nullptr)
-    {
-        throw std::runtime_error{"No Selection"};
-    }
-    return *selected;
+    return get_selected_cell_const(state.sequence_bank, aux.selected);
 }
 
 auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
@@ -96,12 +81,8 @@ auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
     auto const buffer = ::xen::action::copy(tl);
 
     auto [state, aux] = tl.get_state();
-    auto *selected = get_selected_cell(state.phrase, aux.selected);
-    if (selected == nullptr)
-    {
-        throw std::runtime_error{"No Selection"};
-    }
-    *selected = sequence::Rest{};
+    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+    selected = sequence::Rest{};
     return {buffer, state};
 }
 
@@ -130,19 +111,19 @@ auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
 auto lift(XenTimeline const &tl) -> TrackedState
 {
     auto [state, aux] = tl.get_state();
-    sequence::Cell *parent = get_parent_of_selected(state.phrase, aux.selected);
+    sequence::Cell *parent = get_parent_of_selected(state.sequence_bank, aux.selected);
     if (parent == nullptr)
     {
         throw std::runtime_error{"Can't lift top level Cell."};
     }
 
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        // Take copy because you are writing over the owner of cell.
-        auto cell_copy = std::move(*cell);
-        *parent = std::move(cell_copy);
-    }
+    auto &cell = get_selected_cell(state.sequence_bank, aux.selected);
+
+    // Move out Cell because you are writing over the owner of cell.
+    // Do not get rid of this local variable.
+    auto cell_copy = std::move(cell);
+    *parent = std::move(cell_copy);
+
     return {state, action::move_up(tl, 1)};
 }
 
@@ -150,13 +131,9 @@ auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
                        int amount) -> SequencerState
 {
     auto [state, aux] = tl.get_state();
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        auto const tuning_length = state.tuning.intervals.size();
-        *cell = sequence::modify::shift_interval(*cell, pattern,
-                                                 amount * (int)tuning_length);
-    }
+    auto &cell = get_selected_cell(state.sequence_bank, aux.selected);
+    auto const tuning_length = state.tuning.intervals.size();
+    cell = sequence::modify::shift_interval(cell, pattern, amount * (int)tuning_length);
     return state;
 }
 
@@ -165,37 +142,19 @@ auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
 {
     auto [state, aux] = tl.get_state();
     auto const tuning_length = state.tuning.intervals.size();
-    auto *cell = get_selected_cell(state.phrase, aux.selected);
-    if (cell)
-    {
-        *cell = sequence::modify::set_octave(*cell, pattern, octave, tuning_length);
-    }
+    auto &cell = get_selected_cell(state.sequence_bank, aux.selected);
+    cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
     return state;
 }
 
 auto delete_cell(TrackedState ts) -> TrackedState
 {
-    // delete selected cell, if the selected cell is the top level then delete the
-    // measure from phrase
-    if (ts.sequencer.phrase.empty())
-    {
-        return ts;
-    }
+    // delete selected cell, if the selected cell is the top level then replace it with
+    // a rest.
 
     sequence::Cell *parent =
-        get_parent_of_selected(ts.sequencer.phrase, ts.aux.selected);
-    if (parent == nullptr)
-    {
-        // Delete Measure
-        ts.sequencer.phrase.erase(std::next(
-            std::begin(ts.sequencer.phrase),
-            (std::vector<sequence::Measure>::difference_type)ts.aux.selected.measure));
-
-        ts.aux.selected.measure =
-            std::min(ts.aux.selected.measure, ts.sequencer.phrase.size() - 1);
-        ts.aux.selected.cell.clear();
-    }
-    else
+        get_parent_of_selected(ts.sequencer.sequence_bank, ts.aux.selected);
+    if (parent != nullptr)
     {
         // Delete Cell
         if (!std::holds_alternative<sequence::Sequence>(*parent))
@@ -217,6 +176,11 @@ auto delete_cell(TrackedState ts) -> TrackedState
             ts.aux.selected.cell.back() =
                 std::min(ts.aux.selected.cell.back(), cells.size() - 1);
         }
+    }
+    else // Replace with a rest
+    {
+
+        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell = sequence::Rest{};
     }
 
     return ts;
@@ -240,6 +204,23 @@ auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState
     auto [state, _] = tl.get_state();
     state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
     return state;
+}
+
+auto set_selected_sequence(AuxState aux, int index) -> AuxState
+{
+
+    if (index < 0 || index > 15)
+    {
+        throw std::runtime_error{
+            "Invalid Sequence Index; Must be in closed range [0, 15]: " +
+            std::to_string(index) + " was given."};
+    }
+    aux.selected.measure = (std::size_t)index;
+
+    // TODO implement stored cell selection vectors in array of 16 and restore from it.
+    aux.selected.cell.clear();
+
+    return aux;
 }
 
 } // namespace xen::action

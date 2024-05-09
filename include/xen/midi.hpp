@@ -37,7 +37,7 @@ namespace xen
  * @param buffer The MIDI buffer.
  * @param begin The beginning sample, inclusive.
  * @param end The ending sample, not inclusive.
- * @param loop_boundary The length of the Phrase in samples, for loop boundary
+ * @param loop_boundary The length of the Sequence in samples, for loop boundary
  * calculations.
  * @return juce::MidiBuffer
  *

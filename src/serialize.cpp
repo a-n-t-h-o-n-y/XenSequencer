@@ -137,7 +137,7 @@ namespace xen
 static auto to_json(nlohmann::json &j, SequencerState const &state) -> void
 {
     j = nlohmann::json{
-        {"phrase", state.phrase},
+        {"sequence_bank", state.sequence_bank},
         {"measure_names", state.measure_names},
         {"tuning", state.tuning},
         {"tuning_name", state.tuning_name},
@@ -147,7 +147,7 @@ static auto to_json(nlohmann::json &j, SequencerState const &state) -> void
 
 static auto from_json(nlohmann::json const &j, SequencerState &state) -> void
 {
-    state.phrase = j.at("phrase").get<sequence::Phrase>();
+    state.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
     state.measure_names = j.at("measure_names").get<std::array<std::string, 16>>();
     state.tuning = j.at("tuning").get<sequence::Tuning>();
     state.tuning_name = j.at("tuning_name").get<std::string>();
