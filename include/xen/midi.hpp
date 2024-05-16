@@ -14,12 +14,15 @@ namespace xen
 /**
  * Converts the state of the plugin to a MIDI Event timeline.
  *
- * @param state The state of the plugin.
+ * @param measure The measure to convert.
+ * @param tuning The tuning to use.
+ * @param base_frequency The base frequency of the tuning.
+ * @param daw_state The state of the DAW.
  * @return sequence::midi::EventTimeline
  */
-[[nodiscard]] auto state_to_timeline(DAWState const &daw_state,
-                                     SequencerState const &state)
-    -> sequence::midi::EventTimeline;
+[[nodiscard]] auto state_to_timeline(
+    sequence::Measure const &measure, sequence::Tuning const &tuning,
+    float base_frequency, DAWState const &daw_state) -> sequence::midi::EventTimeline;
 
 /**
  * Renders a sequence library midi::EventTimeline as a MIDI buffer.
@@ -34,13 +37,14 @@ namespace xen
  * Finds the subset of MIDI messages in a buffer between two samples, half-open
  * [begin, end).
  *
+ * @details The passed in begin and end samples should be in the range of the
+ * loop_boundary, by modulo.
  * @param buffer The MIDI buffer.
  * @param begin The beginning sample, inclusive.
- * @param end The ending sample, not inclusive.
+ * @param end The ending sample, not inclusive. This can be before begin.
  * @param loop_boundary The length of the Sequence in samples, for loop boundary
  * calculations.
  * @return juce::MidiBuffer
- *
  * @throws std::out_of_range if begin or end are less than zero.
  */
 [[nodiscard]] auto find_subrange(juce::MidiBuffer const &buffer, int begin, int end,

@@ -9,7 +9,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
 
+#include <sequence/measure.hpp>
 #include <sequence/midi.hpp>
+#include <sequence/tuning.hpp>
 #include <sequence/utility.hpp>
 
 #include <xen/state.hpp>
@@ -17,15 +19,12 @@
 namespace xen
 {
 
-auto state_to_timeline(DAWState const &daw_state,
-                       SequencerState const &state) -> sequence::midi::EventTimeline
+auto state_to_timeline(sequence::Measure const &measure, sequence::Tuning const &tuning,
+                       float base_frequency,
+                       DAWState const &daw_state) -> sequence::midi::EventTimeline
 {
-    // TODO below is hardcoded to use the first sequence in the bank
-    // This will need to change where each gets its own timeline? you can't assign
-    // channels yet. I don't think.
     return sequence::midi::translate_to_midi_timeline(
-        {state.sequence_bank[0]}, daw_state.sample_rate, daw_state.bpm, state.tuning,
-        state.base_frequency);
+        measure, daw_state.sample_rate, daw_state.bpm, tuning, base_frequency);
 }
 
 auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::MidiBuffer

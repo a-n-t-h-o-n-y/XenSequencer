@@ -47,6 +47,7 @@ class LockFreeQueue
     /**
      * Attempts to pop an element from the queue.
      *
+     * @details Does not write to \p value if the queue is empty.
      * @param value Reference to the variable where the popped value will be stored.
      * @return true if a value was successfully popped, false otherwise.
      */
@@ -70,7 +71,7 @@ class LockFreeQueue
      *
      * @return true if the queue is empty, false otherwise.
      */
-    [[nodiscard]] auto isEmpty() const -> bool
+    [[nodiscard]] auto is_empty() const -> bool
     {
         return abstract_fifo_.getNumReady() == 0;
     }
@@ -80,7 +81,7 @@ class LockFreeQueue
      *
      * @return true if the queue is full, false otherwise.
      */
-    [[nodiscard]] auto isFull() const -> bool
+    [[nodiscard]] auto is_full() const -> bool
     {
         return abstract_fifo_.getFreeSpace() == 0;
     }

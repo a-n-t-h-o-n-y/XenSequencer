@@ -274,6 +274,7 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
         if (ps.timeline.get_commit_flag())
         {
             ps.timeline.commit();
+            processor_.new_state_transfer_queue.push(ps.timeline.get_state().sequencer);
         }
         this->update_ui();
     }

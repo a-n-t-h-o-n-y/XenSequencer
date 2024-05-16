@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -14,8 +13,7 @@ namespace xen
  *
  * @details The timeline can have State staged to it, which can be written to the
  * timeline with a commit() call. You can move through commit history with undo/redo
- * commands and truncate history with new writes after an undo. The timeline is
- * thread-safe.
+ * commands and truncate history with new writes after an undo.
  * @tparam State The type of the states stored in the timeline.
  */
 template <typename State>
@@ -41,7 +39,6 @@ class Timeline
      */
     auto stage(State state) -> void
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         stage_ = std::move(state);
     }
 
@@ -55,7 +52,6 @@ class Timeline
      */
     auto commit() -> void
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         at_ = at_ + 1;
         timeline_.resize(at_);
         timeline_.push_back(stage_);
@@ -70,7 +66,6 @@ class Timeline
      */
     [[nodiscard]] auto get_state() const -> State
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         return stage_;
     }
 
@@ -84,7 +79,6 @@ class Timeline
      */
     auto undo() -> bool
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         if (at_ > 0)
         {
             at_ = at_ - 1;
@@ -103,7 +97,6 @@ class Timeline
      */
     auto redo() -> bool
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         if (at_ + 1 < std::size(timeline_))
         {
             at_ = at_ + 1;
@@ -123,7 +116,6 @@ class Timeline
      */
     auto set_commit_flag() -> void
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         should_commit_ = true;
     }
 
@@ -132,7 +124,6 @@ class Timeline
      */
     [[nodiscard]] auto get_commit_flag() const -> bool
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         return should_commit_;
     }
 
@@ -144,13 +135,10 @@ class Timeline
      */
     auto reset_stage() -> void
     {
-        auto const lock = std::lock_guard<std::mutex>{mtx_};
         stage_ = timeline_[at_];
     }
 
   private:
-    mutable std::mutex mtx_{};
-
     State stage_; // Staged state to be committed. Also the 'current' state.
     std::vector<State> timeline_;
     std::size_t at_{0};

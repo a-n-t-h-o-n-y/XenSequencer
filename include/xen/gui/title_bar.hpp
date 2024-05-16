@@ -52,11 +52,18 @@ class TitleBar : public juce::Component
     {
         auto flexbox = juce::FlexBox();
         flexbox.flexDirection = juce::FlexBox::Direction::row;
+        flexbox.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+
         flexbox.items.add(juce::FlexItem(version).withWidth(60));
-        flexbox.items.add(juce::FlexItem(title).withFlex(1));
-        flexbox.items.add(juce::FlexItem(menu_button).withWidth(60));
+        flexbox.items.add(juce::FlexItem(title).withWidth(100));
+        flexbox.items.add(juce::FlexItem(menu_button).withWidth(23));
 
         flexbox.performLayout(this->getLocalBounds());
+    }
+
+    auto paint(juce::Graphics &g) -> void override
+    {
+        g.fillAll(title.findColour((int)DirectoryViewColorIDs::ItemBackground));
     }
 
     auto lookAndFeelChanged() -> void override

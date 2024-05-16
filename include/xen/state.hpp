@@ -38,13 +38,13 @@ using SequenceBank = std::array<sequence::Measure, 16>;
  */
 struct SequencerState
 {
-    SequenceBank sequence_bank;
-    std::array<std::string, 16> measure_names;
+    SequenceBank sequence_bank{};
+    std::array<std::string, 16> measure_names{};
 
-    sequence::Tuning tuning;
-    std::string tuning_name;
+    sequence::Tuning tuning{};
+    std::string tuning_name{};
 
-    float base_frequency;
+    float base_frequency{};
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
@@ -125,7 +125,6 @@ struct PluginState
 
     sl::Signal<void(std::string const &)> on_focus_request{};
     sl::Signal<void(std::string const &)> on_show_request{};
-    DAWState daw_state{};
     CommandHistory command_history{};
     XenTimeline timeline;
     inline static SharedState shared{};

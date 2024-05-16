@@ -136,6 +136,10 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 
 [[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int;
 
+/**
+ * Compares two values within a given tolerance, returning true if they are within the
+ * tolerance.
+*/
 template <typename T>
 [[nodiscard]] auto compare_within_tolerance(T a, T b, T tolerance) -> bool
 {

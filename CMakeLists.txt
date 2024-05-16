@@ -87,6 +87,7 @@ target_sources(XenSequencerLib
         src/input_mode.cpp
         src/key_core.cpp
         src/midi.cpp
+        src/midi_engine.cpp
         src/selection.cpp
         src/user_directory.cpp
         src/utility.cpp
@@ -117,6 +118,7 @@ target_sources(XenSequencerLib
         include/xen/lock_free_queue.hpp
         include/xen/message_level.hpp
         include/xen/midi.hpp
+        include/xen/midi_engine.hpp
         include/xen/parse_args.hpp
         include/xen/plugin_processor.hpp
         include/xen/selection.hpp
@@ -178,7 +180,7 @@ juce_add_plugin(XenSequencer
     PRODUCT_NAME "XenSequencer"             # The name of the final executable
     COMPANY_NAME "A"                        # Specify the name of the plugin's author
     IS_SYNTH FALSE                          # Is this a synth or an effect?
-    NEEDS_MIDI_INPUT FALSE                  # Does the plugin need midi input?
+    NEEDS_MIDI_INPUT TRUE                   # Does the plugin need midi input?
     NEEDS_MIDI_OUTPUT TRUE                  # Does the plugin need midi output?
     IS_MIDI_EFFECT FALSE                    # Is this plugin a MIDI effect?
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE        # Does the editor need keyboard focus?

@@ -54,8 +54,7 @@ namespace xen
 XenProcessor::XenProcessor()
     : plugin_state{.timeline = XenTimeline{{init_state(), {}}}},
       active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
-      command_tree{create_command_tree()}, sequencer_state_copy_{init_state()},
-      last_rendered_time_{}
+      command_tree{create_command_tree()} /*, sequencer_state_copy_{init_state()} */
 {
     initialize_demo_files();
 
@@ -87,103 +86,58 @@ XenProcessor::XenProcessor()
                 }
             }
         });
+
+    // Send initial state to Audio Thread
+    (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
-                                juce::MidiBuffer &midi_messages) -> void
+                                juce::MidiBuffer &midi_buffer) -> void
 {
     buffer.clear();
-    midi_messages.clear();
 
-    // Only generate MIDI if PlayHead is playing
-    auto *playhead = this->getPlayHead();
-    auto const position = playhead->getPosition();
-    if (!position.hasValue())
-    {
-        throw std::runtime_error{"PlayHead position is not valid"};
-    }
+    { // Update DAWState
+        auto const bpm = [this] {
+            auto *playhead = this->getPlayHead();
+            auto const position = playhead->getPosition();
+            if (!position.hasValue())
+            {
+                throw std::runtime_error{"PlayHead position is not valid"};
+            }
+            auto const bpm = position->getBpm();
+            return bpm ? static_cast<float>(*bpm) : 120.f;
+        }();
 
-    if (!position->getIsPlaying())
-    {
-        if (is_playing_) // Stop was pressed
-        {
-            last_note_event_ =
-                juce::MidiMessage::noteOff(1, last_note_event_.getNoteNumber());
-            midi_messages.addEvent(last_note_event_, 0);
-        }
-        is_playing_ = false;
-        return;
-    }
-
-    // Check if MIDI needs to be rendered because of DAW or GUI changes.
-    auto const bpm_daw =
-        position->getBpm() ? static_cast<float>(*(position->getBpm())) : 120.f;
-
-    bool needs_corrections = !is_playing_; // Start was pressed
-    is_playing_ = true;
-
-    // Separate if statements prevent SequencerState copies on BPM changes
-    // TODO only check the parts of sequencer_state that will affect MIDI
-    if (sequencer_state_copy_ != plugin_state.timeline.get_state().sequencer)
-    {
-        sequencer_state_copy_ = plugin_state.timeline.get_state().sequencer;
-        this->render();
-        needs_corrections = true;
-    }
-    if (!compare_within_tolerance(plugin_state.daw_state.bpm, bpm_daw, 0.00001f) ||
-        !compare_within_tolerance((double)plugin_state.daw_state.sample_rate,
-                                  this->getSampleRate(), 0.1))
-    {
-        plugin_state.daw_state.sample_rate =
-            static_cast<std::uint32_t>(this->getSampleRate());
-        plugin_state.daw_state.bpm = bpm_daw;
-        this->render();
-        needs_corrections = true;
-    }
-
-    // TODO below is hardcoded to use the first sequence in the bank
-    // the interface needs to change to work with bank?
-
-    // Find current MIDI events to send according to PlayHead position
-    auto const samples_in_phrase = sequence::samples_count(
-        {sequencer_state_copy_.sequence_bank[0]}, plugin_state.daw_state.sample_rate,
-        plugin_state.daw_state.bpm);
-
-    // Empty Sequence - No MIDI
-    if (samples_in_phrase == 0)
-    {
-        return;
-    }
-
-    auto const [begin, end] = [&] {
-        auto const current_sample =
-            position->getTimeInSamples()
-                ? *(position->getTimeInSamples())
-                : throw std::runtime_error{"Sample position is not valid"};
-        auto const beg = current_sample % samples_in_phrase;
-        return std::pair{
-            static_cast<int>(beg),
-            static_cast<int>((beg + buffer.getNumSamples()) % samples_in_phrase),
+        audio_thread_state_.daw = DAWState{
+            .bpm = bpm,
+            .sample_rate = static_cast<std::uint32_t>(this->getSampleRate()),
         };
-    }();
-
-    auto new_midi_buffer = find_subrange(rendered_, begin, end, (int)samples_in_phrase);
-
-    if (needs_corrections)
-    {
-        this->add_midi_corrections(new_midi_buffer, *position, samples_in_phrase);
     }
 
-    if (auto const x = find_last_note_event(new_midi_buffer); x.has_value())
-    {
-        last_note_event_ = *x;
-    }
-    if (auto const x = find_last_pitch_bend_event(new_midi_buffer); x.has_value())
-    {
-        last_pitch_bend_event_ = *x;
+    { // Receive new SequencerState data (if any) and render MIDI.
+        auto new_state = SequencerState{};
+        bool new_state_received = false;
+
+        while (new_state_transfer_queue.pop(new_state)) // Keep only the most recent
+        {
+            new_state_received = true;
+        }
+
+        if (new_state_received)
+        {
+            audio_thread_state_.midi_engine.update(std::move(new_state),
+                                                   audio_thread_state_.daw);
+        }
     }
 
-    midi_messages.swapWith(new_midi_buffer);
+    // Calculate MIDI buffer slice
+    auto next_slice = audio_thread_state_.midi_engine.step(
+        midi_buffer, audio_thread_state_.accumulated_sample_count,
+        buffer.getNumSamples());
+
+    midi_buffer.swapWith(next_slice);
+
+    audio_thread_state_.accumulated_sample_count += buffer.getNumSamples();
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
@@ -216,6 +170,7 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
     plugin_state.display_name = std::move(dn);
     plugin_state.timeline.stage({std::move(state), {}});
     plugin_state.timeline.commit();
+    (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
     auto *const editor_base = this->getActiveEditor();
     if (editor_base != nullptr)
     {
@@ -224,46 +179,6 @@ auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> voi
         {
             editor->update_ui();
         }
-    }
-}
-
-auto XenProcessor::render() -> void
-{
-    rendered_ = render_to_midi(
-        state_to_timeline(plugin_state.daw_state, sequencer_state_copy_));
-    last_rendered_time_ = std::chrono::high_resolution_clock::now();
-}
-
-auto XenProcessor::add_midi_corrections(
-    juce::MidiBuffer &buffer, juce::AudioPlayHead::PositionInfo const &position,
-    long samples_in_phrase) -> void
-{
-    auto const at = (position.getTimeInSamples()
-                         ? *(position.getTimeInSamples())
-                         : throw std::runtime_error{"Sample position is not valid"}) %
-                    samples_in_phrase;
-    auto const recent_note_event = find_most_recent_note_event(rendered_, at);
-    auto const recent_pitch_bend_event =
-        find_most_recent_pitch_bend_event(rendered_, at);
-
-    if (last_note_event_.isNoteOn() && recent_note_event.has_value() &&
-        !are_midi_messages_equal(last_note_event_, *recent_note_event))
-    {
-        buffer.addEvent(juce::MidiMessage::noteOff(1, last_note_event_.getNoteNumber()),
-                        0);
-        buffer.addEvent(*recent_note_event, 0);
-    }
-    else if (last_note_event_.isNoteOff() && recent_note_event.has_value() &&
-             recent_note_event->isNoteOn() &&
-             !are_midi_messages_equal(last_note_event_, *recent_note_event))
-    {
-        buffer.addEvent(*recent_note_event, 0);
-    }
-
-    if (recent_pitch_bend_event.has_value() &&
-        !are_midi_messages_equal(last_pitch_bend_event_, *recent_pitch_bend_event))
-    {
-        buffer.addEvent(*recent_pitch_bend_event, 0);
     }
 }
 
