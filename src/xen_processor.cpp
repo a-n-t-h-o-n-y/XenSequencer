@@ -96,6 +96,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 {
     buffer.clear();
 
+    bool update_needed = false;
+
     { // Update DAWState
         auto const bpm = [this] {
             auto *playhead = this->getPlayHead();
@@ -107,6 +109,12 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             auto const bpm = position->getBpm();
             return bpm ? static_cast<float>(*bpm) : 120.f;
         }();
+
+        auto const sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
+
+        update_needed = !compare_within_tolerance(
+            audio_thread_state_.daw.bpm, bpm, 0.0001f) ||
+            audio_thread_state_.daw.sample_rate != sample_rate;
 
         audio_thread_state_.daw = DAWState{
             .bpm = bpm,
@@ -127,6 +135,10 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         {
             audio_thread_state_.midi_engine.update(std::move(new_state),
                                                    audio_thread_state_.daw);
+        }
+        else if (update_needed)
+        {
+            audio_thread_state_.midi_engine.update(audio_thread_state_.daw);
         }
     }
 

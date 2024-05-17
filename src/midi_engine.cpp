@@ -217,6 +217,11 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
     return out_buffer;
 }
 
+auto MidiEngine::update(DAWState daw) -> void
+{
+    this->update(sequencer_copy_, daw);
+}
+
 auto MidiEngine::update(SequencerState sequencer, DAWState daw) -> void
 {
     assert(sequencer_copy_.sequence_bank.size() == sequencer.sequence_bank.size());
