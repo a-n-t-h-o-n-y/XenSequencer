@@ -261,7 +261,7 @@ auto MidiEngine::allocate_channel(std::vector<Slice> const &slices,
     auto used = std::array<bool, 15>{}; // Initialize all elements to false
 
     // Mark used numbers
-    for (auto const &[_, _, live_note, trigger_note, _] : slices)
+    for (auto const &[a_, b_, live_note, trigger_note, c_] : slices)
     {
         // Midi note can't be 'on' more than once at any given time, so reuse channel.
         // TODO does the above mean you should only read ch 1 input triggers?

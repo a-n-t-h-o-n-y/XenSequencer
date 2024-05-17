@@ -44,7 +44,7 @@ class VLabel : public juce::Component
 
         for (auto const ch : text_)
         {
-            g.drawText(juce::String{&ch, 1}, bounds.getX(), y, bounds.getWidth(),
+            g.drawText(juce::String::charToString(ch), bounds.getX(), y, bounds.getWidth(),
                        font_height, juce::Justification::centred);
             y += font_height + letter_spacing_;
             if (y > bounds.getHeight())

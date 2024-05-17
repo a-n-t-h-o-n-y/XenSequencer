@@ -4,6 +4,10 @@ project(XenSequencer VERSION 0.2.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if(WIN32)
+    set(BOOST_ROOT "C:/Program Files/boost/boost_1_85_0")
+    cmake_policy(SET CMP0144 NEW)
+endif()
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED)
 
