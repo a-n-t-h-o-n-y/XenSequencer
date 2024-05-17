@@ -34,6 +34,8 @@ class XenProcessor : public PluginProcessor
     PluginState plugin_state;
     ActiveSessions active_sessions;
     XenCommandTree command_tree;
+    int editor_width{1000};
+    int editor_height{300};
 
   public:
     // Used to send new SequencerState to the Audio Thread.
@@ -72,14 +74,6 @@ class XenProcessor : public PluginProcessor
         std::uint64_t accumulated_sample_count{0};
         MidiEngine midi_engine;
     } audio_thread_state_;
-
-    // SequencerState sequencer_state_copy_; // Not necessary, but saves cycles.
-    // juce::MidiBuffer rendered_;
-
-    // bool is_playing_{false};
-    // juce::MidiMessage last_note_event_{juce::MidiMessage::noteOff(1, 0)};
-    // juce::MidiMessage last_pitch_bend_event_{juce::MidiMessage::pitchWheel(1,
-    // 0x2000)};
 };
 
 } // namespace xen

@@ -45,7 +45,7 @@ class NoTabFocusTraverser : public juce::KeyboardFocusTraverser
 namespace xen::gui
 {
 
-XenEditor::XenEditor(XenProcessor &p)
+XenEditor::XenEditor(XenProcessor &p, int width, int height)
     : AudioProcessorEditor{p}, plugin_window{p.plugin_state.current_phrase_directory,
                                              p.plugin_state.current_tuning_directory,
                                              p.plugin_state.command_history},
@@ -54,8 +54,8 @@ XenEditor::XenEditor(XenProcessor &p)
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
 
     this->setResizable(true, true);
-    this->setSize(1000, 300);
-    this->setResizeLimits(400, 300, 1200, 900);
+    this->setSize(width, height);
+    this->setResizeLimits(400, 300, 0x3fffffff, 0x3fffffff);
 
     this->addAndMakeVisible(&plugin_window);
 
@@ -256,6 +256,8 @@ auto XenEditor::update_key_listeners(juce::File const &default_keys,
 auto XenEditor::resized() -> void
 {
     plugin_window.setBounds(this->getLocalBounds());
+    processor_.editor_width = this->getWidth();
+    processor_.editor_height = this->getHeight();
 }
 
 auto XenEditor::execute_command_string(std::string const &command_string) -> void

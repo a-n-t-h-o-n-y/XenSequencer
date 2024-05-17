@@ -24,7 +24,7 @@ class XenEditor : public juce::AudioProcessorEditor
     PluginWindow plugin_window;
 
   public:
-    explicit XenEditor(XenProcessor &);
+    explicit XenEditor(XenProcessor &, int width, int height);
 
   public:
     /**
