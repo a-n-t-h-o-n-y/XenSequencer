@@ -477,7 +477,7 @@ namespace xen
                           return mdebug("Sequence " + std::to_string(index) +
                                         " Selected");
                       },
-                      ArgInfo<int>("index"))),
+                      ArgInfo<int>{"index"})),
 
         pattern(cmd_group(
             "set", ArgInfo<std::string>{"trait"},
