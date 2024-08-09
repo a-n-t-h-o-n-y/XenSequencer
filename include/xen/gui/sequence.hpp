@@ -68,37 +68,16 @@ class Cell : public juce::Component
 class Rest : public Cell
 {
   public:
-    explicit Rest(sequence::Rest)
+    explicit Rest(sequence::Rest, std::size_t interval_count)
+        : interval_count_{interval_count}
     {
     }
 
   protected:
-    auto paint(juce::Graphics &g) -> void override
-    {
-        g.setColour(this->findColour((int)MeasureColorIDs::Background));
-        g.fillAll();
+    auto paint(juce::Graphics &g) -> void override;
 
-        constexpr auto max_radius = 25.f;
-        constexpr auto min_radius = 10.f;
-
-        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
-        auto const width = static_cast<float>(getWidth());
-        auto const corner_radius =
-            juce::jlimit(min_radius, max_radius,
-                         juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
-        auto const line_thickness = 2.f;
-
-        g.setColour(this->findColour((int)RestColorIDs::Foreground));
-        g.fillRoundedRectangle(bounds, corner_radius);
-
-        g.setColour(this->findColour((int)RestColorIDs::Outline));
-        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
-
-        auto const font = juce::Font{"Arial", "Normal", 16.f}.boldened();
-        g.setFont(font);
-        g.setColour(this->findColour((int)RestColorIDs::Text));
-        g.drawText("R", bounds, juce::Justification::centred);
-    }
+  private:
+    std::size_t interval_count_;
 };
 
 class NoteInterval : public juce::Component
@@ -167,33 +146,33 @@ class NoteHolder : public juce::Component
     NoteInterval interval_box_;
 };
 
-class TraitDisplay : public juce::Component
-{
-  public:
-    explicit TraitDisplay(std::string name, float value)
-        : label_{name, make_display(name, value)}
-    {
-        this->addAndMakeVisible(label_);
-    }
+// class TraitDisplay : public juce::Component
+// {
+//   public:
+//     explicit TraitDisplay(std::string name, float value)
+//         : label_{name, make_display(name, value)}
+//     {
+//         this->addAndMakeVisible(label_);
+//     }
 
-  protected:
-    auto resized() -> void override
-    {
-        label_.setBounds(this->getLocalBounds());
-    }
+//   protected:
+//     auto resized() -> void override
+//     {
+//         label_.setBounds(this->getLocalBounds());
+//     }
 
-  private:
-    [[nodiscard]] static auto make_display(std::string const &name,
-                                           float value) -> std::string
-    {
-        auto oss = std::ostringstream{};
-        oss << std::fixed << std::setprecision(2) << value;
-        return name + ": " + oss.str();
-    }
+//   private:
+//     [[nodiscard]] static auto make_display(std::string const &name,
+//                                            float value) -> std::string
+//     {
+//         auto oss = std::ostringstream{};
+//         oss << std::fixed << std::setprecision(2) << value;
+//         return name + ": " + oss.str();
+//     }
 
-  private:
-    juce::Label label_;
-};
+//   private:
+//     juce::Label label_;
+// };
 
 class Note : public Cell
 {
@@ -223,61 +202,47 @@ class Note : public Cell
 class SequenceIndicator : public juce::Component
 {
   protected:
-    void paint(juce::Graphics &g) override
-    {
-        constexpr auto margin = 4;
-        constexpr auto thickness = 1;
-
-        float const y_offset = static_cast<float>(this->getHeight() - thickness) / 2.f;
-        float const x_start = margin;
-        float const x_end = static_cast<float>(this->getWidth() - margin);
-
-        g.setColour(this->findColour((int)MeasureColorIDs::Outline));
-        g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
-    }
+    void paint(juce::Graphics &g) override;
 };
 
+/**
+ * Vertical column to display interval numbers, [0, size) bottom to top, evenly spaced.
+ */
+class IntervalColumn : public juce::Component
+{
+  public:
+    IntervalColumn(std::size_t size, float vertical_offset)
+        : size_{size}, vertical_offset_{vertical_offset}
+    {
+    }
+
+    auto paint(juce::Graphics &g) -> void override;
+
+  private:
+    std::size_t size_;
+    float vertical_offset_;
+};
+
+/**
+ * Holds the Selected Sequence Indicator, the Interval Column and the actual Sequence.
+ */
 class Sequence : public Cell
 {
   public:
     explicit Sequence(sequence::Sequence const &seq, std::size_t tuning_size);
 
   public:
-    auto select_child(std::vector<std::size_t> const &indices) -> void override
-    {
-        if (indices.empty())
-        {
-            this->make_selected();
-            return;
-        }
-
-        cells_.at(indices[0])
-            .select_child(std::vector(std::next(indices.cbegin()), indices.cend()));
-    }
+    auto select_child(std::vector<std::size_t> const &indices) -> void override;
 
   protected:
-    auto paint(juce::Graphics &g) -> void override
-    {
-        g.setColour(this->findColour((int)MeasureColorIDs::Background));
-        g.fillAll();
-    }
+    auto paint(juce::Graphics &g) -> void override;
 
-    auto resized() -> void override
-    {
-        auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::column;
-
-        flexbox.items.add(juce::FlexItem(top_indicator_).withHeight(8.f));
-        flexbox.items.add(juce::FlexItem(cells_).withFlex(1.f));
-        flexbox.items.add(juce::FlexItem(bottom_indicator_).withHeight(8.f));
-
-        flexbox.performLayout(this->getLocalBounds());
-    }
+    auto resized() -> void override;
 
   private:
     SequenceIndicator top_indicator_;
+    IntervalColumn interval_column_;
     HomogenousRow<Cell> cells_;
-    SequenceIndicator bottom_indicator_;
 };
 
 class BuildAndAllocateCell
@@ -290,7 +255,7 @@ class BuildAndAllocateCell
   public:
     [[nodiscard]] auto operator()(sequence::Rest r) const -> std::unique_ptr<Cell>
     {
-        return std::make_unique<Rest>(r);
+        return std::make_unique<Rest>(r, tos_);
     }
 
     [[nodiscard]] auto operator()(sequence::Note n) const -> std::unique_ptr<Cell>

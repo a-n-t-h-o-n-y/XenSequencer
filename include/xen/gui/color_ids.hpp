@@ -61,13 +61,14 @@ enum class MeasureColorIDs
 
 enum class RestColorIDs
 {
-    Foreground = 0xA000060,
+    Background = 0xA000060,
     Text = 0xA000061,
     Outline = 0xA000062,
 };
 
 enum class NoteColorIDs
 {
+    // TODO change foreground to background?
     Foreground = 0xA000070,
     IntervalLow = 0xA000071,
     IntervalMid = 0xA000072,

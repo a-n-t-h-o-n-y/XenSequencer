@@ -685,7 +685,7 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
     sc(MeasureColorIDs::Outline, theme.fg_low);
     sc(MeasureColorIDs::SelectionHighlight, theme.fg_med);
 
-    sc(RestColorIDs::Foreground, theme.bg_low);
+    sc(RestColorIDs::Background, theme.bg_low);
     sc(RestColorIDs::Text, theme.fg_low);
     sc(RestColorIDs::Outline, theme.fg_low);
 
