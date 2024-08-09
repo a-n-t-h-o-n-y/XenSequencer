@@ -149,6 +149,42 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 namespace xen::gui
 {
 
+auto Cell::paintOverChildren(juce::Graphics &g) -> void
+{
+    if (selected_)
+    {
+        // constexpr auto thickness = 2;
+        // constexpr auto margin = 4;
+
+        // float const y_offset = 0;
+        // float const x_start = margin;
+        // float const x_end = static_cast<float>(this->getWidth() - margin);
+
+        // g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+        // g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
+
+        // constexpr auto thickness = 1;
+        // constexpr auto margin = 4;
+
+        // g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+
+        // auto const bounds = this->getLocalBounds().reduced(margin);
+        // g.drawRect(this->getLocalBounds(), thickness);
+
+        auto const min_radius = 10.f;
+        auto const max_radius = 25.f;
+        auto const line_thickness = 1.f;
+        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+        auto const corner_radius =
+            compute_corner_radius(bounds, min_radius, max_radius);
+
+        g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+    }
+}
+
+// -------------------------------------------------------------------------------------
+
 auto Rest::paint(juce::Graphics &g) -> void
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
@@ -228,35 +264,6 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
 
 // -------------------------------------------------------------------------------------
 
-auto IntervalColumn::paint(juce::Graphics &g) -> void
-{
-    // TODO color ID
-    g.fillAll(this->findColour((int)MeasureColorIDs::Background));
-
-    auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
-
-    // TODO add color ID
-    g.setColour(juce::Colours::grey);
-    g.setFont(juce::Font{
-        juce::Font::getDefaultMonospacedFontName(),
-        14.f,
-        juce::Font::plain,
-    });
-
-    auto const item_height = bounds.getHeight() / static_cast<float>(size_);
-
-    for (std::size_t i = 0; i < size_; ++i)
-    {
-        float y = bounds.getBottom() - (static_cast<float>(i) + 1.f) * item_height;
-        auto const text = juce::String(i).paddedLeft('0', 2);
-
-        g.drawText(text, bounds.withY(y).withHeight(item_height),
-                   juce::Justification::centred, true);
-    }
-}
-
-// -------------------------------------------------------------------------------------
-
 auto SequenceIndicator::paint(juce::Graphics &g) -> void
 {
     constexpr auto margin = 4;
@@ -273,10 +280,8 @@ auto SequenceIndicator::paint(juce::Graphics &g) -> void
 // -------------------------------------------------------------------------------------
 
 Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
-    : interval_column_{tuning_size, 4.f}, cells_{juce::FlexItem{}.withFlex(1.f), false}
+    : cells_{juce::FlexItem{}.withFlex(1.f), false}
 {
-    this->addAndMakeVisible(top_indicator_);
-    this->addAndMakeVisible(interval_column_);
     this->addAndMakeVisible(cells_);
 
     auto const build_and_allocate_cell = BuildAndAllocateCell{tuning_size};
@@ -308,19 +313,7 @@ auto Sequence::paint(juce::Graphics &g) -> void
 
 auto Sequence::resized() -> void
 {
-    auto outer_flexbox = juce::FlexBox{};
-    outer_flexbox.flexDirection = juce::FlexBox::Direction::column;
-
-    auto inner_flexbox = juce::FlexBox{};
-    inner_flexbox.flexDirection = juce::FlexBox::Direction::row;
-
-    inner_flexbox.items.add(juce::FlexItem(interval_column_).withWidth(23.f));
-    inner_flexbox.items.add(juce::FlexItem(cells_).withFlex(1.f));
-
-    outer_flexbox.items.add(juce::FlexItem(top_indicator_).withHeight(8.f));
-    outer_flexbox.items.add(juce::FlexItem(inner_flexbox).withFlex(1.f));
-
-    outer_flexbox.performLayout(this->getLocalBounds());
+    cells_.setBounds(this->getLocalBounds());
 }
 
 } // namespace xen::gui

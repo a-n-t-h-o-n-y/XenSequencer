@@ -225,19 +225,74 @@ class MeasureInfo : public juce::Component
     BorderedFieldEdit tuning_name_;
 };
 
+// -------------------------------------------------------------------------------------
+
+/**
+ * Vertical column to display interval numbers, [0, size) bottom to top, evenly spaced.
+ */
+class IntervalColumn : public juce::Component
+{
+  public:
+    IntervalColumn(std::size_t size, float vertical_offset)
+        : size_{size}, vertical_offset_{vertical_offset}
+    {
+    }
+
+  public:
+    auto update(std::size_t new_size) -> void
+    {
+        size_ = new_size;
+    }
+
+    auto paint(juce::Graphics &g) -> void override
+    {
+        // TODO color ID
+        g.fillAll(this->findColour((int)MeasureColorIDs::Background));
+
+        auto const bounds =
+            this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
+
+        // TODO add color ID
+        g.setColour(juce::Colours::grey);
+        g.setFont(juce::Font{
+            juce::Font::getDefaultMonospacedFontName(),
+            14.f,
+            juce::Font::plain,
+        });
+
+        auto const item_height = bounds.getHeight() / static_cast<float>(size_);
+
+        for (std::size_t i = 0; i < size_; ++i)
+        {
+            float y = bounds.getBottom() - (static_cast<float>(i) + 1.f) * item_height;
+            auto const text = juce::String(i).paddedLeft('0', 2);
+
+            g.drawText(text, bounds.withY(y).withHeight(item_height),
+                       juce::Justification::centred, true);
+        }
+    }
+
+  private:
+    std::size_t size_;
+    float vertical_offset_;
+};
+
+// -------------------------------------------------------------------------------------
+
 class SequenceView : public juce::Component
 {
   public:
     sl::Signal<void(std::string const &)> on_command;
 
   public:
-    SequenceView()
+    SequenceView() : interval_column_{12, 4.f}
     {
         this->setComponentID("SequenceView");
         this->setWantsKeyboardFocus(true);
 
         this->addAndMakeVisible(measure_info);
         this->addAndMakeVisible(sequence_bank_accordion);
+        this->addAndMakeVisible(interval_column_);
 
         measure_info.on_command.connect(
             [this](std::string const &command) { this->on_command(command); });
@@ -252,6 +307,8 @@ class SequenceView : public juce::Component
         cell_ptr_ = make_cell(state.sequence_bank[aux.selected.measure].cell,
                               state.tuning.intervals.size());
         this->addAndMakeVisible(*cell_ptr_);
+
+        interval_column_.update(state.tuning.intervals.size());
 
         sequence_bank.update_ui(aux.selected.measure);
 
@@ -270,7 +327,7 @@ class SequenceView : public juce::Component
     auto resized() -> void override
     {
         sequence_bank_accordion.set_flexitem(
-            juce::FlexItem{}.withWidth(this->getHeight()));
+            juce::FlexItem{}.withWidth((float)this->getHeight()));
 
         auto flex_box = juce::FlexBox{};
         flex_box.flexDirection = juce::FlexBox::Direction::column;
@@ -279,6 +336,7 @@ class SequenceView : public juce::Component
         horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
         if (cell_ptr_ != nullptr)
         {
+            horizontal_flex.items.add(juce::FlexItem{interval_column_}.withWidth(23.f));
             horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
         }
         // TODO figure out how to make square
@@ -307,6 +365,7 @@ class SequenceView : public juce::Component
     MeasureInfo measure_info;
 
   private:
+    IntervalColumn interval_column_;
     std::unique_ptr<Cell> cell_ptr_;
 
   public:

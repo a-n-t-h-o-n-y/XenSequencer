@@ -45,21 +45,7 @@ class Cell : public juce::Component
     }
 
   protected:
-    auto paintOverChildren(juce::Graphics &g) -> void override
-    {
-        if (selected_)
-        {
-            constexpr auto thickness = 2;
-            constexpr auto margin = 4;
-
-            float const y_offset = 0;
-            float const x_start = margin;
-            float const x_end = static_cast<float>(this->getWidth() - margin);
-
-            g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
-            g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
-        }
-    }
+    auto paintOverChildren(juce::Graphics &g) -> void override;
 
   private:
     bool selected_ = false;
@@ -206,24 +192,6 @@ class SequenceIndicator : public juce::Component
 };
 
 /**
- * Vertical column to display interval numbers, [0, size) bottom to top, evenly spaced.
- */
-class IntervalColumn : public juce::Component
-{
-  public:
-    IntervalColumn(std::size_t size, float vertical_offset)
-        : size_{size}, vertical_offset_{vertical_offset}
-    {
-    }
-
-    auto paint(juce::Graphics &g) -> void override;
-
-  private:
-    std::size_t size_;
-    float vertical_offset_;
-};
-
-/**
  * Holds the Selected Sequence Indicator, the Interval Column and the actual Sequence.
  */
 class Sequence : public Cell
@@ -240,8 +208,6 @@ class Sequence : public Cell
     auto resized() -> void override;
 
   private:
-    SequenceIndicator top_indicator_;
-    IntervalColumn interval_column_;
     HomogenousRow<Cell> cells_;
 };
 
