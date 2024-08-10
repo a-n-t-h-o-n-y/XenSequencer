@@ -21,37 +21,21 @@ namespace
 
 using namespace xen;
 
-/**
- * Computes the corner radius for a rectangle based on its width.
- *
- * @param bounds The bounds of the rectangle.
- * @param min_radius The minimum corner radius.
- * @param max_radius The maximum corner radius.
- * @return The computed corner radius for the rectangle.
- */
-[[nodiscard]] auto compute_corner_radius(juce::Rectangle<float> const &bounds,
-                                         float const min_radius,
-                                         float const max_radius) -> float
-{
-    auto const width = bounds.getWidth();
-    return juce::jlimit(min_radius, max_radius,
-                        juce::jmap(width, 30.f, 200.f, min_radius, max_radius));
-}
+auto const corner_radius = 10.f;
 
 /**
  * Computes the Rectangle bounds for a given note interval and tuning length.
  *
- * @param component_bounds  The bounds of the component in which the note will
- * be displayed.
- * @param note_interval The note interval, to be used in modulo calculation.
+ * @param bounds  The bounds of the component in which the note will be displayed.
+ * @param note The note.
  * @param tuning_length The tuning length, used for scaling.
  * @return The Rectangle that represents the position and size of the note.
  *
  * @exception std::invalid_argument If tuning_length is zero, to prevent
  * division by zero.
  */
-[[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &component_bounds,
-                                       int note_interval, std::size_t tuning_length)
+[[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &bounds,
+                                       sequence::Note note, std::size_t tuning_length)
     -> juce::Rectangle<float>
 {
     if (tuning_length == 0)
@@ -59,19 +43,22 @@ using namespace xen;
         throw std::invalid_argument("Tuning length must not be zero.");
     }
 
-    auto const normalized = normalize_interval(note_interval, tuning_length);
+    auto const normalized = normalize_interval(note.interval, tuning_length);
 
     // Calculate note height
-    auto const note_height = component_bounds.getHeight() / (float)tuning_length;
+    auto const note_height = bounds.getHeight() / (float)tuning_length;
 
     // Calculate note y-position from the bottom
-    auto const y_position =
-        component_bounds.getBottom() - ((float)normalized * note_height);
+    auto const y_position = bounds.getBottom() - ((float)normalized * note_height);
+
+    // Calculate the note x and width
+    auto const left_x = bounds.getX() + bounds.getWidth() * note.delay;
+    auto const note_width = bounds.getWidth() * note.gate;
 
     return juce::Rectangle<float>{
-        component_bounds.getX(),
+        left_x,
         y_position - note_height,
-        component_bounds.getWidth(),
+        note_width,
         note_height,
     };
 }
@@ -117,7 +104,7 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
         if (i != 0)
         {
             g.setColour(juce::Colours::black);
-            g.drawHorizontalLine(y, bounds.getX(), bounds.getX() + bounds.getWidth());
+            g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 0.5f);
         }
     }
 }
@@ -126,10 +113,7 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
 void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
                  juce::Colour background_color, juce::Colour border_color)
 {
-    auto const min_radius = 10.f;
-    auto const max_radius = 25.f;
     auto const line_thickness = 2.f;
-    auto const corner_radius = compute_corner_radius(bounds, min_radius, max_radius);
 
     { // Reduce Paint Region
         auto path = juce::Path{};
@@ -142,6 +126,19 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 
     g.setColour(border_color);
     g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+}
+
+/**
+ * \p velocity must be [0, 1]
+ */
+[[nodiscard]] auto velocity_color(float velocity,
+                                  juce::LookAndFeel const &laf) -> juce::Colour
+{
+    return laf.findColour((int)gui::NoteColorIDs::IntervalMid).brighter(1.f - velocity);
+    // auto const brightness = std::lerp(0.5f, 1.f, velocity);
+    // return laf.findColour((int)gui::NoteColorIDs::IntervalLow)
+    //     .withBrightness(compare_within_tolerance(velocity, 0.f, 1e-6f) ? 0.2f
+    //                                                                    : brightness);
 }
 
 } // namespace
@@ -171,12 +168,8 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
         // auto const bounds = this->getLocalBounds().reduced(margin);
         // g.drawRect(this->getLocalBounds(), thickness);
 
-        auto const min_radius = 10.f;
-        auto const max_radius = 25.f;
         auto const line_thickness = 1.f;
         auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
-        auto const corner_radius =
-            compute_corner_radius(bounds, min_radius, max_radius);
 
         g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
@@ -203,26 +196,31 @@ auto Rest::paint(juce::Graphics &g) -> void
 
 // -------------------------------------------------------------------------------------
 
-auto NoteInterval::paint(juce::Graphics &g) -> void
+auto Note::paint(juce::Graphics &g) -> void
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
     draw_button(g, bounds, this->findColour((int)NoteColorIDs::Foreground),
                 this->findColour((int)RestColorIDs::Outline));
 
-    // g.setColour(juce::Colours::dimgrey);
     // TODO use NoteColorIDs?
     // TODO Update NoteColorIDs probably not using the low mid high anymore
     draw_staff(g, bounds, tuning_length_, juce::Colours::dimgrey);
 
     // Paint Note Interval ------------------------------------------------------
-    // TODO account for y offset for note placement
-    auto const interval_bounds = compute_note_bounds(bounds, interval_, tuning_length_);
-    auto const note_color = from_gradient((float)get_octave(interval_, tuning_length_),
-                                          -4.f, 4.f, this->getLookAndFeel());
+    // TODO modify for velocity instead of octave
+    // auto const note_color =
+    //     from_gradient((float)get_octave(note_.interval, tuning_length_), -4.f, 4.f,
+    //                   this->getLookAndFeel());
 
-    g.setColour(note_color);
+    auto const interval_bounds = compute_note_bounds(bounds, note_, tuning_length_);
+
+    g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
+
     g.fillRect(interval_bounds);
+    g.setColour(juce::Colours::black);
+    g.drawRect(interval_bounds, 0.5f);
+
     // Paint Interval Text ------------------------------------------------------
     // {
     // auto const interval_text =
@@ -260,21 +258,6 @@ auto NoteInterval::paint(juce::Graphics &g) -> void
     //     g.drawText(octave_text, this->getLocalBounds(),
     //     juce::Justification::centred);
     // }
-}
-
-// -------------------------------------------------------------------------------------
-
-auto SequenceIndicator::paint(juce::Graphics &g) -> void
-{
-    constexpr auto margin = 4;
-    constexpr auto thickness = 1;
-
-    float const y_offset = static_cast<float>(this->getHeight() - thickness) / 2.f;
-    float const x_start = margin;
-    float const x_end = static_cast<float>(this->getWidth() - margin);
-
-    g.setColour(this->findColour((int)MeasureColorIDs::Outline));
-    g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
 }
 
 // -------------------------------------------------------------------------------------

@@ -66,71 +66,52 @@ class Rest : public Cell
     std::size_t interval_count_;
 };
 
-class NoteInterval : public juce::Component
+class Note : public Cell
 {
   public:
-    NoteInterval(int interval, std::size_t tuning_length, float velocity)
-        : interval_{interval}, tuning_length_{tuning_length}
+    Note(sequence::Note note, std::size_t tuning_length)
+        : note_{note}, tuning_length_{tuning_length}
     {
-        // Called explicitly to generate color
-        this->set_velocity(velocity);
     }
 
   protected:
     auto paint(juce::Graphics &g) -> void override;
 
-    auto lookAndFeelChanged() -> void override
-    {
-        this->set_velocity(velocity_);
-    }
-
-  private:
-    auto set_velocity(float vel) -> void
-    {
-        velocity_ = vel;
-        auto const brightness = std::lerp(0.5f, 1.f, vel);
-        bg_color_ =
-            this->findColour((int)NoteColorIDs::Foreground)
-                .withBrightness(compare_within_tolerance(vel, 0.f, 1e-6f) ? 0.2f
-                                                                          : brightness);
-        this->repaint();
-    }
-
-  private:
-    float velocity_;
-    int interval_;
-    std::size_t tuning_length_;
-
-    juce::Colour bg_color_;
-};
-
-class NoteHolder : public juce::Component
-{
-  public:
-    explicit NoteHolder(sequence::Note const &note, std::size_t tuning_length)
-        : note_{note}, interval_box_{note.interval, tuning_length, note.velocity}
-    {
-        this->addAndMakeVisible(interval_box_);
-    }
-
-  protected:
-    auto resized() -> void override
-    {
-        auto const bounds = getLocalBounds();
-        auto const width = static_cast<float>(bounds.getWidth());
-        auto const delay = note_.delay;
-        auto const gate = note_.gate;
-        auto const left_x = delay * width;
-        auto const right_x = left_x + (width - left_x) * gate;
-
-        interval_box_.setBounds((int)left_x, bounds.getY(), (int)(right_x - left_x),
-                                bounds.getHeight());
-    }
-
   private:
     sequence::Note note_;
-    NoteInterval interval_box_;
+    std::size_t tuning_length_;
 };
+
+// class NoteHolder : public juce::Component
+// {
+//   public:
+//     explicit NoteHolder(sequence::Note const &note, std::size_t tuning_length)
+//         : note_{note}, interval_box_{note, tuning_length}
+//     {
+//         this->addAndMakeVisible(interval_box_);
+//     }
+
+//   protected:
+//     auto resized() -> void override
+//     {
+//         // auto const bounds = getLocalBounds();
+//         // auto const width = static_cast<float>(bounds.getWidth());
+//         // auto const delay = note_.delay;
+//         // auto const gate = note_.gate;
+//         // auto const left_x = delay * width;
+//         // auto const right_x = left_x + (width - left_x) * gate;
+
+//         // interval_box_.setBounds((int)left_x, bounds.getY(), (int)(right_x -
+//         left_x),
+//         //                         bounds.getHeight());
+
+//         interval_box_.setBounds(this->getLocalBounds());
+//     }
+
+//   private:
+//     sequence::Note note_;
+//     NoteInterval interval_box_;
+// };
 
 // class TraitDisplay : public juce::Component
 // {
@@ -160,36 +141,31 @@ class NoteHolder : public juce::Component
 //     juce::Label label_;
 // };
 
-class Note : public Cell
-{
-  public:
-    explicit Note(sequence::Note const &note, std::size_t tuning_length)
-        : note_{note}, note_holder_{note, tuning_length} //, note_traits_{note}
-    {
-        this->addAndMakeVisible(note_holder_);
-    }
+// class Note : public Cell
+// {
+//   public:
+//     explicit Note(sequence::Note const &note, std::size_t tuning_length)
+//         : note_{note}, note_interval_{note, tuning_length} //, note_traits_{note}
+//     {
+//         this->addAndMakeVisible(note_interval_);
+//     }
 
-  protected:
-    auto resized() -> void override
-    {
-        auto flexbox = juce::FlexBox{};
-        flexbox.flexDirection = juce::FlexBox::Direction::column;
+//   protected:
+//     auto resized() -> void override
+//     {
+//       note_interval_
+//         auto flexbox = juce::FlexBox{};
+//         flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-        flexbox.items.add(juce::FlexItem(note_holder_).withFlex(1.f));
+//         flexbox.items.add(juce::FlexItem(note_interval_).withFlex(1.f));
 
-        flexbox.performLayout(this->getLocalBounds());
-    }
+//         flexbox.performLayout(this->getLocalBounds());
+//     }
 
-  private:
-    sequence::Note note_;
-    NoteHolder note_holder_;
-};
-
-class SequenceIndicator : public juce::Component
-{
-  protected:
-    void paint(juce::Graphics &g) override;
-};
+//   private:
+//     sequence::Note note_;
+//     NoteInterval note_interval_;
+// };
 
 /**
  * Holds the Selected Sequence Indicator, the Interval Column and the actual Sequence.
