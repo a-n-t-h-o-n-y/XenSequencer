@@ -109,9 +109,8 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
-// TODO remove background_color param?
 void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
-                 juce::Colour background_color, juce::Colour border_color)
+                 juce::Colour border_color)
 {
     auto const line_thickness = 2.f;
 
@@ -120,9 +119,6 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
         path.addRoundedRectangle(bounds, corner_radius);
         g.reduceClipRegion(path);
     }
-
-    // g.setColour(background_color);
-    // g.fillRoundedRectangle(bounds, corner_radius);
 
     g.setColour(border_color);
     g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
@@ -135,10 +131,6 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
                                   juce::LookAndFeel const &laf) -> juce::Colour
 {
     return laf.findColour((int)gui::NoteColorIDs::IntervalMid).brighter(1.f - velocity);
-    // auto const brightness = std::lerp(0.5f, 1.f, velocity);
-    // return laf.findColour((int)gui::NoteColorIDs::IntervalLow)
-    //     .withBrightness(compare_within_tolerance(velocity, 0.f, 1e-6f) ? 0.2f
-    //                                                                    : brightness);
 }
 
 } // namespace
@@ -150,26 +142,8 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
 {
     if (selected_)
     {
-        // constexpr auto thickness = 2;
-        // constexpr auto margin = 4;
-
-        // float const y_offset = 0;
-        // float const x_start = margin;
-        // float const x_end = static_cast<float>(this->getWidth() - margin);
-
-        // g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
-        // g.drawLine(x_start, y_offset, x_end, y_offset, thickness);
-
-        // constexpr auto thickness = 1;
-        // constexpr auto margin = 4;
-
-        // g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
-
-        // auto const bounds = this->getLocalBounds().reduced(margin);
-        // g.drawRect(this->getLocalBounds(), thickness);
-
         auto const line_thickness = 1.f;
-        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
 
         g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
@@ -180,39 +154,27 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
 
 auto Rest::paint(juce::Graphics &g) -> void
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
 
-    draw_button(g, bounds, this->findColour((int)RestColorIDs::Background),
-                this->findColour((int)RestColorIDs::Outline));
+    draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
 
     // g.setColour(juce::Colours::dimgrey);
     draw_staff(g, bounds, interval_count_, juce::Colours::dimgrey.darker(0.6f));
-
-    // auto const font = juce::Font{"Arial", "Normal", 16.f}.boldened();
-    // g.setFont(font);
-    // g.setColour(this->findColour((int)RestColorIDs::Text));
-    // g.drawText("R", bounds, juce::Justification::centred);
 }
 
 // -------------------------------------------------------------------------------------
 
 auto Note::paint(juce::Graphics &g) -> void
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
 
-    draw_button(g, bounds, this->findColour((int)NoteColorIDs::Foreground),
-                this->findColour((int)RestColorIDs::Outline));
+    draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
 
     // TODO use NoteColorIDs?
     // TODO Update NoteColorIDs probably not using the low mid high anymore
     draw_staff(g, bounds, tuning_length_, juce::Colours::dimgrey);
 
-    // Paint Note Interval ------------------------------------------------------
-    // TODO modify for velocity instead of octave
-    // auto const note_color =
-    //     from_gradient((float)get_octave(note_.interval, tuning_length_), -4.f, 4.f,
-    //                   this->getLookAndFeel());
-
+    // Paint Note Interval
     auto const interval_bounds = compute_note_bounds(bounds, note_, tuning_length_);
 
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
@@ -221,43 +183,15 @@ auto Note::paint(juce::Graphics &g) -> void
     g.setColour(juce::Colours::black);
     g.drawRect(interval_bounds, 0.5f);
 
-    // Paint Interval Text ------------------------------------------------------
-    // {
-    // auto const interval_text =
-    //     juce::String(normalize_interval(interval_, tuning_length_));
-
-    // auto font_size = std::min(16.f, interval_bounds.getHeight());
-    // auto font = juce::Font{"Arial", "Normal", font_size}.boldened();
-    // g.setFont(font);
-    // g.setColour(this->findColour((int)NoteColorIDs::IntervalText));
-
-    // // auto const margin = std::max(
-    // //     0.f, corner_radius - ((float)font.getStringWidth(interval_text) / 2.f));
-    // auto const margin = 4.f;
-
-    // // Draw the interval text aligned to the far left and vertically centered.
-    // g.drawText(interval_text, (int)(interval_bounds.getX() + margin),
-    //            (int)interval_bounds.getY(),
-    //            (int)(interval_bounds.getWidth() - margin),
-    //            (int)interval_bounds.getHeight(), juce::Justification::centredLeft);
-    // }
-    // Paint Octave Text --------------------------------------------------------
-    // {
-    //     g.setFont(juce::Font{"Arial", "Normal", 16.f}.boldened());
-
-    //     auto const octave = get_octave(interval_, tuning_length_);
-
-    //     auto octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-    //     if ((float)g.getCurrentFont().getStringWidth(octave_text) >
-    //     bounds.getWidth())
-    //     {
-    //         octave_text = (octave >= 0 ? "+" : "") + juce::String(octave);
-    //     }
-
-    //     g.setColour(this->findColour((int)NoteColorIDs::OctaveText));
-    //     g.drawText(octave_text, this->getLocalBounds(),
-    //     juce::Justification::centred);
-    // }
+    // Paint Octave Text
+    g.setFont({
+        juce::Font::getDefaultMonospacedFontName(),
+        14.f,
+        juce::Font::plain,
+    });
+    auto const octave = get_octave(note_.interval, tuning_length_);
+    auto const octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
+    g.drawText(octave_text, interval_bounds, juce::Justification::centred, true);
 }
 
 // -------------------------------------------------------------------------------------
