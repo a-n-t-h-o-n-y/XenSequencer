@@ -9,6 +9,12 @@
 #  [d] : Delay
 #  [g] : Gate
 
+# Number Parameters
+# Use `:N=default:` in command strings to use an input integer. A default value must be
+# provided. Value is positive and is input before keypress.
+# Ex: "s": "split :N=2:" will call "split 2" when `s` is pressed, and "split 5" when
+# `5s` is pressed.
+
 "version": "0.2.0"
 
 SequenceView:
@@ -114,6 +120,8 @@ SequenceView:
   "delete": "delete selection"
 
   # Modifiers
+  "s": "split :N=2:"
+
   "[n] + r": "randomize note 0 12"
   "[v] + r": "randomize velocity 0.0 1.0"
   "[d] + r": "randomize delay 0.0 0.5"
@@ -130,7 +138,6 @@ SequencesList:
   "Shift + h" : "focus TuningsList"
   "Shift + ArrowRight" : "focus ActiveSessionsList"
   "Shift + l" : "focus ActiveSessionsList"
-
 
 ActiveSessionsList:
   "escape" : "show SequenceView;focus SequenceView"

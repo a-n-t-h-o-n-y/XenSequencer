@@ -285,7 +285,7 @@ class SequenceView : public juce::Component
     sl::Signal<void(std::string const &)> on_command;
 
   public:
-    SequenceView() : interval_column_{12, 2.f}
+    SequenceView() : interval_column_{12, 4.f}
     {
         this->setComponentID("SequenceView");
         this->setWantsKeyboardFocus(true);

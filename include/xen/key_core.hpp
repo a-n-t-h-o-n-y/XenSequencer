@@ -88,6 +88,7 @@ class KeyConfigListener : public juce::KeyListener
   private:
     KeyCore key_core_;
     XenTimeline const &tl_;
+    std::optional<int> prefix_int_;
 };
 
 [[nodiscard]] auto build_key_listeners(

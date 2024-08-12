@@ -143,7 +143,7 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
     if (selected_)
     {
         auto const line_thickness = 1.f;
-        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
+        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
         g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
@@ -154,19 +154,19 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
 
 auto Rest::paint(juce::Graphics &g) -> void
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
+    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
     draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
 
     // g.setColour(juce::Colours::dimgrey);
-    draw_staff(g, bounds, interval_count_, juce::Colours::dimgrey.darker(0.6f));
+    draw_staff(g, bounds, interval_count_, juce::Colours::dimgrey.darker(1.f));
 }
 
 // -------------------------------------------------------------------------------------
 
 auto Note::paint(juce::Graphics &g) -> void
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 2.f);
+    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
     draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
 

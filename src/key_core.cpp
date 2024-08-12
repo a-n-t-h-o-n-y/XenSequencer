@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -310,6 +311,22 @@ auto const key_map = [] {
     return component_to_keycore;
 }
 
+auto insert_prefix_int(std::optional<int> value, std::string &cmd_str) -> void
+{
+    auto const re = std::regex{R"(:N=(\d+):)"};
+    auto match = std::smatch{};
+    if (value.has_value())
+    {
+        // Replace ":N=integer:" with value.
+        cmd_str = std::regex_replace(cmd_str, re, std::to_string(*value));
+    }
+    else if (std::regex_search(cmd_str, match, re) && match.size() > 1)
+    {
+        // Look for ":N=integer:" and remove everything but integer
+        cmd_str = std::regex_replace(cmd_str, re, match.str(1));
+    }
+}
+
 } // namespace
 
 namespace xen
@@ -362,17 +379,32 @@ auto KeyCore::find_action(const juce::KeyPress &key,
     return std::nullopt;
 }
 
+// -------------------------------------------------------------------------------------
+
 KeyConfigListener::KeyConfigListener(KeyCore key_core, XenTimeline const &tl)
-    : key_core_{std::move(key_core)}, tl_{tl}
+    : key_core_{std::move(key_core)}, tl_{tl}, prefix_int_{std::nullopt}
 {
 }
 
 auto KeyConfigListener::keyPressed(juce::KeyPress const &key, juce::Component *) -> bool
 {
-    auto const action = key_core_.find_action(key, tl_.get_state().aux.input_mode);
+    if (std::isdigit(key.getTextCharacter()) != 0)
+    {
+        if (!prefix_int_.has_value())
+        {
+            prefix_int_ = 0;
+        }
+        if (*prefix_int_ < 1'000'000)
+        {
+            prefix_int_ = *prefix_int_ * 10 + (key.getTextCharacter() - '0');
+        }
+    }
+    auto action = key_core_.find_action(key, tl_.get_state().aux.input_mode);
     if (action)
     {
+        insert_prefix_int(prefix_int_, *action);
         on_command.emit(*action);
+        prefix_int_ = std::nullopt;
         return true;
     }
     return false;
@@ -384,6 +416,8 @@ auto KeyConfigListener::keyStateChanged(bool isKeyDown, juce::Component *) -> bo
     // true. This allows spacebar press to go to DAW.
     return isKeyDown && !juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 }
+
+// -------------------------------------------------------------------------------------
 
 auto build_key_listeners(juce::File const &default_keys, juce::File const &user_keys,
                          XenTimeline const &tl)

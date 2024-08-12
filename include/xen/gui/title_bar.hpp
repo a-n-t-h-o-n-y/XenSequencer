@@ -94,7 +94,7 @@ class TitleBar : public juce::Component
         auto const font_data = embed_fonts::OswaldRegular_ttf;
         auto const font_data_size = embed_fonts::OswaldRegular_ttfSize;
         return juce::Typeface::createSystemTypefaceFor(
-            font_data, static_cast<size_t>(font_data_size));
+            font_data, static_cast<std::size_t>(font_data_size));
     }
 
   private:
