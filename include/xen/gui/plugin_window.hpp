@@ -13,6 +13,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/command_history.hpp>
+#include <xen/double_buffer.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/center_component.hpp>
@@ -21,6 +22,7 @@
 #include <xen/gui/directory_view.hpp>
 #include <xen/gui/title_bar.hpp>
 #include <xen/key_core.hpp>
+#include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
 
 namespace xen
@@ -47,7 +49,8 @@ class PluginWindow : public juce::Component
 
   public:
     PluginWindow(juce::File const &sequence_library_dir,
-                 juce::File const &tuning_library_dir, CommandHistory &cmd_history);
+                 juce::File const &tuning_library_dir, CommandHistory &cmd_history,
+                 DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
   public:
     /**

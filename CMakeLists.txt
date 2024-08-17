@@ -110,6 +110,7 @@ target_sources(XenSequencerLib
         src/gui/plugin_window.cpp
 
         include/xen/actions.hpp
+        include/xen/double_buffer.hpp
         include/xen/command.hpp
         include/xen/command_history.hpp
         include/xen/constants.hpp

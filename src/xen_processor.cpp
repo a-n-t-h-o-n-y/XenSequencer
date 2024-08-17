@@ -112,8 +112,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
         auto const sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
 
-        update_needed = !compare_within_tolerance(
-            audio_thread_state_.daw.bpm, bpm, 0.0001f) ||
+        update_needed =
+            !compare_within_tolerance(audio_thread_state_.daw.bpm, bpm, 0.0001f) ||
             audio_thread_state_.daw.sample_rate != sample_rate;
 
         audio_thread_state_.daw = DAWState{
@@ -150,6 +150,12 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     midi_buffer.swapWith(next_slice);
 
     audio_thread_state_.accumulated_sample_count += buffer.getNumSamples();
+
+    audio_thread_state_for_gui.write({
+        .daw = audio_thread_state_.daw,
+        .accumulated_sample_count = audio_thread_state_.accumulated_sample_count,
+        .note_start_times = audio_thread_state_.midi_engine.get_note_start_samples(),
+    });
 }
 
 auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,

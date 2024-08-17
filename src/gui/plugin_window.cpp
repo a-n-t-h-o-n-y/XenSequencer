@@ -17,6 +17,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/command_history.hpp>
+#include <xen/double_buffer.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/color_ids.hpp>
@@ -30,10 +31,11 @@
 namespace xen::gui
 {
 
-PluginWindow::PluginWindow(juce::File const &sequence_library_dir,
-                           juce::File const &tuning_library_dir,
-                           CommandHistory &cmd_history)
-    : center_component{sequence_library_dir, tuning_library_dir},
+PluginWindow::PluginWindow(
+    juce::File const &sequence_library_dir, juce::File const &tuning_library_dir,
+    CommandHistory &cmd_history,
+    DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
+    : center_component{sequence_library_dir, tuning_library_dir, audio_thread_state},
       bottom_bar{cmd_history}
 {
     this->addAndMakeVisible(title_bar);

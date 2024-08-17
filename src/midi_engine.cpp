@@ -257,6 +257,16 @@ auto MidiEngine::update(SequencerState sequencer, DAWState daw) -> void
     daw_copy_ = std::move(daw);
 }
 
+auto MidiEngine::get_note_start_samples() const -> std::array<std::uint64_t, 16>
+{
+    auto result = std::array<std::uint64_t, 16>{};
+    std::transform(std::cbegin(live_notes_), std::cend(live_notes_), std::begin(result),
+                   [](auto const &ln) {
+                       return ln.channel == -1 ? (std::uint64_t)-1 : ln.start_time;
+                   });
+    return result;
+}
+
 auto MidiEngine::allocate_channel(std::vector<Slice> const &slices,
                                   int midi_number) -> int
 {

@@ -3,17 +3,20 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <sequence/measure.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
 #include <signals_light/signal.hpp>
 
+#include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
@@ -279,20 +282,134 @@ class IntervalColumn : public juce::Component
 
 // -------------------------------------------------------------------------------------
 
+/**
+ * Draws playhead and owns the gui::Cell object.
+ */
+class MeasureView : public juce::Component, juce::Timer
+{
+  public:
+    MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
+        : cell_ptr_{make_cell(sequence::Rest{}, 12)},
+          audio_thread_state_{audio_thread_state}
+    {
+        this->set_playhead(0.75f);
+        this->startTimer(33);
+    }
+
+  public:
+    [[nodiscard]] auto get_cell() -> Cell &
+    {
+        return *cell_ptr_;
+    }
+
+    [[nodiscard]] auto get_cell() const -> Cell const &
+    {
+        return *cell_ptr_;
+    }
+
+    auto update_ui(sequence::Measure const &measure, std::size_t tuning_size,
+                   std::size_t selected_measure) -> void
+    {
+        // TODO can you do a simple equality check to conditionally rebuild the cell?
+        cell_ptr_.reset();
+        cell_ptr_ = make_cell(measure.cell, tuning_size);
+        this->addAndMakeVisible(*cell_ptr_);
+        selected_measure_ = selected_measure;
+        measure_ = measure;
+        this->resized();
+    }
+
+    /**
+     * \p percent must be in range [0, 1).
+     */
+    auto set_playhead(std::optional<float> percent) -> void
+    {
+        if (percent.has_value())
+        {
+            assert(*percent >= 0.f && *percent < 1.f);
+        }
+        playhead_ = percent;
+        this->repaint();
+    }
+
+  public:
+    auto resized() -> void override
+    {
+        cell_ptr_->setBounds(this->getLocalBounds());
+    }
+
+    auto paintOverChildren(juce::Graphics &g) -> void override
+    {
+        if (playhead_.has_value())
+        {
+            // TODO create a new theme entry for playhead.
+            g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+
+            auto const x_pos = playhead_.value() * static_cast<float>(this->getWidth());
+            g.drawLine(x_pos, 4.f, x_pos, static_cast<float>(this->getHeight() - 4));
+        }
+    }
+
+    auto timerCallback() -> void override
+    {
+        auto const audio_thread_state = audio_thread_state_.read();
+        if (audio_thread_state.note_start_times[selected_measure_] != (std::uint64_t)-1)
+        {
+            auto const samples_in_measure =
+                sequence::samples_count(measure_, audio_thread_state.daw.sample_rate,
+                                        audio_thread_state.daw.bpm);
+            auto const current_sample = audio_thread_state.accumulated_sample_count;
+            auto const start_sample =
+                audio_thread_state.note_start_times[selected_measure_];
+            auto const percent =
+                (float)((current_sample - start_sample) % samples_in_measure) /
+                (float)samples_in_measure;
+            this->set_playhead(percent);
+        }
+        else
+        {
+            this->set_playhead(std::nullopt);
+        }
+    }
+
+  private:
+    [[nodiscard]] static auto make_cell(sequence::Cell const &cell,
+                                        std::size_t tuning_octave_size)
+        -> std::unique_ptr<Cell>
+    {
+        auto const builder = BuildAndAllocateCell{tuning_octave_size};
+        return std::visit(builder, cell);
+    }
+
+  private:
+    std::unique_ptr<Cell> cell_ptr_; // Never Null
+    std::optional<float> playhead_ = std::nullopt;
+
+    // Owned by XenProcessor
+    DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
+
+    sequence::Measure measure_;
+    std::size_t selected_measure_{0};
+};
+
+// -------------------------------------------------------------------------------------
+
 class SequenceView : public juce::Component
 {
   public:
     sl::Signal<void(std::string const &)> on_command;
 
   public:
-    SequenceView() : interval_column_{12, 4.f}
+    SequenceView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
+        : interval_column{12, 4.f}, measure_view{audio_thread_state}
     {
         this->setComponentID("SequenceView");
         this->setWantsKeyboardFocus(true);
 
         this->addAndMakeVisible(measure_info);
         this->addAndMakeVisible(sequence_bank_accordion);
-        this->addAndMakeVisible(interval_column_);
+        this->addAndMakeVisible(interval_column);
+        this->addAndMakeVisible(measure_view);
 
         measure_info.on_command.connect(
             [this](std::string const &command) { this->on_command(command); });
@@ -303,12 +420,10 @@ class SequenceView : public juce::Component
     {
         measure_info.update_ui(state, aux);
 
-        // TODO can you do a simple equality check to conditionally rebuild the cell?
-        cell_ptr_ = make_cell(state.sequence_bank[aux.selected.measure].cell,
-                              state.tuning.intervals.size());
-        this->addAndMakeVisible(*cell_ptr_);
+        measure_view.update_ui(state.sequence_bank[aux.selected.measure],
+                               state.tuning.intervals.size(), aux.selected.measure);
 
-        interval_column_.update(state.tuning.intervals.size());
+        interval_column.update(state.tuning.intervals.size());
 
         sequence_bank.update_ui(aux.selected.measure);
 
@@ -317,10 +432,7 @@ class SequenceView : public juce::Component
 
     auto select(std::vector<std::size_t> const &indices) -> void
     {
-        if (cell_ptr_ != nullptr)
-        {
-            cell_ptr_->select_child(indices);
-        }
+        measure_view.get_cell().select_child(indices);
     }
 
   public:
@@ -334,41 +446,21 @@ class SequenceView : public juce::Component
 
         auto horizontal_flex = juce::FlexBox{};
         horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
-        if (cell_ptr_ != nullptr)
-        {
-            horizontal_flex.items.add(juce::FlexItem{interval_column_}.withWidth(23.f));
-            horizontal_flex.items.add(juce::FlexItem{*cell_ptr_}.withFlex(1));
-        }
+        horizontal_flex.items.add(juce::FlexItem{interval_column}.withWidth(23.f));
+        horizontal_flex.items.add(juce::FlexItem{measure_view}.withFlex(1));
         // TODO figure out how to make square
         horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());
 
-        if (cell_ptr_ != nullptr)
-        {
-            flex_box.items.add(juce::FlexItem{measure_info}.withHeight(23.f));
-            flex_box.items.add(juce::FlexItem{horizontal_flex}.withFlex(1));
-        }
+        flex_box.items.add(juce::FlexItem{measure_info}.withHeight(23.f));
+        flex_box.items.add(juce::FlexItem{horizontal_flex}.withFlex(1));
 
         flex_box.performLayout(this->getLocalBounds());
     }
 
-  private:
-    [[nodiscard]] static auto make_cell(sequence::Cell const &cell,
-                                        std::size_t tuning_octave_size)
-        -> std::unique_ptr<Cell>
-    {
-        auto const builder = BuildAndAllocateCell{tuning_octave_size};
-
-        return std::visit(builder, cell);
-    }
-
   public:
     MeasureInfo measure_info;
-
-  private:
-    IntervalColumn interval_column_;
-    std::unique_ptr<Cell> cell_ptr_;
-
-  public:
+    IntervalColumn interval_column;
+    MeasureView measure_view;
     HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
     SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;
 };
@@ -381,8 +473,10 @@ class CenterComponent : public juce::Component
 
   public:
     CenterComponent(juce::File const &sequence_library_dir,
-                    juce::File const &tuning_library_dir)
-        : library_view{sequence_library_dir, tuning_library_dir}
+                    juce::File const &tuning_library_dir,
+                    DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
+        : sequence_view{audio_thread_state},
+          library_view{sequence_library_dir, tuning_library_dir}
     {
         this->addAndMakeVisible(sequence_view);
         this->addChildComponent(library_view);

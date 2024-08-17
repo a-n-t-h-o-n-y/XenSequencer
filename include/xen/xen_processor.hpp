@@ -18,6 +18,7 @@
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
+#include <xen/double_buffer.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/lock_free_queue.hpp>
 #include <xen/midi_engine.hpp>
@@ -74,6 +75,9 @@ class XenProcessor : public PluginProcessor
         std::uint64_t accumulated_sample_count{0};
         MidiEngine midi_engine;
     } audio_thread_state_;
+
+  public:
+    DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;
 };
 
 } // namespace xen

@@ -46,9 +46,10 @@ namespace xen::gui
 {
 
 XenEditor::XenEditor(XenProcessor &p, int width, int height)
-    : AudioProcessorEditor{p}, plugin_window{p.plugin_state.current_phrase_directory,
-                                             p.plugin_state.current_tuning_directory,
-                                             p.plugin_state.command_history},
+    : AudioProcessorEditor{p},
+      plugin_window{p.plugin_state.current_phrase_directory,
+                    p.plugin_state.current_tuning_directory,
+                    p.plugin_state.command_history, p.audio_thread_state_for_gui},
       processor_{p}
 {
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);

@@ -79,6 +79,14 @@ class MidiEngine
      */
     auto update(SequencerState sequencer, DAWState daw) -> void;
 
+    /**
+     * For use by GUI thread, stored in processor by processBlock
+     *
+     * @details These are the accumulated sample start time offsets for each user input
+     * note. A value of (std::uint64_t)-1 means the note is off.
+     */
+    [[nodiscard]] auto get_note_start_samples() const -> std::array<std::uint64_t, 16>;
+
   private:
     /**
      * Allocate an unused midi channel in the range [2, 16].

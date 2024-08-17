@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -130,6 +132,15 @@ struct PluginState
     inline static SharedState shared{};
     std::unique_ptr<juce::LookAndFeel> laf{nullptr};
 };
+
+struct AudioThreadStateForGUI
+{
+    DAWState daw;
+    std::uint64_t accumulated_sample_count;
+    std::array<std::uint64_t, 16> note_start_times;
+};
+
+// -------------------------------------------------------------------------------------
 
 [[nodiscard]] inline auto init_state() -> SequencerState
 {
