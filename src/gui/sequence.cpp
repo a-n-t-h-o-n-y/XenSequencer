@@ -53,7 +53,8 @@ auto const corner_radius = 10.f;
 
     // Calculate the note x and width
     auto const left_x = bounds.getX() + bounds.getWidth() * note.delay;
-    auto const note_width = bounds.getWidth() * note.gate;
+    auto const note_width =
+        (bounds.getWidth() * note.gate) - (bounds.getWidth() * note.delay);
 
     return juce::Rectangle<float>{
         left_x,
@@ -190,8 +191,10 @@ auto Note::paint(juce::Graphics &g) -> void
         juce::Font::plain,
     });
     auto const octave = get_octave(note_.interval, tuning_length_);
-    auto const octave_text = (octave >= 0 ? "+" : "") + juce::String(octave) + " oct";
-    g.drawText(octave_text, interval_bounds, juce::Justification::centred, true);
+    auto const octave_display =
+        juce::String::repeatedString((octave > 0 ? "●" : "🞆"), std::abs(octave));
+
+    g.drawText(octave_display, interval_bounds, juce::Justification::centred, false);
 }
 
 // -------------------------------------------------------------------------------------
