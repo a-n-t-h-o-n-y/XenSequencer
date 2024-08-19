@@ -183,10 +183,10 @@ target_link_libraries(XenTests
 juce_add_plugin(XenSequencer
     PRODUCT_NAME "XenSequencer"             # The name of the final executable
     COMPANY_NAME "A"                        # Specify the name of the plugin's author
-    IS_SYNTH TRUE                           # Is this a synth or an effect?
+    IS_SYNTH FALSE                          # Is this a synth or an effect?
     NEEDS_MIDI_INPUT TRUE                   # Does the plugin need midi input?
     NEEDS_MIDI_OUTPUT TRUE                  # Does the plugin need midi output?
-    IS_MIDI_EFFECT TRUE                     # Is this plugin a MIDI effect?
+    IS_MIDI_EFFECT FALSE                     # Is this plugin a MIDI effect?
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE        # Does the editor need keyboard focus?
     PLUGIN_MANUFACTURER_CODE Juce           # A four-character manufacturer id with at least one upper-case character
     PLUGIN_CODE Dem0                        # A unique four-character plugin id with exactly one upper-case character
