@@ -21,6 +21,7 @@
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
+#include <xen/gui/fonts.hpp>
 #include <xen/string_manip.hpp>
 
 namespace xen::gui

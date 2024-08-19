@@ -13,6 +13,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
@@ -185,16 +186,19 @@ auto Note::paint(juce::Graphics &g) -> void
     g.drawRect(interval_bounds, 0.5f);
 
     // Paint Octave Text
-    g.setFont({
-        juce::Font::getDefaultMonospacedFontName(),
-        14.f,
-        juce::Font::plain,
-    });
     auto const octave = get_octave(note_.interval, tuning_length_);
     auto const octave_display =
-        juce::String::repeatedString((octave > 0 ? "●" : "🞆"), std::abs(octave));
+        juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
+            .dropLastCharacters(1);
 
-    g.drawText(octave_display, interval_bounds, juce::Justification::centred, false);
+    // TODO color ids
+    g.setColour(this->findColour((int)NoteColorIDs::Foreground));
+    g.setFont(
+        fonts::symbols().withHeight(std::max(interval_bounds.getHeight() - 2.f, 1.f)));
+    g.drawText(
+        octave_display,
+        interval_bounds.translated(0.f, 1.f + interval_bounds.getHeight() / 25.f),
+        juce::Justification::centred, false);
 }
 
 // -------------------------------------------------------------------------------------

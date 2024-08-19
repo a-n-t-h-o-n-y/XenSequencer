@@ -63,7 +63,22 @@ juce_add_binary_data(EmbedFonts
     HEADER_NAME "embed_fonts.hpp"
     NAMESPACE embed_fonts
     SOURCES
-        data/font/Oswald-Regular.ttf
+        data/font/NotoSansSymbols2-Regular.ttf
+        data/font/SourceCodePro-Black.ttf
+        data/font/SourceCodePro-Bold.ttf
+        data/font/SourceCodePro-ExtraBold.ttf
+        data/font/SourceCodePro-ExtraLight.ttf
+        data/font/SourceCodePro-Light.ttf
+        data/font/SourceCodePro-Medium.ttf
+        data/font/SourceCodePro-Regular.ttf
+        data/font/SourceCodePro-SemiBold.ttf
+        data/font/RobotoMono-Bold.ttf
+        data/font/RobotoMono-ExtraLight.ttf
+        data/font/RobotoMono-Light.ttf
+        data/font/RobotoMono-Medium.ttf
+        data/font/RobotoMono-Regular.ttf
+        data/font/RobotoMono-SemiBold.ttf
+        data/font/RobotoMono-Thin.ttf
 )
 
 
@@ -107,6 +122,7 @@ target_sources(XenSequencerLib
         src/gui/directory_view.cpp
         src/gui/sequence.cpp
         src/gui/themes.cpp
+        src/gui/title_bar.cpp
         src/gui/plugin_window.cpp
 
         include/xen/actions.hpp
@@ -144,6 +160,7 @@ target_sources(XenSequencerLib
         include/xen/gui/bottom_bar.hpp
         include/xen/gui/color_ids.hpp
         include/xen/gui/command_bar.hpp
+        include/xen/gui/fonts.hpp
         include/xen/gui/themes.hpp
         include/xen/gui/directory_view.hpp
         include/xen/gui/file_button.hpp
@@ -216,6 +233,7 @@ target_compile_definitions(XenSequencerLib
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
 target_sources(XenSequencer
