@@ -18,10 +18,10 @@
 
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/fonts.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
-#include <xen/gui/fonts.hpp>
 #include <xen/string_manip.hpp>
 
 namespace xen::gui
@@ -160,8 +160,7 @@ class MeasureInfo : public juce::Component
             this->on_command("set tuning name " + double_quote(text.toStdString()));
         });
 
-        auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,
-                                     juce::Font::plain};
+        auto const font = fonts::monospaced().regular.withHeight(16.f);
         time_signature_.set_font(font);
         time_signature_.set_key("Time Signature");
 
@@ -258,11 +257,7 @@ class IntervalColumn : public juce::Component
 
         // TODO add color ID
         g.setColour(juce::Colours::grey);
-        g.setFont(juce::Font{
-            juce::Font::getDefaultMonospacedFontName(),
-            14.f,
-            juce::Font::plain,
-        });
+        g.setFont(fonts::monospaced().regular.withHeight(16.f));
 
         auto const item_height = bounds.getHeight() / static_cast<float>(size_);
 

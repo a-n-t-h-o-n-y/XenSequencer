@@ -10,6 +10,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 
 namespace
 {
@@ -19,6 +20,16 @@ class CustomLookAndFeel : public juce::LookAndFeel_V4
   public:
     auto drawCornerResizer(juce::Graphics &, int, int, bool, bool) -> void override
     {
+        // Left blank on purpose.
+    }
+
+    auto drawButtonText(juce::Graphics &g, juce::TextButton &button, bool,
+                        bool) -> void override
+    {
+        g.setFont(xen::gui::fonts::monospaced().bold.withHeight(20.f));
+        g.setColour(button.findColour(juce::TextButton::textColourOffId));
+        g.drawText(button.getButtonText(), button.getLocalBounds(),
+                   juce::Justification::centred, true);
     }
 };
 

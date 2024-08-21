@@ -1,6 +1,7 @@
 #include <xen/gui/directory_view.hpp>
 
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 
 namespace xen::gui
 {
@@ -107,6 +108,7 @@ auto DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width
                        : file.getFileNameWithoutExtension();
         }();
 
+        g.setFont(fonts::monospaced().regular.withHeight(16.f));
         g.drawText(filename, 2, 0, width - 4, height, juce::Justification::centredLeft,
                    true);
     }

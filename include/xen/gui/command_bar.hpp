@@ -14,6 +14,7 @@
 
 #include <xen/command_history.hpp>
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 #include <xen/message_level.hpp>
 #include <xen/signature.hpp>
 #include <xen/state.hpp>
@@ -127,8 +128,7 @@ class CommandBar : public juce::Component
 
         command_input_.focus_lost = [this] { this->on_command("show StatusBar"); };
 
-        auto const font = juce::Font{juce::Font::getDefaultMonospacedFontName(), 14.f,
-                                     juce::Font::plain};
+        auto const font = fonts::monospaced().regular.withHeight(16.f);
         command_input_.setFont(font);
         ghost_text_.setFont(font);
 

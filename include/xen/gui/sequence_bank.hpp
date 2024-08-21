@@ -10,6 +10,7 @@
 #include <signals_light/signal.hpp>
 
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 
 namespace xen::gui
 {
@@ -17,6 +18,7 @@ namespace xen::gui
 class SequenceSquare : public juce::TextButton
 {
   public:
+    // TODO add color ids for this class and assign them theme values.
     SequenceSquare()
     {
     }
@@ -56,8 +58,6 @@ class SequenceBankGrid : public juce::Component
     sl::Signal<void(std::size_t)> on_index_selected;
 
   public:
-    // TODO set font to monospace
-    // TODO add color ids for this class and assign them theme values.
     SequenceBankGrid()
     {
         for (auto i = 0; i < buttons_.size(); ++i)

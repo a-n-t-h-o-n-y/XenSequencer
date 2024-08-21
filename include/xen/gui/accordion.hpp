@@ -5,6 +5,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/color_ids.hpp>
+#include <xen/gui/fonts.hpp>
 
 namespace xen::gui
 {
@@ -44,9 +45,10 @@ class VLabel : public juce::Component
 
         for (auto const ch : text_)
         {
-            g.drawText(juce::String::charToString(ch), bounds.getX(), y, bounds.getWidth(),
-                       font_height, juce::Justification::centred);
-            y += font_height + letter_spacing_;
+            g.drawText(juce::String::charToString(ch), bounds.getX(), y,
+                       bounds.getWidth(), (int)font_height,
+                       juce::Justification::centred);
+            y += (int)(font_height + letter_spacing_);
             if (y > bounds.getHeight())
             {
                 break;
@@ -57,11 +59,7 @@ class VLabel : public juce::Component
   private:
     juce::String text_;
     float letter_spacing_ = 0.f;
-    juce::Font font_{
-        juce::Font::getDefaultMonospacedFontName(),
-        14.f,
-        juce::Font::plain,
-    };
+    juce::Font font_{fonts::monospaced().regular.withHeight(15.f)};
 };
 
 /**

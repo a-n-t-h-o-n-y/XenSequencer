@@ -4,13 +4,6 @@
 
 #include <embed_fonts.hpp>
 
-// TODO search and replace
-// version.setFont({
-//     juce::Font::getDefaultMonospacedFontName(),
-//     16.f,
-//     juce::Font::plain,
-// });
-
 namespace xen::gui::fonts
 {
 

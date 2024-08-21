@@ -10,6 +10,7 @@
 
 #include <xen/command_history.hpp>
 #include <xen/gui/command_bar.hpp>
+#include <xen/gui/fonts.hpp>
 #include <xen/gui/status_bar.hpp>
 
 namespace xen::gui
@@ -71,8 +72,7 @@ class LetterSquare : public juce::Component
         g.drawRect(this->getLocalBounds(), 1);
 
         g.setColour(this->findColour(LetterSquare::Letter));
-        g.setFont(juce::Font{juce::Font::getDefaultMonospacedFontName(), 16.f,
-                             juce::Font::bold});
+        g.setFont(fonts::monospaced().bold.withHeight(18.f));
         g.drawText(juce::String(std::string(1, letter_)), this->getLocalBounds(),
                    juce::Justification::centred);
     }

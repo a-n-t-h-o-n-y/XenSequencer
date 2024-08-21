@@ -6,6 +6,7 @@
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/directory_view.hpp>
+#include <xen/gui/fonts.hpp>
 
 namespace xen::gui
 {
@@ -45,41 +46,25 @@ class LibraryView : public juce::Component
         this->setComponentID("LibraryView");
 
         label.setText("Library", juce::dontSendNotification);
-        label.setFont({
-            juce::Font::getDefaultMonospacedFontName(),
-            16.f,
-            juce::Font::bold,
-        });
+        label.setFont(fonts::monospaced().bold.withHeight(18.f));
         label.setJustificationType(juce::Justification::centred);
         this->addAndMakeVisible(label);
         this->addAndMakeVisible(divider_0);
 
         sequences_label.setText("Sequences", juce::dontSendNotification);
-        sequences_label.setFont({
-            juce::Font::getDefaultMonospacedFontName(),
-            14.f,
-            juce::Font::plain,
-        });
+        sequences_label.setFont(fonts::monospaced().regular.withHeight(16.f));
         this->addAndMakeVisible(sequences_label);
         this->addAndMakeVisible(sequences_list);
         this->addAndMakeVisible(divider_1);
 
         active_sessions_label.setText("Active Sessions", juce::dontSendNotification);
-        active_sessions_label.setFont({
-            juce::Font::getDefaultMonospacedFontName(),
-            14.f,
-            juce::Font::plain,
-        });
+        active_sessions_label.setFont(fonts::monospaced().regular.withHeight(16.f));
         this->addAndMakeVisible(active_sessions_label);
         this->addAndMakeVisible(active_sessions_list);
         this->addAndMakeVisible(divider_2);
 
         tunings_label.setText("Tunings", juce::dontSendNotification);
-        tunings_label.setFont({
-            juce::Font::getDefaultMonospacedFontName(),
-            14.f,
-            juce::Font::plain,
-        });
+        tunings_label.setFont(fonts::monospaced().regular.withHeight(16.f));
         this->addAndMakeVisible(tunings_label);
         this->addAndMakeVisible(tunings_list);
 
