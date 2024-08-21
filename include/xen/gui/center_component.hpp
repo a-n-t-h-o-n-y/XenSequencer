@@ -116,7 +116,7 @@ class FieldEdit : public juce::Component
         auto flex_box = juce::FlexBox{};
         flex_box.flexDirection = juce::FlexBox::Direction::row;
 
-        auto const width = (float)(key_.getFont().getStringWidth(key_.getText()) + 5);
+        auto const width = (key_.getFont().getStringWidth(key_.getText()) + 6.f);
         flex_box.items.add(juce::FlexItem{key_}.withWidth(width));
         flex_box.items.add(juce::FlexItem{value_}.withFlex(1));
 

@@ -49,6 +49,7 @@ class StatusBar : public juce::Component
 
         label_.setColour(juce::Label::textColourId,
                          this->findColour((int)this->get_color_id(current_level_)));
+        // TODO set font
         label_.setText(text, juce::dontSendNotification);
     }
 
