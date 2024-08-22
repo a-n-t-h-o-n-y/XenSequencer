@@ -19,7 +19,7 @@ class DirectoryView : public juce::Component,
                       private juce::Timer
 {
   private:
-    inline static constexpr auto POLLING_MS = 2'000;
+    inline static constexpr auto POLLING_MS = 4'000;
 
   public:
     sl::Signal<void(juce::File const &)> on_file_selected;

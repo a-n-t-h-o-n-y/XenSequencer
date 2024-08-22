@@ -320,12 +320,11 @@ class MeasureView : public juce::Component, juce::Timer
      */
     auto set_playhead(std::optional<float> percent) -> void
     {
-        if (percent.has_value())
+        if (playhead_ != percent)
         {
-            assert(*percent >= 0.f && *percent < 1.f);
+            playhead_ = percent;
+            this->repaint();
         }
-        playhead_ = percent;
-        this->repaint();
     }
 
   public:
