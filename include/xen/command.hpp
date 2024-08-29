@@ -1,15 +1,11 @@
 #pragma once
 
-#include <concepts>
-#include <cstddef>
-#include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include <sequence/pattern.hpp>
 #include <sequence/utility.hpp>
@@ -44,7 +40,7 @@ namespace xen
 }
 
 template <typename T>
-[[nodiscard]] inline auto normalize_id(T const &x) -> T
+[[nodiscard]] auto normalize_id(T const &x) -> T
 {
     return x;
 }
@@ -278,7 +274,6 @@ template <typename ID_t, typename Fn, typename... Args>
  * @details This will pop off the first word of the command_str and use it to find the
  * matching command in the CommandGroup, then it will forward the rest of the
  * command_str to the command.
- *
  * @param command_group The command group to execute.
  * @param ps The PluginState to execute the command with.
  * @param command_str The command string to parse.

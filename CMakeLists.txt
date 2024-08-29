@@ -103,11 +103,14 @@ target_sources(XenSequencerLib
     PUBLIC
         src/main.cpp
         src/actions.cpp
+        src/command_history.cpp
         src/input_mode.cpp
         src/key_core.cpp
+        src/message_level.cpp
         src/midi.cpp
         src/midi_engine.cpp
         src/selection.cpp
+        src/state.cpp
         src/user_directory.cpp
         src/utility.cpp
         src/string_manip.cpp
@@ -118,9 +121,16 @@ target_sources(XenSequencerLib
         src/instance_directory.cpp
         src/inter_process_relay.cpp
 
+        src/gui/accordion.cpp
         src/gui/active_sessions.cpp
+        src/gui/bottom_bar.cpp
+        src/gui/center_component.cpp
+        src/gui/command_bar.cpp
         src/gui/directory_view.cpp
+        src/gui/library_view.cpp
+        src/gui/sequence_bank.cpp
         src/gui/sequence.cpp
+        src/gui/status_bar.cpp
         src/gui/themes.cpp
         src/gui/title_bar.cpp
         src/gui/plugin_window.cpp
@@ -163,18 +173,13 @@ target_sources(XenSequencerLib
         include/xen/gui/fonts.hpp
         include/xen/gui/themes.hpp
         include/xen/gui/directory_view.hpp
-        include/xen/gui/file_button.hpp
-        include/xen/gui/heading.hpp
         include/xen/gui/homogenous_row.hpp
         include/xen/gui/library_view.hpp
-        include/xen/gui/mantissa_box.hpp
-        include/xen/gui/number_box.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/title_bar.hpp
-        include/xen/gui/tuning.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp
 )
@@ -233,7 +238,6 @@ target_compile_definitions(XenSequencerLib
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MODAL_LOOPS_PERMITTED=1
-        JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
 target_sources(XenSequencer

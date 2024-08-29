@@ -3,24 +3,21 @@
 namespace xen
 {
 
-PluginProcessor::PluginProcessor()
-    : AudioProcessor(BusesProperties()
-#if !JucePlugin_IsMidiEffect
-#if !JucePlugin_IsSynth
-                         .withInput("Input", juce::AudioChannelSet::stereo(), true)
-#endif
-                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)
-#endif
-      )
+PluginProcessor::PluginProcessor() : AudioProcessor{BusesProperties()}
 {
 }
 
-const juce::String PluginProcessor::getName() const
+auto PluginProcessor::getName() const -> juce::String const
 {
     return JucePlugin_Name;
 }
 
-bool PluginProcessor::acceptsMidi() const
+auto PluginProcessor::hasEditor() const -> bool
+{
+    return true;
+}
+
+auto PluginProcessor::acceptsMidi() const -> bool
 {
 #if JucePlugin_WantsMidiInput
     return true;
@@ -29,7 +26,7 @@ bool PluginProcessor::acceptsMidi() const
 #endif
 }
 
-bool PluginProcessor::producesMidi() const
+auto PluginProcessor::producesMidi() const -> bool
 {
 #if JucePlugin_ProducesMidiOutput
     return true;
@@ -38,7 +35,7 @@ bool PluginProcessor::producesMidi() const
 #endif
 }
 
-bool PluginProcessor::isMidiEffect() const
+auto PluginProcessor::isMidiEffect() const -> bool
 {
 #if JucePlugin_IsMidiEffect
     return true;
@@ -47,19 +44,19 @@ bool PluginProcessor::isMidiEffect() const
 #endif
 }
 
-double PluginProcessor::getTailLengthSeconds() const
+auto PluginProcessor::getTailLengthSeconds() const -> double
 {
-    return 0.0;
+    return 0.;
 }
 
-int PluginProcessor::getNumPrograms()
+auto PluginProcessor::getNumPrograms() -> int
 {
     return 1; // NB: some hosts don't cope very well if you tell them there are 0
               // programs, so this should be at least 1, even if you're not really
               // implementing programs.
 }
 
-int PluginProcessor::getCurrentProgram()
+auto PluginProcessor::getCurrentProgram() -> int
 {
     return 0;
 }
@@ -69,7 +66,7 @@ void PluginProcessor::setCurrentProgram(int index)
     juce::ignoreUnused(index);
 }
 
-const juce::String PluginProcessor::getProgramName(int index)
+auto PluginProcessor::getProgramName(int index) -> juce::String const
 {
     juce::ignoreUnused(index);
     return {};
@@ -93,7 +90,7 @@ void PluginProcessor::releaseResources()
     // spare memory, etc.
 }
 
-bool PluginProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
+auto PluginProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const -> bool
 {
 #if JucePlugin_IsMidiEffect
     juce::ignoreUnused(layouts);
@@ -112,24 +109,8 @@ bool PluginProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
 #endif
-
     return true;
 #endif
-}
-
-void PluginProcessor::getStateInformation(juce::MemoryBlock &destData)
-{
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
-    juce::ignoreUnused(destData);
-}
-
-void PluginProcessor::setStateInformation(const void *data, int sizeInBytes)
-{
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
-    juce::ignoreUnused(data, sizeInBytes);
 }
 
 } // namespace xen

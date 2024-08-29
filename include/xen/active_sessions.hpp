@@ -1,34 +1,24 @@
 #pragma once
 
-#include <algorithm>
-#include <chrono>
-#include <cstdint>
-#include <iostream>
-#include <mutex>
-#include <optional>
+#include <cstddef>
 #include <string>
-#include <utility>
 #include <variant>
-#include <vector>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/interprocess/ipc/message_queue.hpp>
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
+
 #include <signals_light/signal.hpp>
 
 #include <sequence/measure.hpp>
-#include <sequence/utility.hpp>
 
 #include <xen/instance_directory.hpp>
 #include <xen/inter_process_relay.hpp>
-#include <xen/state.hpp>
 
 namespace xen
 {
 
-/*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
 // Messages
+// -------------------------------------------------------------------------------------
 
 /**
  * Sent by an instance when it shuts down.
@@ -85,7 +75,7 @@ using Message = std::variant<InstanceShutdown, IDUpdate, MeasureRequest,
  */
 [[nodiscard]] auto deserialize(std::string const &x) -> Message;
 
-/*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
+// -------------------------------------------------------------------------------------
 
 /**
  * Sends a heartbeat to the instance directory at a regular interval via a timer.
@@ -96,40 +86,19 @@ class HeartbeatSender : private juce::Timer
     static constexpr int PERIOD = 15'000; // ms
 
   public:
-    HeartbeatSender(InstanceDirectory &directory, juce::Uuid const &uuid)
-        : directory_{directory}, uuid_{uuid}
-    {
-        this->startTimer(PERIOD);
-    }
+    HeartbeatSender(InstanceDirectory &directory, juce::Uuid const &uuid);
 
-    ~HeartbeatSender() override
-    {
-        this->stopTimer();
-    }
+    ~HeartbeatSender() override;
 
   private:
-    void timerCallback() override
-    {
-        try
-        {
-            directory_.send_heartbeat(uuid_);
-        }
-        catch (std::exception const &e)
-        {
-            std::cerr << "Exception in HeartbeatSender:\n" << e.what() << '\n';
-        }
-        catch (...)
-        {
-            std::cerr << "Unknown exception in HeartbeatSender\n";
-        }
-    }
+    void timerCallback() override;
 
   private:
     InstanceDirectory &directory_;
     juce::Uuid uuid_;
 };
 
-/*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
+// -------------------------------------------------------------------------------------
 
 /**
  * Trim dead sessions from the instance directory with a timer.
@@ -140,40 +109,18 @@ class DeadSessionTrimmer : private juce::Timer
     static constexpr int PERIOD = 30'000; // ms
 
   public:
-    explicit DeadSessionTrimmer(InstanceDirectory &directory) : directory_{directory}
-    {
-        this->timerCallback();
-        this->startTimer(PERIOD);
-    }
+    explicit DeadSessionTrimmer(InstanceDirectory &directory);
 
-    ~DeadSessionTrimmer() override
-    {
-        this->stopTimer();
-    }
+    ~DeadSessionTrimmer() override;
 
   private:
-    void timerCallback() override
-    {
-        try
-        {
-            directory_.unregister_dead_instances(
-                std::chrono::milliseconds{HeartbeatSender::PERIOD} * 4);
-        }
-        catch (std::exception const &e)
-        {
-            std::cerr << "Exception in DeadSessionTimer:\n" << e.what() << '\n';
-        }
-        catch (...)
-        {
-            std::cerr << "Unknown exception in DeadSessionTimer\n";
-        }
-    }
+    void timerCallback() override;
 
   private:
     InstanceDirectory &directory_;
 };
 
-/*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
+// -------------------------------------------------------------------------------------
 
 /**
  * RAII style to handle registration and unregistration of this instance with the
@@ -184,72 +131,12 @@ class ThisInstance
 {
   public:
     ThisInstance(InterProcessRelay &relay, InstanceDirectory &directory,
-                 juce::Uuid const &uuid, std::string const &display_name)
-        : relay_{relay}, directory_{directory}, uuid_{uuid},
-          heartbeat_sender_{directory, uuid}
-    {
-        // Get list of other instances and add itself to instance directory in a single
-        // 'atomic' step.
-        auto const others = [&] {
-            auto const lock = std::scoped_lock{directory_.get_mutex()};
-            auto const x = directory_.get_active_instances();
-            directory_.register_instance(uuid_);
-            return x;
-        }();
+                 juce::Uuid const &uuid, std::string const &display_name);
 
-        for (auto const &other : others)
-        {
-            try
-            {
-                relay_.send_to(
-                    other,
-                    serialize(IDUpdate{.uuid = uuid_, .display_name = display_name}));
-            }
-            catch (std::exception const &e)
-            {
-                // TODO logging
-                std::cerr << "Could not send initialization message to other instance ("
-                          << other.toString().toStdString() << "):\n"
-                          << e.what() << '\n'
-                          << "skipping...\n";
-            }
-            catch (...)
-            {
-                std::cerr << "Unknown exception in ThisInstance\n";
-            }
-        }
-    }
-
-    ~ThisInstance()
-    {
-        try
-        {
-            auto const others = [&] {
-                auto const lock = std::scoped_lock{directory_.get_mutex()};
-                directory_.unregister_instance(uuid_);
-                return directory_.get_active_instances();
-            }();
-
-            for (auto const &other : directory_.get_active_instances())
-            {
-                relay_.send_to(other, serialize(InstanceShutdown{.uuid = uuid_}));
-            }
-        }
-        catch (std::exception const &e)
-        {
-            std::cerr << "Exception in ~ThisInstance:\n" << e.what() << '\n';
-        }
-        catch (...)
-        {
-            std::cerr << "Unknown exception in ~ThisInstance\n";
-        }
-    }
+    ~ThisInstance();
 
   public:
-    [[nodiscard]] auto get_uuid() const -> juce::Uuid const &
-    {
-        return uuid_;
-    }
+    [[nodiscard]] auto get_uuid() const -> juce::Uuid const &;
 
   private:
     InterProcessRelay &relay_;
@@ -258,15 +145,14 @@ class ThisInstance
     HeartbeatSender heartbeat_sender_;
 };
 
-/*.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.*/
+// -------------------------------------------------------------------------------------
 
 /**
  * Class for managing active sessions across processes.
  *
- * This class owns the InterProcessRelay, InstanceDirectory, ThisInstance,
- * and DeadSessionTrimmer. It translates messages from the relay into signals
- * and emits them. It also provides a public interface for sending messages to
- * other instances.
+ * @details This class owns the InterProcessRelay, InstanceDirectory, ThisInstance, and
+ * DeadSessionTrimmer. It translates messages from the relay into signals and emits
+ * them. It also provides a public interface for sending messages to other instances.
  */
 class ActiveSessions
 {
@@ -278,108 +164,31 @@ class ActiveSessions
     sl::Signal<std::string()> on_display_name_request;
 
   public:
-    explicit ActiveSessions(juce::Uuid const &current_process_id,
-                            std::string const &display_name)
-        : relay_{current_process_id}, instance_directory_{},
-          this_instance_{relay_, instance_directory_, current_process_id, display_name},
-          dead_session_trimmer_{instance_directory_}
-    {
-        relay_.on_message.connect([this](std::string const &json) {
-            std::visit(
-                sequence::utility::overload{
-                    [this](InstanceShutdown const &x) { on_instance_shutdown(x.uuid); },
-                    [this](IDUpdate const &x) { on_id_update(x.uuid, x.display_name); },
-                    [this](MeasureRequest const &x) {
-                        auto measure = on_measure_request(x.measure_index);
-                        if (!measure.has_value())
-                        {
-                            throw std::logic_error{"on_measure_request(index) returned "
-                                                   "std::nullopt, no Slot connected"};
-                        }
-                        relay_.send_to(x.reply_to, serialize(MeasureResponse{
-                                                       .measure = std::move(*measure),
-                                                   }));
-                    },
-                    [this](MeasureResponse const &x) {
-                        on_measure_response(x.measure);
-                    },
-                    [this](DisplayNameRequest const &x) {
-                        auto name = on_display_name_request();
-                        if (!name.has_value())
-                        {
-                            throw std::logic_error{"on_display_name_request() returned "
-                                                   "std::nullopt, no Slot connected"};
-                        }
-                        relay_.send_to(
-                            x.reply_to,
-                            serialize(IDUpdate{.uuid = this_instance_.get_uuid(),
-                                               .display_name = std::move(*name)}));
-                    },
-                },
-                deserialize(json));
-        });
-    }
+    ActiveSessions(juce::Uuid const &current_process_id,
+                   std::string const &display_name);
 
   public:
     /**
      * Puts in a request to each instance for its display name.
      *
-     * This does not block until the request is fulfilled. Instead, the
+     * @details This does not block until the request is fulfilled. Instead, the
      * on_id_update signal will be emitted when the response is received.
-     *
      * This should be called in the XenEditor constructor after connecting to
      * on_id_update.
-     *
      * @throws std::runtime_error if any errors encountered.
      */
-    auto request_other_session_ids() const -> void
-    {
-        auto const instances = instance_directory_.get_active_instances();
-
-        for (auto const &instance : instances)
-        {
-            if (instance != this_instance_.get_uuid())
-            {
-                try
-                {
-                    relay_.send_to(instance,
-                                   serialize(DisplayNameRequest{
-                                       .reply_to = this_instance_.get_uuid()}));
-                }
-                catch (std::exception const &e)
-                {
-                    // TODO change this to use Logging with timestamp.
-                    std::cerr
-                        << "Could not send display name request to other instance ("
-                        << instance.toString().toStdString() << "):\n"
-                        << e.what() << '\n'
-                        << "skipping...\n";
-                }
-                catch (...)
-                {
-                    std::cerr << "Unknown exception in request_other_session_ids\n";
-                }
-            }
-        }
-    }
+    void request_other_session_ids() const;
 
     /**
      * Puts in a request to the given instance for a specific Measure.
      *
      * @details This does not block until the request is fulfilled. Instead, the
      * on_measure_response signal will be emitted when the response is received.
-     *
      * @param uuid UUID of the instance to request the state from.
      * @param index Index of the Measure to request from the sequence bank.
      * @throws std::runtime_error if the given UUID is not registered.
      */
-    auto request_measure(juce::Uuid const &uuid, std::size_t index) const -> void
-    {
-        relay_.send_to(uuid, serialize(MeasureRequest{
-                                 .measure_index = index,
-                                 .reply_to = this_instance_.get_uuid(),
-                             }));
-    }
+    void request_measure(juce::Uuid const &uuid, std::size_t index) const;
 
     /**
      * Sends an IDUpdate message to all other instances.
@@ -387,19 +196,7 @@ class ActiveSessions
      * @param name New display name.
      * @throws std::runtime_error if any errors encountered.
      */
-    auto notify_display_name_update(std::string const &name) -> void
-    {
-        auto const instances = instance_directory_.get_active_instances();
-        for (auto const &instance : instances)
-        {
-            if (instance != this_instance_.get_uuid())
-            {
-                relay_.send_to(instance,
-                               serialize(IDUpdate{.uuid = this_instance_.get_uuid(),
-                                                  .display_name = name}));
-            }
-        }
-    }
+    void notify_display_name_update(std::string const &name);
 
   private:
     InterProcessRelay relay_;

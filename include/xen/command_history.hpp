@@ -18,10 +18,7 @@ namespace xen
 class CommandHistory
 {
   public:
-    /// Constructor that initializes an empty history.
-    CommandHistory() : history_{}, current_index_{0}
-    {
-    }
+    CommandHistory();
 
   public:
     /**
@@ -32,20 +29,7 @@ class CommandHistory
      * @param command The command to add to the history.
      * @return None.
      */
-    auto add_command(std::string const &command) -> void
-    {
-        // First truncate history if needed
-        if (current_index_ != history_.size())
-        {
-            history_.resize(++current_index_);
-        }
-
-        if (history_.empty() || command != history_.back())
-        {
-            history_.push_back(command);
-            ++current_index_;
-        }
-    }
+    void add_command(std::string const &command);
 
     /**
      * Returns the previous command and sets the current command to it.
@@ -53,20 +37,7 @@ class CommandHistory
      * @return The previous command string if available; std::nullopt if at the
      * 'current' position.
      */
-    [[nodiscard]] auto previous() -> std::optional<std::string>
-    {
-        if (history_.empty())
-        {
-            return std::nullopt;
-        }
-
-        if (current_index_ != 0)
-        {
-            --current_index_;
-        }
-
-        return history_[current_index_];
-    }
+    [[nodiscard]] auto previous() -> std::optional<std::string>;
 
     /**
      * Returns the next command and sets the current command to it.
@@ -74,20 +45,7 @@ class CommandHistory
      * @return The next command string if available; std::nullopt if at the 'current'
      * position.
      */
-    [[nodiscard]] auto next() -> std::optional<std::string>
-    {
-        if (current_index_ < history_.size())
-        {
-            ++current_index_;
-        }
-
-        if (current_index_ == history_.size())
-        {
-            return std::nullopt;
-        }
-
-        return history_[current_index_];
-    }
+    [[nodiscard]] auto next() -> std::optional<std::string>;
 
     /**
      * Returns the current command.
@@ -95,15 +53,7 @@ class CommandHistory
      * @return The current command string if available; std::nullopt if at the 'current'
      * position.
      */
-    [[nodiscard]] auto get_command() const -> std::optional<std::string>
-    {
-        if (current_index_ == history_.size())
-        {
-            return std::nullopt;
-        }
-
-        return history_[current_index_];
-    }
+    [[nodiscard]] auto get_command() const -> std::optional<std::string>;
 
   private:
     std::vector<std::string> history_;

@@ -1,9 +1,15 @@
 #include <xen/midi_engine.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <iterator>
 #include <optional>
 #include <utility>
+#include <vector>
 
 #include <sequence/measure.hpp>
 
@@ -33,10 +39,11 @@ namespace
 
 /**
  * Modifies the MIDI channel of all channel-based messages in a MidiBuffer.
+ *
  * @param midi_buffer The MidiBuffer to modify.
  * @param new_channel The new channel to set for each event. (Must be between 1 and 16)
  */
-auto change_midi_channel(juce::MidiBuffer &midi_buffer, int new_channel) -> void
+void change_midi_channel(juce::MidiBuffer &midi_buffer, int new_channel)
 {
     assert(new_channel >= 1 && new_channel <= 16);
 
@@ -59,6 +66,7 @@ auto change_midi_channel(juce::MidiBuffer &midi_buffer, int new_channel) -> void
 
 /**
  * Finds the last dangling MIDI note on event in a MidiBuffer.
+ *
  * @param buffer The MidiBuffer to search.
  * @return The last dangling MIDI note on event if found, otherwise std::nullopt.
  */
@@ -125,15 +133,17 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
                 auto const channel = allocate_channel(slices_, midi_number);
                 if (channel != -1)
                 {
-                    live_notes_[midi_number - first_midi_trigger_note] = {
+                    auto &live_note = live_notes_[(std::size_t)(
+                        midi_number - first_midi_trigger_note)];
+                    live_note = {
                         .channel = channel,
-                        .start_time = current_sample_count + sample,
+                        .start_time = current_sample_count + (std::uint64_t)sample,
                         .last_seq_midi_number = -1,
                     };
                     slices_.push_back({
                         .begin = sample,
                         .end = -1,
-                        .note = live_notes_[midi_number - first_midi_trigger_note],
+                        .note = live_note,
                         .trigger_note = midi_number,
                         .is_end = false,
                     });
@@ -156,7 +166,9 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
                     slice_it->end = sample;
                     slice_it->is_end = true;
 
-                    live_notes_[midi_number - first_midi_trigger_note] = {
+                    auto &live_note = live_notes_[(std::size_t)(
+                        midi_number - first_midi_trigger_note)];
+                    live_note = {
                         .channel = -1,
                         .start_time = 0,
                         .last_seq_midi_number = -1,
@@ -179,18 +191,18 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
 
     for (auto &slice : slices_)
     {
-        auto const index = slice.trigger_note - first_midi_trigger_note;
+        auto const index = (std::size_t)(slice.trigger_note - first_midi_trigger_note);
         auto const samples_in_seq =
             sequence::samples_count({sequencer_copy_.sequence_bank[index]},
                                     daw_copy_.sample_rate, daw_copy_.bpm);
 
         auto const sample_offset = current_sample_count - slice.note.start_time;
 
-        auto const begin = (sample_offset + slice.begin) % samples_in_seq;
-        auto const end = (sample_offset + slice.end) % samples_in_seq;
+        auto const begin = (sample_offset + (std::size_t)slice.begin) % samples_in_seq;
+        auto const end = (sample_offset + (std::size_t)slice.end) % samples_in_seq;
 
-        auto midi_slice =
-            find_subrange(rendered_midi_[index], begin, end, samples_in_seq);
+        auto midi_slice = find_subrange(rendered_midi_[index], (int)begin, (int)end,
+                                        (int)samples_in_seq);
 
         change_midi_channel(midi_slice, slice.note.channel);
 
@@ -217,18 +229,20 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
     return out_buffer;
 }
 
-auto MidiEngine::update(DAWState daw) -> void
+void MidiEngine::update(DAWState daw)
 {
     this->update(sequencer_copy_, daw);
 }
 
-auto MidiEngine::update(SequencerState sequencer, DAWState daw) -> void
+void MidiEngine::update(SequencerState sequencer, DAWState daw)
 {
     assert(sequencer_copy_.sequence_bank.size() == sequencer.sequence_bank.size());
 
+    // std::ranges::not_equal_to used to avoid float compare warning
     if (!compare_within_tolerance(daw_copy_.bpm, daw.bpm, 0.0001f) ||
         sequencer_copy_.tuning != sequencer.tuning ||
-        sequencer_copy_.base_frequency != sequencer.base_frequency ||
+        std::ranges::not_equal_to{}(sequencer_copy_.base_frequency,
+                                    sequencer.base_frequency) ||
         daw_copy_.sample_rate != daw.sample_rate)
     {
         // Render Everything
@@ -288,7 +302,7 @@ auto MidiEngine::allocate_channel(std::vector<Slice> const &slices,
         auto const channel = live_note.channel;
         if (channel >= 2 && channel <= 16)
         {
-            used[channel - 2] = true;
+            used[(std::size_t)(channel - 2)] = true;
         }
     }
 

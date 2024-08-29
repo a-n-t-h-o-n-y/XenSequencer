@@ -1,19 +1,12 @@
 #pragma once
 
-#include <algorithm>
-#include <filesystem>
+#include <cstddef>
+#include <exception>
 #include <mutex>
-#include <optional>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <utility>
 
-#include <juce_core/juce_core.h>
-
 #include <sequence/sequence.hpp>
-
-#include <signals_light/signal.hpp>
 
 #include <xen/actions.hpp>
 #include <xen/command.hpp>
@@ -696,8 +689,8 @@ namespace xen
                 "Pattern is ignored.",
                 [](PS &ps, sequence::Pattern const &, int amount) {
                     auto [seq, aux] = ps.timeline.get_state();
-                    auto const index =
-                        (aux.selected.measure + amount) % seq.sequence_bank.size();
+                    auto const index = ((int)aux.selected.measure + amount) %
+                                       (int)seq.sequence_bank.size();
                     aux = action::set_selected_sequence(aux, index);
                     ps.timeline.stage({std::move(seq), std::move(aux)});
                     return mdebug("Selected Sequence Shifted");

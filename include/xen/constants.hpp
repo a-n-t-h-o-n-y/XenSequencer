@@ -2,6 +2,7 @@
 
 namespace xen
 {
+
 /**
  * The current version of the plugin.
  */

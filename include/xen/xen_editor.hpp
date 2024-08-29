@@ -1,13 +1,11 @@
 #pragma once
 
-#include <filesystem>
 #include <map>
+#include <memory>
 #include <string>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-
-#include <signals_light/signal.hpp>
 
 #include <xen/gui/plugin_window.hpp>
 #include <xen/key_core.hpp>
@@ -30,7 +28,7 @@ class XenEditor : public juce::AudioProcessorEditor
     /**
      * Updates GUI components using the current processor_.plugin_state member.
      */
-    auto update_ui() -> void;
+    void update_ui();
 
     /**
      * Set or Update the key listeners for the plugin window.
@@ -40,11 +38,11 @@ class XenEditor : public juce::AudioProcessorEditor
      * @throws std::runtime_error if the key configuration files cannot be read or have
      * errors
      */
-    auto update_key_listeners(juce::File const &default_keys,
-                              juce::File const &user_keys) -> void;
+    void update_key_listeners(juce::File const &default_keys,
+                              juce::File const &user_keys);
 
   public:
-    auto resized() -> void override;
+    void resized() override;
 
     [[nodiscard]] auto createKeyboardFocusTraverser()
         -> std::unique_ptr<juce::ComponentTraverser> override;
@@ -57,7 +55,7 @@ class XenEditor : public juce::AudioProcessorEditor
      * processor_.plugin_state and send the resulting status to the status bar.
      * @param command_string The command string to execute
      */
-    auto execute_command_string(std::string const &command_string) -> void;
+    void execute_command_string(std::string const &command_string);
 
     /**
      * Set the key listeners for the plugin window.
@@ -65,9 +63,9 @@ class XenEditor : public juce::AudioProcessorEditor
      * @details This removes previous_listeners and adds new_listeners.
      * update_key_listeners should be used in most cases.
      */
-    auto set_key_listeners(
+    void set_key_listeners(
         std::map<std::string, xen::KeyConfigListener> previous_listeners,
-        std::map<std::string, xen::KeyConfigListener> &new_listeners) -> void;
+        std::map<std::string, xen::KeyConfigListener> &new_listeners);
 
   private:
     XenProcessor &processor_;

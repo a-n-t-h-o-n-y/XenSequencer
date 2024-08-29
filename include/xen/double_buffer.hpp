@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 
 namespace xen
 {

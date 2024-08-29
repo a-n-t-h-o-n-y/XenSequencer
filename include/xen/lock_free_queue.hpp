@@ -36,7 +36,7 @@ class LockFreeQueue
 
         if (size1 > 0)
         {
-            buffer_[start1] = value;
+            buffer_[(std::size_t)start1] = value;
             abstract_fifo_.finishedWrite(1);
             return true;
         }
@@ -58,7 +58,7 @@ class LockFreeQueue
 
         if (size1 > 0)
         {
-            value = buffer_[start1];
+            value = buffer_[(std::size_t)start1];
             abstract_fifo_.finishedRead(1);
             return true;
         }

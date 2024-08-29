@@ -1,9 +1,11 @@
 #include <xen/user_directory.hpp>
 
-#include <filesystem>
+#include <cstddef>
 #include <stdexcept>
+#include <string>
 
 #include <juce_core/juce_core.h>
+
 #include <yaml-cpp/yaml.h>
 
 #include <embed_demos.hpp>
@@ -107,7 +109,7 @@ auto get_user_keys_file() -> juce::File
     return key_file;
 }
 
-auto initialize_demo_files() -> void
+void initialize_demo_files()
 {
     auto const demos_dir = get_sequences_directory().getChildFile("demos");
     if (!demos_dir.exists() && !demos_dir.createDirectory().wasOk())

@@ -28,12 +28,12 @@ DirectoryView::~DirectoryView()
     directory_contents_list_.removeChangeListener(this);
 }
 
-auto DirectoryView::resized() -> void
+void DirectoryView::resized()
 {
     list_box_.setBounds(this->getLocalBounds());
 }
 
-auto DirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source) -> void
+void DirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source)
 {
     if (source == &directory_contents_list_)
     {
@@ -42,8 +42,7 @@ auto DirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source) -> v
     }
 }
 
-auto DirectoryView::listBoxItemDoubleClicked(int row,
-                                             juce::MouseEvent const &mouse) -> void
+void DirectoryView::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)
 {
     if (mouse.mods.isLeftButtonDown())
     {
@@ -51,7 +50,7 @@ auto DirectoryView::listBoxItemDoubleClicked(int row,
     }
 }
 
-auto DirectoryView::returnKeyPressed(int lastRowSelected) -> void
+void DirectoryView::returnKeyPressed(int lastRowSelected)
 {
     this->item_selected(lastRowSelected);
 }
@@ -69,7 +68,7 @@ auto DirectoryView::keyPressed(juce::KeyPress const &key) -> bool
     return list_box_.keyPressed(key);
 }
 
-auto DirectoryView::lookAndFeelChanged() -> void
+void DirectoryView::lookAndFeelChanged()
 {
     list_box_.setColour(juce::ListBox::backgroundColourId,
                         this->findColour((int)DirectoryViewColorIDs::ItemBackground));
@@ -80,8 +79,8 @@ auto DirectoryView::getNumRows() -> int
     return directory_contents_list_.getNumFiles() + 1;
 }
 
-auto DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
-                                     int height, bool rowIsSelected) -> void
+void DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
+                                     int height, bool rowIsSelected)
 {
     if (rowNumber >= 0)
     {
@@ -114,12 +113,12 @@ auto DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width
     }
 }
 
-auto DirectoryView::timerCallback() -> void
+void DirectoryView::timerCallback()
 {
     directory_contents_list_.refresh();
 }
 
-auto DirectoryView::item_selected(int index) -> void
+void DirectoryView::item_selected(int index)
 {
     index -= 1;
 

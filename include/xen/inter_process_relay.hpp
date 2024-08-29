@@ -4,15 +4,15 @@
 #include <string>
 
 #include <juce_core/juce_core.h>
+
 #include <nng/nng.h>
+
 #include <signals_light/signal.hpp>
 
 namespace xen
 {
 
 /**
- * @class ListenSocket
- *
  * Resource-managing class for NNG socket that listens.
  */
 class ListenSocket
@@ -43,13 +43,13 @@ class ListenSocket
      * @details This will cause calls to listen() to return immediately with
      * std::nullopt.
      */
-    auto close() const -> void;
+    void close() const;
 
   private:
     nng_socket socket_;
 };
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 class SendSocket
 {
@@ -78,14 +78,11 @@ class SendSocket
     nng_socket socket_;
 };
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 /**
- * @class InterProcessRelay
- *
- * @details Conduit for sending messages between instances. This launches a listener
- * thread and receives messages via the on_message signal emitted by the main juce
- * thread.
+ * Conduit for sending messages between instances. This launches a listener thread and
+ * receives messages via the on_message signal emitted by the main juce thread.
  */
 class InterProcessRelay : private juce::Thread
 {
@@ -106,15 +103,14 @@ class InterProcessRelay : private juce::Thread
      * @param target_uuid UUID of the instance to send to.
      * @param message Message to send.
      */
-    auto send_to(juce::Uuid const &target_uuid, std::string const &message) const
-        -> void;
+    void send_to(juce::Uuid const &target_uuid, std::string const &message) const;
 
   protected:
-    auto run() -> void override;
+    void run() override;
 
   private:
     ListenSocket reply_socket_;
-    static constexpr int timeout_ = 0;
+    static auto const timeout_ = 0;
 };
 
 } // namespace xen

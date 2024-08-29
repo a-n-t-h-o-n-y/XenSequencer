@@ -1,14 +1,9 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <signals_light/signal.hpp>
-
-#include <xen/gui/color_ids.hpp>
 
 namespace xen::gui
 {
@@ -19,7 +14,7 @@ class DirectoryView : public juce::Component,
                       private juce::Timer
 {
   private:
-    inline static constexpr auto POLLING_MS = 4'000;
+    inline static auto const POLLING_MS = 4'000;
 
   public:
     sl::Signal<void(juce::File const &)> on_file_selected;
@@ -32,30 +27,29 @@ class DirectoryView : public juce::Component,
     ~DirectoryView() override;
 
   public:
-    auto resized() -> void override;
+    void resized() override;
 
-    auto changeListenerCallback(juce::ChangeBroadcaster *source) -> void override;
+    void changeListenerCallback(juce::ChangeBroadcaster *source) override;
 
-    auto listBoxItemDoubleClicked(int row,
-                                  juce::MouseEvent const &mouse) -> void override;
+    void listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse) override;
 
-    auto returnKeyPressed(int lastRowSelected) -> void override;
+    void returnKeyPressed(int lastRowSelected) override;
 
     auto keyPressed(juce::KeyPress const &key) -> bool override;
 
-    auto lookAndFeelChanged() -> void override;
+    void lookAndFeelChanged() override;
 
   private:
     auto getNumRows() -> int override;
 
-    auto paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
-                          bool rowIsSelected) -> void override;
+    void paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
+                          bool rowIsSelected) override;
 
-    auto timerCallback() -> void override;
+    void timerCallback() override;
 
   private:
     // double clicked or enter
-    auto item_selected(int index) -> void;
+    void item_selected(int index);
 
   private:
     juce::TimeSliceThread dcl_thread_{"DirectoryViewComponentThread"};

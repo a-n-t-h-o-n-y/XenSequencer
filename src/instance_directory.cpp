@@ -1,9 +1,9 @@
 #include <xen/instance_directory.hpp>
 
-#include <chrono>
-#include <cstddef>
 #include <functional>
+#include <iostream>
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 
 #include <boost/interprocess/allocators/allocator.hpp>
@@ -11,6 +11,7 @@
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/named_recursive_mutex.hpp>
+
 #include <juce_core/juce_core.h>
 
 namespace bip = boost::interprocess;
@@ -60,7 +61,7 @@ auto InstanceDirectory::get_active_instances() const -> std::vector<juce::Uuid>
     return uuids;
 }
 
-auto InstanceDirectory::register_instance(juce::Uuid const &uuid) -> void
+void InstanceDirectory::register_instance(juce::Uuid const &uuid)
 {
     auto const lock = std::lock_guard{mutex_};
 
@@ -72,14 +73,14 @@ auto InstanceDirectory::register_instance(juce::Uuid const &uuid) -> void
     directory_.insert({uuid, HeartbeatClock::now()});
 }
 
-auto InstanceDirectory::unregister_instance(juce::Uuid const &uuid) const -> void
+void InstanceDirectory::unregister_instance(juce::Uuid const &uuid) const
 {
     auto const lock = std::lock_guard{mutex_};
 
     directory_.erase(uuid);
 }
 
-auto InstanceDirectory::send_heartbeat(juce::Uuid const &uuid) const -> void
+void InstanceDirectory::send_heartbeat(juce::Uuid const &uuid) const
 {
     auto const lock = std::lock_guard{mutex_};
 
@@ -93,8 +94,8 @@ auto InstanceDirectory::send_heartbeat(juce::Uuid const &uuid) const -> void
     }
 }
 
-auto InstanceDirectory::unregister_dead_instances(
-    HeartbeatClock::duration const &elapsed_time) const -> void
+void InstanceDirectory::unregister_dead_instances(
+    HeartbeatClock::duration const &elapsed_time) const
 {
     auto const lock = std::lock_guard{mutex_};
 
@@ -122,8 +123,7 @@ auto InstanceDirectory::size() const -> std::size_t
     return directory_.size();
 }
 
-auto InstanceDirectory::get_mutex() const
-    -> boost::interprocess::named_recursive_mutex &
+auto InstanceDirectory::get_mutex() const -> bip::named_recursive_mutex &
 {
     return mutex_;
 }

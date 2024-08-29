@@ -1,52 +1,24 @@
 #include <xen/xen_processor.hpp>
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
+
 #include <sequence/measure.hpp>
 
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
+#include <xen/state.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_command_tree.hpp>
 #include <xen/xen_editor.hpp>
-
-namespace
-{
-
-/**
- * Compares two juce::MidiMessage objects for equality.
- *
- * @param a First MidiMessage to compare.
- * @param b Second MidiMessage to compare.
- * @return bool True if the MidiMessages are equal, false otherwise.
- */
-[[nodiscard]] auto are_midi_messages_equal(juce::MidiMessage const &a,
-                                           juce::MidiMessage const &b) -> bool
-{
-    if (a.getRawDataSize() != b.getRawDataSize())
-    {
-        return false;
-    }
-
-    if (std::memcmp(a.getRawData(), b.getRawData(), (std::size_t)a.getRawDataSize()) !=
-        0)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-} // namespace
 
 namespace xen
 {
@@ -91,8 +63,8 @@ XenProcessor::XenProcessor()
     (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
 }
 
-auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
-                                juce::MidiBuffer &midi_buffer) -> void
+void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
+                                juce::MidiBuffer &midi_buffer)
 {
     buffer.clear();
 
@@ -106,8 +78,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             {
                 throw std::runtime_error{"PlayHead position is not valid"};
             }
-            auto const bpm = position->getBpm();
-            return bpm ? static_cast<float>(*bpm) : 120.f;
+            auto const bpm_opt = position->getBpm();
+            return bpm_opt ? static_cast<float>(*bpm_opt) : 120.f;
         }();
 
         auto const sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
@@ -149,7 +121,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     midi_buffer.swapWith(next_slice);
 
-    audio_thread_state_.accumulated_sample_count += buffer.getNumSamples();
+    audio_thread_state_.accumulated_sample_count +=
+        (std::uint64_t)buffer.getNumSamples();
 
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,
@@ -158,8 +131,8 @@ auto XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     });
 }
 
-auto XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
-                                juce::MidiBuffer &midi_buffer) -> void
+void XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
+                                juce::MidiBuffer &midi_buffer)
 {
     // Just forward to float version, this is a midi-only plugin.
     buffer.clear();
@@ -172,7 +145,7 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
     return new gui::XenEditor{*this, editor_width, editor_height};
 }
 
-auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
+void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     auto const json_str = serialize_plugin(plugin_state.timeline.get_state().sequencer,
                                            plugin_state.display_name);
@@ -180,7 +153,7 @@ auto XenProcessor::getStateInformation(juce::MemoryBlock &dest_data) -> void
     std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
 }
 
-auto XenProcessor::setStateInformation(void const *data, int sizeInBytes) -> void
+void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 {
     auto const json_str =
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);

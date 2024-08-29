@@ -1,7 +1,6 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <sequence/sequence.hpp>
 
 namespace xen
 {
@@ -15,28 +14,22 @@ class PluginProcessor : public juce::AudioProcessor
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
-    bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
+    auto isBusesLayoutSupported(BusesLayout const &layouts) const -> bool override;
 
-    const juce::String getName() const override;
+    auto getName() const -> juce::String const override;
 
-    auto hasEditor() const -> bool override
-    {
-        return true;
-    }
+    auto hasEditor() const -> bool override;
 
-    bool acceptsMidi() const override;
-    bool producesMidi() const override;
-    bool isMidiEffect() const override;
-    double getTailLengthSeconds() const override;
+    auto acceptsMidi() const -> bool override;
+    auto producesMidi() const -> bool override;
+    auto isMidiEffect() const -> bool override;
+    auto getTailLengthSeconds() const -> double override;
 
-    int getNumPrograms() override;
-    int getCurrentProgram() override;
+    auto getNumPrograms() -> int override;
+    auto getCurrentProgram() -> int override;
     void setCurrentProgram(int index) override;
-    const juce::String getProgramName(int index) override;
-    void changeProgramName(int index, const juce::String &newName) override;
-
-    void getStateInformation(juce::MemoryBlock &destData) override;
-    void setStateInformation(const void *data, int sizeInBytes) override;
+    auto getProgramName(int index) -> juce::String const override;
+    void changeProgramName(int index, juce::String const &newName) override;
 
   private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)

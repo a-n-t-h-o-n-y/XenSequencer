@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
+#include <memory>
 #include <stdexcept>
-#include <utility>
 #include <variant>
+#include <vector>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -14,7 +16,6 @@
 
 #include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
-#include <xen/state.hpp>
 #include <xen/utility.hpp>
 
 namespace
@@ -65,35 +66,13 @@ auto const corner_radius = 10.f;
     };
 }
 
-[[nodiscard]] auto from_gradient(float value, float min, float max,
-                                 juce::LookAndFeel const &laf) -> juce::Colour
-{
-    juce::Colour startColor = laf.findColour((int)gui::NoteColorIDs::IntervalLow);
-    juce::Colour middleColor = laf.findColour((int)gui::NoteColorIDs::IntervalMid);
-    juce::Colour endColor = laf.findColour((int)gui::NoteColorIDs::IntervalHigh);
-
-    juce::ColourGradient gradient;
-    gradient.isRadial = false;
-    gradient.point1 = {0, 0};
-    gradient.point2 = {0, 100};
-
-    gradient.addColour(0.0, startColor);
-    gradient.addColour(0.43, middleColor);
-    gradient.addColour(1.0, endColor);
-    value = std::clamp(value, min, max);
-
-    auto normalized_position = (value - min) / (max - min);
-
-    return gradient.getColourAtPosition(normalized_position);
-}
-
 void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
                 std::size_t interval_count, juce::Colour lighter_color)
 {
-    auto const line_height = static_cast<float>(bounds.getHeight()) / interval_count;
+    auto const line_height = (float)bounds.getHeight() / (float)interval_count;
     for (std::size_t i = 0; i < interval_count; ++i)
     {
-        auto const y = bounds.getY() + static_cast<int>(i * line_height);
+        auto const y = bounds.getY() + (float)i * line_height;
 
         // Alternate between lighter and darker colors
         auto const color = (i % 2 == 0) ? lighter_color : lighter_color.darker(0.2f);
@@ -140,7 +119,25 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 namespace xen::gui
 {
 
-auto Cell::paintOverChildren(juce::Graphics &g) -> void
+void Cell::make_selected()
+{
+    selected_ = true;
+}
+
+void Cell::select_child(std::vector<std::size_t> const &indices)
+{
+    if (indices.empty())
+    {
+        this->make_selected();
+    }
+    else
+    {
+        throw std::runtime_error(
+            "Invalid index or unexpected type encountered in traversal.");
+    }
+}
+
+void Cell::paintOverChildren(juce::Graphics &g)
 {
     if (selected_)
     {
@@ -154,7 +151,11 @@ auto Cell::paintOverChildren(juce::Graphics &g) -> void
 
 // -------------------------------------------------------------------------------------
 
-auto Rest::paint(juce::Graphics &g) -> void
+Rest::Rest(sequence::Rest, std::size_t interval_count) : interval_count_{interval_count}
+{
+}
+
+void Rest::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
@@ -166,7 +167,12 @@ auto Rest::paint(juce::Graphics &g) -> void
 
 // -------------------------------------------------------------------------------------
 
-auto Note::paint(juce::Graphics &g) -> void
+Note::Note(sequence::Note note, std::size_t tuning_length)
+    : note_{note}, tuning_length_{tuning_length}
+{
+}
+
+void Note::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
@@ -217,7 +223,7 @@ Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
     }
 }
 
-auto Sequence::select_child(std::vector<std::size_t> const &indices) -> void
+void Sequence::select_child(std::vector<std::size_t> const &indices)
 {
     if (indices.empty())
     {
@@ -229,15 +235,38 @@ auto Sequence::select_child(std::vector<std::size_t> const &indices) -> void
         .select_child(std::vector(std::next(indices.cbegin()), indices.cend()));
 }
 
-auto Sequence::paint(juce::Graphics &g) -> void
+void Sequence::paint(juce::Graphics &g)
 {
     g.setColour(this->findColour((int)MeasureColorIDs::Background));
     g.fillAll();
 }
 
-auto Sequence::resized() -> void
+void Sequence::resized()
 {
     cells_.setBounds(this->getLocalBounds());
+}
+
+// -------------------------------------------------------------------------------------
+
+BuildAndAllocateCell::BuildAndAllocateCell(std::size_t tuning_octave_size)
+    : tos_{tuning_octave_size}
+{
+}
+
+auto BuildAndAllocateCell::operator()(sequence::Rest r) const -> std::unique_ptr<Cell>
+{
+    return std::make_unique<Rest>(r, tos_);
+}
+
+auto BuildAndAllocateCell::operator()(sequence::Note n) const -> std::unique_ptr<Cell>
+{
+    return std::make_unique<Note>(n, tos_);
+}
+
+auto BuildAndAllocateCell::operator()(sequence::Sequence s) const
+    -> std::unique_ptr<Cell>
+{
+    return std::make_unique<Sequence>(s, tos_);
 }
 
 } // namespace xen::gui

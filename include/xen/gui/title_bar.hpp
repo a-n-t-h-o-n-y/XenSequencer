@@ -1,5 +1,6 @@
 #pragma once
 
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace xen::gui
@@ -16,11 +17,11 @@ class TitleBar : public juce::Component
     TitleBar();
 
   public:
-    auto resized() -> void override;
+    void resized() override;
 
-    auto paint(juce::Graphics &g) -> void override;
+    void paint(juce::Graphics &g) override;
 
-    auto lookAndFeelChanged() -> void override;
+    void lookAndFeelChanged() override;
 
   private:
     juce::DrawablePath closed_menu_;

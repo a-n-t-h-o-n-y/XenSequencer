@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <map>
 #include <optional>
 #include <string>
@@ -8,6 +7,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+
 #include <signals_light/signal.hpp>
 
 #include <xen/input_mode.hpp>
@@ -57,7 +57,7 @@ class KeyCore
      * @return An optional string, which contains the associated command if the search
      * is successful.
      */
-    [[nodiscard]] auto find_action(const juce::KeyPress &key,
+    [[nodiscard]] auto find_action(juce::KeyPress const &key,
                                    InputMode mode) const -> std::optional<std::string>;
 
   private:

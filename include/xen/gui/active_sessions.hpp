@@ -2,13 +2,12 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <signals_light/signal.hpp>
-
-#include <xen/gui/color_ids.hpp>
 
 namespace xen::gui
 {
@@ -19,9 +18,7 @@ class InstanceModel : public juce::ListBoxModel
     sl::Signal<void(juce::Uuid const &)> on_instance_selected;
 
   public:
-    InstanceModel(juce::Component &parent) : parent_{parent}
-    {
-    }
+    InstanceModel(juce::Component &parent);
 
   public:
     /**
@@ -30,7 +27,7 @@ class InstanceModel : public juce::ListBoxModel
      * @param uuid The UUID of the instance.
      * @param item The display name of the instance.
      */
-    auto add_item(juce::Uuid const &uuid, std::string const &name) -> void;
+    void add_item(juce::Uuid const &uuid, std::string const &name);
 
     /**
      * Add or update an item's name in the listbox.
@@ -39,22 +36,22 @@ class InstanceModel : public juce::ListBoxModel
      * @param uuid The UUID of the instance.
      * @param name The new display name of the instance.
      */
-    auto add_or_update_item(juce::Uuid const &uuid, std::string const &name) -> void;
+    void add_or_update_item(juce::Uuid const &uuid, std::string const &name);
 
     /**
      * Remove an item from the listbox.
      *
      * @param uuid The UUID of the instance to remove.
      */
-    auto remove_item(juce::Uuid const &uuid) -> void;
+    void remove_item(juce::Uuid const &uuid);
 
   public:
     [[nodiscard]] auto getNumRows() -> int override;
 
-    auto paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
-                          bool rowIsSelected) -> void override;
+    void paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
+                          bool rowIsSelected) override;
 
-    auto listBoxItemDoubleClicked(int row, const juce::MouseEvent &) -> void override;
+    void listBoxItemDoubleClicked(int row, const juce::MouseEvent &) override;
 
   private:
     // {Instance UUID, Display Name}
@@ -76,9 +73,9 @@ class NameEdit : public juce::Label
     NameEdit();
 
   protected:
-    auto textWasEdited() -> void override;
+    void textWasEdited() override;
 
-    auto lookAndFeelChanged() -> void override;
+    void lookAndFeelChanged() override;
 };
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -94,7 +91,7 @@ class ActiveSessionsList : public juce::Component
      *
      * @param name The new name of this instance.
      */
-    auto update_this_instance_name(std::string const &name) -> void;
+    void update_this_instance_name(std::string const &name);
 
     /**
      * Add or update an instance in the listbox.
@@ -102,20 +99,19 @@ class ActiveSessionsList : public juce::Component
      * @param uuid The UUID of the instance.
      * @param name The display name of the instance.
      */
-    auto add_or_update_instance(juce::Uuid const &uuid,
-                                std::string const &name) -> void;
+    void add_or_update_instance(juce::Uuid const &uuid, std::string const &name);
 
     /**
      * Remove an instance from the listbox.
      *
      * @param uuid The UUID of the instance to remove.
      */
-    auto remove_instance(juce::Uuid const &uuid) -> void;
+    void remove_instance(juce::Uuid const &uuid);
 
   public:
-    auto resized() -> void override;
+    void resized() override;
 
-    auto lookAndFeelChanged() -> void override;
+    void lookAndFeelChanged() override;
 
   private:
     NameEdit name_edit_;

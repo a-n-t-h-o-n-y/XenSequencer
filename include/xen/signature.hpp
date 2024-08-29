@@ -22,8 +22,7 @@ namespace xen
 /**
  * A struct that contains information about a command argument.
  *
- * Does not contain the actual value of the argument.
- *
+ * @details Does not contain the actual value of the argument.
  * @tparam T The type of the argument.
  */
 template <typename T>
@@ -46,7 +45,7 @@ struct Signature
 /**
  * Holds display information about a command signature.
  *
- * Used to display pieces of the command as it is typed into the CommandBar.
+ * @details Used to display pieces of the command as it is typed into the CommandBar.
  */
 struct SignatureDisplay
 {

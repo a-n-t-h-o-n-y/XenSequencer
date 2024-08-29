@@ -1,5 +1,6 @@
 #include <xen/gui/title_bar.hpp>
 
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/constants.hpp>
@@ -32,7 +33,7 @@ TitleBar::TitleBar()
     this->lookAndFeelChanged();
 }
 
-auto TitleBar::resized() -> void
+void TitleBar::resized()
 {
     auto flexbox = juce::FlexBox();
     flexbox.flexDirection = juce::FlexBox::Direction::row;
@@ -45,12 +46,12 @@ auto TitleBar::resized() -> void
     flexbox.performLayout(this->getLocalBounds());
 }
 
-auto TitleBar::paint(juce::Graphics &g) -> void
+void TitleBar::paint(juce::Graphics &g)
 {
     g.fillAll(title.findColour((int)DirectoryViewColorIDs::ItemBackground));
 }
 
-auto TitleBar::lookAndFeelChanged() -> void
+void TitleBar::lookAndFeelChanged()
 {
     version.setColour(juce::Label::textColourId,
                       title.findColour((int)DirectoryViewColorIDs::ItemText));

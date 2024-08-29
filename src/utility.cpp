@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <string>
@@ -24,8 +23,8 @@ auto read_file_to_string(std::filesystem::path const &filepath) -> std::string
     return content;
 }
 
-auto write_string_to_file(std::filesystem::path const &filepath,
-                          std::string const &content) -> void
+void write_string_to_file(std::filesystem::path const &filepath,
+                          std::string const &content)
 {
     auto file = std::ofstream{filepath};
     if (!file)

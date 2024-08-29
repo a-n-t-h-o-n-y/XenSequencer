@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <filesystem>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -53,8 +52,8 @@ struct always_false : std::false_type
  * @param content Content to write to the text file.
  * @throws std::runtime_error Thrown if file cannot be written to.
  */
-auto write_string_to_file(std::filesystem::path const &filepath,
-                          std::string const &content) -> void;
+void write_string_to_file(std::filesystem::path const &filepath,
+                          std::string const &content);
 
 /**
  * Checks if a tuple contains a single element that satisfies a given predicate.
@@ -139,7 +138,7 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 /**
  * Compares two values within a given tolerance, returning true if they are within the
  * tolerance.
-*/
+ */
 template <typename T>
 [[nodiscard]] auto compare_within_tolerance(T a, T b, T tolerance) -> bool
 {

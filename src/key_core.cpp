@@ -3,18 +3,22 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
-#include <iostream>
+#include <iterator>
+#include <map>
 #include <optional>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <juce_gui_basics/juce_gui_basics.h>
+
 #include <yaml-cpp/yaml.h>
 
+#include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
 
@@ -28,7 +32,6 @@ using namespace xen;
  *
  * @details This is not a general solution, this is specific to the XenSequencer key
  * config. This will remove the 'version' top-level key from base.
- *
  * @param base_filepath The base YAML file.
  * @param overlay_filepath The overlay YAML file.
  * @return YAML::Node The merged YAML node.
@@ -311,7 +314,7 @@ auto const key_map = [] {
     return component_to_keycore;
 }
 
-auto insert_prefix_int(std::optional<int> value, std::string &cmd_str) -> void
+void insert_prefix_int(std::optional<int> value, std::string &cmd_str)
 {
     auto const re = std::regex{R"(:N=(\d+):)"};
     auto match = std::smatch{};

@@ -78,8 +78,6 @@ namespace xen
  */
 [[nodiscard]] auto double_quote(std::string const &input) -> std::string;
 
-// make single_quote() fn:
-
 /**
  * Surrounds a string with single quotes.
  *

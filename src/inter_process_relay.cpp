@@ -1,11 +1,15 @@
 #include <xen/inter_process_relay.hpp>
 
+#include <cstddef>
+#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
+
 #include <nng/protocol/reqrep0/rep.h>
 #include <nng/protocol/reqrep0/req.h>
 
@@ -51,7 +55,7 @@ namespace
     return socket;
 }
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 /**
  * Create a new NNG REP (reply) protocol socket.
@@ -93,7 +97,7 @@ namespace
     return socket;
 }
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 /**
  * Build IPC endpoint based on a string identifier.
@@ -116,10 +120,10 @@ namespace
 
 } // namespace
 
+// -------------------------------------------------------------------------------------
+
 namespace xen
 {
-
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
 
 ListenSocket::ListenSocket(nng_socket const &socket) : socket_{socket}
 {
@@ -183,12 +187,12 @@ auto ListenSocket::listen() const -> std::optional<std::string>
     return received_message;
 }
 
-auto ListenSocket::close() const -> void
+void ListenSocket::close() const
 {
     nng_close(socket_);
 }
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 SendSocket::SendSocket(nng_socket const &socket) : socket_{socket}
 {
@@ -244,7 +248,7 @@ auto SendSocket::send(std::string const &message) const -> bool
     return true;
 }
 
-/* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
+// -------------------------------------------------------------------------------------
 
 InterProcessRelay::InterProcessRelay(juce::Uuid const &this_process_uuid)
     : juce::Thread{"InterProcessRelayListener"},
@@ -260,7 +264,7 @@ InterProcessRelay::~InterProcessRelay()
     this->stopThread(-1);
 }
 
-auto InterProcessRelay::run() -> void
+void InterProcessRelay::run()
 {
     while (!this->threadShouldExit())
     {
@@ -288,8 +292,8 @@ auto InterProcessRelay::run() -> void
     }
 }
 
-auto InterProcessRelay::send_to(juce::Uuid const &target_uuid,
-                                std::string const &message) const -> void
+void InterProcessRelay::send_to(juce::Uuid const &target_uuid,
+                                std::string const &message) const
 {
     auto const target_address =
         build_ipc_endpoint(target_uuid.toString().toStdString());

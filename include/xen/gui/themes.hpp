@@ -1,9 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string_view>
 
-#include <juce_gui_basics/juce_gui_basics.h>
+namespace juce
+{
+class LookAndFeel;
+}
 
 namespace xen::gui
 {

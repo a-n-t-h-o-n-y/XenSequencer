@@ -3,6 +3,13 @@
 namespace xen::gui
 {
 
+enum class LetterSquareColorIDs
+{
+    Background = 0xB000010,
+    Outline = 0xB000011,
+    Letter = 0xB000012,
+};
+
 enum class AccordionColorIDs
 {
     Background = 0xA000000,

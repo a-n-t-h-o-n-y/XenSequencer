@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <filesystem>
 #include <optional>
-#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
@@ -22,9 +21,10 @@ namespace xen
 /**
  * Increment the state by applying a function to the selected Cell.
  *
- * This is a convinience function for Command implementations. It will create a copy of
- * the current state, call the given funtion with the selected cell as first parameter,
- * then stage this state to the timeline. Does not flag the Timeline for commit.
+ * @details This is a convinience function for Command implementations. It will create a
+ * copy of the current state, call the given funtion with the selected cell as first
+ * parameter, then stage this state to the timeline. Does not flag the Timeline for
+ * commit.
  *
  * @param tl The timeline to operate on.
  * @param fn The function to apply to the selected Cell.
@@ -33,7 +33,7 @@ namespace xen
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-auto increment_state(XenTimeline &tl, Fn &&fn, Args &&...args) -> void
+void increment_state(XenTimeline &tl, Fn &&fn, Args &&...args)
 {
     static_assert(
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>,
@@ -85,8 +85,8 @@ namespace xen::action
 
 [[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
 
-auto save_measure(sequence::Measure const &measure,
-                  std::filesystem::path const &filepath) -> void;
+void save_measure(sequence::Measure const &measure,
+                  std::filesystem::path const &filepath);
 
 [[nodiscard]] auto load_measure(std::filesystem::path const &filepath)
     -> sequence::Measure;

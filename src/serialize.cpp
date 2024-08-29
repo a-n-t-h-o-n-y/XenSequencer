@@ -3,10 +3,12 @@
 #include <array>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include <nlohmann/json.hpp>
+
 #include <sequence/sequence.hpp>
 
 #include <xen/state.hpp>
@@ -16,7 +18,7 @@ namespace sequence
 
 // Serialization -------------------------------------------------------------
 
-static auto to_json(nlohmann::json &j, Note const &note) -> void
+static void to_json(nlohmann::json &j, Note const &note)
 {
     j = nlohmann::json{{"type", "Note"},
                        {"interval", note.interval},
@@ -25,20 +27,20 @@ static auto to_json(nlohmann::json &j, Note const &note) -> void
                        {"gate", note.gate}};
 }
 
-static auto to_json(nlohmann::json &j, Rest const &) -> void
+static void to_json(nlohmann::json &j, Rest const &)
 {
     j = nlohmann::json{{"type", "Rest"}};
 }
 
 // Forward declare for Sequence implementation.
-static auto to_json(nlohmann::json &j, Cell const &cell) -> void;
+static void to_json(nlohmann::json &j, Cell const &cell);
 
-static auto to_json(nlohmann::json &j, Sequence const &sequence) -> void
+static void to_json(nlohmann::json &j, Sequence const &sequence)
 {
     j = nlohmann::json{{"type", "Sequence"}, {"cells", sequence.cells}};
 }
 
-static auto to_json(nlohmann::json &j, Cell const &cell) -> void
+static void to_json(nlohmann::json &j, Cell const &cell)
 {
     std::visit([&j](auto const &variant_item) { to_json(j, variant_item); }, cell);
 }
@@ -83,14 +85,14 @@ static void from_json(nlohmann::json const &, Rest &)
 }
 
 // Forward declare for Sequence implementation.
-static auto from_json(nlohmann::json const &j, Cell &cell) -> void;
+static void from_json(nlohmann::json const &j, Cell &cell);
 
 static void from_json(nlohmann::json const &j, Sequence &sequence)
 {
     sequence.cells = j.at("cells").get<std::vector<Cell>>();
 }
 
-static auto from_json(nlohmann::json const &j, Cell &cell) -> void
+static void from_json(nlohmann::json const &j, Cell &cell)
 {
     auto const type = j.at("type").get<std::string>();
     if (type == "Note")
@@ -134,7 +136,7 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 namespace xen
 {
 
-static auto to_json(nlohmann::json &j, SequencerState const &state) -> void
+static void to_json(nlohmann::json &j, SequencerState const &state)
 {
     j = nlohmann::json{
         {"sequence_bank", state.sequence_bank},
@@ -145,7 +147,7 @@ static auto to_json(nlohmann::json &j, SequencerState const &state) -> void
     };
 }
 
-static auto from_json(nlohmann::json const &j, SequencerState &state) -> void
+static void from_json(nlohmann::json const &j, SequencerState &state)
 {
     state.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
     state.measure_names = j.at("measure_names").get<std::array<std::string, 16>>();

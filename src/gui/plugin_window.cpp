@@ -1,32 +1,18 @@
 #include <xen/gui/plugin_window.hpp>
 
-#include <filesystem>
-#include <iterator>
-#include <map>
-#include <mutex>
-#include <optional>
 #include <stdexcept>
 #include <string>
-#include <utility>
 
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-
-#include <signals_light/signal.hpp>
-
-#include <sequence/sequence.hpp>
 
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/command_bar.hpp>
-#include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
-#include <xen/user_directory.hpp>
-#include <xen/xen_command_tree.hpp>
 
 namespace xen::gui
 {
@@ -43,8 +29,8 @@ PluginWindow::PluginWindow(
     this->addAndMakeVisible(bottom_bar);
 }
 
-auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
-                          std::string const &display_name) -> void
+void PluginWindow::update(SequencerState const &state, AuxState const &aux,
+                          std::string const &display_name)
 {
     center_component.library_view.active_sessions_list.update_this_instance_name(
         display_name);
@@ -55,7 +41,7 @@ auto PluginWindow::update(SequencerState const &state, AuxState const &aux,
     bottom_bar.input_mode_indicator.set(aux.input_mode);
 }
 
-auto PluginWindow::set_focus(std::string component_id) -> void
+void PluginWindow::set_focus(std::string component_id)
 {
     component_id = to_lower(component_id);
     // TODO use a lambda to check if visible then to set focus that is generic for all.
@@ -114,7 +100,7 @@ auto PluginWindow::set_focus(std::string component_id) -> void
     }
 }
 
-auto PluginWindow::show_component(std::string component_id) -> void
+void PluginWindow::show_component(std::string component_id)
 {
     component_id = to_lower(component_id);
 
@@ -146,7 +132,7 @@ auto PluginWindow::show_component(std::string component_id) -> void
     }
 }
 
-auto PluginWindow::resized() -> void
+void PluginWindow::resized()
 {
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;

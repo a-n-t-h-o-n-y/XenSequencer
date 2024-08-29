@@ -1,6 +1,7 @@
 #include <xen/input_mode.hpp>
 
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 

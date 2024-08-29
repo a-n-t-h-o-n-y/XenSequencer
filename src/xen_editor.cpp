@@ -1,6 +1,6 @@
 #include <xen/xen_editor.hpp>
 
-#include <cassert>
+#include <exception>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -8,8 +8,6 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-
-#include <sequence/sequence.hpp>
 
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
@@ -237,7 +235,7 @@ auto XenEditor::createKeyboardFocusTraverser()
     return std::make_unique<NoTabFocusTraverser>();
 }
 
-auto XenEditor::update_ui() -> void
+void XenEditor::update_ui()
 {
     auto const &[state, aux] = processor_.plugin_state.timeline.get_state();
     plugin_window.update(state, aux, processor_.plugin_state.display_name);
@@ -245,8 +243,8 @@ auto XenEditor::update_ui() -> void
     // TODO set base frequency?
 }
 
-auto XenEditor::update_key_listeners(juce::File const &default_keys,
-                                     juce::File const &user_keys) -> void
+void XenEditor::update_key_listeners(juce::File const &default_keys,
+                                     juce::File const &user_keys)
 {
     auto previous_listeners = std::move(key_config_listeners_);
     key_config_listeners_ =
@@ -254,14 +252,14 @@ auto XenEditor::update_key_listeners(juce::File const &default_keys,
     this->set_key_listeners(std::move(previous_listeners), key_config_listeners_);
 }
 
-auto XenEditor::resized() -> void
+void XenEditor::resized()
 {
     plugin_window.setBounds(this->getLocalBounds());
     processor_.editor_width = this->getWidth();
     processor_.editor_height = this->getHeight();
 }
 
-auto XenEditor::execute_command_string(std::string const &command_string) -> void
+void XenEditor::execute_command_string(std::string const &command_string)
 {
     auto &ps = processor_.plugin_state;
 
@@ -277,7 +275,13 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
         if (ps.timeline.get_commit_flag())
         {
             ps.timeline.commit();
-            processor_.new_state_transfer_queue.push(ps.timeline.get_state().sequencer);
+            auto const success = processor_.new_state_transfer_queue.push(
+                ps.timeline.get_state().sequencer);
+            if (!success)
+            {
+                throw std::runtime_error{
+                    "Buffer full, unable to send sequence change to audio thread."};
+            }
         }
         this->update_ui();
     }
@@ -300,9 +304,9 @@ auto XenEditor::execute_command_string(std::string const &command_string) -> voi
     plugin_window.bottom_bar.status_bar.set_status(status.first, status.second);
 }
 
-auto XenEditor::set_key_listeners(
+void XenEditor::set_key_listeners(
     std::map<std::string, xen::KeyConfigListener> previous_listeners,
-    std::map<std::string, xen::KeyConfigListener> &new_listeners) -> void
+    std::map<std::string, xen::KeyConfigListener> &new_listeners)
 {
     // This relies on Component::getComponentID();
     auto const remove_listener = [&previous_listeners](juce::Component &component) {

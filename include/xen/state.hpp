@@ -1,19 +1,19 @@
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <stdexcept>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include <juce_core/juce_core.h>
-#include <juce_gui_basics/juce_gui_basics.h>
+namespace juce
+{
+class LookAndFeel;
+}
 
 #include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
@@ -48,11 +48,15 @@ struct SequencerState
 
     float base_frequency{};
 
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
     auto operator==(SequencerState const &) const -> bool = default;
     auto operator!=(SequencerState const &) const -> bool = default;
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif
 };
 
 /**
@@ -122,8 +126,8 @@ struct PluginState
     juce::Uuid const PROCESS_UUID = juce::Uuid{};
     std::string display_name = "XenSequencer";
 
-    juce::File current_phrase_directory{get_sequences_directory()};
-    juce::File current_tuning_directory{get_tunings_directory()};
+    juce::File current_phrase_directory = get_sequences_directory();
+    juce::File current_tuning_directory = get_tunings_directory();
 
     sl::Signal<void(std::string const &)> on_focus_request{};
     sl::Signal<void(std::string const &)> on_show_request{};
@@ -142,32 +146,6 @@ struct AudioThreadStateForGUI
 
 // -------------------------------------------------------------------------------------
 
-[[nodiscard]] inline auto init_state() -> SequencerState
-{
-    auto const init_measure = sequence::Measure{
-        .cell = sequence::Rest{},
-        .time_signature = {4, 4},
-    };
-
-    auto init = SequencerState{
-        .sequence_bank = {},
-        .measure_names = {"Init Test"},
-        .tuning =
-            {
-                .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
-                              1100},
-                .octave = 1200,
-            },
-        .tuning_name = "12EDO",
-        .base_frequency = 440.f,
-    };
-
-    for (auto &measure : init.sequence_bank)
-    {
-        measure = init_measure;
-    }
-
-    return init;
-}
+[[nodiscard]] auto init_state() -> SequencerState;
 
 } // namespace xen

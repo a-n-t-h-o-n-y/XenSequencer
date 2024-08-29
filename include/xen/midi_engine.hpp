@@ -17,7 +17,7 @@ class MidiEngine
     /**
      * The first midi note that triggers a sequence.
      */
-    inline static constexpr auto first_midi_trigger_note = 36;
+    static inline auto const first_midi_trigger_note = 36;
 
     /**
      * A currently playing sequence, controlled by an input trigger midi note.
@@ -67,7 +67,7 @@ class MidiEngine
      *
      * @param daw The current state of the DAW.
      */
-    auto update(DAWState daw) -> void;
+    void update(DAWState daw);
 
     /**
      * Render the current SequencerState to MIDI and save in rendered_.
@@ -77,7 +77,7 @@ class MidiEngine
      * @param sequencer The current state of the sequencer.
      * @param daw The current state of the DAW.
      */
-    auto update(SequencerState sequencer, DAWState daw) -> void;
+    void update(SequencerState sequencer, DAWState daw);
 
     /**
      * For use by GUI thread, stored in processor by processBlock

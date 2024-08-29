@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cstddef>
-#include <optional>
 #include <string>
-#include <tuple>
-#include <type_traits>
 #include <utility>
+#include <type_traits>
+#include <cstddef>
+#include <tuple>
 
 #include <xen/message_level.hpp>
 #include <xen/parse_args.hpp>

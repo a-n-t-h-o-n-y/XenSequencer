@@ -1,10 +1,11 @@
 #include <xen/actions.hpp>
 
+#include <optional>
+
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <iterator>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>

@@ -2,6 +2,8 @@
 
 #include <chrono>
 #include <cstddef>
+#include <functional>
+#include <utility>
 #include <vector>
 
 #include <boost/interprocess/allocators/allocator.hpp>
@@ -9,6 +11,7 @@
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/named_recursive_mutex.hpp>
+
 #include <juce_core/juce_core.h>
 
 namespace xen
@@ -53,17 +56,16 @@ class InstanceDirectory
      * @param uuid UUID of the instance.
      * @throws std::runtime_error if any errors encountered.
      */
-    auto register_instance(juce::Uuid const &uuid) -> void;
+    void register_instance(juce::Uuid const &uuid);
 
     /**
      * Unregisters an instance from the directory.
      *
-     * No-op if the give UUID is not registered.
-     *
+     * @details No-op if the give UUID is not registered.
      * @param uuid UUID of the instance.
      * @throws std::runtime_error if any errors encountered.
      */
-    auto unregister_instance(juce::Uuid const &uuid) const -> void;
+    void unregister_instance(juce::Uuid const &uuid) const;
 
     /**
      * Update the last heartbeat time of an instance to the current time.
@@ -71,7 +73,7 @@ class InstanceDirectory
      * @param uuid UUID of the instance.
      * @throws std::runtime_error if any errors encountered.
      */
-    auto send_heartbeat(juce::Uuid const &uuid) const -> void;
+    void send_heartbeat(juce::Uuid const &uuid) const;
 
     /**
      * Unregisters any instances which have not sent a heartbeat in the last
@@ -80,8 +82,7 @@ class InstanceDirectory
      * @param elapsed_time Time since last heartbeat.
      * @throws std::runtime_error if any errors encountered.
      */
-    auto unregister_dead_instances(HeartbeatClock::duration const &elapsed_time) const
-        -> void;
+    void unregister_dead_instances(HeartbeatClock::duration const &elapsed_time) const;
 
     /**
      * Returns the number of instances in the directory.
@@ -94,9 +95,9 @@ class InstanceDirectory
     /**
      * Returns a reference to the mutex used to synchronize access to the directory.
      *
-     * This is a recursive mutex and can be used to chain multiple InstanceDirectory
-     * operations together into an 'atomic' operation without deadlocking.
-     * 
+     * @details This is a recursive mutex and can be used to chain multiple
+     * InstanceDirectory operations together into an 'atomic' operation without
+     * deadlocking.
      * @return boost::interprocess::named_recursive_mutex & Mutex.
      */
     [[nodiscard]] auto get_mutex() const

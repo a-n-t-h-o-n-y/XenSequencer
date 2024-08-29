@@ -7,13 +7,16 @@
 namespace xen::gui
 {
 
-auto InstanceModel::add_item(juce::Uuid const &uuid, std::string const &name) -> void
+InstanceModel::InstanceModel(juce::Component &parent) : parent_{parent}
+{
+}
+
+void InstanceModel::add_item(juce::Uuid const &uuid, std::string const &name)
 {
     items_.emplace_back(uuid, name);
 }
 
-auto InstanceModel::add_or_update_item(juce::Uuid const &uuid,
-                                       std::string const &name) -> void
+void InstanceModel::add_or_update_item(juce::Uuid const &uuid, std::string const &name)
 {
     auto const it = std::find_if(std::begin(items_), std::end(items_),
                                  [&](auto const &item) { return item.first == uuid; });
@@ -28,7 +31,7 @@ auto InstanceModel::add_or_update_item(juce::Uuid const &uuid,
     }
 }
 
-auto InstanceModel::remove_item(juce::Uuid const &uuid) -> void
+void InstanceModel::remove_item(juce::Uuid const &uuid)
 {
     auto const it = std::find_if(std::cbegin(items_), std::cend(items_),
                                  [&](auto const &item) { return item.first == uuid; });
@@ -44,8 +47,8 @@ auto InstanceModel::getNumRows() -> int
     return static_cast<int>(items_.size());
 }
 
-auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int height,
-                                     bool rowIsSelected) -> void
+void InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int height,
+                                     bool rowIsSelected)
 {
     if (row >= 0 && row < this->getNumRows())
     {
@@ -67,7 +70,7 @@ auto InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
     }
 }
 
-auto InstanceModel::listBoxItemDoubleClicked(int row, const juce::MouseEvent &) -> void
+void InstanceModel::listBoxItemDoubleClicked(int row, const juce::MouseEvent &)
 {
     if (row >= 0 && row < this->getNumRows())
     {
@@ -83,12 +86,12 @@ NameEdit::NameEdit()
     this->setEditable(false, true, false);
 }
 
-auto NameEdit::textWasEdited() -> void
+void NameEdit::textWasEdited()
 {
     on_name_changed(this->getText().toStdString());
 }
 
-auto NameEdit::lookAndFeelChanged() -> void
+void NameEdit::lookAndFeelChanged()
 {
     this->setColour(juce::Label::textColourId,
                     this->findColour((int)ActiveSessionsColorIDs::CurrentItemText));
@@ -118,26 +121,26 @@ ActiveSessionsList::ActiveSessionsList()
     this->addAndMakeVisible(instance_list_box_);
 }
 
-auto ActiveSessionsList::update_this_instance_name(std::string const &name) -> void
+void ActiveSessionsList::update_this_instance_name(std::string const &name)
 {
     name_edit_.setText(name, juce::dontSendNotification);
 }
 
-auto ActiveSessionsList::add_or_update_instance(juce::Uuid const &uuid,
-                                                std::string const &name) -> void
+void ActiveSessionsList::add_or_update_instance(juce::Uuid const &uuid,
+                                                std::string const &name)
 {
     instance_model_.add_or_update_item(uuid, name);
     instance_list_box_.updateContent();
     instance_list_box_.repaint(); // Shouldn't be needed but is
 }
 
-auto ActiveSessionsList::remove_instance(juce::Uuid const &uuid) -> void
+void ActiveSessionsList::remove_instance(juce::Uuid const &uuid)
 {
     instance_model_.remove_item(uuid);
     instance_list_box_.updateContent();
 }
 
-auto ActiveSessionsList::resized() -> void
+void ActiveSessionsList::resized()
 {
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
@@ -148,7 +151,7 @@ auto ActiveSessionsList::resized() -> void
     flexbox.performLayout(this->getLocalBounds());
 }
 
-auto ActiveSessionsList::lookAndFeelChanged() -> void
+void ActiveSessionsList::lookAndFeelChanged()
 {
     instance_list_box_.setColour(
         juce::ListBox::backgroundColourId,
