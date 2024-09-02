@@ -59,10 +59,10 @@ struct SignatureDisplay
  * Stringify the given template type parameter.
  *
  * @tparam T The type to stringify.
- * @return std::string The type as string.
+ * @return std::string_view The type name display.
  */
 template <typename T>
-[[nodiscard]] auto type_name() -> std::string
+[[nodiscard]] auto type_name() -> std::string_view
 {
     if constexpr (std::is_floating_point_v<T>)
     {

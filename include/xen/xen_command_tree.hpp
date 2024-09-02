@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <exception>
 #include <mutex>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include <sequence/sequence.hpp>
 
@@ -835,7 +837,50 @@ namespace xen
                 ps.timeline.set_commit_flag();
                 return minfo("Selection Swung by " + std::to_string(amount));
             },
-            ArgInfo<float>{"amount", 0.1f}));
+            ArgInfo<float>{"amount", 0.1f}),
+
+        cmd(
+            "step",
+            "Repeat the selected Cell with incrementing interval and velocity applied.",
+            [](PS &ps, std::size_t count, int interval_distance,
+               float velocity_distance) {
+                if (velocity_distance > 1.f || velocity_distance < -1.f)
+                {
+                    return merror("velocity distance has to be in the range: [-1, 1]");
+                }
+
+                auto [state, aux] = ps.timeline.get_state();
+                auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+
+                // Split
+                selected = sequence::modify::repeat(selected, count);
+
+                assert(std::holds_alternative<sequence::Sequence>(selected));
+
+                // Increment Interval
+                auto index = 0;
+                for (auto &cell : std::get<sequence::Sequence>(selected).cells)
+                {
+                    cell = sequence::modify::shift_interval(cell, {0, {1}},
+                                                            index * interval_distance);
+                    ++index;
+                }
+
+                // Increment Velocity
+                index = 0;
+                for (auto &cell : std::get<sequence::Sequence>(selected).cells)
+                {
+                    cell = sequence::modify::shift_velocity(
+                        cell, {0, {1}}, (float)index * velocity_distance);
+                    ++index;
+                }
+
+                ps.timeline.stage({std::move(state), std::move(aux)});
+                ps.timeline.set_commit_flag();
+                return minfo("Stepped");
+            },
+            ArgInfo<std::size_t>{"count"}, ArgInfo<int>{"interval_distance"},
+            ArgInfo<float>{"velocity_distance", 0.f}));
 }
 
 using XenCommandTree = decltype(create_command_tree());
