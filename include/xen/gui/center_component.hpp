@@ -135,6 +135,8 @@ class MeasureView : public juce::Component, juce::Timer
   public:
     MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
+    ~MeasureView() override;
+
   public:
     [[nodiscard]] auto get_cell() -> Cell &;
 
