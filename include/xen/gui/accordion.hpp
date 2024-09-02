@@ -37,8 +37,8 @@ class VLabel : public juce::Component
 class AccordionTop : public juce::Component
 {
   public:
-    VLabel title;
     juce::DrawableButton toggle_button;
+    VLabel title;
 
   public:
     explicit AccordionTop(juce::String title_);

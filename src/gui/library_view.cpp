@@ -3,15 +3,15 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
 
 void LibraryView::Divider::paint(juce::Graphics &g)
 {
-    g.setColour(this->findColour((int)TimeSignatureColorIDs::Outline));
+    g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawLine(0, 0, (float)this->getWidth(), (float)this->getHeight());
 }
 
@@ -43,8 +43,6 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     tunings_label.setFont(fonts::monospaced().regular.withHeight(16.f));
     this->addAndMakeVisible(tunings_label);
     this->addAndMakeVisible(tunings_list);
-
-    this->lookAndFeelChanged();
 }
 
 void LibraryView::resized()
@@ -87,16 +85,15 @@ void LibraryView::resized()
 void LibraryView::lookAndFeelChanged()
 {
     label.setColour(juce::Label::backgroundColourId,
-                    this->findColour((int)TimeSignatureColorIDs::Background));
+                    this->findColour(ColorID::Background));
     label.setColour(juce::Label::textColourId,
-                    this->findColour((int)TimeSignatureColorIDs::Text));
+                    this->findColour(ColorID::ForegroundHigh));
     sequences_label.setColour(juce::Label::backgroundColourId,
-                              this->findColour((int)TimeSignatureColorIDs::Outline));
-    active_sessions_label.setColour(
-        juce::Label::backgroundColourId,
-        this->findColour((int)TimeSignatureColorIDs::Outline));
+                              this->findColour(ColorID::ForegroundLow));
+    active_sessions_label.setColour(juce::Label::backgroundColourId,
+                                    this->findColour(ColorID::ForegroundLow));
     tunings_label.setColour(juce::Label::backgroundColourId,
-                            this->findColour((int)TimeSignatureColorIDs::Outline));
+                            this->findColour(ColorID::ForegroundLow));
 }
 
 } // namespace xen::gui

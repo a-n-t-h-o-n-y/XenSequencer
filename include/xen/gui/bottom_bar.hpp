@@ -73,9 +73,6 @@ class InputModeIndicator : public LetterSquare
 
   public:
     void set(InputMode mode);
-
-  protected:
-    void lookAndFeelChanged() override;
 };
 
 // -------------------------------------------------------------------------------------
@@ -98,9 +95,6 @@ class LibrarySequencerToggle : public LetterSquare
     void display_library_indicator();
 
     void display_sequencer_indicator();
-
-  protected:
-    void lookAndFeelChanged() override;
 
   private:
     /**

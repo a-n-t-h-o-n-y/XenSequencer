@@ -173,4 +173,79 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     }
 }
 
+void XenProcessor::prepareToPlay(double, int)
+{
+}
+
+void XenProcessor::releaseResources()
+{
+}
+
+auto XenProcessor::getName() const -> juce::String const
+{
+    return JucePlugin_Name;
+}
+
+auto XenProcessor::hasEditor() const -> bool
+{
+    return true;
+}
+
+auto XenProcessor::acceptsMidi() const -> bool
+{
+#if JucePlugin_WantsMidiInput
+    return true;
+#else
+    return false;
+#endif
+}
+
+auto XenProcessor::producesMidi() const -> bool
+{
+#if JucePlugin_ProducesMidiOutput
+    return true;
+#else
+    return false;
+#endif
+}
+
+auto XenProcessor::isMidiEffect() const -> bool
+{
+#if JucePlugin_IsMidiEffect
+    return true;
+#else
+    return false;
+#endif
+}
+
+auto XenProcessor::getTailLengthSeconds() const -> double
+{
+    return 0.;
+}
+
+auto XenProcessor::getNumPrograms() -> int
+{
+    return 1; // NB: some hosts don't cope very well if you tell them there are 0
+              // programs, so this should be at least 1, even if you're not really
+              // implementing programs.
+}
+
+auto XenProcessor::getCurrentProgram() -> int
+{
+    return 0;
+}
+
+void XenProcessor::setCurrentProgram(int)
+{
+}
+
+auto XenProcessor::getProgramName(int index) -> juce::String const
+{
+    return "Program " + juce::String(index);
+}
+
+void XenProcessor::changeProgramName(int, const juce::String &)
+{
+}
+
 } // namespace xen

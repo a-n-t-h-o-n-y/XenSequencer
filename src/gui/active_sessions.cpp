@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include <xen/gui/color_ids.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
@@ -55,14 +55,13 @@ void InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int 
         auto &laf = parent_.getLookAndFeel();
         if (rowIsSelected)
         {
-            g.fillAll(
-                laf.findColour((int)ActiveSessionsColorIDs::SelectedItemBackground));
-            g.setColour(laf.findColour((int)ActiveSessionsColorIDs::SelectedItemText));
+            g.fillAll(laf.findColour(ColorID::BackgroundLow));
+            g.setColour(laf.findColour(ColorID::ForegroundHigh));
         }
         else
         {
-            g.fillAll(laf.findColour((int)ActiveSessionsColorIDs::ItemBackground));
-            g.setColour(laf.findColour((int)ActiveSessionsColorIDs::ItemText));
+            g.fillAll(laf.findColour(ColorID::BackgroundMedium));
+            g.setColour(laf.findColour(ColorID::ForegroundHigh));
         }
 
         g.drawText(items_[(std::size_t)row].second, 2, 0, width - 4, height,
@@ -94,17 +93,15 @@ void NameEdit::textWasEdited()
 void NameEdit::lookAndFeelChanged()
 {
     this->setColour(juce::Label::textColourId,
-                    this->findColour((int)ActiveSessionsColorIDs::CurrentItemText));
-    this->setColour(
-        juce::Label::backgroundColourId,
-        this->findColour((int)ActiveSessionsColorIDs::CurrentItemBackground));
+                    this->findColour(ColorID::ForegroundMedium));
+    this->setColour(juce::Label::backgroundColourId,
+                    this->findColour(ColorID::BackgroundMedium));
     this->setColour(juce::Label::outlineWhenEditingColourId,
-                    this->findColour((int)ActiveSessionsColorIDs::OutlineWhenEditing));
-    this->setColour(
-        juce::Label::backgroundWhenEditingColourId,
-        this->findColour((int)ActiveSessionsColorIDs::BackgroundWhenEditing));
+                    this->findColour(ColorID::ForegroundLow));
+    this->setColour(juce::Label::backgroundWhenEditingColourId,
+                    this->findColour(ColorID::BackgroundLow));
     this->setColour(juce::Label::textWhenEditingColourId,
-                    this->findColour((int)ActiveSessionsColorIDs::TextWhenEditing));
+                    this->findColour(ColorID::ForegroundHigh));
 }
 
 /* ~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~.=.~ */
@@ -153,9 +150,8 @@ void ActiveSessionsList::resized()
 
 void ActiveSessionsList::lookAndFeelChanged()
 {
-    instance_list_box_.setColour(
-        juce::ListBox::backgroundColourId,
-        this->findColour((int)ActiveSessionsColorIDs::ItemBackground));
+    instance_list_box_.setColour(juce::ListBox::backgroundColourId,
+                                 this->findColour(ColorID::BackgroundMedium));
 }
 
 } // namespace xen::gui

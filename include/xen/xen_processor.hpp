@@ -12,14 +12,13 @@
 #include <xen/gui/themes.hpp>
 #include <xen/lock_free_queue.hpp>
 #include <xen/midi_engine.hpp>
-#include <xen/plugin_processor.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
 
 namespace xen
 {
 
-class XenProcessor : public PluginProcessor
+class XenProcessor : public juce::AudioProcessor
 {
   public:
     PluginState plugin_state;
@@ -37,7 +36,7 @@ class XenProcessor : public PluginProcessor
 
     ~XenProcessor() override = default;
 
-  protected:
+  public:
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
 
     void processBlock(juce::AudioBuffer<double> &, juce::MidiBuffer &) override;
@@ -47,6 +46,25 @@ class XenProcessor : public PluginProcessor
     void getStateInformation(juce::MemoryBlock &dest_data) override;
 
     void setStateInformation(void const *data, int sizeInBytes) override;
+
+  public:
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+
+    auto getName() const -> juce::String const override;
+
+    auto hasEditor() const -> bool override;
+
+    auto acceptsMidi() const -> bool override;
+    auto producesMidi() const -> bool override;
+    auto isMidiEffect() const -> bool override;
+    auto getTailLengthSeconds() const -> double override;
+
+    auto getNumPrograms() -> int override;
+    auto getCurrentProgram() -> int override;
+    void setCurrentProgram(int index) override;
+    auto getProgramName(int index) -> juce::String const override;
+    void changeProgramName(int index, juce::String const &newName) override;
 
   private:
     struct AudioThreadState

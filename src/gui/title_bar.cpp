@@ -4,8 +4,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/constants.hpp>
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
@@ -29,8 +29,6 @@ TitleBar::TitleBar()
     open_menu_.setPath(juce::Drawable::parseSVGPath(
         "M120-240v-80h520v80H120Zm664-40L584-480l200-200 56 56-144 144 144 144-56 "
         "56ZM120-440v-80h400v80H120Zm0-200v-80h520v80H120Z"));
-
-    this->lookAndFeelChanged();
 }
 
 void TitleBar::resized()
@@ -48,26 +46,25 @@ void TitleBar::resized()
 
 void TitleBar::paint(juce::Graphics &g)
 {
-    g.fillAll(title.findColour((int)DirectoryViewColorIDs::ItemBackground));
+    g.fillAll(this->findColour(ColorID::BackgroundMedium));
 }
 
 void TitleBar::lookAndFeelChanged()
 {
     version.setColour(juce::Label::textColourId,
-                      title.findColour((int)DirectoryViewColorIDs::ItemText));
+                      this->findColour(ColorID::ForegroundHigh));
     version.setColour(juce::Label::backgroundColourId,
-                      title.findColour((int)DirectoryViewColorIDs::ItemBackground));
+                      this->findColour(ColorID::BackgroundMedium));
 
     title.setColour(juce::Label::textColourId,
-                    title.findColour((int)DirectoryViewColorIDs::ItemText));
+                    this->findColour(ColorID::ForegroundHigh));
     title.setColour(juce::Label::backgroundColourId,
-                    title.findColour((int)DirectoryViewColorIDs::ItemBackground));
+                    this->findColour(ColorID::BackgroundMedium));
 
-    menu_button.setColour(
-        juce::DrawableButton::ColourIds::backgroundColourId,
-        menu_button.findColour((int)DirectoryViewColorIDs::ItemBackground));
-    open_menu_.setFill(menu_button.findColour((int)DirectoryViewColorIDs::ItemText));
-    closed_menu_.setFill(menu_button.findColour((int)DirectoryViewColorIDs::ItemText));
+    menu_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
+                          this->findColour(ColorID::BackgroundMedium));
+    open_menu_.setFill(this->findColour(ColorID::ForegroundHigh));
+    closed_menu_.setFill(this->findColour(ColorID::ForegroundHigh));
     menu_button.setImages(is_menu_open_ ? &open_menu_ : &closed_menu_);
 }
 

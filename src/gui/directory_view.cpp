@@ -1,7 +1,7 @@
 #include <xen/gui/directory_view.hpp>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
@@ -71,7 +71,7 @@ auto DirectoryView::keyPressed(juce::KeyPress const &key) -> bool
 void DirectoryView::lookAndFeelChanged()
 {
     list_box_.setColour(juce::ListBox::backgroundColourId,
-                        this->findColour((int)DirectoryViewColorIDs::ItemBackground));
+                        this->findColour(ColorID::BackgroundMedium));
 }
 
 auto DirectoryView::getNumRows() -> int
@@ -87,14 +87,13 @@ void DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width
         rowNumber -= 1;
         if (rowIsSelected)
         {
-            g.fillAll(
-                this->findColour((int)DirectoryViewColorIDs::SelectedItemBackground));
-            g.setColour(this->findColour((int)DirectoryViewColorIDs::SelectedItemText));
+            g.fillAll(this->findColour(ColorID::BackgroundLow));
+            g.setColour(this->findColour(ColorID::ForegroundHigh));
         }
         else
         {
-            g.fillAll(this->findColour((int)DirectoryViewColorIDs::ItemBackground));
-            g.setColour(this->findColour((int)DirectoryViewColorIDs::ItemText));
+            g.fillAll(this->findColour(ColorID::BackgroundMedium));
+            g.setColour(this->findColour(ColorID::ForegroundHigh));
         }
         auto const filename = [&]() -> juce::String {
             if (rowNumber == -1)

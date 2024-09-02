@@ -7,8 +7,8 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 
 namespace
@@ -48,11 +48,11 @@ auto LetterSquare::get() const -> char
 
 void LetterSquare::paint(juce::Graphics &g)
 {
-    g.fillAll(this->findColour((int)LetterSquareColorIDs::Background));
-    g.setColour(this->findColour((int)LetterSquareColorIDs::Outline));
+    g.fillAll(this->findColour(ColorID::Background));
+    g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawRect(this->getLocalBounds(), 1);
 
-    g.setColour(this->findColour((int)LetterSquareColorIDs::Letter));
+    g.setColour(this->findColour(ColorID::ForegroundMedium));
     g.setFont(fonts::monospaced().bold.withHeight(18.f));
     g.drawText(juce::String(std::string(1, letter_)), this->getLocalBounds(),
                juce::Justification::centred);
@@ -71,23 +71,12 @@ void LetterSquare::mouseUp(juce::MouseEvent const &event)
 InputModeIndicator::InputModeIndicator(InputMode mode)
     : LetterSquare{get_first_letter(mode)}
 {
-    this->lookAndFeelChanged();
 }
 
 void InputModeIndicator::set(InputMode mode)
 {
     auto const first_letter = get_first_letter(mode);
     this->LetterSquare::set(first_letter);
-}
-
-void InputModeIndicator::lookAndFeelChanged()
-{
-    this->setColour((int)LetterSquareColorIDs::Background,
-                    this->findColour((int)StatusBarColorIDs::Background));
-    this->setColour((int)LetterSquareColorIDs::Outline,
-                    this->findColour((int)StatusBarColorIDs::Outline));
-    this->setColour((int)LetterSquareColorIDs::Letter,
-                    this->findColour((int)StatusBarColorIDs::InputModeLetter));
 }
 
 // -------------------------------------------------------------------------------------
@@ -105,17 +94,6 @@ void LibrarySequencerToggle::display_library_indicator()
 void LibrarySequencerToggle::display_sequencer_indicator()
 {
     this->LetterSquare::set('S');
-}
-
-void LibrarySequencerToggle::lookAndFeelChanged()
-{
-    this->setColour((int)LetterSquareColorIDs::Background,
-                    this->findColour((int)StatusBarColorIDs::Background));
-    this->setColour((int)LetterSquareColorIDs::Outline,
-                    this->findColour((int)StatusBarColorIDs::Outline));
-    this->setColour(
-        (int)LetterSquareColorIDs::Letter,
-        this->findColour((int)StatusBarColorIDs::LibrarySequencerToggleLetter));
 }
 
 void LibrarySequencerToggle::emit_show_command()

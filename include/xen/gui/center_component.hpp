@@ -13,7 +13,6 @@
 
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
@@ -27,9 +26,6 @@ namespace xen::gui
  */
 class CenterComponentLabel : public juce::Label
 {
-  public:
-    CenterComponentLabel();
-
   public:
     void lookAndFeelChanged() override;
 };
@@ -48,7 +44,7 @@ class RightBordered : public Component
         auto const width = this->getWidth();
         auto const height = this->getHeight();
 
-        g.setColour(this->findColour((int)TimeSignatureColorIDs::Outline));
+        g.setColour(this->findColour(ColorID::ForegroundLow));
         g.fillRect(width - border_thickness, 0, border_thickness, height);
     }
 };

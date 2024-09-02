@@ -39,17 +39,12 @@ namespace
 namespace xen::gui
 {
 
-CenterComponentLabel::CenterComponentLabel()
-{
-    this->lookAndFeelChanged();
-}
-
 void CenterComponentLabel::lookAndFeelChanged()
 {
     this->setColour(juce::Label::ColourIds::textColourId,
-                    this->findColour((int)TimeSignatureColorIDs::Text));
+                    this->findColour(ColorID::ForegroundHigh));
     this->setColour(juce::Label::ColourIds::backgroundColourId,
-                    this->findColour((int)TimeSignatureColorIDs::Background));
+                    this->findColour(ColorID::Background));
 }
 
 // -------------------------------------------------------------------------------------
@@ -179,7 +174,7 @@ void MeasureInfo::resized()
 
 void MeasureInfo::paintOverChildren(juce::Graphics &g)
 {
-    g.setColour(this->findColour((int)TimeSignatureColorIDs::Outline));
+    g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawRect(this->getLocalBounds(), 1);
 }
 
@@ -197,8 +192,7 @@ void IntervalColumn::update(std::size_t new_size)
 
 void IntervalColumn::paint(juce::Graphics &g)
 {
-    // TODO color ID
-    g.fillAll(this->findColour((int)MeasureColorIDs::Background));
+    g.fillAll(this->findColour(ColorID::BackgroundMedium));
 
     auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
 
@@ -268,7 +262,7 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
     if (playhead_.has_value())
     {
         // TODO create a new theme entry for playhead.
-        g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+        g.setColour(this->findColour(ColorID::ForegroundMedium));
 
         auto const x_pos = playhead_.value() * static_cast<float>(this->getWidth());
         g.drawLine(x_pos, 4.f, x_pos, static_cast<float>(this->getHeight() - 4));
@@ -282,6 +276,11 @@ void MeasureView::timerCallback()
     {
         auto const samples_in_measure = sequence::samples_count(
             measure_, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
+        if (samples_in_measure == 0)
+        {
+            this->set_playhead(std::nullopt);
+            return;
+        }
         auto const current_sample = audio_thread_state.accumulated_sample_count;
         auto const start_sample =
             audio_thread_state.note_start_times[selected_measure_];

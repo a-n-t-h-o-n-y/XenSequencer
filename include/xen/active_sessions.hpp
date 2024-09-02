@@ -141,7 +141,7 @@ class ThisInstance
   private:
     InterProcessRelay &relay_;
     InstanceDirectory &directory_;
-    juce::Uuid const &uuid_;
+    juce::Uuid uuid_;
     HeartbeatSender heartbeat_sender_;
 };
 

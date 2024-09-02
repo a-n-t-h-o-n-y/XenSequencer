@@ -29,6 +29,19 @@ struct Theme
     std::uint32_t bg_inv;
 };
 
+struct ColorID
+{
+    static int const Background = 0xA000000;
+    static int const ForegroundHigh = 0xA000001;
+    static int const ForegroundMedium = 0xA000002;
+    static int const ForegroundLow = 0xA000003;
+    static int const ForegroundInverse = 0xA000004;
+    static int const BackgroundHigh = 0xA000005;
+    static int const BackgroundMedium = 0xA000006;
+    static int const BackgroundLow = 0xA000007;
+    static int const BackgroundInverse = 0xA000008;
+};
+
 /**
  * Find a theme by name.
  *

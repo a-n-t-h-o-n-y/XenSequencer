@@ -4,25 +4,25 @@
 #include <string>
 #include <type_traits>
 
-#include <xen/gui/color_ids.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/message_level.hpp>
 
 namespace
 {
 
-[[nodiscard]] auto get_color_id(xen::MessageLevel level) -> xen::gui::StatusBarColorIDs
+[[nodiscard]] auto get_color_id(xen::MessageLevel level) -> int
 {
     using namespace xen;
     switch (level)
     {
     case MessageLevel::Debug:
-        return gui::StatusBarColorIDs::DebugText;
+        return gui::ColorID::ForegroundHigh;
     case MessageLevel::Info:
-        return gui::StatusBarColorIDs::InfoText;
+        return gui::ColorID::ForegroundHigh;
     case MessageLevel::Warning:
-        return gui::StatusBarColorIDs::WarningText;
+        return gui::ColorID::ForegroundMedium;
     case MessageLevel::Error:
-        return gui::StatusBarColorIDs::ErrorText;
+        return gui::ColorID::ForegroundMedium;
     default:
         throw std::invalid_argument{
             "Invalid MessageLevel: " +
@@ -60,7 +60,7 @@ void StatusBar::set_status(MessageLevel level, std::string text)
     }
 
     label_.setColour(juce::Label::textColourId,
-                     this->findColour((int)get_color_id(current_level_)));
+                     this->findColour(get_color_id(current_level_)));
     // TODO set font
     label_.setText(text, juce::dontSendNotification);
 }
@@ -78,14 +78,14 @@ void StatusBar::resized()
 void StatusBar::lookAndFeelChanged()
 {
     label_.setColour(juce::Label::textColourId,
-                     this->findColour((int)get_color_id(current_level_)));
+                     this->findColour(get_color_id(current_level_)));
     label_.setColour(juce::Label::backgroundColourId,
-                     this->findColour((int)StatusBarColorIDs::Background));
+                     this->findColour(ColorID::Background));
 }
 
 void StatusBar::paintOverChildren(juce::Graphics &g)
 {
-    g.setColour(this->findColour((int)StatusBarColorIDs::Outline));
+    g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawRect(this->getLocalBounds(), 1);
 }
 

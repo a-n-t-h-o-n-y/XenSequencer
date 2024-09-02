@@ -8,8 +8,8 @@
 #include <signals_light/signal.hpp>
 
 #include <xen/command_history.hpp>
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
@@ -95,8 +95,6 @@ CommandBar::CommandBar(CommandHistory &cmd_history) : command_history_{cmd_histo
     auto const font = fonts::monospaced().regular.withHeight(16.f);
     command_input_.setFont(font);
     ghost_text_.setFont(font);
-
-    this->lookAndFeelChanged();
 }
 
 void CommandBar::clear()
@@ -124,10 +122,10 @@ void CommandBar::resized()
 
 void CommandBar::lookAndFeelChanged()
 {
-    auto const bg = this->findColour((int)CommandBarColorIDs::Background);
-    auto const text = this->findColour((int)CommandBarColorIDs::Text);
-    auto const ghost = this->findColour((int)CommandBarColorIDs::GhostText);
-    auto const outline = this->findColour((int)CommandBarColorIDs::Outline);
+    auto const bg = this->findColour(ColorID::BackgroundMedium);
+    auto const text = this->findColour(ColorID::ForegroundHigh);
+    auto const ghost = this->findColour(ColorID::ForegroundLow);
+    auto const outline = this->findColour(ColorID::ForegroundLow);
 
     command_input_.setColour(juce::TextEditor::backgroundColourId, bg);
     command_input_.setColour(juce::TextEditor::textColourId, text);

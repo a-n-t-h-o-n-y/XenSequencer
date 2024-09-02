@@ -14,8 +14,8 @@
 
 #include <sequence/sequence.hpp>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/utility.hpp>
 
 namespace
@@ -111,7 +111,7 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 [[nodiscard]] auto velocity_color(float velocity,
                                   juce::LookAndFeel const &laf) -> juce::Colour
 {
-    return laf.findColour((int)gui::NoteColorIDs::IntervalMid).brighter(1.f - velocity);
+    return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
 }
 
 } // namespace
@@ -144,7 +144,7 @@ void Cell::paintOverChildren(juce::Graphics &g)
         auto const line_thickness = 1.f;
         auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
-        g.setColour(this->findColour((int)MeasureColorIDs::SelectionHighlight));
+        g.setColour(this->findColour(ColorID::ForegroundMedium));
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
     }
 }
@@ -159,7 +159,7 @@ void Rest::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
-    draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
+    draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
     // g.setColour(juce::Colours::dimgrey);
     draw_staff(g, bounds, interval_count_, juce::Colours::dimgrey.darker(1.f));
@@ -176,10 +176,9 @@ void Note::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
 
-    draw_button(g, bounds, this->findColour((int)RestColorIDs::Outline));
+    draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
-    // TODO use NoteColorIDs?
-    // TODO Update NoteColorIDs probably not using the low mid high anymore
+    // TODO use color ID
     draw_staff(g, bounds, tuning_length_, juce::Colours::dimgrey);
 
     // Paint Note Interval
@@ -197,8 +196,7 @@ void Note::paint(juce::Graphics &g)
         juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
             .dropLastCharacters(1);
 
-    // TODO color ids
-    g.setColour(this->findColour((int)NoteColorIDs::Foreground));
+    g.setColour(this->findColour(ColorID::BackgroundLow));
     g.setFont(
         fonts::symbols().withHeight(std::max(interval_bounds.getHeight() - 2.f, 1.f)));
     g.drawText(
@@ -237,7 +235,7 @@ void Sequence::select_child(std::vector<std::size_t> const &indices)
 
 void Sequence::paint(juce::Graphics &g)
 {
-    g.setColour(this->findColour((int)MeasureColorIDs::Background));
+    g.setColour(this->findColour(ColorID::BackgroundMedium));
     g.fillAll();
 }
 

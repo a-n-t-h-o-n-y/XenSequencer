@@ -58,7 +58,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     this->addAndMakeVisible(&plugin_window);
 
-    { // Initialize LookAndFeel
+    { // Initialize LookAndFeel after plugin_window is added as child.
         if (p.plugin_state.laf == nullptr)
         {
             auto const theme = [&] {

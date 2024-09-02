@@ -9,7 +9,6 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
 
 namespace
@@ -654,72 +653,19 @@ auto make_laf(Theme const &theme) -> std::unique_ptr<juce::LookAndFeel>
 {
     auto laf = std::make_unique<CustomLookAndFeel>();
 
-    auto sc = [&](auto id, std::uint32_t argb) {
-        laf->setColour((int)id, juce::Colour{argb});
+    auto sc = [&](int id, std::uint32_t argb) {
+        laf->setColour(id, juce::Colour{argb});
     };
 
-    sc(AccordionColorIDs::Background, theme.background);
-    sc(AccordionColorIDs::Text, theme.fg_high);
-    sc(AccordionColorIDs::Triangle, theme.fg_low);
-    sc(AccordionColorIDs::TitleUnderline, theme.fg_low);
-
-    sc(DirectoryViewColorIDs::TitleText, theme.fg_high);
-    sc(DirectoryViewColorIDs::TitleBackground, theme.background);
-    sc(DirectoryViewColorIDs::ItemBackground, theme.bg_med);
-    sc(DirectoryViewColorIDs::ItemText, theme.fg_high);
-    sc(DirectoryViewColorIDs::SelectedItemBackground, theme.bg_low);
-    sc(DirectoryViewColorIDs::SelectedItemText, theme.fg_high);
-
-    sc(ActiveSessionsColorIDs::TitleText, theme.fg_high);
-    sc(ActiveSessionsColorIDs::TitleBackground, theme.background);
-    sc(ActiveSessionsColorIDs::ItemBackground, theme.bg_med);
-    sc(ActiveSessionsColorIDs::ItemText, theme.fg_high);
-    sc(ActiveSessionsColorIDs::SelectedItemBackground, theme.bg_low);
-    sc(ActiveSessionsColorIDs::SelectedItemText, theme.fg_high);
-    sc(ActiveSessionsColorIDs::BackgroundWhenEditing, theme.bg_low);
-    sc(ActiveSessionsColorIDs::TextWhenEditing, theme.fg_high);
-    sc(ActiveSessionsColorIDs::OutlineWhenEditing, theme.fg_low);
-    sc(ActiveSessionsColorIDs::CurrentItemBackground, theme.bg_med);
-    sc(ActiveSessionsColorIDs::CurrentItemText, theme.fg_med);
-
-    sc(TimelineColorIDs::Background, theme.bg_med);
-    sc(TimelineColorIDs::SelectionHighlight, theme.fg_low);
-    sc(TimelineColorIDs::VerticalSeparator, theme.fg_med);
-    sc(TimelineColorIDs::Note, theme.fg_high);
-    sc(TimelineColorIDs::Rest, theme.fg_low);
-
-    sc(TimeSignatureColorIDs::Background, theme.background);
-    sc(TimeSignatureColorIDs::Text, theme.fg_high);
-    sc(TimeSignatureColorIDs::Outline, theme.fg_low);
-
-    sc(MeasureColorIDs::Background, theme.bg_med);
-    sc(MeasureColorIDs::Outline, theme.fg_low);
-    sc(MeasureColorIDs::SelectionHighlight, theme.fg_med);
-
-    sc(RestColorIDs::Background, theme.bg_low);
-    sc(RestColorIDs::Text, theme.fg_low);
-    sc(RestColorIDs::Outline, theme.fg_low);
-
-    sc(NoteColorIDs::Foreground, theme.bg_low);
-    sc(NoteColorIDs::IntervalLow, theme.fg_low);
-    sc(NoteColorIDs::IntervalMid, theme.fg_med);
-    sc(NoteColorIDs::IntervalHigh, theme.fg_high);
-    sc(NoteColorIDs::IntervalText, theme.bg_high);
-    sc(NoteColorIDs::OctaveText, theme.bg_high);
-
-    sc(StatusBarColorIDs::Background, theme.background);
-    sc(StatusBarColorIDs::InfoText, theme.fg_high);
-    sc(StatusBarColorIDs::DebugText, theme.fg_high);
-    sc(StatusBarColorIDs::WarningText, theme.fg_med);
-    sc(StatusBarColorIDs::ErrorText, theme.fg_med);
-    sc(StatusBarColorIDs::InputModeLetter, theme.fg_med);
-    sc(StatusBarColorIDs::LibrarySequencerToggleLetter, theme.fg_med);
-    sc(StatusBarColorIDs::Outline, theme.fg_low);
-
-    sc(CommandBarColorIDs::Background, theme.bg_med);
-    sc(CommandBarColorIDs::Text, theme.fg_high);
-    sc(CommandBarColorIDs::GhostText, theme.fg_low);
-    sc(CommandBarColorIDs::Outline, theme.fg_low);
+    sc(ColorID::Background, theme.background);
+    sc(ColorID::ForegroundHigh, theme.fg_high);
+    sc(ColorID::ForegroundMedium, theme.fg_med);
+    sc(ColorID::ForegroundLow, theme.fg_low);
+    sc(ColorID::ForegroundInverse, theme.fg_inv);
+    sc(ColorID::BackgroundHigh, theme.bg_high);
+    sc(ColorID::BackgroundMedium, theme.bg_med);
+    sc(ColorID::BackgroundLow, theme.bg_low);
+    sc(ColorID::BackgroundInverse, theme.bg_inv);
 
     return laf;
 }

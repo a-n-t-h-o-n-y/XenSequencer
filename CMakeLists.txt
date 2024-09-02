@@ -22,23 +22,17 @@ if (NOT TARGET Catch2)
     add_subdirectory(external/Catch2 SYSTEM)
 endif()
 
-# XenSequencer Code
+# XenSequencer Code - separate library so can be linked to tests.
 add_library(XenSequencerLib STATIC)
 
 target_include_directories(XenSequencerLib
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_compile_features(XenSequencerLib
-    PUBLIC
-        cxx_std_20
-)
 target_compile_options(XenSequencerLib INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
-
-set_target_properties(XenSequencerLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Add config files as a binary resource
 juce_add_binary_data(EmbedKeys
@@ -151,7 +145,6 @@ target_sources(XenSequencerLib
         include/xen/midi.hpp
         include/xen/midi_engine.hpp
         include/xen/parse_args.hpp
-        include/xen/plugin_processor.hpp
         include/xen/selection.hpp
         include/xen/serialize.hpp
         include/xen/active_sessions.hpp
@@ -162,13 +155,10 @@ target_sources(XenSequencerLib
         include/xen/user_directory.hpp
         include/xen/utility.hpp
         include/xen/xen_command_tree.hpp
-        include/xen/xen_editor.hpp
-        include/xen/xen_processor.hpp
 
         include/xen/gui/accordion.hpp
         include/xen/gui/active_sessions.hpp
         include/xen/gui/bottom_bar.hpp
-        include/xen/gui/color_ids.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp
         include/xen/gui/themes.hpp
@@ -242,11 +232,9 @@ target_compile_definitions(XenSequencerLib
 
 target_sources(XenSequencer
     PRIVATE
-        src/plugin_processor.cpp
-        src/xen_processor.cpp
         src/xen_editor.cpp
+        src/xen_processor.cpp
 
-        include/xen/plugin_processor.hpp
         include/xen/xen_editor.hpp
         include/xen/xen_processor.hpp
 )

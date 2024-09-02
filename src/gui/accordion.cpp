@@ -4,8 +4,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/color_ids.hpp>
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace
 {
@@ -45,8 +45,8 @@ void VLabel::set_letter_spacing(float spacing)
 
 void VLabel::paint(juce::Graphics &g)
 {
-    g.fillAll(this->findColour((int)AccordionColorIDs::Background));
-    g.setColour(this->findColour((int)AccordionColorIDs::Text));
+    g.fillAll(this->findColour(ColorID::Background));
+    g.setColour(this->findColour(ColorID::ForegroundHigh));
 
     g.setFont(font_);
     auto const bounds = this->getLocalBounds();
@@ -70,8 +70,8 @@ void VLabel::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 AccordionTop::AccordionTop(juce::String title_)
-    : title{std::move(title_)},
-      toggle_button{"toggle_button", juce::DrawableButton::ButtonStyle::ImageFitted}
+    : toggle_button{"toggle_button", juce::DrawableButton::ButtonStyle::ImageFitted},
+      title{std::move(title_)}
 {
     toggle_button.setWantsKeyboardFocus(false);
 
@@ -82,8 +82,6 @@ AccordionTop::AccordionTop(juce::String title_)
 
     toggle_button.setImages(&closed_triangle_);
     this->addAndMakeVisible(toggle_button);
-
-    this->lookAndFeelChanged();
 }
 
 void AccordionTop::toggle()
@@ -105,8 +103,8 @@ void AccordionTop::resized()
 
 void AccordionTop::lookAndFeelChanged()
 {
-    auto const background_color = this->findColour((int)AccordionColorIDs::Background);
-    auto const triangle_color = this->findColour((int)AccordionColorIDs::Triangle);
+    auto const background_color = this->findColour(ColorID::Background);
+    auto const triangle_color = this->findColour(ColorID::ForegroundLow);
 
     toggle_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
                             background_color);
@@ -118,7 +116,7 @@ void AccordionTop::lookAndFeelChanged()
 
 void AccordionTop::paintOverChildren(juce::Graphics &g)
 {
-    g.setColour(this->findColour((int)AccordionColorIDs::TitleUnderline));
+    g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawRect(this->getLocalBounds(), 1);
 }
 
