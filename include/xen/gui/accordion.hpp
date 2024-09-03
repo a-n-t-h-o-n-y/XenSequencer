@@ -4,6 +4,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <xen/gui/tile.hpp>
+
 namespace xen::gui
 {
 
@@ -37,7 +39,7 @@ class VLabel : public juce::Component
 class AccordionTop : public juce::Component
 {
   public:
-    juce::DrawableButton toggle_button;
+    ClickableTile toggle_button;
     VLabel title;
 
   public:
@@ -52,13 +54,9 @@ class AccordionTop : public juce::Component
   protected:
     void resized() override;
 
-    void lookAndFeelChanged() override;
-
     void paintOverChildren(juce::Graphics &g) override;
 
   private:
-    juce::DrawablePath open_triangle_;
-    juce::DrawablePath closed_triangle_;
     bool is_expanded_ = true; // Opposite, because we toggle on construction
 };
 
@@ -89,7 +87,7 @@ class HAccordion : public juce::Component
         this->set_flexitem(juce::FlexItem{}.withFlex(1.f));
 
         top_.title.set_letter_spacing(1.f);
-        top_.toggle_button.onClick = [this] { this->toggle_child_component(); };
+        top_.toggle_button.clicked.connect([this] { this->toggle_child_component(); });
 
         this->toggle_child_component();
     }

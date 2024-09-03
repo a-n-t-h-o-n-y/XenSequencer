@@ -70,24 +70,17 @@ void VLabel::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 AccordionTop::AccordionTop(juce::String title_)
-    : toggle_button{"toggle_button", juce::DrawableButton::ButtonStyle::ImageFitted},
-      title{std::move(title_)}
+    : toggle_button{"❮", 1}, title{std::move(title_)}
 {
-    toggle_button.setWantsKeyboardFocus(false);
-
-    this->addAndMakeVisible(title);
-
-    open_triangle_.setPath(create_triangle_path(true));
-    closed_triangle_.setPath(create_triangle_path(false));
-
-    toggle_button.setImages(&closed_triangle_);
+    toggle_button.font = fonts::symbols();
     this->addAndMakeVisible(toggle_button);
+    this->addAndMakeVisible(title);
 }
 
 void AccordionTop::toggle()
 {
     is_expanded_ = !is_expanded_;
-    toggle_button.setImages(is_expanded_ ? &open_triangle_ : &closed_triangle_);
+    toggle_button.set(is_expanded_ ? "❯" : "❮");
 }
 
 void AccordionTop::resized()
@@ -99,19 +92,6 @@ void AccordionTop::resized()
     flexbox.items.add(juce::FlexItem{title}.withFlex(1.f));
 
     flexbox.performLayout(this->getLocalBounds());
-}
-
-void AccordionTop::lookAndFeelChanged()
-{
-    auto const background_color = this->findColour(ColorID::Background);
-    auto const triangle_color = this->findColour(ColorID::ForegroundLow);
-
-    toggle_button.setColour(juce::DrawableButton::ColourIds::backgroundColourId,
-                            background_color);
-
-    open_triangle_.setFill(triangle_color);
-    closed_triangle_.setFill(triangle_color);
-    toggle_button.setImages(is_expanded_ ? &open_triangle_ : &closed_triangle_);
 }
 
 void AccordionTop::paintOverChildren(juce::Graphics &g)

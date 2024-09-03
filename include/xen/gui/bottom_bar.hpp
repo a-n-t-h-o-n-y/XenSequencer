@@ -10,6 +10,7 @@
 #include <xen/command_history.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/gui/status_bar.hpp>
+#include <xen/gui/tile.hpp>
 #include <xen/input_mode.hpp>
 
 namespace xen::gui
@@ -18,42 +19,18 @@ namespace xen::gui
 /**
  * A square that displays a single letter.
  *
- * @details Use `preferred_size` to set the size of the square.
+ * @details Use `preferred_size` to set the size of the square in parent\
  */
-class LetterSquare : public juce::Component
+class LetterSquare : public ClickableTile
 {
   public:
     static constexpr auto preferred_size = 23.f;
 
-    /**
-     * Emitted on Left Mouse Button Up.
-     */
-    sl::Signal<void()> clicked;
-
   public:
-    /**
-     * Constructs a LetterSquare with a specific initial letter.
-     */
-    explicit LetterSquare(char initial);
-
-  public:
-    /**
-     * Sets the letter to display.
-     */
-    void set(char letter);
-
-    /**
-     * Returns the current letter.
-     */
-    [[nodiscard]] auto get() const -> char;
+    explicit LetterSquare(std::string display, int margin = 3);
 
   public:
     void paint(juce::Graphics &g) override;
-
-    void mouseUp(juce::MouseEvent const &event) override;
-
-  private:
-    char letter_;
 };
 
 // -------------------------------------------------------------------------------------

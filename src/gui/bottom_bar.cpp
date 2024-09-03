@@ -31,82 +31,65 @@ namespace
 namespace xen::gui
 {
 
-LetterSquare::LetterSquare(char initial) : letter_{initial}
+LetterSquare::LetterSquare(std::string display, int margin)
+    : ClickableTile{display, margin}
 {
-}
-
-void LetterSquare::set(char letter)
-{
-    letter_ = letter;
-    this->repaint();
-}
-
-auto LetterSquare::get() const -> char
-{
-    return letter_;
+    Tile::background_color_id = ColorID::Background;
+    Tile::text_color_id = ColorID::ForegroundMedium;
 }
 
 void LetterSquare::paint(juce::Graphics &g)
 {
-    g.fillAll(this->findColour(ColorID::Background));
+    this->Tile::paint(g);
+
+    // Border
     g.setColour(this->findColour(ColorID::ForegroundLow));
     g.drawRect(this->getLocalBounds(), 1);
-
-    g.setColour(this->findColour(ColorID::ForegroundMedium));
-    g.setFont(fonts::monospaced().bold.withHeight(18.f));
-    g.drawText(juce::String(std::string(1, letter_)), this->getLocalBounds(),
-               juce::Justification::centred);
 }
-
-void LetterSquare::mouseUp(juce::MouseEvent const &event)
-{
-    if (event.mods.isLeftButtonDown())
-    {
-        this->clicked();
-    }
-}
-
 // -------------------------------------------------------------------------------------
 
 InputModeIndicator::InputModeIndicator(InputMode mode)
-    : LetterSquare{get_first_letter(mode)}
+    : LetterSquare{std::string(1, get_first_letter(mode)), 2}
 {
 }
 
 void InputModeIndicator::set(InputMode mode)
 {
     auto const first_letter = get_first_letter(mode);
-    this->LetterSquare::set(first_letter);
+    this->LetterSquare::set(std::string(1, first_letter));
 }
 
 // -------------------------------------------------------------------------------------
 
-LibrarySequencerToggle::LibrarySequencerToggle(char initial) : LetterSquare{initial}
+LibrarySequencerToggle::LibrarySequencerToggle(char initial)
+    : LetterSquare{std::string(1, initial), 2}
 {
     this->LetterSquare::clicked.connect([this] { this->emit_show_command(); });
 }
 
 void LibrarySequencerToggle::display_library_indicator()
 {
-    this->LetterSquare::set('L');
+    this->LetterSquare::set("L");
 }
 
 void LibrarySequencerToggle::display_sequencer_indicator()
 {
-    this->LetterSquare::set('S');
+    this->LetterSquare::set("S");
 }
 
 void LibrarySequencerToggle::emit_show_command()
 {
-    switch (this->LetterSquare::get())
+    auto const display = this->LetterSquare::get();
+    if (display == "L")
     {
-    case 'L':
         this->on_command("show LibraryView;focus SequencesList");
-        break;
-    case 'S':
+    }
+    else if (display == "S")
+    {
         this->on_command("show SequenceView;focus SequenceView");
-        break;
-    default:
+    }
+    else
+    {
         assert(false);
     }
 }

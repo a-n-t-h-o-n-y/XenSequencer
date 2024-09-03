@@ -126,6 +126,7 @@ target_sources(XenSequencerLib
         src/gui/sequence.cpp
         src/gui/status_bar.cpp
         src/gui/themes.cpp
+        src/gui/tile.cpp
         src/gui/title_bar.cpp
         src/gui/plugin_window.cpp
 
@@ -169,6 +170,7 @@ target_sources(XenSequencerLib
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
+        include/xen/gui/tile.hpp
         include/xen/gui/title_bar.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp
