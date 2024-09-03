@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 
+#include <xen/gui/themes.hpp>
+
 namespace
 {
 
@@ -35,11 +37,14 @@ void SequenceSquare::unindicate()
 void SequenceSquare::lookAndFeelChanged()
 {
     this->setColour(juce::TextButton::buttonColourId, this->get_color());
+    this->setColour(juce::TextButton::textColourOffId,
+                    this->findColour(ColorID::ForegroundHigh));
 }
 
 auto SequenceSquare::get_color() const -> juce::Colour
 {
-    return is_active_ ? juce::Colours::red : juce::Colours::black;
+    return this->findColour(is_active_ ? ColorID::BackgroundInverse
+                                       : ColorID::BackgroundMedium);
 }
 
 // -------------------------------------------------------------------------------------

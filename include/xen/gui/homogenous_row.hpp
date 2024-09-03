@@ -40,9 +40,8 @@ class HomogenousRow : public juce::Component
      *
      * @param flex The FlexItem to use as the default for each child.
      */
-    explicit HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f),
-                           bool paint_borders = false)
-        : flex_item_{std::move(flex)}, paint_borders_{paint_borders}
+    explicit HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
+        : flex_item_{std::move(flex)}
     {
     }
 
@@ -148,12 +147,6 @@ class HomogenousRow : public juce::Component
         this->initialize_child(*children_[at]);
         this->uninitialize_child(*old);
         return old;
-    }
-
-    void add_borders(bool paint_borders) noexcept
-    {
-        paint_borders_ = paint_borders;
-        this->repaint();
     }
 
   public:
@@ -285,20 +278,6 @@ class HomogenousRow : public juce::Component
         flex_box.performLayout(this->getLocalBounds());
     }
 
-    void paintOverChildren(juce::Graphics &g) override
-    {
-        if (paint_borders_)
-        {
-            g.setColour(juce::Colours::white);
-
-            for (auto i = std::size_t{1}; i < children_.size(); ++i)
-            {
-                auto x = children_[i]->getX() - 1;
-                g.drawLine((float)x, 0, (float)x, (float)this->getHeight(), 1);
-            }
-        }
-    }
-
   private:
     /**
      * Initialize a child component for use in the row.
@@ -321,7 +300,6 @@ class HomogenousRow : public juce::Component
   private:
     std::vector<std::unique_ptr<T>> children_;
     juce::FlexItem flex_item_;
-    bool paint_borders_;
 };
 
 } // namespace xen::gui

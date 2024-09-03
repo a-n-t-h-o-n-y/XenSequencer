@@ -1,10 +1,10 @@
 #include <xen/gui/center_component.hpp>
 
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -19,6 +19,7 @@
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 
@@ -195,16 +196,13 @@ void IntervalColumn::paint(juce::Graphics &g)
     g.fillAll(this->findColour(ColorID::BackgroundMedium));
 
     auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
-
-    // TODO add color ID
-    g.setColour(juce::Colours::grey);
-    g.setFont(fonts::monospaced().regular.withHeight(16.f));
-
     auto const item_height = bounds.getHeight() / static_cast<float>(size_);
 
+    g.setColour(this->findColour(ColorID::ForegroundLow));
+    g.setFont(fonts::monospaced().regular.withHeight(16.f));
     for (std::size_t i = 0; i < size_; ++i)
     {
-        float y = bounds.getBottom() - (static_cast<float>(i) + 1.f) * item_height;
+        float y = bounds.getBottom() - ((float)i + 1.f) * item_height;
         auto const text = juce::String(i).paddedLeft('0', 2);
 
         g.drawText(text, bounds.withY(y).withHeight(item_height),
@@ -410,7 +408,7 @@ auto CenterComponent::current_component() -> juce::Component &
     }
     else
     {
-        assert(false);
+        throw std::logic_error{"CenterComponent::current_component()"};
     }
 }
 

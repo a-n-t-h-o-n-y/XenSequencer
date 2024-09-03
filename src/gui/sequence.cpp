@@ -67,7 +67,8 @@ auto const corner_radius = 10.f;
 }
 
 void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
-                std::size_t interval_count, juce::Colour lighter_color)
+                std::size_t interval_count, juce::Colour lighter_color,
+                juce::Colour line_color)
 {
     auto const line_height = (float)bounds.getHeight() / (float)interval_count;
     for (std::size_t i = 0; i < interval_count; ++i)
@@ -81,10 +82,9 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
         // Draw filled rectangle
         g.fillRect(bounds.getX(), y, bounds.getWidth(), line_height);
 
-        // TODO pick a color?
         if (i != 0)
         {
-            g.setColour(juce::Colours::black);
+            g.setColour(line_color);
             g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 0.5f);
         }
     }
@@ -161,8 +161,8 @@ void Rest::paint(juce::Graphics &g)
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
-    // g.setColour(juce::Colours::dimgrey);
-    draw_staff(g, bounds, interval_count_, juce::Colours::dimgrey.darker(1.f));
+    draw_staff(g, bounds, interval_count_, this->findColour(ColorID::BackgroundLow),
+               this->findColour(ColorID::ForegroundInverse));
 }
 
 // -------------------------------------------------------------------------------------
@@ -178,8 +178,8 @@ void Note::paint(juce::Graphics &g)
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
-    // TODO use color ID
-    draw_staff(g, bounds, tuning_length_, juce::Colours::dimgrey);
+    draw_staff(g, bounds, tuning_length_, this->findColour(ColorID::ForegroundLow),
+               this->findColour(ColorID::ForegroundInverse));
 
     // Paint Note Interval
     auto const interval_bounds = compute_note_bounds(bounds, note_, tuning_length_);
@@ -187,7 +187,7 @@ void Note::paint(juce::Graphics &g)
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
 
     g.fillRect(interval_bounds);
-    g.setColour(juce::Colours::black);
+    g.setColour(this->findColour(ColorID::ForegroundInverse));
     g.drawRect(interval_bounds, 0.5f);
 
     // Paint Octave Text
@@ -208,7 +208,7 @@ void Note::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
-    : cells_{juce::FlexItem{}.withFlex(1.f), false}
+    : cells_{juce::FlexItem{}.withFlex(1.f)}
 {
     this->addAndMakeVisible(cells_);
 
