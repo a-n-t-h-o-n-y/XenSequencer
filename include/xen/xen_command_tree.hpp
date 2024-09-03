@@ -34,9 +34,19 @@ namespace xen
 
         cmd("undo", "Revert the last action.",
             [](PS &ps) {
-                return ps.timeline.undo() ? minfo("Undone")
-                                          : mwarning("Can't Undo: At Beginning of "
-                                                     "Timeline");
+                ps.timeline.reset_stage();
+                auto current_aux = ps.timeline.get_state().aux;
+                if (ps.timeline.undo())
+                {
+                    auto new_state = ps.timeline.get_state();
+                    new_state.aux = std::move(current_aux); // Important for continuity
+                    ps.timeline.stage(new_state);
+                    return minfo("Undone");
+                }
+                else
+                {
+                    return mwarning("Can't Undo: At Beginning of Timeline");
+                }
             }),
 
         cmd("redo", "Reapply the last undone action.",

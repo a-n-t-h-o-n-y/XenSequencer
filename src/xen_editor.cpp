@@ -287,7 +287,16 @@ void XenEditor::execute_command_string(std::string const &command_string)
     }
     catch (ErrorNoMatch const &)
     {
+        // FIXME: This roundabout way can set an invalid selection if a string of
+        // commands is executed that includes splitting and movement. But it isn't a
+        // huge deal and this behaviour is more desirable that without this patch.
+
+        // Roundabout way to revert partial changes but keep the selected state.
+        auto aux = ps.timeline.get_state().aux;
         ps.timeline.reset_stage();
+        auto state = ps.timeline.get_state();
+        state.aux = std::move(aux);
+        ps.timeline.stage(std::move(state));
         status = {MessageLevel::Error, "Command not found: " + command_string};
     }
     catch (std::exception const &e)
