@@ -86,7 +86,11 @@ void StatusBar::lookAndFeelChanged()
 void StatusBar::paintOverChildren(juce::Graphics &g)
 {
     g.setColour(this->findColour(ColorID::ForegroundLow));
-    g.drawRect(this->getLocalBounds(), 1);
+
+    auto const bounds = this->getLocalBounds();
+    g.drawHorizontalLine(bounds.getY(), (float)bounds.getX(), (float)bounds.getRight());
+    g.drawHorizontalLine(bounds.getBottom(), (float)bounds.getX(),
+                         (float)bounds.getRight());
 }
 
 } // namespace xen::gui

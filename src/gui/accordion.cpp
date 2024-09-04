@@ -97,7 +97,11 @@ void AccordionTop::resized()
 void AccordionTop::paintOverChildren(juce::Graphics &g)
 {
     g.setColour(this->findColour(ColorID::ForegroundLow));
-    g.drawRect(this->getLocalBounds(), 1);
+
+    auto const bounds = this->getLocalBounds();
+    g.drawVerticalLine(bounds.getX(), (float)bounds.getY(), (float)bounds.getBottom());
+    g.drawVerticalLine(bounds.getRight(), (float)bounds.getY(),
+                       (float)bounds.getBottom());
 }
 
 } // namespace xen::gui
