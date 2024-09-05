@@ -191,6 +191,11 @@ auto XenProcessor::hasEditor() const -> bool
     return true;
 }
 
+auto XenProcessor::supportsMPE() const -> bool
+{
+    return true;
+}
+
 auto XenProcessor::acceptsMidi() const -> bool
 {
 #if JucePlugin_WantsMidiInput

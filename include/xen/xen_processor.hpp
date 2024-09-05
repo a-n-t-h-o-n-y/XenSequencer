@@ -55,6 +55,7 @@ class XenProcessor : public juce::AudioProcessor
 
     auto hasEditor() const -> bool override;
 
+    auto supportsMPE() const -> bool override;
     auto acceptsMidi() const -> bool override;
     auto producesMidi() const -> bool override;
     auto isMidiEffect() const -> bool override;
