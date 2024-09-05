@@ -77,7 +77,7 @@ struct SelectedState
 struct AuxState
 {
     SelectedState selected{};
-    InputMode input_mode = InputMode::Movement;
+    InputMode input_mode = InputMode::Note;
 };
 
 struct TrackedState

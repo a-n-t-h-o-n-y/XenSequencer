@@ -43,8 +43,8 @@
 - The sequencer will now be filled with a demo sequence.
 - Move around the sequence with the arrow keys.
    - Left/Right will move the selection within the current sequence.
-   - Up/Down will move the selection between layers of sub-sequences.
-- With a note or sequence selected, press the `n` key to switch from movement to note input mode. The Up/Down arrows will now control the note pitch, if a sequence is selected, the change will apply to all notes in that sequence.
+   - Shift + Up/Down will move the selection between layers of sub-sequences.
+- With a note or sequence selected, press the `d` key to switch from note to delay input mode. The Up/Down arrows will now control the note delay, if a sequence is selected, the change will apply to all notes in that sequence.
 - Move between measures in a phrase by pressing the up key until you are at the top most layer, then move left or right.
 - Press the spacebar to play the sequence.
 - Change the tempo in your DAW.
@@ -58,7 +58,7 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 | Key Combination | Action |
 | --- | --- |
 | Left/Right Arrows or `h`/`l` | Move among a sequence |
-| Up/Down Arrows or `k`/`j` | Move between layers of sequences |
+| Shift + Up/Down Arrows or `k`/`j` | Move between layers of sequences |
 | `:` | Open the command bar |
 | `ctrl/cmd`+`z` | **Undo** the last action |
 | `ctrl/cmd`+`y` | **Redo** the last action |
@@ -69,8 +69,7 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 | `v` | Enable **Velocity** input mode, where the Up/Down arrows will change the note velocity |
 | `d` | Enable **Delay** input mode, where the Up/Down arrows will change the note delay |
 | `g` | Enable **Gate** input mode, where the Up/Down arrows will change the note gate |
-| `m` | Enable **Movement** input mode, where the Up/Down arrows will move the selection |
-| `esc` | Exit the command bar or revert to movement input mode |
+| `esc` | Exit the command bar or revert to Note input mode |
 | `del` | Delete the current selection |
 
 ### Custom Keyboard Shortcuts

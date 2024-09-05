@@ -11,7 +11,6 @@ namespace xen
  */
 enum class InputMode
 {
-    Movement,
     Note,
     Velocity,
     Delay,

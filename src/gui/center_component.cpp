@@ -1,10 +1,10 @@
 #include <xen/gui/center_component.hpp>
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -402,13 +402,10 @@ auto CenterComponent::current_component() -> juce::Component &
     {
         return sequence_view;
     }
-    else if (library_view.isVisible())
-    {
-        return library_view;
-    }
     else
     {
-        throw std::logic_error{"CenterComponent::current_component()"};
+        assert(library_view.isVisible());
+        return library_view;
     }
 }
 

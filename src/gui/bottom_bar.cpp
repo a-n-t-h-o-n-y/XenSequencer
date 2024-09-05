@@ -84,13 +84,10 @@ void LibrarySequencerToggle::emit_show_command()
     {
         this->on_command("show LibraryView;focus SequencesList");
     }
-    else if (display == "S")
-    {
-        this->on_command("show SequenceView;focus SequenceView");
-    }
     else
     {
-        assert(false);
+        assert(display == "S");
+        this->on_command("show SequenceView;focus SequenceView");
     }
 }
 
@@ -138,13 +135,10 @@ auto BottomBar::current_component() -> juce::Component &
     {
         return status_bar;
     }
-    else if (command_bar.isVisible())
-    {
-        return command_bar;
-    }
     else
     {
-        assert(false);
+        assert(command_bar.isVisible());
+        return command_bar;
     }
 }
 

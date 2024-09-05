@@ -3,6 +3,7 @@
 #include <optional>
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <filesystem>
 #include <iterator>
@@ -150,18 +151,15 @@ auto set_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
 
 auto delete_cell(TrackedState ts) -> TrackedState
 {
-    // delete selected cell, if the selected cell is the top level then replace it with
-    // a rest.
+    // Delete selected cell.
+    // If the selected cell is the top level then replace it with a Rest.
 
     sequence::Cell *parent =
         get_parent_of_selected(ts.sequencer.sequence_bank, ts.aux.selected);
     if (parent != nullptr)
     {
         // Delete Cell
-        if (!std::holds_alternative<sequence::Sequence>(*parent))
-        {
-            throw std::logic_error{"A parent Cell must be a Sequence."};
-        }
+        assert(!std::holds_alternative<sequence::Sequence>(*parent));
         auto &cells = std::get<sequence::Sequence>(*parent).cells;
         cells.erase(std::next(
             std::begin(cells),

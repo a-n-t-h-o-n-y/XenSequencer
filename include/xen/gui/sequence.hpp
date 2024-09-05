@@ -21,7 +21,7 @@ class Cell : public juce::Component
 
     virtual void select_child(std::vector<std::size_t> const &indices);
 
-  protected:
+  public:
     void paintOverChildren(juce::Graphics &g) override;
 
   private:
@@ -35,7 +35,7 @@ class Rest : public Cell
   public:
     explicit Rest(sequence::Rest, std::size_t interval_count);
 
-  protected:
+  public:
     void paint(juce::Graphics &g) override;
 
   private:
@@ -49,7 +49,7 @@ class Note : public Cell
   public:
     Note(sequence::Note note, std::size_t tuning_length);
 
-  protected:
+  public:
     void paint(juce::Graphics &g) override;
 
   private:
@@ -70,7 +70,7 @@ class Sequence : public Cell
   public:
     void select_child(std::vector<std::size_t> const &indices) override;
 
-  protected:
+  public:
     void paint(juce::Graphics &g) override;
 
     void resized() override;
