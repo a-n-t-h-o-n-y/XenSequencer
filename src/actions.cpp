@@ -159,7 +159,7 @@ auto delete_cell(TrackedState ts) -> TrackedState
     if (parent != nullptr)
     {
         // Delete Cell
-        assert(!std::holds_alternative<sequence::Sequence>(*parent));
+        assert(std::holds_alternative<sequence::Sequence>(*parent));
         auto &cells = std::get<sequence::Sequence>(*parent).cells;
         cells.erase(std::next(
             std::begin(cells),

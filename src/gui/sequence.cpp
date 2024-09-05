@@ -121,7 +121,7 @@ namespace xen::gui
 
 void Cell::make_selected()
 {
-    selected_ = true;
+    selected = true;
 }
 
 void Cell::select_child(std::vector<std::size_t> const &indices)
@@ -139,12 +139,12 @@ void Cell::select_child(std::vector<std::size_t> const &indices)
 
 void Cell::paintOverChildren(juce::Graphics &g)
 {
-    if (selected_)
+    if (selected)
     {
-        auto const line_thickness = 3.f;
-        auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+        auto const line_thickness = 2.f;
+        auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
-        g.setColour(this->findColour(ColorID::ForegroundMedium));
+        g.setColour(this->findColour(ColorID::ForegroundHigh));
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
     }
 }
@@ -157,7 +157,7 @@ Rest::Rest(sequence::Rest, std::size_t interval_count) : interval_count_{interva
 
 void Rest::paint(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+    auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
@@ -174,7 +174,7 @@ Note::Note(sequence::Note note, std::size_t tuning_length)
 
 void Note::paint(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().toFloat().reduced(2.f, 4.f);
+    auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
@@ -221,6 +221,14 @@ Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
     }
 }
 
+void Sequence::make_selected()
+{
+    for (auto &cell_ptr : cells_.get_children())
+    {
+        cell_ptr->selected = true;
+    }
+}
+
 void Sequence::select_child(std::vector<std::size_t> const &indices)
 {
     if (indices.empty())
@@ -231,12 +239,6 @@ void Sequence::select_child(std::vector<std::size_t> const &indices)
 
     cells_.at(indices[0])
         .select_child(std::vector(std::next(indices.cbegin()), indices.cend()));
-}
-
-void Sequence::paint(juce::Graphics &g)
-{
-    g.setColour(this->findColour(ColorID::BackgroundMedium));
-    g.fillAll();
 }
 
 void Sequence::resized()

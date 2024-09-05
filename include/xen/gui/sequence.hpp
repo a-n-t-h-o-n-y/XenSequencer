@@ -17,15 +17,16 @@ namespace xen::gui
 class Cell : public juce::Component
 {
   public:
-    void make_selected();
-
     virtual void select_child(std::vector<std::size_t> const &indices);
 
   public:
     void paintOverChildren(juce::Graphics &g) override;
 
-  private:
-    bool selected_ = false;
+  protected:
+    virtual void make_selected();
+
+  public:
+    bool selected = false;
 };
 
 // -------------------------------------------------------------------------------------
@@ -59,9 +60,6 @@ class Note : public Cell
 
 // -------------------------------------------------------------------------------------
 
-/**
- * Holds the Selected Sequence Indicator, the Interval Column and the actual Sequence.
- */
 class Sequence : public Cell
 {
   public:
@@ -71,9 +69,10 @@ class Sequence : public Cell
     void select_child(std::vector<std::size_t> const &indices) override;
 
   public:
-    void paint(juce::Graphics &g) override;
-
     void resized() override;
+
+  protected:
+    void make_selected() override;
 
   private:
     HomogenousRow<Cell> cells_;

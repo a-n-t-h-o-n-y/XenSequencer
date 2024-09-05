@@ -153,6 +153,8 @@ class MeasureView : public juce::Component, juce::Timer
   public:
     void resized() override;
 
+    void paint(juce::Graphics &g) override;
+
     void paintOverChildren(juce::Graphics &g) override;
 
     void timerCallback() override;

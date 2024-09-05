@@ -10,7 +10,6 @@
 namespace xen::gui
 {
 
-// TODO add color ids for this class and assign them theme values.
 class SequenceSquare : public juce::TextButton
 {
   public:

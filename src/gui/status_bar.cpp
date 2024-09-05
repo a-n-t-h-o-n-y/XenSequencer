@@ -4,6 +4,7 @@
 #include <string>
 #include <type_traits>
 
+#include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/message_level.hpp>
 
@@ -61,7 +62,7 @@ void StatusBar::set_status(MessageLevel level, std::string text)
 
     label_.setColour(juce::Label::textColourId,
                      this->findColour(get_color_id(current_level_)));
-    // TODO set font
+    label_.setFont(fonts::monospaced().regular.withHeight(16.f));
     label_.setText(text, juce::dontSendNotification);
 }
 

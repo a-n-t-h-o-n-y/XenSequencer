@@ -260,11 +260,16 @@ void MeasureView::resized()
     cell_ptr_->setBounds(this->getLocalBounds());
 }
 
+void MeasureView::paint(juce::Graphics &g)
+{
+    g.setColour(this->findColour(ColorID::BackgroundHigh));
+    g.fillAll();
+}
+
 void MeasureView::paintOverChildren(juce::Graphics &g)
 {
     if (playhead_.has_value())
     {
-        // TODO create a new theme entry for playhead.
         g.setColour(this->findColour(ColorID::ForegroundMedium));
 
         auto const x_pos = playhead_.value() * static_cast<float>(this->getWidth());
