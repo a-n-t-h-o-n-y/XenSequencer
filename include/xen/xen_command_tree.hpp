@@ -701,8 +701,9 @@ namespace xen
                 "Pattern is ignored.",
                 [](PS &ps, sequence::Pattern const &, int amount) {
                     auto [seq, aux] = ps.timeline.get_state();
-                    auto const index = ((int)aux.selected.measure + amount) %
-                                       (int)seq.sequence_bank.size();
+                    auto const size = (int)seq.sequence_bank.size();
+                    auto const index =
+                        (((int)aux.selected.measure + amount) % size + size) % size;
                     aux = action::set_selected_sequence(aux, index);
                     ps.timeline.stage({std::move(seq), std::move(aux)});
                     return mdebug("Selected Sequence Shifted");
