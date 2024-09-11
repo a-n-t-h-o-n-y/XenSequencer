@@ -181,17 +181,17 @@ void MeasureInfo::paintOverChildren(juce::Graphics &g)
 
 // -------------------------------------------------------------------------------------
 
-IntervalColumn::IntervalColumn(std::size_t size, float vertical_offset)
+PitchColumn::PitchColumn(std::size_t size, float vertical_offset)
     : size_{size}, vertical_offset_{vertical_offset}
 {
 }
 
-void IntervalColumn::update(std::size_t new_size)
+void PitchColumn::update(std::size_t new_size)
 {
     size_ = new_size;
 }
 
-void IntervalColumn::paint(juce::Graphics &g)
+void PitchColumn::paint(juce::Graphics &g)
 {
     g.fillAll(this->findColour(ColorID::BackgroundMedium));
 
@@ -307,14 +307,14 @@ void MeasureView::timerCallback()
 
 SequenceView::SequenceView(
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
-    : interval_column{12, 4.f}, measure_view{audio_thread_state}
+    : pitch_column{12, 4.f}, measure_view{audio_thread_state}
 {
     this->setComponentID("SequenceView");
     this->setWantsKeyboardFocus(true);
 
     this->addAndMakeVisible(measure_info);
     this->addAndMakeVisible(sequence_bank_accordion);
-    this->addAndMakeVisible(interval_column);
+    this->addAndMakeVisible(pitch_column);
     this->addAndMakeVisible(measure_view);
 
     measure_info.on_command.connect(
@@ -328,7 +328,7 @@ void SequenceView::update_ui(SequencerState const &state, AuxState const &aux)
     measure_view.update_ui(state.sequence_bank[aux.selected.measure],
                            state.tuning.intervals.size(), aux.selected.measure);
 
-    interval_column.update(state.tuning.intervals.size());
+    pitch_column.update(state.tuning.intervals.size());
 
     sequence_bank.update_ui(aux.selected.measure);
 
@@ -350,7 +350,7 @@ void SequenceView::resized()
 
     auto horizontal_flex = juce::FlexBox{};
     horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
-    horizontal_flex.items.add(juce::FlexItem{interval_column}.withWidth(23.f));
+    horizontal_flex.items.add(juce::FlexItem{pitch_column}.withWidth(23.f));
     horizontal_flex.items.add(juce::FlexItem{measure_view}.withFlex(1));
     // TODO figure out how to make square
     horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());

@@ -26,13 +26,12 @@ using namespace xen;
 auto const corner_radius = 10.f;
 
 /**
- * Computes the Rectangle bounds for a given note interval and tuning length.
+ * Computes the Rectangle bounds for a given note pitch and tuning length.
  *
  * @param bounds  The bounds of the component in which the note will be displayed.
  * @param note The note.
  * @param tuning_length The tuning length, used for scaling.
  * @return The Rectangle that represents the position and size of the note.
- *
  * @exception std::invalid_argument If tuning_length is zero, to prevent
  * division by zero.
  */
@@ -45,7 +44,7 @@ auto const corner_radius = 10.f;
         throw std::invalid_argument("Tuning length must not be zero.");
     }
 
-    auto const normalized = normalize_interval(note.interval, tuning_length);
+    auto const normalized = normalize_pitch(note.pitch, tuning_length);
 
     // Calculate note height
     auto const note_height = bounds.getHeight() / (float)tuning_length;
@@ -67,11 +66,11 @@ auto const corner_radius = 10.f;
 }
 
 void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
-                std::size_t interval_count, juce::Colour lighter_color,
+                std::size_t pitch_count, juce::Colour lighter_color,
                 juce::Colour line_color)
 {
-    auto const line_height = (float)bounds.getHeight() / (float)interval_count;
-    for (std::size_t i = 0; i < interval_count; ++i)
+    auto const line_height = (float)bounds.getHeight() / (float)pitch_count;
+    for (std::size_t i = 0; i < pitch_count; ++i)
     {
         auto const y = bounds.getY() + (float)i * line_height;
 
@@ -151,7 +150,7 @@ void Cell::paintOverChildren(juce::Graphics &g)
 
 // -------------------------------------------------------------------------------------
 
-Rest::Rest(sequence::Rest, std::size_t interval_count) : interval_count_{interval_count}
+Rest::Rest(sequence::Rest, std::size_t pitch_count) : pitch_count_{pitch_count}
 {
 }
 
@@ -161,7 +160,7 @@ void Rest::paint(juce::Graphics &g)
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
-    draw_staff(g, bounds, interval_count_, this->findColour(ColorID::BackgroundLow),
+    draw_staff(g, bounds, pitch_count_, this->findColour(ColorID::BackgroundLow),
                this->findColour(ColorID::ForegroundInverse));
 }
 
@@ -181,28 +180,27 @@ void Note::paint(juce::Graphics &g)
     draw_staff(g, bounds, tuning_length_, this->findColour(ColorID::ForegroundLow),
                this->findColour(ColorID::ForegroundInverse));
 
-    // Paint Note Interval
-    auto const interval_bounds = compute_note_bounds(bounds, note_, tuning_length_);
+    // Paint Note Pitch
+    auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_length_);
 
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
 
-    g.fillRect(interval_bounds);
+    g.fillRect(pitch_bounds);
     g.setColour(this->findColour(ColorID::ForegroundInverse));
-    g.drawRect(interval_bounds, 0.5f);
+    g.drawRect(pitch_bounds, 0.5f);
 
     // Paint Octave Text
-    auto const octave = get_octave(note_.interval, tuning_length_);
+    auto const octave = get_octave(note_.pitch, tuning_length_);
     auto const octave_display =
         juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
             .dropLastCharacters(1);
 
     g.setColour(this->findColour(ColorID::BackgroundLow));
     g.setFont(
-        fonts::symbols().withHeight(std::max(interval_bounds.getHeight() - 2.f, 1.f)));
-    g.drawText(
-        octave_display,
-        interval_bounds.translated(0.f, 1.f + interval_bounds.getHeight() / 25.f),
-        juce::Justification::centred, false);
+        fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
+    g.drawText(octave_display,
+               pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
+               juce::Justification::centred, false);
 }
 
 // -------------------------------------------------------------------------------------

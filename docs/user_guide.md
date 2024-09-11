@@ -102,7 +102,7 @@ The colon key `:` opens the command bar, it is used to type and execute commands
 | Command | Description |
 | --- | --- |
 | `append measure [time signature=4/4]` | Append an empty measure to the current phrase. |
-| `note [interval=0] [velocity=0.8] [delay=0] [gate=1]` | Create a new note, overwriting the current selection. |
+| `note [pitch=0] [velocity=0.8] [delay=0] [gate=1]` | Create a new note, overwriting the current selection. |
 | `rest` | Create a new rest, overwriting the current selection. |
 | `split [count=2]` | Split the current selection into two sequences. |
 | `[pattern] fill [note\|rest] ...` | Fill the current selection with the given note or rest. |

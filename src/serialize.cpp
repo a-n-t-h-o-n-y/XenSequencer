@@ -21,7 +21,7 @@ namespace sequence
 static void to_json(nlohmann::json &j, Note const &note)
 {
     j = nlohmann::json{{"type", "Note"},
-                       {"interval", note.interval},
+                       {"pitch", note.pitch},
                        {"velocity", note.velocity},
                        {"delay", note.delay},
                        {"gate", note.gate}};
@@ -73,7 +73,7 @@ static void to_json(nlohmann::json &j, Tuning const &tuning)
 
 static void from_json(nlohmann::json const &j, Note &note)
 {
-    note.interval = j.at("interval").get<int>();
+    note.pitch = j.at("pitch").get<int>();
     note.velocity = j.at("velocity").get<float>();
     note.delay = j.at("delay").get<float>();
     note.gate = j.at("gate").get<float>();

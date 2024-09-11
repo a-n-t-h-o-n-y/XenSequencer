@@ -108,12 +108,12 @@ class MeasureInfo : public juce::Component
 // -------------------------------------------------------------------------------------
 
 /**
- * Vertical column to display interval numbers, [0, size) bottom to top, evenly spaced.
+ * Vertical column to display pitch numbers, [0, size) bottom to top, evenly spaced.
  */
-class IntervalColumn : public juce::Component
+class PitchColumn : public juce::Component
 {
   public:
-    IntervalColumn(std::size_t size, float vertical_offset);
+    PitchColumn(std::size_t size, float vertical_offset);
 
   public:
     void update(std::size_t new_size);
@@ -190,7 +190,7 @@ class SequenceView : public juce::Component
 
   public:
     MeasureInfo measure_info;
-    IntervalColumn interval_column;
+    PitchColumn pitch_column;
     MeasureView measure_view;
     HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
     SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;

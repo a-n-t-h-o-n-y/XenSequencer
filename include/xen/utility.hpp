@@ -127,13 +127,12 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 }
 
 /**
- * Normalizes an interval to the range [0, length).
- *
- * -1 wraps around to length - 1.
+ * Normalizes a pitch to the range [0, length).
+ * @details -1 wraps around to length - 1.
  */
-[[nodiscard]] auto normalize_interval(int interval, std::size_t length) -> std::size_t;
+[[nodiscard]] auto normalize_pitch(int pitch, std::size_t length) -> std::size_t;
 
-[[nodiscard]] auto get_octave(int interval, std::size_t tuning_length) -> int;
+[[nodiscard]] auto get_octave(int pitch, std::size_t tuning_length) -> int;
 
 /**
  * Compares two values within a given tolerance, returning true if they are within the

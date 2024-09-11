@@ -135,7 +135,7 @@ auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
     auto [state, aux] = tl.get_state();
     auto &cell = get_selected_cell(state.sequence_bank, aux.selected);
     auto const tuning_length = state.tuning.intervals.size();
-    cell = sequence::modify::shift_interval(cell, pattern, amount * (int)tuning_length);
+    cell = sequence::modify::shift_pitch(cell, pattern, amount * (int)tuning_length);
     return state;
 }
 

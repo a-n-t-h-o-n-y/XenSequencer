@@ -84,7 +84,7 @@ Append a measure to the current phrase.
 
 Insert a measure at the current location inside the current phrase.
 
-## `note [Int: interval=0] [Float: velocity=0.8] [Float: delay=0] [Float: gate=1]`
+## `note [Int: pitch=0] [Float: velocity=0.8] [Float: delay=0] [Float: gate=1]`
 
 Create a new Note, overwritting the current selection.
 
@@ -122,7 +122,7 @@ Keep items from the current selection that match the given Pattern, replacing th
 
 ## `[Pattern] fill [String: type]`
 
-#### `note [Int: interval=0] [Float: velocity=0.8] [Float: delay=0] [Float: gate=1]`
+#### `note [Int: pitch=0] [Float: velocity=0.8] [Float: delay=0] [Float: gate=1]`
 
 Fill the current selection with Notes, this works specifically over sequences.
 
@@ -132,9 +132,9 @@ Fill the current selection with Rests, this works specifically over sequences.
 
 ## `[Pattern] set [String: trait]`
 
-#### `note [Int: interval=0]`
+#### `note [Int: pitch=0]`
 
-Set the note interval of any selected Notes.
+Set the note pitch of any selected Notes.
 
 #### `octave [Int: octave=0]`
 
@@ -158,13 +158,13 @@ Set the time signature of the current Measure. Ignores Pattern.
 
 #### `baseFrequency [Float: freq=440]`
 
-Set the base note (interval zero) frequency to `freq`.
+Set the base note (pitch zero) frequency to `freq`.
 
 ## `[Pattern] shift [String: trait]`
 
 #### `note [Int: amount=1]`
 
-Increment/Decrement the note interval of any selected Notes.
+Increment/Decrement the note pitch of any selected Notes.
 
 #### `octave [Int: amount=1]`
 
@@ -200,7 +200,7 @@ Apply a random shift to the gate of any selected Notes.
 
 #### `note [Int: min=-12] [Int: max=12]`
 
-Set the note interval of any selected Notes to a random value.
+Set the note pitch of any selected Notes to a random value.
 
 #### `velocity [Float: min=0.01] [Float: max=1]`
 
@@ -228,7 +228,7 @@ Reverse the order of all Notes and Rests in the current selection.
 
 ## `[Pattern] mirror [Int: centerNote=0]`
 
-Mirror the note intervals of the current selection around `centerNote`.
+Mirror the note pitches of the current selection around `centerNote`.
 
 ## `[Pattern] quantize`
 

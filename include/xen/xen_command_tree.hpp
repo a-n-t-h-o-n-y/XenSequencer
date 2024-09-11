@@ -340,17 +340,17 @@ namespace xen
 
         cmd(
             "note", "Create a new Note, overwritting the current selection.",
-            [](PS &ps, int interval, float velocity, float delay, float gate) {
+            [](PS &ps, int pitch, float velocity, float delay, float gate) {
                 increment_state(
                     ps.timeline,
                     [](sequence::Cell const &, auto... args) -> sequence::Cell {
                         return sequence::modify::note(args...);
                     },
-                    interval, velocity, delay, gate);
+                    pitch, velocity, delay, gate);
                 ps.timeline.set_commit_flag();
                 return minfo("Note Created");
             },
-            ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
+            ArgInfo<int>{"pitch", 0}, ArgInfo<float>{"velocity", 0.8f},
             ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
 
         cmd("rest", "Create a new Rest, overwritting the current selection.",
@@ -445,14 +445,14 @@ namespace xen
                 "note",
                 "Fill the current selection with Notes, this works specifically over "
                 "sequences.",
-                [](PS &ps, sequence::Pattern const &pattern, int interval,
-                   float velocity, float delay, float gate) {
+                [](PS &ps, sequence::Pattern const &pattern, int pitch, float velocity,
+                   float delay, float gate) {
                     increment_state(ps.timeline, &sequence::modify::notes_fill, pattern,
-                                    sequence::Note{interval, velocity, delay, gate});
+                                    sequence::Note{pitch, velocity, delay, gate});
                     ps.timeline.set_commit_flag();
                     return minfo("Filled Selection With Notes");
                 },
-                ArgInfo<int>{"interval", 0}, ArgInfo<float>{"velocity", 0.8f},
+                ArgInfo<int>{"pitch", 0}, ArgInfo<float>{"velocity", 0.8f},
                 ArgInfo<float>{"delay", 0.f}, ArgInfo<float>{"gate", 1.f}),
 
             cmd("rest",
@@ -488,14 +488,14 @@ namespace xen
             "set", ArgInfo<std::string>{"trait"},
 
             cmd(
-                "note", "Set the note interval of any selected Notes.",
-                [](PS &ps, sequence::Pattern const &pattern, int interval) {
-                    increment_state(ps.timeline, &sequence::modify::set_interval,
-                                    pattern, interval);
+                "note", "Set the note pitch of any selected Notes.",
+                [](PS &ps, sequence::Pattern const &pattern, int pitch) {
+                    increment_state(ps.timeline, &sequence::modify::set_pitch, pattern,
+                                    pitch);
                     ps.timeline.set_commit_flag();
                     return minfo("Note Set");
                 },
-                ArgInfo<int>{"interval", 0}),
+                ArgInfo<int>{"pitch", 0}),
 
             cmd(
                 "octave", "Set the octave of any selected Notes.",
@@ -597,7 +597,7 @@ namespace xen
                           ArgInfo<std::string>{"name"}),
                       cmd(
                           "baseFrequency",
-                          "Set the base note (interval zero) frequency to `freq` Hz.",
+                          "Set the base note (pitch zero) frequency to `freq` Hz.",
                           [](PS &ps, sequence::Pattern const &, float freq) {
                               auto [_, aux] = ps.timeline.get_state();
                               ps.timeline.stage({
@@ -642,9 +642,9 @@ namespace xen
             "shift", ArgInfo<std::string>{"trait"},
 
             cmd(
-                "note", "Increment/Decrement the note interval of any selected Notes.",
+                "note", "Increment/Decrement the note pitch of any selected Notes.",
                 [](PS &ps, sequence::Pattern const &pattern, int amount) {
-                    increment_state(ps.timeline, &sequence::modify::shift_interval,
+                    increment_state(ps.timeline, &sequence::modify::shift_pitch,
                                     pattern, amount);
                     ps.timeline.set_commit_flag();
                     return minfo("Note Shifted");
@@ -751,9 +751,9 @@ namespace xen
 
             cmd(
                 InputMode::Note,
-                "Set the note interval of any selected Notes to a random value.",
+                "Set the note pitch of any selected Notes to a random value.",
                 [](PS &ps, sequence::Pattern const &pattern, int min, int max) {
-                    increment_state(ps.timeline, &sequence::modify::randomize_intervals,
+                    increment_state(ps.timeline, &sequence::modify::randomize_pitch,
                                     pattern, min, max);
                     ps.timeline.set_commit_flag();
                     return minfo("Randomized Note");
@@ -821,10 +821,10 @@ namespace xen
 
         pattern(cmd(
             "mirror",
-            "Mirror the note intervals of the current selection around `centerNote`.",
-            [](PS &ps, sequence::Pattern const &pattern, int center_note) {
+            "Mirror the note pitches of the current selection around `centerNote`.",
+            [](PS &ps, sequence::Pattern const &pattern, int center_pitch) {
                 increment_state(ps.timeline, &sequence::modify::mirror, pattern,
-                                center_note);
+                                center_pitch);
                 ps.timeline.set_commit_flag();
                 return minfo("Selection Mirrored");
             },
@@ -852,9 +852,8 @@ namespace xen
 
         cmd(
             "step",
-            "Repeat the selected Cell with incrementing interval and velocity applied.",
-            [](PS &ps, std::size_t count, int interval_distance,
-               float velocity_distance) {
+            "Repeat the selected Cell with incrementing pitch and velocity applied.",
+            [](PS &ps, std::size_t count, int pitch_distance, float velocity_distance) {
                 if (velocity_distance > 1.f || velocity_distance < -1.f)
                 {
                     return merror("velocity distance has to be in the range: [-1, 1]");
@@ -868,12 +867,12 @@ namespace xen
 
                 assert(std::holds_alternative<sequence::Sequence>(selected));
 
-                // Increment Interval
+                // Increment Pitch
                 auto index = 0;
                 for (auto &cell : std::get<sequence::Sequence>(selected).cells)
                 {
-                    cell = sequence::modify::shift_interval(cell, {0, {1}},
-                                                            index * interval_distance);
+                    cell = sequence::modify::shift_pitch(cell, {0, {1}},
+                                                         index * pitch_distance);
                     ++index;
                 }
 
@@ -890,7 +889,7 @@ namespace xen
                 ps.timeline.set_commit_flag();
                 return minfo("Stepped");
             },
-            ArgInfo<std::size_t>{"count"}, ArgInfo<int>{"interval_distance"},
+            ArgInfo<std::size_t>{"count"}, ArgInfo<int>{"pitch_distance"},
             ArgInfo<float>{"velocity_distance", 0.f}));
 }
 

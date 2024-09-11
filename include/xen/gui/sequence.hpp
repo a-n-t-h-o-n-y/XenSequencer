@@ -34,13 +34,13 @@ class Cell : public juce::Component
 class Rest : public Cell
 {
   public:
-    explicit Rest(sequence::Rest, std::size_t interval_count);
+    explicit Rest(sequence::Rest, std::size_t pitch_count);
 
   public:
     void paint(juce::Graphics &g) override;
 
   private:
-    std::size_t interval_count_;
+    std::size_t pitch_count_;
 };
 
 // -------------------------------------------------------------------------------------
