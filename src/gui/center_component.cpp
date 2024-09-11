@@ -216,7 +216,7 @@ MeasureView::MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_threa
     : cell_ptr_{make_cell(sequence::Rest{}, 12)},
       audio_thread_state_{audio_thread_state}
 {
-    this->startTimer(17);
+    this->startTimer(34);
 }
 
 MeasureView::~MeasureView()

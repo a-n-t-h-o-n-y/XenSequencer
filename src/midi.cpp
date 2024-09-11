@@ -20,8 +20,9 @@ auto state_to_timeline(sequence::Measure const &measure, sequence::Tuning const 
                        float base_frequency,
                        DAWState const &daw_state) -> sequence::midi::EventTimeline
 {
+    // TODO add pitch bend range parameter to state and commands to alter it.
     return sequence::midi::translate_to_midi_timeline(
-        measure, daw_state.sample_rate, daw_state.bpm, tuning, base_frequency);
+        measure, daw_state.sample_rate, daw_state.bpm, tuning, base_frequency, 48.f);
 }
 
 auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::MidiBuffer
