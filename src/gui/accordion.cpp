@@ -7,21 +7,6 @@
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
 
-namespace
-{
-/**
- * For AccordionTop.
- */
-[[nodiscard]] auto create_triangle_path(bool open) -> juce::Path
-{
-    return open ? juce::Drawable::parseSVGPath(
-                      "M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z")
-                : juce::Drawable::parseSVGPath(
-                      "M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z");
-}
-
-} // namespace
-
 namespace xen::gui
 {
 
