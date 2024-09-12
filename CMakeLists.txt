@@ -103,6 +103,7 @@ target_sources(XenSequencerLib
         src/message_level.cpp
         src/midi.cpp
         src/midi_engine.cpp
+        src/scale.cpp
         src/selection.cpp
         src/state.cpp
         src/user_directory.cpp
@@ -149,6 +150,7 @@ target_sources(XenSequencerLib
         include/xen/selection.hpp
         include/xen/serialize.hpp
         include/xen/active_sessions.hpp
+        include/xen/scale.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
         include/xen/string_manip.hpp

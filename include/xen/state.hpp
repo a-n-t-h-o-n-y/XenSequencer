@@ -26,6 +26,7 @@ class LookAndFeel;
 #include <xen/command_history.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/timeline.hpp>
 #include <xen/user_directory.hpp>
@@ -46,7 +47,10 @@ struct SequencerState
     sequence::Tuning tuning{};
     std::string tuning_name{};
 
-    float base_frequency{};
+    std::optional<Scale> scale{std::nullopt};
+    std::uint8_t mode{0};
+
+    float base_frequency{440.f};
 
 #if defined(__clang__)
 #pragma clang diagnostic push

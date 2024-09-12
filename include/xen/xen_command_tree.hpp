@@ -636,7 +636,23 @@ namespace xen
                         return merror("Failed to Load Theme: " + std::string{e.what()});
                     }
                 },
-                ArgInfo<std::string>{"name"}))),
+                ArgInfo<std::string>{"name"}),
+            cmd(
+                "mode", "Set the mode of the current scale. [1, tuning size).",
+                [](PS &ps, sequence::Pattern const &, std::size_t mode_index) {
+                    auto state = ps.timeline.get_state();
+                    if (mode_index == 0 ||
+                        mode_index > state.sequencer.tuning.intervals.size())
+                    {
+                        return merror(
+                            "Invalid Mode Index. Must be in range [1, tuning size).");
+                    }
+                    state.sequencer.mode = (std::uint8_t)(mode_index - 1);
+                    ps.timeline.stage(std::move(state));
+                    ps.timeline.set_commit_flag();
+                    return minfo("Scale Mode Set");
+                },
+                ArgInfo<std::size_t>{"mode"}))),
 
         pattern(cmd_group(
             "shift", ArgInfo<std::string>{"trait"},
