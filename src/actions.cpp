@@ -103,7 +103,7 @@ auto duplicate(XenTimeline const &tl) -> TrackedState
     return {::paste_logic(state, aux, buffer), std::move(aux)};
 }
 
-auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState
+auto set_input_mode(XenTimeline const &tl, InputMode mode) -> AuxState
 {
     auto [_, aux] = tl.get_state();
     aux.input_mode = mode;

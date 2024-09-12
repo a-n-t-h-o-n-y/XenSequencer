@@ -25,10 +25,10 @@
 # Example:
 
 # SequenceView:
-#   "escape": "mode note"
-#   "n": "mode note"
-#   "v": "mode velocity"
-#   "d": "mode delay"
-#   "g": "mode gate"
+#   "escape": "inputMode note"
+#   "n": "inputMode note"
+#   "v": "inputMode velocity"
+#   "d": "inputMode delay"
+#   "g": "inputMode gate"
 
 SequenceView:

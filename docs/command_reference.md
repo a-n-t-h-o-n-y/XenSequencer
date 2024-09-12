@@ -24,11 +24,11 @@ Overwrite the current selection with what is stored in the copy buffer.
 
 Duplicate the current selection by placing it in the right-adjacent Cell.
 
-## `mode [InputMode: mode]`
+## `inputMode [InputMode: mode]`
 
 Change the input mode.
 
-The mode determines the behavior of the up/down keys.
+The input mode determines the behavior of the up/down keys.
 
 ## `focus [String: component]`
 

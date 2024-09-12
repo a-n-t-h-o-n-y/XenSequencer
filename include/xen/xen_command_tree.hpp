@@ -102,14 +102,14 @@ namespace xen
             }),
 
         cmd(
-            "mode",
+            "inputMode",
             "Change the input mode."
-            "\n\nThe mode determines the behavior of the up/down keys.",
+            "\n\nThe input mode determines the behavior of the up/down keys.",
             [](PS &ps, InputMode mode) {
                 auto [state, _] = ps.timeline.get_state();
                 ps.timeline.stage({
                     std::move(state),
-                    action::set_mode(ps.timeline, mode),
+                    action::set_input_mode(ps.timeline, mode),
                 });
                 return minfo("Input Mode Set to " + single_quote(to_string(mode)));
             },

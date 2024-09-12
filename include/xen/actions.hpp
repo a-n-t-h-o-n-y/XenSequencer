@@ -71,7 +71,7 @@ namespace xen::action
 
 [[nodiscard]] auto duplicate(XenTimeline const &tl) -> TrackedState;
 
-[[nodiscard]] auto set_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
+[[nodiscard]] auto set_input_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
 
 [[nodiscard]] auto lift(XenTimeline const &tl) -> TrackedState;
 
