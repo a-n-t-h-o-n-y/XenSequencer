@@ -1,9 +1,11 @@
 #include <xen/utility.hpp>
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -52,6 +54,18 @@ auto get_octave(int pitch, std::size_t tuning_length) -> int
         return (pitch - static_cast<int>(tuning_length) + 1) /
                static_cast<int>(tuning_length);
     }
+}
+
+auto split_version_string(std::string const &version) -> std::array<int, 3>
+{
+    auto result = std::array<int, 3>{0, 0, 0};
+    auto ss = std::stringstream{version};
+    auto part = std::string{};
+    for (std::size_t i = 0; i < result.size() && std::getline(ss, part, '.'); ++i)
+    {
+        result[i] = std::stoi(part);
+    }
+    return result;
 }
 
 } // namespace xen

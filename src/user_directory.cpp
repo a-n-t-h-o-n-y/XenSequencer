@@ -10,6 +10,7 @@
 
 #include <embed_demos.hpp>
 #include <embed_keys.hpp>
+#include <embed_scales.hpp>
 
 #include <xen/constants.hpp>
 
@@ -57,12 +58,12 @@ auto get_tunings_directory() -> juce::File
     return tunings_dir;
 }
 
-auto get_default_keys_file() -> juce::File
+auto get_system_keys_file() -> juce::File
 {
     auto const key_file = get_user_library_directory().getChildFile("keys.yml");
     auto const full_path = key_file.getFullPathName().toStdString();
 
-    auto write_default_keys = [&key_file] {
+    auto write_system_keys = [&key_file] {
         return key_file.create().wasOk() &&
                key_file.appendData(embed_keys::keys_yml,
                                    (std::size_t)embed_keys::keys_ymlSize);
@@ -80,7 +81,7 @@ auto get_default_keys_file() -> juce::File
         }
     }
 
-    return write_default_keys()
+    return write_system_keys()
                ? key_file
                : throw std::runtime_error(
                      "Unable to create keybinding file: " + full_path + ".");
@@ -107,6 +108,59 @@ auto get_user_keys_file() -> juce::File
     }
 
     return key_file;
+}
+
+auto get_system_scales_file() -> juce::File
+{
+    auto const scales_file = get_user_library_directory().getChildFile("scales.yml");
+    auto const full_path = scales_file.getFullPathName().toStdString();
+
+    auto write_system_scales = [&scales_file] {
+        return scales_file.create().wasOk() &&
+               scales_file.appendData(embed_scales::scales_yml,
+                                      (std::size_t)embed_scales::scales_ymlSize);
+    };
+
+    auto const file_exists = scales_file.existsAsFile();
+
+    if (file_exists)
+    {
+        auto root = YAML::LoadFile(full_path);
+        auto const ver_node = root["version"];
+        if (ver_node.IsDefined() && ver_node.as<std::string>() == xen::VERSION)
+        {
+            return scales_file;
+        }
+    }
+
+    return write_system_scales()
+               ? scales_file
+               : throw std::runtime_error("Unable to create scales file: " + full_path +
+                                          ".");
+}
+
+auto get_user_scales_file() -> juce::File
+{
+    auto const scales_file =
+        get_user_library_directory().getChildFile("user_scales.yml");
+
+    // Check if the file exists, if not create it.
+    if (!scales_file.existsAsFile())
+    {
+        // write out the default scales file
+        if (scales_file.create().wasOk())
+        {
+            scales_file.appendData(embed_scales::user_scales_yml,
+                                   (std::size_t)embed_scales::user_scales_ymlSize);
+        }
+        else
+        {
+            throw std::runtime_error("Unable to create scales file: " +
+                                     scales_file.getFullPathName().toStdString() + ".");
+        }
+    }
+
+    return scales_file;
 }
 
 void initialize_demo_files()

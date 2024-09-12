@@ -170,7 +170,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     { // Load Keys File Request
         auto slot = sl::Slot<void()>{[this] {
-            this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
+            this->update_key_listeners(get_system_keys_file(), get_user_keys_file());
         }};
         slot.track(lifetime_);
         auto const lock =
@@ -220,13 +220,16 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     try
     {
-        this->update_key_listeners(get_default_keys_file(), get_user_keys_file());
+        this->update_key_listeners(get_system_keys_file(), get_user_keys_file());
     }
     catch (std::exception const &e)
     {
         plugin_window.bottom_bar.status_bar.set_status(
             MessageLevel::Error, std::string{"Check `user_keys.yml`: "} + e.what());
     }
+
+    this->execute_command_string("load scales");
+    this->execute_command_string("welcome");
 }
 
 auto XenEditor::createKeyboardFocusTraverser()

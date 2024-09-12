@@ -34,13 +34,22 @@ target_compile_options(XenSequencerLib INTERFACE
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
-# Add config files as a binary resource
+# Add key config files as a binary resource
 juce_add_binary_data(EmbedKeys
     HEADER_NAME "embed_keys.hpp"
     NAMESPACE embed_keys
     SOURCES
         data/keys/keys.yml
         data/keys/user_keys.yml
+)
+
+# Add scale files as a binary resource
+juce_add_binary_data(EmbedScales
+    HEADER_NAME "embed_scales.hpp"
+    NAMESPACE embed_scales
+    SOURCES
+        data/scales/scales.yml
+        data/scales/user_scales.yml
 )
 
 # Add demo files as a binary resource
@@ -84,6 +93,7 @@ target_link_libraries(XenSequencerLib
         yaml-cpp
         nlohmann_json::nlohmann_json
         EmbedKeys
+        EmbedScales
         EmbedDemos
         EmbedFonts
         juce::juce_recommended_config_flags

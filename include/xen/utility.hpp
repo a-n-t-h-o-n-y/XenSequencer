@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -143,5 +144,11 @@ template <typename T>
 {
     return std::abs(a - b) <= tolerance;
 }
+
+/**
+ * Split a version string. Expected format is "1.2.3"
+ */
+[[nodiscard]] auto split_version_string(std::string const &version)
+    -> std::array<int, 3>;
 
 } // namespace xen

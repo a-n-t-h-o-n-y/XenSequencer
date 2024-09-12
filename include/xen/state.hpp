@@ -139,6 +139,7 @@ struct PluginState
     XenTimeline timeline;
     inline static SharedState shared{};
     std::unique_ptr<juce::LookAndFeel> laf{nullptr};
+    std::vector<Scale> scales{};
 };
 
 struct AudioThreadStateForGUI

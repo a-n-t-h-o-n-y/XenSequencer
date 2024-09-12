@@ -12,9 +12,11 @@
 
 #include <xen/actions.hpp>
 #include <xen/command.hpp>
+#include <xen/constants.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
@@ -31,6 +33,11 @@ namespace xen
 
     return cmd_group(
         "", ArgInfo<std::string>{"command_name"},
+
+        cmd("welcome", "Display welcome message.",
+            [](PS &) {
+                return minfo(std::string{"Welcome to XenSequencer v"} + VERSION);
+            }),
 
         cmd("undo", "Revert the last action.",
             [](PS &ps) {
@@ -226,6 +233,11 @@ namespace xen
                     {
                         return merror("Failed to Load Keys: " + std::string{e.what()});
                     }
+                }),
+            cmd("scales", "Load scales.yml and user_scales.yml from Library directory",
+                [](PS &ps) {
+                    ps.scales = load_scales_from_files();
+                    return minfo("Scales Loaded: " + std::to_string(ps.scales.size()));
                 })),
 
         cmd_group(

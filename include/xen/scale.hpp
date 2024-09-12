@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <nlohmann/json_fwd.hpp>
+#include <yaml-cpp/yaml.h>
 
 namespace xen
 {
@@ -16,20 +16,24 @@ namespace xen
 struct Scale
 {
     std::string name;
-    std::size_t intended_tuning_length;
+    std::size_t tuning_length;
     std::vector<std::uint8_t> intervals;
 
     [[nodiscard]] auto operator<=>(Scale const &) const = default;
 };
 
 /**
- * Serialize Scale to JSON.
+ * Loads in Scales from library directory's scales.yml and user_scales.yml files.
  */
-void to_json(nlohmann::json &j, Scale const &scale);
-
-/**
- * Deserialize Scale from JSON.
- */
-void from_json(nlohmann::json const &j, Scale &scale);
+[[nodiscard]] auto load_scales_from_files() -> std::vector<Scale>;
 
 } // namespace xen
+
+namespace YAML
+{
+template <>
+struct convert<::xen::Scale>
+{
+    static auto decode(Node const &node, ::xen::Scale &scale) -> bool;
+};
+} // namespace YAML
