@@ -10,6 +10,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/gui/homogenous_row.hpp>
+#include <xen/scale.hpp>
 
 namespace xen::gui
 {
@@ -34,13 +35,16 @@ class Cell : public juce::Component
 class Rest : public Cell
 {
   public:
-    explicit Rest(sequence::Rest, std::size_t pitch_count);
+    explicit Rest(sequence::Rest, std::size_t pitch_count,
+                  std::optional<Scale> const &scale, std::uint8_t mode);
 
   public:
     void paint(juce::Graphics &g) override;
 
   private:
     std::size_t pitch_count_;
+    std::optional<Scale> scale_;
+    std::uint8_t mode_;
 };
 
 // -------------------------------------------------------------------------------------
@@ -48,14 +52,17 @@ class Rest : public Cell
 class Note : public Cell
 {
   public:
-    Note(sequence::Note note, std::size_t tuning_length);
+    Note(sequence::Note note, std::size_t pitch_count,
+         std::optional<Scale> const &scale, std::uint8_t mode);
 
   public:
     void paint(juce::Graphics &g) override;
 
   private:
     sequence::Note note_;
-    std::size_t tuning_length_;
+    std::size_t pitch_count_;
+    std::optional<Scale> scale_;
+    std::uint8_t mode_;
 };
 
 // -------------------------------------------------------------------------------------
@@ -63,7 +70,8 @@ class Note : public Cell
 class Sequence : public Cell
 {
   public:
-    explicit Sequence(sequence::Sequence const &seq, std::size_t tuning_size);
+    explicit Sequence(sequence::Sequence const &seq, std::size_t pitch_count,
+                      std::optional<Scale> const &scale, std::uint8_t mode);
 
   public:
     void select_child(std::vector<std::size_t> const &indices) override;
@@ -83,7 +91,8 @@ class Sequence : public Cell
 class BuildAndAllocateCell
 {
   public:
-    BuildAndAllocateCell(std::size_t tuning_octave_size);
+    BuildAndAllocateCell(std::size_t pitch_count, std::optional<Scale> const &scale,
+                         std::uint8_t mode);
 
   public:
     [[nodiscard]] auto operator()(sequence::Rest r) const -> std::unique_ptr<Cell>;
@@ -93,7 +102,9 @@ class BuildAndAllocateCell
     [[nodiscard]] auto operator()(sequence::Sequence s) const -> std::unique_ptr<Cell>;
 
   private:
-    std::size_t tos_;
+    std::size_t pitch_count_;
+    std::optional<Scale> scale_;
+    std::uint8_t mode_;
 };
 
 } // namespace xen::gui

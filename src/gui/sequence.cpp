@@ -16,6 +16,7 @@
 
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
+#include <xen/scale.hpp>
 #include <xen/utility.hpp>
 
 namespace
@@ -67,24 +68,61 @@ auto const corner_radius = 10.f;
 
 void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
                 std::size_t pitch_count, juce::Colour lighter_color,
-                juce::Colour line_color)
+                juce::Colour line_color, std::optional<Scale> const &scale,
+                std::uint8_t mode)
 {
     auto const line_height = (float)bounds.getHeight() / (float)pitch_count;
-    for (std::size_t i = 0; i < pitch_count; ++i)
+    if (scale.has_value())
     {
-        auto const y = bounds.getY() + (float)i * line_height;
+        auto const pitches = generate_valid_pitches(*scale, mode);
+        juce::Colour current_color = lighter_color;
+        int previous_pitch = 0;
 
-        // Alternate between lighter and darker colors
-        auto const color = (i % 2 == 0) ? lighter_color : lighter_color.darker(0.2f);
-        g.setColour(color);
-
-        // Draw filled rectangle
-        g.fillRect(bounds.getX(), y, bounds.getWidth(), line_height);
-
-        if (i != 0)
+        for (std::size_t i = 0; i < pitch_count; ++i)
         {
-            g.setColour(line_color);
-            g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 0.5f);
+            auto const y = bounds.getY() + (float)i * line_height;
+
+            auto const mapped_pitch = map_pitch_to_scale(
+                pitch_count - 1 - (int)i, pitches, pitch_count, TranslateDirection::Up);
+
+            if (mapped_pitch != previous_pitch)
+            {
+                current_color = current_color == lighter_color
+                                    ? lighter_color.darker(0.2f)
+                                    : lighter_color;
+            }
+            previous_pitch = mapped_pitch;
+            g.setColour(current_color);
+
+            g.fillRect(bounds.getX(), y, bounds.getWidth(), line_height);
+
+            if (i != 0)
+            {
+                g.setColour(line_color);
+                g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y,
+                           0.5f);
+            }
+        }
+    }
+    else
+    {
+        for (std::size_t i = 0; i < pitch_count; ++i)
+        {
+            auto const y = bounds.getY() + (float)i * line_height;
+
+            // Alternate between lighter and darker colors
+            auto const color =
+                (i % 2 == 0) ? lighter_color : lighter_color.darker(0.2f);
+            g.setColour(color);
+
+            g.fillRect(bounds.getX(), y, bounds.getWidth(), line_height);
+
+            if (i != 0)
+            {
+                g.setColour(line_color);
+                g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y,
+                           0.5f);
+            }
         }
     }
 }
@@ -150,7 +188,9 @@ void Cell::paintOverChildren(juce::Graphics &g)
 
 // -------------------------------------------------------------------------------------
 
-Rest::Rest(sequence::Rest, std::size_t pitch_count) : pitch_count_{pitch_count}
+Rest::Rest(sequence::Rest, std::size_t pitch_count, std::optional<Scale> const &scale,
+           std::uint8_t mode)
+    : pitch_count_{pitch_count}, scale_{scale}, mode_{mode}
 {
 }
 
@@ -161,13 +201,14 @@ void Rest::paint(juce::Graphics &g)
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
     draw_staff(g, bounds, pitch_count_, this->findColour(ColorID::BackgroundLow),
-               this->findColour(ColorID::ForegroundInverse));
+               this->findColour(ColorID::ForegroundInverse), scale_, mode_);
 }
 
 // -------------------------------------------------------------------------------------
 
-Note::Note(sequence::Note note, std::size_t tuning_length)
-    : note_{note}, tuning_length_{tuning_length}
+Note::Note(sequence::Note note, std::size_t pitch_count,
+           std::optional<Scale> const &scale, std::uint8_t mode)
+    : note_{note}, pitch_count_{pitch_count}, scale_{scale}, mode_{mode}
 {
 }
 
@@ -177,11 +218,11 @@ void Note::paint(juce::Graphics &g)
 
     draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
 
-    draw_staff(g, bounds, tuning_length_, this->findColour(ColorID::ForegroundLow),
-               this->findColour(ColorID::ForegroundInverse));
+    draw_staff(g, bounds, pitch_count_, this->findColour(ColorID::ForegroundLow),
+               this->findColour(ColorID::ForegroundInverse), scale_, mode_);
 
     // Paint Note Pitch
-    auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_length_);
+    auto const pitch_bounds = compute_note_bounds(bounds, note_, pitch_count_);
 
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
 
@@ -190,7 +231,7 @@ void Note::paint(juce::Graphics &g)
     g.drawRect(pitch_bounds, 0.5f);
 
     // Paint Octave Text
-    auto const octave = get_octave(note_.pitch, tuning_length_);
+    auto const octave = get_octave(note_.pitch, pitch_count_);
     auto const octave_display =
         juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
             .dropLastCharacters(1);
@@ -205,12 +246,13 @@ void Note::paint(juce::Graphics &g)
 
 // -------------------------------------------------------------------------------------
 
-Sequence::Sequence(sequence::Sequence const &seq, std::size_t tuning_size)
+Sequence::Sequence(sequence::Sequence const &seq, std::size_t pitch_count,
+                   std::optional<Scale> const &scale, std::uint8_t mode)
     : cells_{juce::FlexItem{}.withFlex(1.f)}
 {
     this->addAndMakeVisible(cells_);
 
-    auto const build_and_allocate_cell = BuildAndAllocateCell{tuning_size};
+    auto const build_and_allocate_cell = BuildAndAllocateCell{pitch_count, scale, mode};
 
     // for each sequence::Cell, construct it as a pointer and add it to cells_
     for (auto const &cell : seq.cells)
@@ -246,25 +288,27 @@ void Sequence::resized()
 
 // -------------------------------------------------------------------------------------
 
-BuildAndAllocateCell::BuildAndAllocateCell(std::size_t tuning_octave_size)
-    : tos_{tuning_octave_size}
+BuildAndAllocateCell::BuildAndAllocateCell(std::size_t pitch_count,
+                                           std::optional<Scale> const &scale,
+                                           std::uint8_t mode)
+    : pitch_count_{pitch_count}, scale_{scale}, mode_{mode}
 {
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Rest r) const -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Rest>(r, tos_);
+    return std::make_unique<Rest>(r, pitch_count_, scale_, mode_);
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Note n) const -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Note>(n, tos_);
+    return std::make_unique<Note>(n, pitch_count_, scale_, mode_);
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Sequence s) const
     -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Sequence>(s, tos_);
+    return std::make_unique<Sequence>(s, pitch_count_, scale_, mode_);
 }
 
 } // namespace xen::gui

@@ -143,7 +143,8 @@ class MeasureView : public juce::Component, juce::Timer
     [[nodiscard]] auto get_cell() const -> Cell const &;
 
     void update_ui(sequence::Measure const &measure, std::size_t tuning_size,
-                   std::size_t selected_measure);
+                   std::size_t selected_measure, std::optional<Scale> const &scale,
+                   std::uint8_t mode);
 
     /**
      * \p percent must be in range [0, 1).
@@ -181,7 +182,8 @@ class SequenceView : public juce::Component
     SequenceView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
   public:
-    void update_ui(SequencerState const &state, AuxState const &aux);
+    void update_ui(SequencerState const &state, AuxState const &aux,
+                   std::optional<Scale> const &scale, std::uint8_t mode);
 
     void select(std::vector<std::size_t> const &indices);
 
