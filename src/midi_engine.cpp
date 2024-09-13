@@ -31,10 +31,12 @@ namespace
  */
 [[nodiscard]] auto render_measure(sequence::Measure const &measure,
                                   sequence::Tuning const &tuning, float base_frequency,
-                                  xen::DAWState const &daw) -> juce::MidiBuffer
+                                  xen::DAWState const &daw,
+                                  std::optional<xen::Scale> const &scale,
+                                  std::uint8_t mode) -> juce::MidiBuffer
 {
     return xen::render_to_midi(
-        xen::state_to_timeline(measure, tuning, base_frequency, daw));
+        xen::state_to_timeline(measure, tuning, base_frequency, daw, scale, mode));
 }
 
 /**
@@ -243,14 +245,16 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
         sequencer_copy_.tuning != sequencer.tuning ||
         std::ranges::not_equal_to{}(sequencer_copy_.base_frequency,
                                     sequencer.base_frequency) ||
-        daw_copy_.sample_rate != daw.sample_rate)
+        daw_copy_.sample_rate != daw.sample_rate ||
+        sequencer_copy_.scale != sequencer.scale ||
+        sequencer_copy_.mode != sequencer.mode)
     {
         // Render Everything
         for (auto i = std::size_t{0}; i < sequencer.sequence_bank.size(); ++i)
         {
-            rendered_midi_[i] =
-                render_measure(sequencer.sequence_bank[i], sequencer.tuning,
-                               sequencer.base_frequency, daw);
+            rendered_midi_[i] = render_measure(
+                sequencer.sequence_bank[i], sequencer.tuning, sequencer.base_frequency,
+                daw, sequencer.scale, sequencer.mode);
         }
     }
     else
@@ -260,9 +264,9 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
         {
             if (sequencer_copy_.sequence_bank[i] != sequencer.sequence_bank[i])
             {
-                rendered_midi_[i] =
-                    render_measure(sequencer.sequence_bank[i], sequencer.tuning,
-                                   sequencer.base_frequency, daw);
+                rendered_midi_[i] = render_measure(
+                    sequencer.sequence_bank[i], sequencer.tuning,
+                    sequencer.base_frequency, daw, sequencer.scale, sequencer.mode);
             }
         }
     }

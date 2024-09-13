@@ -1,25 +1,71 @@
 #include <xen/midi.hpp>
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <optional>
 #include <stdexcept>
 #include <variant>
+#include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include <sequence/measure.hpp>
 #include <sequence/midi.hpp>
+#include <sequence/sequence.hpp>
 #include <sequence/tuning.hpp>
 #include <sequence/utility.hpp>
 
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
+
+namespace
+{
+
+/**
+ * Maps any Notes to the list of valid pitches
+ */
+[[nodiscard]] auto translate_cell(sequence::Cell const &cell,
+                                  std::vector<int> const &valid_pitches,
+                                  std::size_t tuning_length,
+                                  xen::TranslateDirection direction) -> sequence::Cell
+{
+    return std::visit(
+        sequence::utility::overload{
+            [&](sequence::Note note) -> sequence::Cell {
+                note.pitch = xen::map_pitch_to_scale(note.pitch, valid_pitches,
+                                                     tuning_length, direction);
+                return note;
+            },
+            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
+            [&](sequence::Sequence seq) -> sequence::Cell {
+                for (auto &c : seq.cells)
+                {
+                    c = translate_cell(c, valid_pitches, tuning_length, direction);
+                }
+                return seq;
+            },
+        },
+        cell);
+}
+
+} // namespace
 
 namespace xen
 {
 
-auto state_to_timeline(sequence::Measure const &measure, sequence::Tuning const &tuning,
-                       float base_frequency,
-                       DAWState const &daw_state) -> sequence::midi::EventTimeline
+auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
+                       float base_frequency, DAWState const &daw_state,
+                       std::optional<Scale> const &scale,
+                       std::uint8_t mode) -> sequence::midi::EventTimeline
 {
+    if (scale)
+    {
+        measure.cell =
+            translate_cell(measure.cell, generate_valid_pitches(*scale, mode),
+                           tuning.intervals.size(), TranslateDirection::Up);
+    }
+
     // TODO add pitch bend range parameter to state and commands to alter it.
     return sequence::midi::translate_to_midi_timeline(
         measure, daw_state.sample_rate, daw_state.bpm, tuning, base_frequency, 48.f);

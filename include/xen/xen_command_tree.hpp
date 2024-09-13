@@ -673,14 +673,14 @@ namespace xen
                 },
                 ArgInfo<std::string>{"name"}),
             cmd(
-                "mode", "Set the mode of the current scale. [1, tuning size).",
+                "mode", "Set the mode of the current scale. [1, scale size).",
                 [](PS &ps, sequence::Pattern const &, std::size_t mode_index) {
                     auto state = ps.timeline.get_state();
-                    if (mode_index == 0 ||
-                        mode_index > state.sequencer.tuning.intervals.size())
+                    if (mode_index == 0 || !state.sequencer.scale.has_value() ||
+                        mode_index > state.sequencer.scale->intervals.size())
                     {
                         return merror(
-                            "Invalid Mode Index. Must be in range [1, tuning size).");
+                            "Invalid Mode Index. Must be in range [1, scale size).");
                     }
                     state.sequencer.mode = (std::uint8_t)(mode_index - 1);
                     ps.timeline.stage(std::move(state));
