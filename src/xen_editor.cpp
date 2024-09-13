@@ -228,7 +228,6 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
             MessageLevel::Error, std::string{"Check `user_keys.yml`: "} + e.what());
     }
 
-    this->execute_command_string("load scales");
     this->execute_command_string("welcome");
 }
 
@@ -264,56 +263,12 @@ void XenEditor::resized()
 
 void XenEditor::execute_command_string(std::string const &command_string)
 {
-    auto &ps = processor_.plugin_state;
-
-    auto const commands = split(command_string, ';');
-    auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-    try
+    auto const [level, message] = processor_.execute_command_string(command_string);
+    if (level != MessageLevel::Error)
     {
-        for (auto const &command : commands)
-        {
-            status =
-                execute(processor_.command_tree, ps, normalize_command_string(command));
-        }
-        if (ps.timeline.get_commit_flag())
-        {
-            ps.timeline.commit();
-            auto const success = processor_.new_state_transfer_queue.push(
-                ps.timeline.get_state().sequencer);
-            if (!success)
-            {
-                throw std::runtime_error{
-                    "Buffer full, unable to send sequence change to audio thread."};
-            }
-        }
         this->update_ui();
     }
-    catch (ErrorNoMatch const &)
-    {
-        // FIXME: This roundabout way can set an invalid selection if a string of
-        // commands is executed that includes splitting and movement. But it isn't a
-        // huge deal and this behaviour is more desirable that without this patch.
-
-        // Roundabout way to revert partial changes but keep the selected state.
-        auto aux = ps.timeline.get_state().aux;
-        ps.timeline.reset_stage();
-        auto state = ps.timeline.get_state();
-        state.aux = std::move(aux);
-        ps.timeline.stage(std::move(state));
-        status = {MessageLevel::Error, "Command not found: " + command_string};
-    }
-    catch (std::exception const &e)
-    {
-        ps.timeline.reset_stage();
-        status = {MessageLevel::Error, e.what()};
-    }
-    catch (...)
-    {
-        ps.timeline.reset_stage();
-        status = {MessageLevel::Error, "Unknown error"};
-    }
-
-    plugin_window.bottom_bar.status_bar.set_status(status.first, status.second);
+    plugin_window.bottom_bar.status_bar.set_status(level, message);
 }
 
 void XenEditor::set_key_listeners(

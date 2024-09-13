@@ -12,6 +12,7 @@
 
 #include <sequence/measure.hpp>
 
+#include <xen/command.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
@@ -61,6 +62,8 @@ XenProcessor::XenProcessor()
 
     // Send initial state to Audio Thread
     (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
+
+    this->execute_command_string("load scales");
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -170,6 +173,62 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         {
             editor->update_ui();
         }
+    }
+}
+
+auto XenProcessor::execute_command_string(std::string const &command_string)
+    -> std::pair<MessageLevel, std::string>
+{
+    try
+    {
+        auto &ps = plugin_state;
+        try
+        {
+            auto const commands = split(command_string, ';');
+            auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+            for (auto const &command : commands)
+            {
+                status = execute(command_tree, ps, normalize_command_string(command));
+            }
+            if (ps.timeline.get_commit_flag())
+            {
+                ps.timeline.commit();
+                auto const success =
+                    new_state_transfer_queue.push(ps.timeline.get_state().sequencer);
+                if (!success)
+                {
+                    throw std::runtime_error{
+                        "Buffer full, unable to send sequence change to audio thread."};
+                }
+            }
+            return status;
+        }
+        catch (...)
+        {
+            // FIXME: This roundabout way can set an invalid selection if a string of
+            // commands is executed that includes splitting and movement. But it isn't a
+            // huge deal and this behaviour is more desirable that without this patch.
+
+            // Roundabout way to revert partial changes but keep the selected state.
+            auto aux = ps.timeline.get_state().aux;
+            ps.timeline.reset_stage();
+            auto state = ps.timeline.get_state();
+            state.aux = std::move(aux);
+            ps.timeline.stage(std::move(state));
+            throw; // rethrow so you can return proper message without duplicating above
+        }
+    }
+    catch (ErrorNoMatch const &)
+    {
+        return {MessageLevel::Error, "Command not found: " + command_string};
+    }
+    catch (std::exception const &e)
+    {
+        return {MessageLevel::Error, e.what()};
+    }
+    catch (...)
+    {
+        return {MessageLevel::Error, "Unknown error"};
     }
 }
 

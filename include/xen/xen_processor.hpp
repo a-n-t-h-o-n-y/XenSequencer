@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -11,6 +13,7 @@
 #include <xen/double_buffer.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/lock_free_queue.hpp>
+#include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -46,6 +49,16 @@ class XenProcessor : public juce::AudioProcessor
     void getStateInformation(juce::MemoryBlock &dest_data) override;
 
     void setStateInformation(void const *data, int sizeInBytes) override;
+
+    /**
+     * Execute a string as a command, using the command tree.
+     *
+     * @details This will normalize the input string, execute it on plugin_state and
+     * send the resulting status to the status bar.
+     * @param command_string The command string to execute
+     */
+    auto execute_command_string(std::string const &command_string)
+        -> std::pair<MessageLevel, std::string>;
 
   public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
