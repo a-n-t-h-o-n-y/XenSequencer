@@ -15,7 +15,7 @@ namespace xen
  */
 struct Scale
 {
-    std::string name;
+    std::string name; // Is stored as all lower case when read in via YAML.
     std::size_t tuning_length;
     std::vector<std::uint8_t> intervals;
 

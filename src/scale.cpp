@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <xen/constants.hpp>
+#include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 
@@ -44,7 +45,7 @@ auto convert<::xen::Scale>::decode(Node const &node, ::xen::Scale &scale) -> boo
     {
         return false;
     }
-    scale.name = node["name"].as<std::string>();
+    scale.name = ::xen::to_lower(node["name"].as<std::string>());
     scale.tuning_length = node["tuning_length"].as<std::size_t>();
     scale.intervals = node["intervals"].as<std::vector<std::uint8_t>>();
     return true;

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <exception>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -650,6 +652,27 @@ namespace xen
                 },
                 ArgInfo<std::string>{"name"}),
             cmd(
+                "scale", "Set the current scale by name.",
+                [](PS &ps, sequence::Pattern const &, std::string name) {
+                    name = to_lower(name);
+                    // Scale names are stored as all lower case.
+                    auto const at = std::ranges::find(
+                        ps.scales, name, [](Scale const &s) { return s.name; });
+                    if (at != std::end(ps.scales))
+                    {
+                        auto state = ps.timeline.get_state();
+                        state.sequencer.scale = *at;
+                        ps.timeline.stage(std::move(state));
+                        ps.timeline.set_commit_flag();
+                        return minfo("Scale Set to " + name + ".");
+                    }
+                    else
+                    {
+                        return merror("No Scale Found: " + name + ".");
+                    }
+                },
+                ArgInfo<std::string>{"name"}),
+            cmd(
                 "mode", "Set the mode of the current scale. [1, tuning size).",
                 [](PS &ps, sequence::Pattern const &, std::size_t mode_index) {
                     auto state = ps.timeline.get_state();
@@ -665,6 +688,16 @@ namespace xen
                     return minfo("Scale Mode Set");
                 },
                 ArgInfo<std::size_t>{"mode"}))),
+
+        cmd_group("clear", ArgInfo<std::string>{"item"},
+                  cmd("scale", "Remove the Current Scale, if any.",
+                      [](PS &ps) {
+                          auto state = ps.timeline.get_state();
+                          state.sequencer.scale = std::nullopt;
+                          ps.timeline.stage(std::move(state));
+                          ps.timeline.set_commit_flag();
+                          return minfo("Scale Cleared");
+                      })),
 
         pattern(cmd_group(
             "shift", ArgInfo<std::string>{"trait"},
