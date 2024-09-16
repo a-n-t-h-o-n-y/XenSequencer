@@ -23,8 +23,8 @@ namespace xen
  */
 [[nodiscard]] auto state_to_timeline(
     sequence::Measure measure, sequence::Tuning const &tuning, float base_frequency,
-    DAWState const &daw_state, std::optional<Scale> const &scale,
-    std::uint8_t mode) -> sequence::midi::EventTimeline;
+    DAWState const &daw_state,
+    std::optional<Scale> const &scale) -> sequence::midi::EventTimeline;
 
 /**
  * Renders a sequence library midi::EventTimeline as a MIDI buffer.

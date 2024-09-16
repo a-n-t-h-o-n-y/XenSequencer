@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <sequence/measure.hpp>
+#include <sequence/tuning.hpp>
 
 #include <signals_light/signal.hpp>
 
@@ -27,11 +28,14 @@
 namespace
 {
 
-[[nodiscard]] auto make_cell(sequence::Cell const &cell, std::size_t pitch_count,
-                             std::optional<xen::Scale> const &scale,
-                             std::uint8_t mode) -> std::unique_ptr<xen::gui::Cell>
+[[nodiscard]] auto make_cell(
+    sequence::Cell const &cell, std::optional<xen::Scale> const &scale,
+    sequence::Tuning const &tuning) -> std::unique_ptr<xen::gui::Cell>
 {
-    auto const builder = xen::gui::BuildAndAllocateCell{pitch_count, scale, mode};
+    auto const builder = xen::gui::BuildAndAllocateCell{
+        scale,
+        tuning,
+    };
     return std::visit(builder, cell);
 }
 
@@ -215,7 +219,8 @@ void PitchColumn::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 MeasureView::MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
-    : cell_ptr_{make_cell(sequence::Rest{}, 12, std::nullopt, 1)},
+    : cell_ptr_{make_cell(sequence::Rest{}, std::nullopt,
+                          {.intervals = {0}, .octave = 1})},
       audio_thread_state_{audio_thread_state}
 {
     this->startTimer(34);
@@ -236,16 +241,15 @@ auto MeasureView::get_cell() const -> Cell const &
     return *cell_ptr_;
 }
 
-void MeasureView::update_ui(sequence::Measure const &measure, std::size_t pitch_count,
-                            std::size_t selected_measure,
-                            std::optional<Scale> const &scale, std::uint8_t mode)
+void MeasureView::update_ui(SequencerState const &state, AuxState const &aux)
 {
+    selected_measure_ = aux.selected.measure;
+    measure_ = state.sequence_bank[selected_measure_];
+
     // TODO can you do a simple equality check to conditionally rebuild the cell?
     cell_ptr_.reset();
-    cell_ptr_ = make_cell(measure.cell, pitch_count, scale, mode);
+    cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning);
     this->addAndMakeVisible(*cell_ptr_);
-    selected_measure_ = selected_measure;
-    measure_ = measure;
     this->resized();
 }
 
@@ -324,14 +328,11 @@ SequenceView::SequenceView(
         [this](std::string const &command) { this->on_command(command); });
 }
 
-void SequenceView::update_ui(SequencerState const &state, AuxState const &aux,
-                             std::optional<Scale> const &scale, std::uint8_t mode)
+void SequenceView::update_ui(SequencerState const &state, AuxState const &aux)
 {
     measure_info.update_ui(state, aux);
 
-    measure_view.update_ui(state.sequence_bank[aux.selected.measure],
-                           state.tuning.intervals.size(), aux.selected.measure, scale,
-                           mode);
+    measure_view.update_ui(state, aux);
 
     pitch_column.update(state.tuning.intervals.size());
 
@@ -395,7 +396,7 @@ void CenterComponent::show_library_view()
 void CenterComponent::update_ui(SequencerState const &state, AuxState const &aux)
 {
     state_ = state;
-    sequence_view.update_ui(state_, aux, state_.scale, state_.mode);
+    sequence_view.update_ui(state_, aux);
 
     // TODO update library view? Is there anything? Are current directories updated
     // via a separate mechanism?

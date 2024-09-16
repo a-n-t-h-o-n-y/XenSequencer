@@ -46,11 +46,10 @@ auto load_scales_from_files() -> std::vector<Scale>
     return system_scales;
 }
 
-auto generate_valid_pitches(xen::Scale const &scale,
-                            std::uint8_t mode) -> std::vector<int>
+auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>
 {
     auto intervals = scale.intervals;
-    std::ranges::rotate(intervals, std::next(std::begin(intervals), mode));
+    std::ranges::rotate(intervals, std::next(std::begin(intervals), scale.mode));
 
     auto result = std::vector<int>{0};
 
@@ -110,6 +109,14 @@ auto convert<::xen::Scale>::decode(Node const &node, ::xen::Scale &scale) -> boo
     scale.name = ::xen::to_lower(node["name"].as<std::string>());
     scale.tuning_length = node["tuning_length"].as<std::size_t>();
     scale.intervals = node["intervals"].as<std::vector<std::uint8_t>>();
+    if (node["mode"])
+    {
+        scale.mode = node["mode"].as<std::uint8_t>();
+    }
+    else
+    {
+        scale.mode = 0;
+    }
     return true;
 }
 

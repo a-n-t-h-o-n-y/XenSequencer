@@ -56,14 +56,13 @@ namespace xen
 
 auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
                        float base_frequency, DAWState const &daw_state,
-                       std::optional<Scale> const &scale,
-                       std::uint8_t mode) -> sequence::midi::EventTimeline
+                       std::optional<Scale> const &scale)
+    -> sequence::midi::EventTimeline
 {
     if (scale)
     {
-        measure.cell =
-            translate_cell(measure.cell, generate_valid_pitches(*scale, mode),
-                           tuning.intervals.size(), TranslateDirection::Up);
+        measure.cell = translate_cell(measure.cell, generate_valid_pitches(*scale),
+                                      tuning.intervals.size(), TranslateDirection::Up);
     }
 
     // TODO add pitch bend range parameter to state and commands to alter it.

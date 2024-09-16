@@ -18,6 +18,7 @@ struct Scale
     std::string name; // Is stored as all lower case when read in via YAML.
     std::size_t tuning_length;
     std::vector<std::uint8_t> intervals;
+    std::uint8_t mode; // [0, intervals.size)
 
     [[nodiscard]] auto operator<=>(Scale const &) const = default;
 };
@@ -37,8 +38,7 @@ enum class TranslateDirection
     Down,
 };
 
-[[nodiscard]] auto generate_valid_pitches(xen::Scale const &scale,
-                                          std::uint8_t mode) -> std::vector<int>;
+[[nodiscard]] auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>;
 
 /**
  * Map an input pitch to a list of valid pitches, with wrapping at octaves. Maps to the
