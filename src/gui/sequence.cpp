@@ -66,42 +66,6 @@ auto const corner_radius = 10.f;
 }
 
 /**
- * Returns list of heights for each pitch in tuning, starting with pitch 0.
- *
- * @details Staff line height is determined by tuning intervals.
- */
-[[nodiscard]] auto generate_staff_line_heights(
-    juce::Rectangle<float> bounds, sequence::Tuning const &tuning) -> std::vector<float>
-{
-    auto ratios = std::vector<float>{};
-    for (std::size_t i = 0; i <= tuning.intervals.size(); ++i)
-    {
-        ratios.push_back([&] {
-            auto current = 0.f;
-            auto previous = 0.f;
-            if (i == 0 || i == tuning.intervals.size())
-            {
-                current = tuning.octave;
-                previous = tuning.intervals.back();
-            }
-            else
-            {
-                current = tuning.intervals[i];
-                previous = tuning.intervals[i - 1];
-            }
-            return (current - previous) / tuning.octave;
-        }());
-    }
-
-    auto line_heights = std::vector<float>{};
-    for (std::size_t i = 0; i + 1 < ratios.size(); ++i)
-    {
-        line_heights.push_back((ratios[i] + ratios[i + 1]) / 2.f * bounds.getHeight());
-    }
-    return line_heights;
-}
-
-/**
  * Computes the Rectangle bounds for a given note pitch and tuning length.
  *
  * @param bounds  The bounds of the component in which the note will be displayed.
@@ -120,16 +84,13 @@ auto const corner_radius = 10.f;
         throw std::invalid_argument("Tuning length must not be zero.");
     }
 
-    auto const heights = generate_staff_line_heights(bounds, tuning);
     auto const normalized = normalize_pitch(note.pitch, pitch_count);
 
-    assert(normalized < heights.size());
+    assert(normalized < tuning.intervals.size());
 
-    auto y = bounds.getHeight() + bounds.getY();
-    for (auto i = std::size_t{0}; i < normalized; ++i)
-    {
-        y -= heights[i];
-    }
+    auto const height = bounds.getHeight() / (float)tuning.intervals.size();
+    auto const y =
+        bounds.getHeight() + bounds.getY() - ((float)normalized + 1.f) * height;
 
     // Calculate the note x and width
     auto const left_x = bounds.getX() + bounds.getWidth() * note.delay;
@@ -138,9 +99,9 @@ auto const corner_radius = 10.f;
 
     return juce::Rectangle<float>{
         left_x,
-        y - heights[normalized],
+        y,
         note_width,
-        heights[normalized],
+        height,
     };
 }
 
@@ -148,22 +109,20 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
                 juce::Colour lighter_color, juce::Colour line_color,
                 std::optional<Scale> const &scale, sequence::Tuning const &tuning)
 {
-    auto const line_heights = generate_staff_line_heights(bounds, tuning);
     auto const colors =
         generate_staff_line_colors(scale, lighter_color, tuning.intervals.size());
 
-    assert(line_heights.size() == colors.size());
+    assert(tuning.intervals.size() == colors.size());
 
-    auto y = bounds.getHeight() + bounds.getY();
-    for (auto i = std::size_t{0}; i < line_heights.size(); ++i)
+    auto const height = bounds.getHeight() / (float)tuning.intervals.size();
+    for (auto i = std::size_t{0}; i < colors.size(); ++i)
     {
-        auto const line_height = line_heights[i];
-        y -= line_height;
+        auto const y = bounds.getHeight() + bounds.getY() - ((float)i + 1.f) * height;
 
         g.setColour(colors[i]);
-        g.fillRect(bounds.getX(), y, bounds.getWidth(), line_height);
+        g.fillRect(bounds.getX(), y, bounds.getWidth(), height);
 
-        if (i + 1 != line_heights.size())
+        if (i + 1 != colors.size())
         {
             g.setColour(line_color);
             g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 0.5f);
@@ -194,6 +153,20 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 {
     return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
 }
+
+// void draw_pitch_line(juce::Graphics &g, juce::Rectangle<float> bounds,
+//                      sequence::Tuning const &tuning, int pitch, juce::Colour fg)
+// {
+//     // auto const normalized = normalize_pitch(pitch, tuning.intervals.size());
+//     //    (tuning.intervals[normalized] / tuning.octave) * bounds.getHeight();
+//     g.setColour(fg);
+//     for (auto i = std::size_t{0}; i < tuning.intervals.size(); ++i)
+//     {
+//         auto const y = bounds.getHeight() + bounds.getY() -
+//                        (tuning.intervals[i] / tuning.octave) * bounds.getHeight();
+//         g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 1.f);
+//     }
+// }
 
 } // namespace
 
@@ -265,11 +238,9 @@ void Note::paint(juce::Graphics &g)
     draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
                this->findColour(ColorID::ForegroundInverse), scale_, tuning_);
 
-    // Paint Note Pitch
+    // Draw Note Box
     auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
-
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
-
     g.fillRect(pitch_bounds);
     g.setColour(this->findColour(ColorID::ForegroundInverse));
     g.drawRect(pitch_bounds, 0.5f);

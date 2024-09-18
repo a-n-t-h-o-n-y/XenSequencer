@@ -133,13 +133,14 @@ target_sources(XenSequencerLib
         src/gui/command_bar.cpp
         src/gui/directory_view.cpp
         src/gui/library_view.cpp
+        src/gui/plugin_window.cpp
         src/gui/sequence_bank.cpp
         src/gui/sequence.cpp
         src/gui/status_bar.cpp
         src/gui/themes.cpp
         src/gui/tile.cpp
         src/gui/title_bar.cpp
-        src/gui/plugin_window.cpp
+        src/gui/tuning_reference.cpp
 
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
@@ -184,6 +185,7 @@ target_sources(XenSequencerLib
         include/xen/gui/status_bar.hpp
         include/xen/gui/tile.hpp
         include/xen/gui/title_bar.hpp
+        include/xen/gui/tuning_reference.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp
 )

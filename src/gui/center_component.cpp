@@ -3,14 +3,17 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include <sequence/measure.hpp>
 #include <sequence/tuning.hpp>
+#include <sequence/utility.hpp>
 
 #include <signals_light/signal.hpp>
 
@@ -22,6 +25,7 @@
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/scale.hpp>
+#include <xen/selection.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 
@@ -37,6 +41,26 @@ namespace
         tuning,
     };
     return std::visit(builder, cell);
+}
+
+[[nodiscard]] auto get_all_pitches(sequence::Cell const &cell) -> std::set<int>
+{
+    return std::visit(
+        sequence::utility::overload{
+            [](sequence::Rest const &) -> std::set<int> { return {}; },
+            [](sequence::Note const &n) -> std::set<int> { return {n.pitch}; },
+            [&](sequence::Sequence const &s) -> std::set<int> {
+                auto result = std::set<int>{};
+                for (auto const &c : s.cells)
+                {
+                    auto temp = get_all_pitches(c);
+                    result.insert(std::make_move_iterator(std::begin(temp)),
+                                  std::make_move_iterator(std::end(temp)));
+                }
+                return result;
+            },
+        },
+        cell);
 }
 
 } // namespace
@@ -336,6 +360,21 @@ void SequenceView::update_ui(SequencerState const &state, AuxState const &aux)
 
     pitch_column.update(state.tuning.intervals.size());
 
+    if (state.tuning.octave == 1'200.f)
+    {
+        auto const selected_pitches = get_all_pitches(
+            xen::get_selected_cell_const(state.sequence_bank, aux.selected));
+
+        tuning_reference_ptr = std::make_unique<TuningReference>(
+            state.tuning, state.scale, selected_pitches);
+
+        this->addAndMakeVisible(*tuning_reference_ptr);
+    }
+    else
+    {
+        tuning_reference_ptr = nullptr;
+    }
+
     sequence_bank.update_ui(aux.selected.measure);
 
     this->resized();
@@ -358,6 +397,11 @@ void SequenceView::resized()
     horizontal_flex.flexDirection = juce::FlexBox::Direction::row;
     horizontal_flex.items.add(juce::FlexItem{pitch_column}.withWidth(23.f));
     horizontal_flex.items.add(juce::FlexItem{measure_view}.withFlex(1));
+    if (tuning_reference_ptr != nullptr)
+    {
+        horizontal_flex.items.add(
+            juce::FlexItem{*tuning_reference_ptr}.withWidth(23.f));
+    }
     // TODO figure out how to make square
     horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());
 

@@ -17,6 +17,7 @@
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
+#include <xen/gui/tuning_reference.hpp>
 #include <xen/state.hpp>
 
 namespace xen::gui
@@ -192,6 +193,7 @@ class SequenceView : public juce::Component
     MeasureInfo measure_info;
     PitchColumn pitch_column;
     MeasureView measure_view;
+    std::unique_ptr<TuningReference> tuning_reference_ptr{nullptr};
     HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
     SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;
 };
