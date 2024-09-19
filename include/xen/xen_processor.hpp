@@ -88,6 +88,8 @@ class XenProcessor : public juce::AudioProcessor
         MidiEngine midi_engine;
     } audio_thread_state_;
 
+    int previous_commit_id_{-1};
+
   public:
     DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;
 };

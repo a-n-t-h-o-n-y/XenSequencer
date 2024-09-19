@@ -193,6 +193,11 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             if (ps.timeline.get_commit_flag())
             {
                 ps.timeline.commit();
+            }
+            if (auto const id = ps.timeline.get_current_commit_id();
+                id != previous_commit_id_)
+            {
+                previous_commit_id_ = id;
                 auto const success =
                     new_state_transfer_queue.push(ps.timeline.get_state().sequencer);
                 if (!success)

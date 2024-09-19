@@ -25,7 +25,8 @@ class Timeline
      *
      * @details The Timeline is never empty, there is always an initial state.
      */
-    explicit Timeline(State state) : stage_{std::move(state)}, timeline_{stage_}
+    explicit Timeline(State state)
+        : stage_{std::move(state)}, timeline_{{stage_, id_origin_++}}
     {
     }
 
@@ -54,7 +55,7 @@ class Timeline
     {
         at_ = at_ + 1;
         timeline_.resize(at_);
-        timeline_.push_back(stage_);
+        timeline_.push_back({stage_, id_origin_++});
         should_commit_ = false;
     }
 
@@ -70,6 +71,15 @@ class Timeline
     }
 
     /**
+     * Return the unique commit ID for the most recent commit state. Does not change on
+     * staged state.
+     */
+    [[nodiscard]] auto get_current_commit_id() -> int
+    {
+        return timeline_[at_].second;
+    }
+
+    /**
      * Go back one state in the timeline.
      *
      * @details This causes get_state() to return the previous state. If the timeline is
@@ -82,7 +92,7 @@ class Timeline
         if (at_ > 0)
         {
             at_ = at_ - 1;
-            stage_ = timeline_[at_];
+            stage_ = timeline_[at_].first;
             return true;
         }
         return false;
@@ -100,7 +110,7 @@ class Timeline
         if (at_ + 1 < std::size(timeline_))
         {
             at_ = at_ + 1;
-            stage_ = timeline_[at_];
+            stage_ = timeline_[at_].first;
             return true;
         }
         return false;
@@ -135,14 +145,15 @@ class Timeline
      */
     auto reset_stage() -> void
     {
-        stage_ = timeline_[at_];
+        stage_ = timeline_[at_].first;
     }
 
   private:
     State stage_; // Staged state to be committed. Also the 'current' state.
-    std::vector<State> timeline_;
+    std::vector<std::pair<State, int>> timeline_; // [state, commit ID]
     std::size_t at_{0};
     bool should_commit_{false};
+    int id_origin_{0};
 };
 
 } // namespace xen
