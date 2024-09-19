@@ -577,7 +577,8 @@ namespace xen
 
                 cmd(
                     "timeSignature",
-                    "Set the time signature of a Measure. If no index is given, set "
+                    "Set the time signature of a Measure. If no index is given, "
+                    "set "
                     "the time signature of the current Measure. Ignores Pattern.",
                     [](PS &ps, sequence::Pattern const &,
                        sequence::TimeSignature const &ts, int index) {
@@ -673,21 +674,31 @@ namespace xen
                 },
                 ArgInfo<std::string>{"name"}),
             cmd(
-                "mode", "Set the mode of the current scale. [1, scale size).",
+                "mode", "Set the mode of the current scale. [1, scale size].",
                 [](PS &ps, sequence::Pattern const &, std::size_t mode_index) {
                     auto state = ps.timeline.get_state();
                     if (mode_index == 0 || !state.sequencer.scale.has_value() ||
                         mode_index > state.sequencer.scale->intervals.size())
                     {
-                        return merror(
-                            "Invalid Mode Index. Must be in range [1, scale size).");
+                        return merror("Invalid Mode Index. Must be in range [1, "
+                                      "scale size).");
                     }
                     state.sequencer.scale->mode = (std::uint8_t)(mode_index - 1);
                     ps.timeline.stage(std::move(state));
                     ps.timeline.set_commit_flag();
                     return minfo("Scale Mode Set");
                 },
-                ArgInfo<std::size_t>{"mode"}))),
+                ArgInfo<std::size_t>{"mode"}),
+            cmd(
+                "key", "Set the key to tranpose to, any integer value is valid.",
+                [](PS &ps, sequence::Pattern const &, int key) {
+                    auto state = ps.timeline.get_state();
+                    state.sequencer.key = key;
+                    ps.timeline.stage(std::move(state));
+                    ps.timeline.set_commit_flag();
+                    return minfo("Key set to " + std::to_string(key) + ".");
+                },
+                ArgInfo<int>{"zero offset"}))),
 
         cmd_group("clear", ArgInfo<std::string>{"item"},
                   cmd("scale", "Remove the Current Scale, if any.",

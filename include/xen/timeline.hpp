@@ -149,11 +149,11 @@ class Timeline
     }
 
   private:
+    int id_origin_{0};
     State stage_; // Staged state to be committed. Also the 'current' state.
     std::vector<std::pair<State, int>> timeline_; // [state, commit ID]
     std::size_t at_{0};
     bool should_commit_{false};
-    int id_origin_{0};
 };
 
 } // namespace xen

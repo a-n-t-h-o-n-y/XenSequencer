@@ -48,6 +48,7 @@ struct SequencerState
     std::string tuning_name{};
 
     std::optional<Scale> scale{std::nullopt};
+    int key{3}; // The pitch considered 'zero', transposition. [0, tuning size)
 
     float base_frequency{440.f};
 

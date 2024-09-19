@@ -27,15 +27,17 @@ namespace
  * @param tuning The tuning to use.
  * @param base_frequency The base frequency of the tuning.
  * @param daw The state of the DAW.
+ * @param key The key to transpose to, simple addition.
  * @return juce::MidiBuffer
  */
-[[nodiscard]] auto render_measure(
-    sequence::Measure const &measure, sequence::Tuning const &tuning,
-    float base_frequency, xen::DAWState const &daw,
-    std::optional<xen::Scale> const &scale) -> juce::MidiBuffer
+[[nodiscard]] auto render_measure(sequence::Measure const &measure,
+                                  sequence::Tuning const &tuning, float base_frequency,
+                                  xen::DAWState const &daw,
+                                  std::optional<xen::Scale> const &scale,
+                                  int key) -> juce::MidiBuffer
 {
     return xen::render_to_midi(
-        xen::state_to_timeline(measure, tuning, base_frequency, daw, scale));
+        xen::state_to_timeline(measure, tuning, base_frequency, daw, scale, key));
 }
 
 /**
@@ -245,14 +247,15 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
         std::ranges::not_equal_to{}(sequencer_copy_.base_frequency,
                                     sequencer.base_frequency) ||
         daw_copy_.sample_rate != daw.sample_rate ||
-        sequencer_copy_.scale != sequencer.scale)
+        sequencer_copy_.scale != sequencer.scale ||
+        sequencer_copy_.key != sequencer.key)
     {
         // Render Everything
         for (auto i = std::size_t{0}; i < sequencer.sequence_bank.size(); ++i)
         {
-            rendered_midi_[i] =
-                render_measure(sequencer.sequence_bank[i], sequencer.tuning,
-                               sequencer.base_frequency, daw, sequencer.scale);
+            rendered_midi_[i] = render_measure(
+                sequencer.sequence_bank[i], sequencer.tuning, sequencer.base_frequency,
+                daw, sequencer.scale, sequencer.key);
         }
     }
     else
@@ -262,9 +265,9 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
         {
             if (sequencer_copy_.sequence_bank[i] != sequencer.sequence_bank[i])
             {
-                rendered_midi_[i] =
-                    render_measure(sequencer.sequence_bank[i], sequencer.tuning,
-                                   sequencer.base_frequency, daw, sequencer.scale);
+                rendered_midi_[i] = render_measure(
+                    sequencer.sequence_bank[i], sequencer.tuning,
+                    sequencer.base_frequency, daw, sequencer.scale, sequencer.key);
             }
         }
     }

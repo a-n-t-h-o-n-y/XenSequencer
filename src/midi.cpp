@@ -25,10 +25,9 @@ namespace
 /**
  * Maps any Notes to the list of valid pitches
  */
-[[nodiscard]] auto translate_cell(sequence::Cell const &cell,
-                                  std::vector<int> const &valid_pitches,
-                                  std::size_t tuning_length,
-                                  xen::TranslateDirection direction) -> sequence::Cell
+[[nodiscard]] auto scale_translate_cell(
+    sequence::Cell const &cell, std::vector<int> const &valid_pitches,
+    std::size_t tuning_length, xen::TranslateDirection direction) -> sequence::Cell
 {
     return std::visit(
         sequence::utility::overload{
@@ -41,7 +40,32 @@ namespace
             [&](sequence::Sequence seq) -> sequence::Cell {
                 for (auto &c : seq.cells)
                 {
-                    c = translate_cell(c, valid_pitches, tuning_length, direction);
+                    c = scale_translate_cell(c, valid_pitches, tuning_length,
+                                             direction);
+                }
+                return seq;
+            },
+        },
+        cell);
+}
+
+/**
+ * Transposes notes based on a key value.
+ */
+[[nodiscard]] auto key_transpose_cell(sequence::Cell const &cell,
+                                      int key) -> sequence::Cell
+{
+    return std::visit(
+        sequence::utility::overload{
+            [&](sequence::Note note) -> sequence::Cell {
+                note.pitch += key;
+                return note;
+            },
+            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
+            [&](sequence::Sequence seq) -> sequence::Cell {
+                for (auto &c : seq.cells)
+                {
+                    c = key_transpose_cell(c, key);
                 }
                 return seq;
             },
@@ -56,14 +80,17 @@ namespace xen
 
 auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
                        float base_frequency, DAWState const &daw_state,
-                       std::optional<Scale> const &scale)
-    -> sequence::midi::EventTimeline
+                       std::optional<Scale> const &scale,
+                       int key) -> sequence::midi::EventTimeline
 {
     if (scale)
     {
-        measure.cell = translate_cell(measure.cell, generate_valid_pitches(*scale),
-                                      tuning.intervals.size(), TranslateDirection::Up);
+        measure.cell =
+            scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
+                                 tuning.intervals.size(), TranslateDirection::Up);
     }
+
+    measure.cell = key_transpose_cell(measure.cell, key);
 
     // TODO add pitch bend range parameter to state and commands to alter it.
     return sequence::midi::translate_to_midi_timeline(
