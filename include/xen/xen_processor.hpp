@@ -27,7 +27,7 @@ class XenProcessor : public juce::AudioProcessor
     PluginState plugin_state;
     ActiveSessions active_sessions;
     XenCommandTree command_tree;
-    int editor_width{1000};
+    int editor_width{1200};
     int editor_height{300};
 
   public:

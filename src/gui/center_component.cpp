@@ -135,24 +135,9 @@ MeasureInfo::MeasureInfo()
     this->addAndMakeVisible(base_frequency_);
     this->addAndMakeVisible(measure_name_);
     this->addAndMakeVisible(tuning_name_);
+    this->addAndMakeVisible(key_);
     this->addAndMakeVisible(scale_);
     this->addAndMakeVisible(scale_mode_);
-
-    time_signature_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set measure timesignature " + text.toStdString());
-    });
-
-    base_frequency_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning basefrequency " + text.toStdString());
-    });
-
-    measure_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set measure name " + double_quote(text.toStdString()));
-    });
-
-    tuning_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning name " + double_quote(text.toStdString()));
-    });
 
     auto const font = fonts::monospaced().regular.withHeight(16.f);
     time_signature_.set_font(font);
@@ -166,11 +151,50 @@ MeasureInfo::MeasureInfo()
     tuning_name_.set_font(font);
     tuning_name_.set_key("Tuning");
 
+    key_.set_font(font);
+    key_.set_key("Key");
+
     scale_.set_font(font);
     scale_.set_key("Scale");
 
     scale_mode_.set_font(font);
     scale_mode_.set_key("Mode");
+
+    time_signature_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set measure timesignature " + text.toStdString());
+    });
+
+    base_frequency_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set tuning basefrequency " + text.toStdString());
+    });
+
+    measure_name_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set measure name " + double_quote(strip(text.toStdString())));
+    });
+
+    tuning_name_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set tuning name " + double_quote(strip(text.toStdString())));
+    });
+
+    key_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set key " + text.toStdString());
+    });
+
+    scale_.on_text_change.connect([this](juce::String const &text) {
+        if (auto const input = to_lower(strip(text.toStdString()));
+            input == "none" || input == "clear")
+        {
+            this->on_command("clear scale");
+        }
+        else
+        {
+            this->on_command("set scale " + double_quote(strip(text.toStdString())));
+        }
+    });
+
+    scale_mode_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set mode " + text.toStdString());
+    });
 }
 
 void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
@@ -190,11 +214,11 @@ void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
     {
         auto const index = aux.selected.measure;
         measure_name_.set_key(juce::String{index});
-        measure_name_.set_value(juce::String{state.measure_names[index]});
+        measure_name_.set_value(state.measure_names[index]);
     }
 
     {
-        tuning_name_.set_value(juce::String{state.tuning_name});
+        tuning_name_.set_value(state.tuning_name);
     }
 
     if (state.scale.has_value())
@@ -207,6 +231,10 @@ void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
         scale_.set_value("None");
         scale_mode_.set_value("");
     }
+
+    {
+        key_.set_value(std::to_string(state.key));
+    }
 }
 
 void MeasureInfo::resized()
@@ -218,8 +246,9 @@ void MeasureInfo::resized()
     flex_box.items.add(juce::FlexItem{base_frequency_}.withFlex(1.f));
     flex_box.items.add(juce::FlexItem{measure_name_}.withFlex(1.f));
     flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{key_}.withFlex(0.333f));
     flex_box.items.add(juce::FlexItem{scale_}.withFlex(1.f));
-    flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.5f));
+    flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.4f));
 
     flex_box.performLayout(this->getLocalBounds());
 }
