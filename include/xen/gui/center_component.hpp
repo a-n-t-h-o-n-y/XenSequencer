@@ -105,6 +105,8 @@ class MeasureInfo : public juce::Component
     BorderedFieldEdit base_frequency_;
     BorderedFieldEdit measure_name_;
     BorderedFieldEdit tuning_name_;
+    BorderedFieldEdit scale_;
+    BorderedFieldEdit scale_mode_;
 };
 
 // -------------------------------------------------------------------------------------

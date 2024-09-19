@@ -135,6 +135,8 @@ MeasureInfo::MeasureInfo()
     this->addAndMakeVisible(base_frequency_);
     this->addAndMakeVisible(measure_name_);
     this->addAndMakeVisible(tuning_name_);
+    this->addAndMakeVisible(scale_);
+    this->addAndMakeVisible(scale_mode_);
 
     time_signature_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set measure timesignature " + text.toStdString());
@@ -163,6 +165,12 @@ MeasureInfo::MeasureInfo()
 
     tuning_name_.set_font(font);
     tuning_name_.set_key("Tuning");
+
+    scale_.set_font(font);
+    scale_.set_key("Scale");
+
+    scale_mode_.set_font(font);
+    scale_mode_.set_key("Mode");
 }
 
 void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
@@ -188,6 +196,17 @@ void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
     {
         tuning_name_.set_value(juce::String{state.tuning_name});
     }
+
+    if (state.scale.has_value())
+    {
+        scale_.set_value(state.scale->name);
+        scale_mode_.set_value(juce::String(state.scale->mode + 1));
+    }
+    else
+    {
+        scale_.set_value("None");
+        scale_mode_.set_value("");
+    }
 }
 
 void MeasureInfo::resized()
@@ -195,10 +214,12 @@ void MeasureInfo::resized()
     auto flex_box = juce::FlexBox{};
     flex_box.flexDirection = juce::FlexBox::Direction::row;
 
-    flex_box.items.add(juce::FlexItem{time_signature_}.withFlex(1));
-    flex_box.items.add(juce::FlexItem{base_frequency_}.withFlex(1));
-    flex_box.items.add(juce::FlexItem{measure_name_}.withFlex(1));
-    flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1));
+    flex_box.items.add(juce::FlexItem{time_signature_}.withFlex(0.8f));
+    flex_box.items.add(juce::FlexItem{base_frequency_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{measure_name_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{scale_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.5f));
 
     flex_box.performLayout(this->getLocalBounds());
 }
