@@ -48,7 +48,6 @@ struct SequencerState
     std::string tuning_name{};
 
     std::optional<Scale> scale{std::nullopt};
-    std::uint8_t mode{0};
 
     float base_frequency{440.f};
 
