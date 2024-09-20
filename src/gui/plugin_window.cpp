@@ -89,6 +89,16 @@ void PluginWindow::set_focus(std::string component_id)
         }
         center_component.library_view.tunings_list.grabKeyboardFocus();
     }
+    else if (component_id ==
+             to_lower(center_component.library_view.scales_list.getComponentID()
+                          .toStdString()))
+    {
+        if (center_component.library_view.scales_list.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        center_component.library_view.scales_list.grabKeyboardFocus();
+    }
     else
     {
         throw std::invalid_argument("Invalid Component Given: " +

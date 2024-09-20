@@ -311,6 +311,9 @@ void XenEditor::set_key_listeners(
 
         remove_listener(plugin_window.center_component.library_view.tunings_list);
         add_listener(plugin_window.center_component.library_view.tunings_list);
+
+        remove_listener(plugin_window.center_component.library_view.scales_list);
+        add_listener(plugin_window.center_component.library_view.scales_list);
     }
     catch (std::exception const &e)
     {

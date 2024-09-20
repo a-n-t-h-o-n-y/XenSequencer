@@ -15,22 +15,16 @@ namespace xen::gui
 
 ScalesList::ScalesList()
 {
-    this->setWantsKeyboardFocus(false); // ListBox child will handle keyboard focus.
-    list_box_.setModel(this);
-    list_box_.setWantsKeyboardFocus(true); // This is default, but just to be explicit.
-    this->addAndMakeVisible(list_box_);
+    this->setComponentID("ScalesList");
+    this->ListBox::setModel(this);
+    this->ListBox::setWantsKeyboardFocus(true);
 }
 
 void ScalesList::update(std::vector<::xen::Scale> const &scales)
 {
     scales_ = scales;
-    list_box_.updateContent();
-    list_box_.repaint();
-}
-
-void ScalesList::resized()
-{
-    list_box_.setBounds(this->getLocalBounds());
+    this->ListBox::updateContent();
+    this->ListBox::repaint();
 }
 
 void ScalesList::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)
@@ -48,21 +42,22 @@ void ScalesList::returnKeyPressed(int last_row_selected)
 
 auto ScalesList::keyPressed(juce::KeyPress const &key) -> bool
 {
+    auto k = key;
     if (key.getTextCharacter() == 'j')
     {
-        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::downKey, 0, 0));
+        k = juce::KeyPress{juce::KeyPress::downKey, 0, 0};
     }
     else if (key.getTextCharacter() == 'k')
     {
-        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::upKey, 0, 0));
+        k = juce::KeyPress{juce::KeyPress::upKey, 0, 0};
     }
-    return list_box_.keyPressed(key);
+    return this->ListBox::keyPressed(k);
 }
 
 void ScalesList::lookAndFeelChanged()
 {
-    list_box_.setColour(juce::ListBox::backgroundColourId,
-                        this->findColour(ColorID::BackgroundMedium));
+    this->ListBox::setColour(juce::ListBox::backgroundColourId,
+                             this->findColour(ColorID::BackgroundMedium));
 }
 
 auto ScalesList::getNumRows() -> int

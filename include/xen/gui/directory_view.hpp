@@ -8,7 +8,7 @@
 namespace xen::gui
 {
 
-class DirectoryView : public juce::Component,
+class DirectoryView : public juce::ListBox,
                       public juce::ListBoxModel,
                       public juce::ChangeListener,
                       private juce::Timer
@@ -27,8 +27,6 @@ class DirectoryView : public juce::Component,
     ~DirectoryView() override;
 
   public:
-    void resized() override;
-
     void changeListenerCallback(juce::ChangeBroadcaster *source) override;
 
     void listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse) override;
@@ -55,7 +53,6 @@ class DirectoryView : public juce::Component,
     juce::TimeSliceThread dcl_thread_{"DirectoryViewComponentThread"};
     juce::WildcardFileFilter file_filter_;
     juce::DirectoryContentsList directory_contents_list_{&file_filter_, dcl_thread_};
-    juce::ListBox list_box_;
 };
 
 class SequencesList : public DirectoryView

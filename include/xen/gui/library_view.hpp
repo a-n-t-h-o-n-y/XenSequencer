@@ -14,7 +14,7 @@
 namespace xen::gui
 {
 
-class ScalesList : public juce::Component, public juce::ListBoxModel
+class ScalesList : public juce::ListBox, public juce::ListBoxModel
 {
   public:
     sl::Signal<void(::xen::Scale const &)> on_scale_selected;
@@ -28,8 +28,6 @@ class ScalesList : public juce::Component, public juce::ListBoxModel
     void update(std::vector<::xen::Scale> const &scales);
 
   public:
-    void resized() override;
-
     void listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse) override;
 
     void returnKeyPressed(int last_row_selected) override;
@@ -49,7 +47,6 @@ class ScalesList : public juce::Component, public juce::ListBoxModel
     void item_selected(int index);
 
   private:
-    juce::ListBox list_box_;
     std::vector<::xen::Scale> scales_;
 };
 

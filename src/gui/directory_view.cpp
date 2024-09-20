@@ -10,13 +10,11 @@ DirectoryView::DirectoryView(juce::File const &initial_directory,
                              juce::WildcardFileFilter const &file_filter)
     : file_filter_{file_filter}
 {
-    this->setWantsKeyboardFocus(false); // ListBox child will handle keyboard focus.
     directory_contents_list_.setDirectory(initial_directory, true, true);
     this->on_directory_change(initial_directory);
     directory_contents_list_.addChangeListener(this);
-    list_box_.setModel(this);
-    list_box_.setWantsKeyboardFocus(true); // This is default, but just to be explicit.
-    this->addAndMakeVisible(list_box_);
+    this->ListBox::setModel(this);
+    this->setWantsKeyboardFocus(true);
     this->startTimer(POLLING_MS);
     dcl_thread_.startThread(juce::Thread::Priority::low);
 }
@@ -28,17 +26,12 @@ DirectoryView::~DirectoryView()
     directory_contents_list_.removeChangeListener(this);
 }
 
-void DirectoryView::resized()
-{
-    list_box_.setBounds(this->getLocalBounds());
-}
-
 void DirectoryView::changeListenerCallback(juce::ChangeBroadcaster *source)
 {
     if (source == &directory_contents_list_)
     {
-        list_box_.updateContent();
-        list_box_.repaint();
+        this->updateContent();
+        this->repaint();
     }
 }
 
@@ -57,21 +50,22 @@ void DirectoryView::returnKeyPressed(int last_row_selected)
 
 auto DirectoryView::keyPressed(juce::KeyPress const &key) -> bool
 {
+    auto k = key;
     if (key.getTextCharacter() == 'j')
     {
-        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::downKey, 0, 0));
+        k = juce::KeyPress{juce::KeyPress::downKey, 0, 0};
     }
     else if (key.getTextCharacter() == 'k')
     {
-        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::upKey, 0, 0));
+        k = juce::KeyPress{juce::KeyPress::upKey, 0, 0};
     }
-    return list_box_.keyPressed(key);
+    return this->ListBox::keyPressed(k);
 }
 
 void DirectoryView::lookAndFeelChanged()
 {
-    list_box_.setColour(juce::ListBox::backgroundColourId,
-                        this->findColour(ColorID::BackgroundMedium));
+    this->setColour(juce::ListBox::backgroundColourId,
+                    this->findColour(ColorID::BackgroundMedium));
 }
 
 auto DirectoryView::getNumRows() -> int
@@ -127,7 +121,7 @@ void DirectoryView::item_selected(int index)
             directory_contents_list_.getDirectory().getParentDirectory();
         directory_contents_list_.setDirectory(parent, true, true);
         this->on_directory_change(parent);
-        list_box_.selectRow(0);
+        this->ListBox::selectRow(0);
         return;
     }
 
@@ -136,7 +130,7 @@ void DirectoryView::item_selected(int index)
     {
         directory_contents_list_.setDirectory(file, true, true);
         this->on_directory_change(file);
-        list_box_.selectRow(0);
+        this->ListBox::selectRow(0);
     }
     else
     {
