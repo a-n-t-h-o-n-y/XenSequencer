@@ -61,7 +61,7 @@ SequenceBankGrid::SequenceBankGrid()
     }
 }
 
-void SequenceBankGrid::update_ui(std::size_t selected_index)
+void SequenceBankGrid::update(std::size_t selected_index)
 {
     for (auto &btn : buttons_)
     {

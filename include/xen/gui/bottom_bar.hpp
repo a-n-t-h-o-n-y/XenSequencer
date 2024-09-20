@@ -57,8 +57,8 @@ class InputModeIndicator : public LetterSquare
 /**
  * Display whether the [L]ibrary or [S]equencer is visible in the CenterComponent.
  *
- * @details This updates the display to whatever state is passed in via its update_ui()
- * fn. It will also send the command to toggle the display when clicked.
+ * @details This updates the display to whatever state is passed in via its update() fn.
+ * It will also send the command to toggle the display when clicked.
  */
 class LibrarySequencerToggle : public LetterSquare
 {

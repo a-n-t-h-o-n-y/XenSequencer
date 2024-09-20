@@ -223,7 +223,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     p.active_sessions.request_other_session_ids();
 
     // Initialize GUI
-    this->update_ui();
+    this->update();
 
     try
     {
@@ -244,11 +244,9 @@ auto XenEditor::createKeyboardFocusTraverser()
     return std::make_unique<NoTabFocusTraverser>();
 }
 
-void XenEditor::update_ui()
+void XenEditor::update()
 {
-    auto const &[state, aux] = processor_.plugin_state.timeline.get_state();
-    plugin_window.update(state, aux, processor_.plugin_state.display_name,
-                         processor_.plugin_state.scales);
+    plugin_window.update(processor_.plugin_state);
 }
 
 void XenEditor::update_key_listeners(juce::File const &default_keys,
@@ -272,7 +270,7 @@ void XenEditor::execute_command_string(std::string const &command_string)
     auto const [level, message] = processor_.execute_command_string(command_string);
     if (level != MessageLevel::Error)
     {
-        this->update_ui();
+        this->update();
     }
     plugin_window.bottom_bar.status_bar.set_status(level, message);
 }

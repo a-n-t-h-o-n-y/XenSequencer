@@ -55,7 +55,7 @@ XenProcessor::XenProcessor()
                 auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
                 if (editor != nullptr)
                 {
-                    editor->update_ui();
+                    editor->update();
                 }
             }
         });
@@ -171,7 +171,7 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
         if (editor != nullptr)
         {
-            editor->update_ui();
+            editor->update();
         }
     }
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -13,10 +12,8 @@
 
 namespace xen
 {
-struct SequencerState;
-struct AuxState;
 class CommandHistory;
-struct Scale;
+struct PluginState;
 } // namespace xen
 
 namespace xen::gui
@@ -42,15 +39,11 @@ class PluginWindow : public juce::Component
 
   public:
     /**
-     * Update all child components with the current state of the timeline.
+     * Update all child components with the current PluginState.
      *
-     * @param state The current state of the timeline
-     * @param aux The current aux state of the timeline
-     * @param display_name The name of the current instance
-     * @param scales The currently loaded Scales.
+     * @param ps The current state of the plugin.
      */
-    void update(SequencerState const &state, AuxState const &aux,
-                std::string const &display_name, std::vector<Scale> const &scales);
+    void update(PluginState const &ps);
 
     /**
      * Set the focus of the plugin window by ComponentID

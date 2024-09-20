@@ -28,7 +28,7 @@ class XenEditor : public juce::AudioProcessorEditor
     /**
      * Updates GUI components using the current processor_.plugin_state member.
      */
-    void update_ui();
+    void update();
 
     /**
      * Set or Update the key listeners for the plugin window.

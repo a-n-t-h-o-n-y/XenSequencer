@@ -197,7 +197,7 @@ MeasureInfo::MeasureInfo()
     });
 }
 
-void MeasureInfo::update_ui(SequencerState const &state, AuxState const &aux)
+void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
 {
     {
         auto &measure = state.sequence_bank[aux.selected.measure];
@@ -315,7 +315,7 @@ auto MeasureView::get_cell() const -> Cell const &
     return *cell_ptr_;
 }
 
-void MeasureView::update_ui(SequencerState const &state, AuxState const &aux)
+void MeasureView::update(SequencerState const &state, AuxState const &aux)
 {
     selected_measure_ = aux.selected.measure;
     measure_ = state.sequence_bank[selected_measure_];
@@ -402,11 +402,11 @@ SequenceView::SequenceView(
         [this](std::string const &command) { this->on_command(command); });
 }
 
-void SequenceView::update_ui(SequencerState const &state, AuxState const &aux)
+void SequenceView::update(SequencerState const &state, AuxState const &aux)
 {
-    measure_info.update_ui(state, aux);
+    measure_info.update(state, aux);
 
-    measure_view.update_ui(state, aux);
+    measure_view.update(state, aux);
 
     pitch_column.update(state.tuning.intervals.size());
 
@@ -425,8 +425,9 @@ void SequenceView::update_ui(SequencerState const &state, AuxState const &aux)
         tuning_reference_ptr = nullptr;
     }
 
-    sequence_bank.update_ui(aux.selected.measure);
+    sequence_bank.update(aux.selected.measure);
 
+    this->select(aux.selected.cell);
     this->resized();
 }
 
@@ -487,13 +488,15 @@ void CenterComponent::show_library_view()
     this->resized();
 }
 
-void CenterComponent::update_ui(SequencerState const &state, AuxState const &aux)
+void CenterComponent::update(SequencerState const &state, AuxState const &aux,
+                             std::string const &display_name,
+                             std::vector<Scale> const &scales)
 {
     state_ = state;
-    sequence_view.update_ui(state_, aux);
+    sequence_view.update(state_, aux);
 
-    // TODO update library view? Is there anything? Are current directories updated
-    // via a separate mechanism?
+    library_view.active_sessions_list.update_this_instance_name(display_name);
+    library_view.scales_list.update(scales);
 }
 
 void CenterComponent::resized()

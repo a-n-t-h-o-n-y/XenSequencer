@@ -36,7 +36,7 @@ class SequenceBankGrid : public juce::Component
     SequenceBankGrid();
 
   public:
-    void update_ui(std::size_t selected_index);
+    void update(std::size_t selected_index);
 
   public:
     void resized() override;

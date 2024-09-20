@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -18,6 +19,7 @@
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/tuning_reference.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 
 namespace xen::gui
@@ -91,7 +93,7 @@ class MeasureInfo : public juce::Component
     explicit MeasureInfo();
 
   public:
-    void update_ui(SequencerState const &state, AuxState const &aux);
+    void update(SequencerState const &state, AuxState const &aux);
 
   public:
     void resized() override;
@@ -147,7 +149,7 @@ class MeasureView : public juce::Component, juce::Timer
 
     [[nodiscard]] auto get_cell() const -> Cell const &;
 
-    void update_ui(SequencerState const &state, AuxState const &aux);
+    void update(SequencerState const &state, AuxState const &aux);
 
     /**
      * \p percent must be in range [0, 1).
@@ -185,7 +187,7 @@ class SequenceView : public juce::Component
     SequenceView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
   public:
-    void update_ui(SequencerState const &state, AuxState const &aux);
+    void update(SequencerState const &state, AuxState const &aux);
 
     void select(std::vector<std::size_t> const &indices);
 
@@ -219,7 +221,8 @@ class CenterComponent : public juce::Component
 
     void show_library_view();
 
-    void update_ui(SequencerState const &state, AuxState const &aux);
+    void update(SequencerState const &state, AuxState const &aux,
+                std::string const &display_name, std::vector<Scale> const &scales);
 
   public:
     void resized() override;
