@@ -48,8 +48,8 @@ class InstanceModel : public juce::ListBoxModel
   public:
     [[nodiscard]] auto getNumRows() -> int override;
 
-    void paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
-                          bool rowIsSelected) override;
+    void paintListBoxItem(int row_number, juce::Graphics &g, int width, int height,
+                          bool row_is_selected) override;
 
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent &) override;
 

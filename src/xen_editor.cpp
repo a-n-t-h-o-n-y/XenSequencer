@@ -14,6 +14,7 @@
 #include <xen/gui/themes.hpp>
 #include <xen/guide_text.hpp>
 #include <xen/key_core.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
@@ -101,6 +102,12 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         [this](juce::File const &file) {
             auto const filename = file.getFileNameWithoutExtension().toStdString();
             this->execute_command_string("load tuning " + double_quote(filename));
+        });
+
+    // Scale Selected
+    plugin_window.center_component.library_view.scales_list.on_scale_selected.connect(
+        [this](Scale const &scale) {
+            this->execute_command_string("set scale " + double_quote(scale.name));
         });
 
     // SequenceView Command Requests
@@ -240,9 +247,8 @@ auto XenEditor::createKeyboardFocusTraverser()
 void XenEditor::update_ui()
 {
     auto const &[state, aux] = processor_.plugin_state.timeline.get_state();
-    plugin_window.update(state, aux, processor_.plugin_state.display_name);
-
-    // TODO set base frequency?
+    plugin_window.update(state, aux, processor_.plugin_state.display_name,
+                         processor_.plugin_state.scales);
 }
 
 void XenEditor::update_key_listeners(juce::File const &default_keys,

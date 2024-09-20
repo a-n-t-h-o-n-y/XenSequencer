@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -11,6 +12,7 @@
 #include <xen/gui/active_sessions.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/command_bar.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 
@@ -30,13 +32,16 @@ PluginWindow::PluginWindow(
 }
 
 void PluginWindow::update(SequencerState const &state, AuxState const &aux,
-                          std::string const &display_name)
+                          std::string const &display_name,
+                          std::vector<Scale> const &scales)
 {
+    // TODO all calls to center_component can be moved to center_component.update_ui
     center_component.library_view.active_sessions_list.update_this_instance_name(
         display_name);
 
     center_component.update_ui(state, aux);
     center_component.sequence_view.select(aux.selected.cell);
+    center_component.library_view.scales_list.update(scales);
 
     bottom_bar.input_mode_indicator.set(aux.input_mode);
 }

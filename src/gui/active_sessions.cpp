@@ -48,12 +48,12 @@ auto InstanceModel::getNumRows() -> int
 }
 
 void InstanceModel::paintListBoxItem(int row, juce::Graphics &g, int width, int height,
-                                     bool rowIsSelected)
+                                     bool row_is_selected)
 {
     if (row >= 0 && row < this->getNumRows())
     {
         auto &laf = parent_.getLookAndFeel();
-        if (rowIsSelected)
+        if (row_is_selected)
         {
             g.fillAll(laf.findColour(ColorID::BackgroundLow));
             g.setColour(laf.findColour(ColorID::ForegroundHigh));

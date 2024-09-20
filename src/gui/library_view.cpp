@@ -1,13 +1,105 @@
 #include <xen/gui/library_view.hpp>
 
+#include <cassert>
+#include <vector>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
+#include <xen/scale.hpp>
 
 namespace xen::gui
 {
+
+ScalesList::ScalesList()
+{
+    this->setWantsKeyboardFocus(false); // ListBox child will handle keyboard focus.
+    list_box_.setModel(this);
+    list_box_.setWantsKeyboardFocus(true); // This is default, but just to be explicit.
+    this->addAndMakeVisible(list_box_);
+}
+
+void ScalesList::update(std::vector<::xen::Scale> const &scales)
+{
+    scales_ = scales;
+    list_box_.updateContent();
+    list_box_.repaint();
+}
+
+void ScalesList::resized()
+{
+    list_box_.setBounds(this->getLocalBounds());
+}
+
+void ScalesList::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)
+{
+    if (mouse.mods.isLeftButtonDown())
+    {
+        this->item_selected(row);
+    }
+}
+
+void ScalesList::returnKeyPressed(int last_row_selected)
+{
+    this->item_selected(last_row_selected);
+}
+
+auto ScalesList::keyPressed(juce::KeyPress const &key) -> bool
+{
+    if (key.getTextCharacter() == 'j')
+    {
+        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::downKey, 0, 0));
+    }
+    else if (key.getTextCharacter() == 'k')
+    {
+        return list_box_.keyPressed(juce::KeyPress(juce::KeyPress::upKey, 0, 0));
+    }
+    return list_box_.keyPressed(key);
+}
+
+void ScalesList::lookAndFeelChanged()
+{
+    list_box_.setColour(juce::ListBox::backgroundColourId,
+                        this->findColour(ColorID::BackgroundMedium));
+}
+
+auto ScalesList::getNumRows() -> int
+{
+    return (int)scales_.size();
+}
+
+void ScalesList::paintListBoxItem(int row_number, juce::Graphics &g, int width,
+                                  int height, bool row_is_selected)
+{
+    if (row_number < (int)scales_.size())
+    {
+        if (row_is_selected)
+        {
+            g.fillAll(this->findColour(ColorID::BackgroundLow));
+            g.setColour(this->findColour(ColorID::ForegroundHigh));
+        }
+        else
+        {
+            g.fillAll(this->findColour(ColorID::BackgroundMedium));
+            g.setColour(this->findColour(ColorID::ForegroundHigh));
+        }
+        auto const name = scales_[(std::size_t)row_number].name;
+
+        g.setFont(fonts::monospaced().regular.withHeight(16.f));
+        g.drawText(name, 2, 0, width - 4, height, juce::Justification::centredLeft,
+                   true);
+    }
+}
+
+void ScalesList::item_selected(int index)
+{
+    assert(index < (int)scales_.size());
+    this->on_scale_selected(scales_[(std::size_t)index]);
+}
+
+// -------------------------------------------------------------------------------------
 
 void LibraryView::Divider::paint(juce::Graphics &g)
 {
@@ -43,6 +135,12 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     tunings_label.setFont(fonts::monospaced().regular.withHeight(16.f));
     this->addAndMakeVisible(tunings_label);
     this->addAndMakeVisible(tunings_list);
+    this->addAndMakeVisible(divider_3);
+
+    scales_label.setText("Scales", juce::dontSendNotification);
+    scales_label.setFont(fonts::monospaced().regular.withHeight(16.f));
+    this->addAndMakeVisible(scales_label);
+    this->addAndMakeVisible(scales_list);
 }
 
 void LibraryView::resized()
@@ -78,6 +176,13 @@ void LibraryView::resized()
     tunings_flexbox.items.add(juce::FlexItem{tunings_label}.withHeight(20.f));
     tunings_flexbox.items.add(juce::FlexItem{tunings_list}.withFlex(1.f));
     lists_flexbox.items.add(juce::FlexItem{tunings_flexbox}.withFlex(1.f));
+    lists_flexbox.items.add(juce::FlexItem{divider_3}.withWidth(1.f));
+
+    auto scales_flexbox = juce::FlexBox{};
+    scales_flexbox.flexDirection = juce::FlexBox::Direction::column;
+    scales_flexbox.items.add(juce::FlexItem{scales_label}.withHeight(20.f));
+    scales_flexbox.items.add(juce::FlexItem{scales_list}.withFlex(1.f));
+    lists_flexbox.items.add(juce::FlexItem{scales_flexbox}.withFlex(1.f));
 
     outer_flexbox.performLayout(this->getLocalBounds());
 }
@@ -94,6 +199,8 @@ void LibraryView::lookAndFeelChanged()
                                     this->findColour(ColorID::ForegroundLow));
     tunings_label.setColour(juce::Label::backgroundColourId,
                             this->findColour(ColorID::ForegroundLow));
+    scales_label.setColour(juce::Label::backgroundColourId,
+                           this->findColour(ColorID::ForegroundLow));
 }
 
 } // namespace xen::gui

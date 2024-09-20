@@ -50,9 +50,9 @@ void DirectoryView::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mo
     }
 }
 
-void DirectoryView::returnKeyPressed(int lastRowSelected)
+void DirectoryView::returnKeyPressed(int last_row_selected)
 {
-    this->item_selected(lastRowSelected);
+    this->item_selected(last_row_selected);
 }
 
 auto DirectoryView::keyPressed(juce::KeyPress const &key) -> bool
@@ -79,13 +79,13 @@ auto DirectoryView::getNumRows() -> int
     return directory_contents_list_.getNumFiles() + 1;
 }
 
-void DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width,
-                                     int height, bool rowIsSelected)
+void DirectoryView::paintListBoxItem(int row_number, juce::Graphics &g, int width,
+                                     int height, bool row_is_selected)
 {
-    if (rowNumber >= 0)
+    if (row_number <= directory_contents_list_.getNumFiles())
     {
-        rowNumber -= 1;
-        if (rowIsSelected)
+        row_number -= 1;
+        if (row_is_selected)
         {
             g.fillAll(this->findColour(ColorID::BackgroundLow));
             g.setColour(this->findColour(ColorID::ForegroundHigh));
@@ -96,11 +96,11 @@ void DirectoryView::paintListBoxItem(int rowNumber, juce::Graphics &g, int width
             g.setColour(this->findColour(ColorID::ForegroundHigh));
         }
         auto const filename = [&]() -> juce::String {
-            if (rowNumber == -1)
+            if (row_number == -1)
             {
                 return juce::String{".."} + juce::File::getSeparatorChar();
             }
-            auto const file = directory_contents_list_.getFile(rowNumber);
+            auto const file = directory_contents_list_.getFile(row_number);
             return file.isDirectory()
                        ? file.getFileName() + juce::File::getSeparatorChar()
                        : file.getFileNameWithoutExtension();

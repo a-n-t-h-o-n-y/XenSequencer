@@ -33,17 +33,17 @@ class DirectoryView : public juce::Component,
 
     void listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse) override;
 
-    void returnKeyPressed(int lastRowSelected) override;
+    void returnKeyPressed(int last_row_selected) override;
 
     auto keyPressed(juce::KeyPress const &key) -> bool override;
 
     void lookAndFeelChanged() override;
 
-  private:
+  public:
     auto getNumRows() -> int override;
 
-    void paintListBoxItem(int rowNumber, juce::Graphics &g, int width, int height,
-                          bool rowIsSelected) override;
+    void paintListBoxItem(int row_number, juce::Graphics &g, int width, int height,
+                          bool row_is_selected) override;
 
     void timerCallback() override;
 
