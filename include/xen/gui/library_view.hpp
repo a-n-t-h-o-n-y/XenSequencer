@@ -7,14 +7,15 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/gui/active_sessions.hpp>
-#include <xen/gui/directory_view.hpp>
+#include <xen/gui/active_sessions_view.hpp>
+#include <xen/gui/directory_list_box.hpp>
+#include <xen/gui/xen_list_box.hpp>
 #include <xen/scale.hpp>
 
 namespace xen::gui
 {
 
-class ScalesList : public juce::ListBox, public juce::ListBoxModel
+class ScalesList : public XenListBox
 {
   public:
     sl::Signal<void(::xen::Scale const &)> on_scale_selected;
@@ -22,29 +23,15 @@ class ScalesList : public juce::ListBox, public juce::ListBoxModel
   public:
     ScalesList();
 
-    ~ScalesList() override = default;
-
   public:
     void update(std::vector<::xen::Scale> const &scales);
 
   public:
-    void listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse) override;
-
-    void returnKeyPressed(int last_row_selected) override;
-
-    auto keyPressed(juce::KeyPress const &key) -> bool override;
-
-    void lookAndFeelChanged() override;
-
-  public:
     auto getNumRows() -> int override;
 
-    void paintListBoxItem(int row_number, juce::Graphics &g, int width, int height,
-                          bool row_is_selected) override;
+    auto get_row_display(std::size_t index) -> juce::String override;
 
-  private:
-    // double clicked or enter
-    void item_selected(int index);
+    void item_selected(std::size_t index) override;
 
   private:
     std::vector<::xen::Scale> scales_;
@@ -64,15 +51,15 @@ class LibraryView : public juce::Component
     Divider divider_0;
 
     juce::Label sequences_label;
-    SequencesList sequences_list;
+    DirectoryListBox sequences_list;
     Divider divider_1;
 
     juce::Label active_sessions_label;
-    ActiveSessionsList active_sessions_list;
+    ActiveSessionsView active_sessions_view;
     Divider divider_2;
 
     juce::Label tunings_label;
-    TuningsList tunings_list;
+    DirectoryListBox tunings_list;
     Divider divider_3;
 
     juce::Label scales_label;

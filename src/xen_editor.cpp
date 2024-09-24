@@ -140,8 +140,8 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     { // ActiveSessions Shutdown
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window.center_component.library_view.active_sessions_list
-                .remove_instance(uuid);
+            plugin_window.center_component.library_view.active_sessions_view
+                .sessions_list_box.remove_item(uuid);
         }};
         slot.track(lifetime_);
         p.active_sessions.on_instance_shutdown.connect(slot);
@@ -150,8 +150,8 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     { // ActiveSession ID Update
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window.center_component.library_view.active_sessions_list
-                    .add_or_update_instance(uuid, display_name);
+                plugin_window.center_component.library_view.active_sessions_view
+                    .sessions_list_box.add_or_update_item(uuid, display_name);
             }};
         slot.track(lifetime_);
         p.active_sessions.on_id_update.connect(slot);
@@ -198,8 +198,8 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         });
 
     // ActiveSession Selected
-    plugin_window.center_component.library_view.active_sessions_list
-        .on_instance_selected.connect(
+    plugin_window.center_component.library_view.active_sessions_view.sessions_list_box
+        .on_session_selected.connect(
             // TODO This should pass in an index other than hardcoded 0.
             // You'll have to update the UI to list all the instances and allow the user
             // to select one to request the state from. Or, since there are always 16
@@ -214,11 +214,12 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
             });
 
     // ActiveSession Name Change
-    plugin_window.center_component.library_view.active_sessions_list
-        .on_this_instance_name_change.connect([&p](std::string const &name) {
-            p.plugin_state.display_name = name;
-            p.active_sessions.notify_display_name_update(name);
-        });
+    plugin_window.center_component.library_view.active_sessions_view
+        .current_session_name_edit.on_name_changed.connect(
+            [&p](juce::String const &name) {
+                p.plugin_state.display_name = name.toStdString();
+                p.active_sessions.notify_display_name_update(name.toStdString());
+            });
 
     p.active_sessions.request_other_session_ids();
 
@@ -305,9 +306,10 @@ void XenEditor::set_key_listeners(
         remove_listener(plugin_window.center_component.library_view.sequences_list);
         add_listener(plugin_window.center_component.library_view.sequences_list);
 
-        remove_listener(
-            plugin_window.center_component.library_view.active_sessions_list);
-        add_listener(plugin_window.center_component.library_view.active_sessions_list);
+        remove_listener(plugin_window.center_component.library_view.active_sessions_view
+                            .sessions_list_box);
+        add_listener(plugin_window.center_component.library_view.active_sessions_view
+                         .sessions_list_box);
 
         remove_listener(plugin_window.center_component.library_view.tunings_list);
         add_listener(plugin_window.center_component.library_view.tunings_list);

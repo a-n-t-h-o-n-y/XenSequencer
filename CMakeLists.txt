@@ -127,11 +127,11 @@ target_sources(XenSequencerLib
         src/inter_process_relay.cpp
 
         src/gui/accordion.cpp
-        src/gui/active_sessions.cpp
+        src/gui/active_sessions_view.cpp
         src/gui/bottom_bar.cpp
         src/gui/center_component.cpp
         src/gui/command_bar.cpp
-        src/gui/directory_view.cpp
+        src/gui/directory_list_box.cpp
         src/gui/library_view.cpp
         src/gui/plugin_window.cpp
         src/gui/sequence_bank.cpp
@@ -141,6 +141,7 @@ target_sources(XenSequencerLib
         src/gui/tile.cpp
         src/gui/title_bar.cpp
         src/gui/tuning_reference.cpp
+        src/gui/xen_list_box.cpp
 
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
@@ -171,12 +172,12 @@ target_sources(XenSequencerLib
         include/xen/xen_command_tree.hpp
 
         include/xen/gui/accordion.hpp
-        include/xen/gui/active_sessions.hpp
+        include/xen/gui/active_sessions_view.hpp
         include/xen/gui/bottom_bar.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp
         include/xen/gui/themes.hpp
-        include/xen/gui/directory_view.hpp
+        include/xen/gui/directory_list_box.hpp
         include/xen/gui/homogenous_row.hpp
         include/xen/gui/library_view.hpp
         include/xen/gui/plugin_window.hpp
@@ -186,6 +187,7 @@ target_sources(XenSequencerLib
         include/xen/gui/tile.hpp
         include/xen/gui/title_bar.hpp
         include/xen/gui/tuning_reference.hpp
+        include/xen/gui/xen_list_box.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp
 )

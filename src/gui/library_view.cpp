@@ -13,51 +13,14 @@
 namespace xen::gui
 {
 
-ScalesList::ScalesList()
+ScalesList::ScalesList() : XenListBox{"ScalesList"}
 {
-    this->setComponentID("ScalesList");
-    this->ListBox::setModel(this);
-    this->ListBox::setWantsKeyboardFocus(true);
 }
 
 void ScalesList::update(std::vector<::xen::Scale> const &scales)
 {
     scales_ = scales;
-    this->ListBox::updateContent();
-    this->ListBox::repaint();
-}
-
-void ScalesList::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)
-{
-    if (mouse.mods.isLeftButtonDown())
-    {
-        this->item_selected(row);
-    }
-}
-
-void ScalesList::returnKeyPressed(int last_row_selected)
-{
-    this->item_selected(last_row_selected);
-}
-
-auto ScalesList::keyPressed(juce::KeyPress const &key) -> bool
-{
-    auto k = key;
-    if (key.getTextCharacter() == 'j')
-    {
-        k = juce::KeyPress{juce::KeyPress::downKey, 0, 0};
-    }
-    else if (key.getTextCharacter() == 'k')
-    {
-        k = juce::KeyPress{juce::KeyPress::upKey, 0, 0};
-    }
-    return this->ListBox::keyPressed(k);
-}
-
-void ScalesList::lookAndFeelChanged()
-{
-    this->ListBox::setColour(juce::ListBox::backgroundColourId,
-                             this->findColour(ColorID::BackgroundMedium));
+    this->updateContent();
 }
 
 auto ScalesList::getNumRows() -> int
@@ -65,33 +28,15 @@ auto ScalesList::getNumRows() -> int
     return (int)scales_.size();
 }
 
-void ScalesList::paintListBoxItem(int row_number, juce::Graphics &g, int width,
-                                  int height, bool row_is_selected)
+auto ScalesList::get_row_display(std::size_t index) -> juce::String
 {
-    if (row_number < (int)scales_.size())
-    {
-        if (row_is_selected)
-        {
-            g.fillAll(this->findColour(ColorID::BackgroundLow));
-            g.setColour(this->findColour(ColorID::ForegroundHigh));
-        }
-        else
-        {
-            g.fillAll(this->findColour(ColorID::BackgroundMedium));
-            g.setColour(this->findColour(ColorID::ForegroundHigh));
-        }
-        auto const name = scales_[(std::size_t)row_number].name;
-
-        g.setFont(fonts::monospaced().regular.withHeight(16.f));
-        g.drawText(name, 2, 0, width - 4, height, juce::Justification::centredLeft,
-                   true);
-    }
+    return scales_[index].name;
 }
 
-void ScalesList::item_selected(int index)
+void ScalesList::item_selected(std::size_t index)
 {
-    assert(index < (int)scales_.size());
-    this->on_scale_selected(scales_[(std::size_t)index]);
+    assert(index < scales_.size());
+    this->on_scale_selected(scales_[index]);
 }
 
 // -------------------------------------------------------------------------------------
@@ -102,14 +47,21 @@ void LibraryView::Divider::paint(juce::Graphics &g)
     g.drawLine(0, 0, (float)this->getWidth(), (float)this->getHeight());
 }
 
+// -------------------------------------------------------------------------------------
+
 LibraryView::LibraryView(juce::File const &sequence_library_dir,
                          juce::File const &tuning_library_dir)
-    : sequences_list{sequence_library_dir}, tunings_list{tuning_library_dir}
+    : sequences_list{sequence_library_dir,
+                     juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"},
+                     "SequencesList"},
+      tunings_list{tuning_library_dir,
+                   juce::WildcardFileFilter{"*.scl", "*", "scala filter"},
+                   "TuningsList"}
 {
     this->setComponentID("LibraryView");
 
-    label.setText("Library", juce::dontSendNotification);
     label.setFont(fonts::monospaced().bold.withHeight(18.f));
+    label.setText("Library", juce::dontSendNotification);
     label.setJustificationType(juce::Justification::centred);
     this->addAndMakeVisible(label);
     this->addAndMakeVisible(divider_0);
@@ -123,7 +75,7 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     active_sessions_label.setText("Active Sessions", juce::dontSendNotification);
     active_sessions_label.setFont(fonts::monospaced().regular.withHeight(16.f));
     this->addAndMakeVisible(active_sessions_label);
-    this->addAndMakeVisible(active_sessions_list);
+    this->addAndMakeVisible(active_sessions_view);
     this->addAndMakeVisible(divider_2);
 
     tunings_label.setText("Tunings", juce::dontSendNotification);
@@ -162,7 +114,7 @@ void LibraryView::resized()
     active_sessions_flexbox.items.add(
         juce::FlexItem{active_sessions_label}.withHeight(20.f));
     active_sessions_flexbox.items.add(
-        juce::FlexItem{active_sessions_list}.withFlex(1.f));
+        juce::FlexItem{active_sessions_view}.withFlex(1.f));
     lists_flexbox.items.add(juce::FlexItem{active_sessions_flexbox}.withFlex(1.f));
     lists_flexbox.items.add(juce::FlexItem{divider_2}.withWidth(1.f));
 

@@ -127,10 +127,10 @@ SequencesList:
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus ScalesList"
   "Shift + h" : "focus ScalesList"
-  "Shift + ArrowRight" : "focus ActiveSessionsList"
-  "Shift + l" : "focus ActiveSessionsList"
+  "Shift + ArrowRight" : "focus SessionsListBox"
+  "Shift + l" : "focus SessionsListBox"
 
-ActiveSessionsList:
+SessionsListBox:
   "escape" : "show SequenceView;focus SequenceView"
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus SequencesList"
@@ -141,8 +141,8 @@ ActiveSessionsList:
 TuningsList:
   "escape" : "show SequenceView;focus SequenceView"
   "w" : "show SequenceView;focus SequenceView"
-  "Shift + ArrowLeft" : "focus ActiveSessionsList"
-  "Shift + h" : "focus ActiveSessionsList"
+  "Shift + ArrowLeft" : "focus SessionsListBox"
+  "Shift + h" : "focus SessionsListBox"
   "Shift + ArrowRight" : "focus ScalesList"
   "Shift + l" : "focus ScalesList"
 
