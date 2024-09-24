@@ -93,9 +93,10 @@ auto const corner_radius = 10.f;
         bounds.getHeight() + bounds.getY() - ((float)normalized + 1.f) * height;
 
     // Calculate the note x and width
-    auto const left_x = bounds.getX() + bounds.getWidth() * note.delay;
-    auto const note_width =
-        (bounds.getWidth() * note.gate) - (bounds.getWidth() * note.delay);
+    auto left_x = bounds.getX() + bounds.getWidth() * note.delay;
+    left_x = std::min(left_x, bounds.getWidth() - 1.f);
+    auto note_width = (bounds.getWidth() - left_x) * note.gate;
+    note_width = std::max(note_width, 4.f);
 
     return juce::Rectangle<float>{
         left_x,
