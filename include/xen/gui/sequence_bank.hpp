@@ -41,6 +41,8 @@ class SequenceBankGrid : public juce::Component
   public:
     void resized() override;
 
+    void paint(juce::Graphics &g) override;
+
   private:
     std::array<SequenceSquare, 16> buttons_;
 };

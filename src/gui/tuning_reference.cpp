@@ -84,7 +84,7 @@ TuningReference::TuningReference(sequence::Tuning const &tuning,
 
 void TuningReference::paint(juce::Graphics &g)
 {
-    g.fillAll(this->findColour(ColorID::BackgroundMedium));
+    g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
     auto const bounds = this->getLocalBounds().reduced(0, 4).toFloat();
     auto const vertical_offset =

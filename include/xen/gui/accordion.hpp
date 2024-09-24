@@ -26,7 +26,7 @@ class VLabel : public juce::Component
     void set_letter_spacing(float spacing);
 
   public:
-    void paint(juce::Graphics &g);
+    void paint(juce::Graphics &g) override;
 
   private:
     juce::String text_;

@@ -273,7 +273,7 @@ void PitchColumn::update(std::size_t new_size)
 
 void PitchColumn::paint(juce::Graphics &g)
 {
-    g.fillAll(this->findColour(ColorID::BackgroundMedium));
+    g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
     auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
     auto const item_height = bounds.getHeight() / static_cast<float>(size_);

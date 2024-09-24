@@ -95,7 +95,12 @@ void SequenceBankGrid::resized()
         }
     }
 
-    grid.performLayout(this->getLocalBounds());
+    grid.performLayout(this->getLocalBounds().reduced(4, 4));
+}
+
+void SequenceBankGrid::paint(juce::Graphics &g)
+{
+    g.fillAll(this->findColour(ColorID::BackgroundHigh));
 }
 
 } // namespace xen::gui
