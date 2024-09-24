@@ -48,7 +48,10 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        bottom_bar.command_bar.focus();
+        if (bottom_bar.command_bar.isShowing())
+        {
+            bottom_bar.command_bar.focus();
+        }
     }
     else if (component_id ==
              to_lower(center_component.sequence_view.getComponentID().toStdString()))
@@ -57,7 +60,10 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        center_component.sequence_view.grabKeyboardFocus();
+        if (center_component.sequence_view.isShowing())
+        {
+            center_component.sequence_view.grabKeyboardFocus();
+        }
     }
     else if (component_id ==
              to_lower(center_component.library_view.sequences_list.getComponentID()
@@ -67,7 +73,10 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        center_component.library_view.sequences_list.grabKeyboardFocus();
+        if (center_component.library_view.sequences_list.isShowing())
+        {
+            center_component.library_view.sequences_list.grabKeyboardFocus();
+        }
     }
     else if (component_id == to_lower(center_component.library_view.active_sessions_view
                                           .sessions_list_box.getComponentID()
@@ -78,8 +87,12 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        center_component.library_view.active_sessions_view.sessions_list_box
-            .grabKeyboardFocus();
+        if (center_component.library_view.active_sessions_view.sessions_list_box
+                .isShowing())
+        {
+            center_component.library_view.active_sessions_view.sessions_list_box
+                .grabKeyboardFocus();
+        }
     }
     else if (component_id ==
              to_lower(center_component.library_view.tunings_list.getComponentID()
@@ -89,7 +102,10 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        center_component.library_view.tunings_list.grabKeyboardFocus();
+        if (center_component.library_view.tunings_list.isShowing())
+        {
+            center_component.library_view.tunings_list.grabKeyboardFocus();
+        }
     }
     else if (component_id ==
              to_lower(center_component.library_view.scales_list.getComponentID()
@@ -99,7 +115,10 @@ void PluginWindow::set_focus(std::string component_id)
         {
             return;
         }
-        center_component.library_view.scales_list.grabKeyboardFocus();
+        if (center_component.library_view.scales_list.isShowing())
+        {
+            center_component.library_view.scales_list.grabKeyboardFocus();
+        }
     }
     else
     {
