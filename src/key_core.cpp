@@ -151,6 +151,7 @@ auto const key_map = [] {
         {"pagedown", juce::KeyPress::pageDownKey},
         {"home", juce::KeyPress::homeKey},
         {"end", juce::KeyPress::endKey},
+        {"tab", juce::KeyPress::tabKey},
         // Numpad
         {"numpad0", juce::KeyPress::numberPad0},
         {"numpad1", juce::KeyPress::numberPad1},

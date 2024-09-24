@@ -44,8 +44,7 @@ SequenceView:
   "ArrowLeft": "move left"
   "l": "move right"
   "ArrowRight": "move right"
-
-  # Done out of convinience
+  # For Consistency
   "Shift + h": "move left"
   "Shift + ArrowLeft": "move left"
   "Shift + l": "move right"
@@ -55,14 +54,15 @@ SequenceView:
   "Shift + ArrowDown": "move down"
   "Shift + k": "move up"
   "Shift + ArrowUp": "move up"
-  "Cmd + Alt + ArrowRight": "shift selectedSequence +1"
-  "Cmd + Alt + l": "shift selectedSequence +1"
-  "Cmd + Alt + ArrowLeft": "shift selectedSequence -1"
-  "Cmd + Alt + h": "shift selectedSequence -1"
-  "Cmd + Alt + ArrowUp": "shift selectedSequence +4"
-  "Cmd + Alt + k": "shift selectedSequence +4"
-  "Cmd + Alt + ArrowDown": "shift selectedSequence -4"
-  "Cmd + Alt + j": "shift selectedSequence -4"
+
+  "Cmd + Shift + ArrowRight": "shift selectedSequence +1"
+  "Cmd + Shift + l": "shift selectedSequence +1"
+  "Cmd + Shift + ArrowLeft": "shift selectedSequence -1"
+  "Cmd + Shift + h": "shift selectedSequence -1"
+  "Cmd + Shift + ArrowUp": "shift selectedSequence +4"
+  "Cmd + Shift + k": "shift selectedSequence +4"
+  "Cmd + Shift + ArrowDown": "shift selectedSequence -4"
+  "Cmd + Shift + j": "shift selectedSequence -4"
 
   # ShiftNote
   "[n] + j": "shift Note -1"
@@ -127,29 +127,37 @@ SequencesList:
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus ScalesList"
   "Shift + h" : "focus ScalesList"
+  "Shift + Tab" : "focus ScalesList"
   "Shift + ArrowRight" : "focus SessionsListBox"
   "Shift + l" : "focus SessionsListBox"
+  "Tab" : "focus SessionsListBox"
 
 SessionsListBox:
   "escape" : "show SequenceView;focus SequenceView"
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus SequencesList"
   "Shift + h" : "focus SequencesList"
+  "Shift + Tab" : "focus SequencesList"
   "Shift + ArrowRight" : "focus TuningsList"
   "Shift + l" : "focus TuningsList"
+  "Tab" : "focus TuningsList"
 
 TuningsList:
   "escape" : "show SequenceView;focus SequenceView"
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus SessionsListBox"
   "Shift + h" : "focus SessionsListBox"
+  "Shift + Tab" : "focus SessionsListBox"
   "Shift + ArrowRight" : "focus ScalesList"
   "Shift + l" : "focus ScalesList"
+  "Tab" : "focus ScalesList"
 
 ScalesList:
   "escape" : "show SequenceView;focus SequenceView"
   "w" : "show SequenceView;focus SequenceView"
   "Shift + ArrowLeft" : "focus TuningsList"
   "Shift + h" : "focus TuningsList"
+  "Shift + Tab" : "focus TuningsList"
   "Shift + ArrowRight" : "focus SequencesList"
   "Shift + l" : "focus SequencesList"
+  "Tab" : "focus SequencesList"
