@@ -224,17 +224,20 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     if (state.scale.has_value())
     {
         scale_.set_value(state.scale->name);
+        scale_mode_.setVisible(true);
         scale_mode_.set_value(juce::String(state.scale->mode + 1));
     }
     else
     {
+        scale_mode_.setVisible(false);
         scale_.set_value("None");
-        scale_mode_.set_value("");
     }
 
     {
         key_.set_value(std::to_string(state.key));
     }
+
+    this->resized();
 }
 
 void MeasureInfo::resized()
@@ -248,7 +251,10 @@ void MeasureInfo::resized()
     flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1.f));
     flex_box.items.add(juce::FlexItem{key_}.withFlex(0.333f));
     flex_box.items.add(juce::FlexItem{scale_}.withFlex(1.f));
-    flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.4f));
+    if (scale_mode_.isVisible())
+    {
+        flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.4f));
+    }
 
     flex_box.performLayout(this->getLocalBounds());
 }
