@@ -13,6 +13,7 @@ XenListBox::XenListBox(juce::String const &component_id) : ListBox{"", this}
 {
     this->setComponentID(component_id);
     this->setWantsKeyboardFocus(true);
+    this->setHasFocusOutline(true);
 }
 
 void XenListBox::listBoxItemDoubleClicked(int row, juce::MouseEvent const &mouse)

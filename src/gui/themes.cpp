@@ -30,6 +30,39 @@ class CustomLookAndFeel : public juce::LookAndFeel_V4
         g.drawText(button.getButtonText(), button.getLocalBounds(),
                    juce::Justification::centred, true);
     }
+
+    auto createFocusOutlineForComponent(juce::Component &c)
+        -> std::unique_ptr<juce::FocusOutline> override
+    {
+        struct CustomOutlineProps : juce::FocusOutline::OutlineWindowProperties
+        {
+            CustomOutlineProps(juce::Colour outline_color) : color(outline_color)
+            {
+            }
+
+            auto getOutlineBounds(juce::Component &focusedComponent)
+                -> juce::Rectangle<int> override
+            {
+                return focusedComponent.getScreenBounds();
+            }
+
+            void drawOutline(juce::Graphics &g, int width, int height) override
+            {
+                g.setColour(color);
+                g.drawRect(0, 0, width, height, 1);
+            }
+
+            juce::Colour color;
+        };
+
+        auto outline_props = std::make_unique<CustomOutlineProps>(
+            this->findColour(xen::gui::ColorID::ForegroundMedium));
+        auto focus_outline =
+            std::make_unique<juce::FocusOutline>(std::move(outline_props));
+        focus_outline->setOwner(&c);
+
+        return focus_outline;
+    }
 };
 
 using xen::gui::Theme;
