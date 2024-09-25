@@ -121,7 +121,7 @@ class MeasureInfo : public juce::Component
 class PitchColumn : public juce::Component
 {
   public:
-    PitchColumn(std::size_t size, float vertical_offset);
+    PitchColumn(std::size_t size);
 
   public:
     void update(std::size_t new_size);
@@ -130,7 +130,6 @@ class PitchColumn : public juce::Component
 
   private:
     std::size_t size_;
-    float vertical_offset_;
 };
 
 // -------------------------------------------------------------------------------------

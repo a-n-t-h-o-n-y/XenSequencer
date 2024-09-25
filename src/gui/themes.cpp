@@ -82,6 +82,12 @@ class CustomLookAndFeel : public juce::LookAndFeel_V4
                 g.fillRect(thumbStartPosition, y, thumbSize, height);
         }
     }
+    void drawTextEditorOutline(juce::Graphics &g, int width, int height,
+                               juce::TextEditor &) override
+    {
+        g.setColour(this->findColour(juce::TextEditor::outlineColourId));
+        g.drawRect(0, 0, width, height, 1);
+    }
 };
 
 using xen::gui::Theme;

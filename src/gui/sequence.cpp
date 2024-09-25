@@ -136,19 +136,11 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
-void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
-                 juce::Colour border_color)
+void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 {
-    auto const line_thickness = 2.f;
-
-    { // Reduce Paint Region
-        auto path = juce::Path{};
-        path.addRoundedRectangle(bounds, corner_radius);
-        g.reduceClipRegion(path);
-    }
-
-    g.setColour(border_color);
-    g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+    auto path = juce::Path{};
+    path.addRoundedRectangle(bounds, corner_radius);
+    g.reduceClipRegion(path);
 }
 
 /**
@@ -187,7 +179,7 @@ void Cell::paintOverChildren(juce::Graphics &g)
 {
     if (selected)
     {
-        auto const line_thickness = 2.f;
+        auto const line_thickness = 1.75f;
         auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
         g.setColour(this->findColour(ColorID::ForegroundHigh));
@@ -207,8 +199,7 @@ void Rest::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
-    draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
-
+    reduce_region(g, bounds);
     draw_staff(g, bounds, this->findColour(ColorID::BackgroundLow),
                this->findColour(ColorID::ForegroundInverse), scale_, tuning_);
 }
@@ -225,8 +216,7 @@ void Note::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
-    draw_button(g, bounds, this->findColour(ColorID::ForegroundLow));
-
+    reduce_region(g, bounds);
     draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
                this->findColour(ColorID::ForegroundInverse), scale_, tuning_);
 

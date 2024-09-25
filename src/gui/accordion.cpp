@@ -81,12 +81,13 @@ void AccordionTop::resized()
 
 void AccordionTop::paintOverChildren(juce::Graphics &g)
 {
-    g.setColour(this->findColour(ColorID::ForegroundLow));
+    auto const bounds = this->getLocalBounds().toFloat();
+    auto const thickness = 1.f;
 
-    auto const bounds = this->getLocalBounds();
-    g.drawVerticalLine(bounds.getX(), (float)bounds.getY(), (float)bounds.getBottom());
-    g.drawVerticalLine(bounds.getRight(), (float)bounds.getY(),
-                       (float)bounds.getBottom());
+    g.setColour(this->findColour(ColorID::ForegroundLow));
+    g.fillRect(bounds.getX(), bounds.getY(), thickness, bounds.getHeight());
+    g.fillRect(bounds.getX() + bounds.getWidth() - thickness, bounds.getY(), thickness,
+               bounds.getHeight());
 }
 
 } // namespace xen::gui

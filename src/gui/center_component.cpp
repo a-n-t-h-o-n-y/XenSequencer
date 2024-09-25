@@ -267,8 +267,7 @@ void MeasureInfo::paintOverChildren(juce::Graphics &g)
 
 // -------------------------------------------------------------------------------------
 
-PitchColumn::PitchColumn(std::size_t size, float vertical_offset)
-    : size_{size}, vertical_offset_{vertical_offset}
+PitchColumn::PitchColumn(std::size_t size) : size_{size}
 {
 }
 
@@ -281,8 +280,8 @@ void PitchColumn::paint(juce::Graphics &g)
 {
     g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
-    auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, vertical_offset_);
-    auto const item_height = bounds.getHeight() / static_cast<float>(size_);
+    auto const bounds = this->getLocalBounds().toFloat().reduced(0.f, 4.f);
+    auto const item_height = bounds.getHeight() / (float)size_;
 
     g.setColour(this->findColour(ColorID::ForegroundLow));
     g.setFont(fonts::monospaced().regular.withHeight(17.f));
@@ -396,7 +395,7 @@ void MeasureView::timerCallback()
 
 SequenceView::SequenceView(
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
-    : pitch_column{12, 4.f}, measure_view{audio_thread_state}
+    : pitch_column{12}, measure_view{audio_thread_state}
 {
     this->setComponentID("SequenceView");
     this->setWantsKeyboardFocus(true);

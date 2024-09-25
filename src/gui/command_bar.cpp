@@ -116,8 +116,8 @@ void CommandBar::close()
 
 void CommandBar::resized()
 {
-    ghost_text_.setBounds(0, 0, this->getWidth(), this->getHeight());
-    command_input_.setBounds(0, 0, this->getWidth(), this->getHeight());
+    ghost_text_.setBounds(this->getLocalBounds());
+    command_input_.setBounds(this->getLocalBounds());
 }
 
 void CommandBar::lookAndFeelChanged()
