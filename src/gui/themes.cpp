@@ -63,6 +63,25 @@ class CustomLookAndFeel : public juce::LookAndFeel_V4
 
         return focus_outline;
     }
+
+    void drawScrollbar(juce::Graphics &g, juce::ScrollBar &, int x, int y, int width,
+                       int height, bool isScrollbarVertical, int thumbStartPosition,
+                       int thumbSize, bool, bool) override
+    {
+        // Background
+        g.setColour(this->findColour(xen::gui::ColorID::BackgroundHigh));
+        g.fillRect(x, y, width, height);
+
+        // Foreground (thumb)
+        g.setColour(this->findColour(xen::gui::ColorID::ForegroundLow));
+        if (thumbSize > 0)
+        {
+            if (isScrollbarVertical)
+                g.fillRect(x, thumbStartPosition, width, thumbSize);
+            else
+                g.fillRect(thumbStartPosition, y, thumbSize, height);
+        }
+    }
 };
 
 using xen::gui::Theme;
