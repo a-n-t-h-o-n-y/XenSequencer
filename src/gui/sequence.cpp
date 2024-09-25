@@ -115,17 +115,23 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     assert(tuning.intervals.size() == colors.size());
 
     auto const height = bounds.getHeight() / (float)tuning.intervals.size();
+
+    // Rectangles
     for (auto i = std::size_t{0}; i < colors.size(); ++i)
     {
-        auto const y = bounds.getHeight() + bounds.getY() - ((float)i + 1.f) * height;
-
+        auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
         g.setColour(colors[i]);
-        g.fillRect(bounds.getX(), y, bounds.getWidth(), height);
-
-        if (i + 1 != colors.size())
+        // 1 pixel smudge added here, possibly float calculations leave space between.
+        g.fillRect(bounds.getX(), y - 0.5f, bounds.getWidth(), height + 1.f);
+    }
+    // Lines - Drawn on top
+    for (auto i = std::size_t{0}; i + 1 < colors.size(); ++i)
+    {
+        if (colors[i] != colors[i + 1])
         {
+            auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
             g.setColour(line_color);
-            g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 0.5f);
+            g.fillRect(bounds.getX(), y - 0.25f, bounds.getWidth(), 0.5f);
         }
     }
 }
@@ -163,7 +169,8 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
 //     for (auto i = std::size_t{0}; i < tuning.intervals.size(); ++i)
 //     {
 //         auto const y = bounds.getHeight() + bounds.getY() -
-//                        (tuning.intervals[i] / tuning.octave) * bounds.getHeight();
+//                        (tuning.intervals[i] / tuning.octave) *
+//                        bounds.getHeight();
 //         g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 1.f);
 //     }
 // }
