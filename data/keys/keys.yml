@@ -30,6 +30,7 @@ SequenceView:
   # UI Display
   "Shift + :": "show commandbar;focus commandbar"
   "w" : "show LibraryView;focus SequencesList"
+  "e" : "show MessageLog;focus MessageLog"
 
   # Copy/Paste, etc...
   "Cmd + c": "copy"
@@ -161,3 +162,7 @@ ScalesList:
   "Shift + ArrowRight" : "focus SequencesList"
   "Shift + l" : "focus SequencesList"
   "Tab" : "focus SequencesList"
+
+MessageLog:
+  "e" : "show SequenceView;focus SequenceView"
+  "escape" : "show SequenceView;focus SequenceView"

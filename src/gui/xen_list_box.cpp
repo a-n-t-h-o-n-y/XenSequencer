@@ -66,7 +66,7 @@ void XenListBox::paintListBoxItem(int row_number, juce::Graphics &g, int width,
         }
         auto const row_display = this->get_row_display((std::size_t)row_number);
 
-        g.setFont(fonts::monospaced().regular.withHeight(16.f));
+        g.setFont(fonts::monospaced().regular.withHeight(17.f));
         g.drawText(row_display, 2, 0, width - 4, height,
                    juce::Justification::centredLeft, true);
     }

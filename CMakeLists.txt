@@ -133,6 +133,7 @@ target_sources(XenSequencerLib
         src/gui/command_bar.cpp
         src/gui/directory_list_box.cpp
         src/gui/library_view.cpp
+        src/gui/message_log.cpp
         src/gui/plugin_window.cpp
         src/gui/sequence_bank.cpp
         src/gui/sequence.cpp
@@ -180,6 +181,7 @@ target_sources(XenSequencerLib
         include/xen/gui/directory_list_box.hpp
         include/xen/gui/homogenous_row.hpp
         include/xen/gui/library_view.hpp
+        include/xen/gui/message_log.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp

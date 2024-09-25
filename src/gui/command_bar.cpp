@@ -92,7 +92,7 @@ CommandBar::CommandBar(CommandHistory &cmd_history) : command_history_{cmd_histo
 
     command_input_.focus_lost = [this] { this->on_command("show StatusBar"); };
 
-    auto const font = fonts::monospaced().regular.withHeight(16.f);
+    auto const font = fonts::monospaced().regular.withHeight(18.f);
     command_input_.setFont(font);
     ghost_text_.setFont(font);
 }

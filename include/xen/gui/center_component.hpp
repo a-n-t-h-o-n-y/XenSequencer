@@ -16,6 +16,7 @@
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
 #include <xen/gui/library_view.hpp>
+#include <xen/gui/message_log.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/tuning_reference.hpp>
@@ -210,6 +211,7 @@ class CenterComponent : public juce::Component
   public:
     SequenceView sequence_view;
     LibraryView library_view;
+    MessageLog message_log;
 
   public:
     CenterComponent(juce::File const &sequence_library_dir,
@@ -220,6 +222,8 @@ class CenterComponent : public juce::Component
     void show_sequence_view();
 
     void show_library_view();
+
+    void show_message_log();
 
     void update(SequencerState const &state, AuxState const &aux,
                 std::string const &display_name, std::vector<Scale> const &scales);

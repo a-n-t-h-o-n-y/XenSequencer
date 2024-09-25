@@ -139,7 +139,7 @@ MeasureInfo::MeasureInfo()
     this->addAndMakeVisible(scale_);
     this->addAndMakeVisible(scale_mode_);
 
-    auto const font = fonts::monospaced().regular.withHeight(16.f);
+    auto const font = fonts::monospaced().regular.withHeight(17.f);
     time_signature_.set_font(font);
     time_signature_.set_key("Time Signature");
 
@@ -285,7 +285,7 @@ void PitchColumn::paint(juce::Graphics &g)
     auto const item_height = bounds.getHeight() / static_cast<float>(size_);
 
     g.setColour(this->findColour(ColorID::ForegroundLow));
-    g.setFont(fonts::monospaced().regular.withHeight(16.f));
+    g.setFont(fonts::monospaced().regular.withHeight(17.f));
     for (std::size_t i = 0; i < size_; ++i)
     {
         float y = bounds.getBottom() - ((float)i + 1.f) * item_height;
@@ -478,19 +478,30 @@ CenterComponent::CenterComponent(
 {
     this->addAndMakeVisible(sequence_view);
     this->addChildComponent(library_view);
+    this->addChildComponent(message_log);
 }
 
 void CenterComponent::show_sequence_view()
 {
-    sequence_view.setVisible(true);
+    message_log.setVisible(false);
     library_view.setVisible(false);
+    sequence_view.setVisible(true);
     this->resized();
 }
 
 void CenterComponent::show_library_view()
 {
     sequence_view.setVisible(false);
+    message_log.setVisible(false);
     library_view.setVisible(true);
+    this->resized();
+}
+
+void CenterComponent::show_message_log()
+{
+    sequence_view.setVisible(false);
+    library_view.setVisible(false);
+    message_log.setVisible(true);
     this->resized();
 }
 
@@ -516,10 +527,14 @@ auto CenterComponent::current_component() -> juce::Component &
     {
         return sequence_view;
     }
+    else if (library_view.isVisible())
+    {
+        return library_view;
+    }
     else
     {
-        assert(library_view.isVisible());
-        return library_view;
+        assert(message_log.isVisible());
+        return message_log;
     }
 }
 

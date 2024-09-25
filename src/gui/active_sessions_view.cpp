@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
 
 namespace xen::gui
@@ -70,6 +71,7 @@ NameEdit::NameEdit()
 {
     // Makes the label editable on a double click
     this->setEditable(false, true, false);
+    this->setFont(fonts::monospaced().regular.withHeight(17.f));
     this->setText("", juce::dontSendNotification);
 }
 

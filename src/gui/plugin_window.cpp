@@ -120,6 +120,18 @@ void PluginWindow::set_focus(std::string component_id)
             center_component.library_view.scales_list.grabKeyboardFocus();
         }
     }
+    else if (component_id ==
+             to_lower(center_component.message_log.getComponentID().toStdString()))
+    {
+        if (center_component.message_log.hasKeyboardFocus(true))
+        {
+            return;
+        }
+        if (center_component.message_log.isShowing())
+        {
+            center_component.message_log.grabKeyboardFocus();
+        }
+    }
     else
     {
         throw std::invalid_argument("Invalid Component Given: " +
@@ -150,6 +162,12 @@ void PluginWindow::show_component(std::string component_id)
              to_lower(center_component.library_view.getComponentID().toStdString()))
     {
         center_component.show_library_view();
+        bottom_bar.library_sequencer_toggle.display_sequencer_indicator();
+    }
+    else if (component_id ==
+             to_lower(center_component.message_log.getComponentID().toStdString()))
+    {
+        center_component.show_message_log();
         bottom_bar.library_sequencer_toggle.display_sequencer_indicator();
     }
     else

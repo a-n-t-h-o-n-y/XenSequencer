@@ -8,31 +8,6 @@
 #include <xen/gui/themes.hpp>
 #include <xen/message_level.hpp>
 
-namespace
-{
-
-[[nodiscard]] auto get_color_id(xen::MessageLevel level) -> int
-{
-    using namespace xen;
-    switch (level)
-    {
-    case MessageLevel::Debug:
-        return gui::ColorID::ForegroundHigh;
-    case MessageLevel::Info:
-        return gui::ColorID::ForegroundHigh;
-    case MessageLevel::Warning:
-        return gui::ColorID::ForegroundMedium;
-    case MessageLevel::Error:
-        return gui::ColorID::ForegroundMedium;
-    default:
-        throw std::invalid_argument{
-            "Invalid MessageLevel: " +
-            std::to_string(static_cast<std::underlying_type_t<MessageLevel>>(level))};
-    }
-}
-
-} // namespace
-
 namespace xen::gui
 {
 
@@ -62,7 +37,7 @@ void StatusBar::set_status(MessageLevel level, std::string text)
 
     label_.setColour(juce::Label::textColourId,
                      this->findColour(get_color_id(current_level_)));
-    label_.setFont(fonts::monospaced().regular.withHeight(16.f));
+    label_.setFont(fonts::monospaced().regular.withHeight(18.f));
     label_.setText(text, juce::dontSendNotification);
 }
 

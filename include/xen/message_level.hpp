@@ -52,4 +52,9 @@ enum class MessageLevel : std::uint8_t
  */
 [[nodiscard]] auto merror(std::string msg) -> std::pair<MessageLevel, std::string>;
 
+/**
+ * Return a Color ID that can be used to display message text of a particular level.
+ */
+[[nodiscard]] auto get_color_id(xen::MessageLevel level) -> int;
+
 } // namespace xen
