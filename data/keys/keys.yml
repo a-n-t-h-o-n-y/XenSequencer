@@ -72,8 +72,8 @@ SequenceView:
   "[n] + ArrowUp": "shift Note +1"
 
   # ShiftOctave
-  "[n] + PageDown": "shift Octave -1"
-  "[n] + PageUp": "shift Octave +1"
+  "PageDown": "shift Octave -1"
+  "PageUp": "shift Octave +1"
 
   # ShiftVelocity
   "[v] + j": "shift Velocity -0.05"
