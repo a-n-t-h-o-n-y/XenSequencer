@@ -357,10 +357,12 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 {
     if (playhead_.has_value())
     {
-        g.setColour(this->findColour(ColorID::ForegroundMedium));
+        auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
+        auto const x = bounds.getX() + playhead_.value() * bounds.getWidth();
 
-        auto const x_pos = playhead_.value() * static_cast<float>(this->getWidth());
-        g.drawLine(x_pos, 4.f, x_pos, static_cast<float>(this->getHeight() - 4));
+        g.setColour(this->findColour(ColorID::ForegroundMedium));
+        auto const thickness = 1.f;
+        g.fillRect(x - thickness / 2.f, bounds.getY(), thickness, bounds.getHeight());
     }
 }
 

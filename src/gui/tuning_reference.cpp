@@ -86,36 +86,41 @@ void TuningReference::paint(juce::Graphics &g)
 {
     g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
-    auto const bounds = this->getLocalBounds().reduced(0, 4).toFloat();
-    auto const vertical_offset =
-        bounds.getHeight() / ((float)tuning_.intervals.size() * 2.f);
+    auto const [bounds, physical_octave_length] = [&] {
+        auto const bounds = this->getLocalBounds().reduced(0, 4).toFloat();
+        auto const vertical_offset =
+            bounds.getHeight() / ((float)tuning_.intervals.size() * 2.f);
+        return std::pair{bounds.reduced(0.f, vertical_offset), bounds.getHeight()};
+    }();
 
-    // Draw Vertical Line
-    auto const midpoint_x = bounds.getX() + (bounds.getWidth() / 2.f);
-    g.setColour(this->findColour(ColorID::ForegroundHigh));
-    g.drawLine(midpoint_x, bounds.getY() + vertical_offset, midpoint_x,
-               bounds.getY() + bounds.getHeight() - vertical_offset, 1.5f);
+    auto const mid_x = bounds.getX() + (bounds.getWidth() / 2.f);
 
-    // Paint Reference Marks
-    {
+    { // Draw Vertical Line
         g.setColour(this->findColour(ColorID::ForegroundHigh));
-        auto const tick_margin_x = 10.f;
+        auto const thickness = 1.f;
+        g.fillRect(mid_x - thickness / 2.f, bounds.getY(), thickness,
+                   bounds.getHeight());
+    }
+
+    { // Paint Reference Marks
+        auto const mark_length = 10.f;
         auto const thickness = 1.5f;
+
+        g.setColour(this->findColour(ColorID::ForegroundHigh));
         for (auto const ratio : reference_ratios_)
         {
-            auto y = bounds.getY() + bounds.getHeight() - (ratio * bounds.getHeight()) -
-                     vertical_offset - (thickness / 2.f);
+            auto y =
+                bounds.getY() + bounds.getHeight() - (ratio * physical_octave_length);
             if (y <= 0.f)
             {
                 y += bounds.getHeight() + bounds.getY();
             }
-            g.drawLine(midpoint_x, y, midpoint_x + tick_margin_x, y, thickness);
+            g.fillRect(mid_x, y - thickness / 2.f, mark_length, thickness);
         }
     }
 
-    // Paint Tuning Marks
-    {
-        auto const tick_margin_x = -10.f;
+    { // Paint Tuning Marks
+        auto const mark_length = 10.f;
         auto i = 0;
         for (auto ratio : tuning_ratios_)
         {
@@ -123,13 +128,14 @@ void TuningReference::paint(juce::Graphics &g)
                 pitches_.contains(i) ? ColorID::ForegroundHigh : ColorID::ForegroundLow;
             auto const thickness = 1.5f;
             g.setColour(this->findColour(color_id));
-            auto y = bounds.getY() + bounds.getHeight() - (ratio * bounds.getHeight()) -
-                     vertical_offset - (thickness / 2.f);
+            auto y =
+                bounds.getY() + bounds.getHeight() - (ratio * physical_octave_length);
             if (y <= 0.f)
             {
                 y += bounds.getHeight() + bounds.getY();
             }
-            g.drawLine(midpoint_x, y, midpoint_x + tick_margin_x, y, thickness);
+            g.fillRect(mid_x - mark_length, y - thickness / 2.f, mark_length,
+                       thickness);
             ++i;
         }
     }

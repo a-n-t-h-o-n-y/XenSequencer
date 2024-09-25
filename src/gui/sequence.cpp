@@ -160,21 +160,6 @@ void draw_button(juce::Graphics &g, juce::Rectangle<float> bounds,
     return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
 }
 
-// void draw_pitch_line(juce::Graphics &g, juce::Rectangle<float> bounds,
-//                      sequence::Tuning const &tuning, int pitch, juce::Colour fg)
-// {
-//     // auto const normalized = normalize_pitch(pitch, tuning.intervals.size());
-//     //    (tuning.intervals[normalized] / tuning.octave) * bounds.getHeight();
-//     g.setColour(fg);
-//     for (auto i = std::size_t{0}; i < tuning.intervals.size(); ++i)
-//     {
-//         auto const y = bounds.getHeight() + bounds.getY() -
-//                        (tuning.intervals[i] / tuning.octave) *
-//                        bounds.getHeight();
-//         g.drawLine(bounds.getX(), y, bounds.getX() + bounds.getWidth(), y, 1.f);
-//     }
-// }
-
 } // namespace
 
 namespace xen::gui

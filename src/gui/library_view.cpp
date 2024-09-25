@@ -44,7 +44,7 @@ void ScalesList::item_selected(std::size_t index)
 void LibraryView::Divider::paint(juce::Graphics &g)
 {
     g.setColour(this->findColour(ColorID::ForegroundLow));
-    g.drawLine(0, 0, (float)this->getWidth(), (float)this->getHeight());
+    g.fillAll();
 }
 
 // -------------------------------------------------------------------------------------
