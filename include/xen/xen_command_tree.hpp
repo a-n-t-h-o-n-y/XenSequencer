@@ -652,6 +652,7 @@ namespace xen
                     }
                 },
                 ArgInfo<std::string>{"name"}),
+
             cmd(
                 "scale", "Set the current scale by name.",
                 [](PS &ps, sequence::Pattern const &, std::string name) {
@@ -673,6 +674,7 @@ namespace xen
                     }
                 },
                 ArgInfo<std::string>{"name"}),
+
             cmd(
                 "mode", "Set the mode of the current scale. [1, scale size].",
                 [](PS &ps, sequence::Pattern const &, std::size_t mode_index) {
@@ -689,6 +691,33 @@ namespace xen
                     return minfo("Scale Mode Set");
                 },
                 ArgInfo<std::size_t>{"mode"}),
+
+            cmd(
+                "translateDirection",
+                "Set the Scale's translate direction to either Up or Down.",
+                [](PS &ps, sequence::Pattern const &, std::string direction) {
+                    direction = to_lower(direction);
+                    auto state = ps.timeline.get_state();
+                    if (direction == "up")
+                    {
+                        state.sequencer.scale_translate_direction =
+                            TranslateDirection::Up;
+                    }
+                    else if (direction == "down")
+                    {
+                        state.sequencer.scale_translate_direction =
+                            TranslateDirection::Down;
+                    }
+                    else
+                    {
+                        return merror("Invalid TranslateDirection: " + direction);
+                    }
+                    ps.timeline.stage(std::move(state));
+                    ps.timeline.set_commit_flag();
+                    return minfo("Translate Direction Set");
+                },
+                ArgInfo<std::string>("Direction")),
+
             cmd(
                 "key", "Set the key to tranpose to, any integer value is valid.",
                 [](PS &ps, sequence::Pattern const &, int key) {

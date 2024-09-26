@@ -427,7 +427,8 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
             xen::get_selected_cell_const(state.sequence_bank, aux.selected));
 
         tuning_reference_ptr = std::make_unique<TuningReference>(
-            state.tuning, state.scale, selected_pitches);
+            state.tuning, state.scale, selected_pitches,
+            state.scale_translate_direction);
 
         this->addAndMakeVisible(*tuning_reference_ptr);
     }

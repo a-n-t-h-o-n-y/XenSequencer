@@ -24,7 +24,8 @@ class TuningReference : public juce::Component
      * \p highlight_pitches do not have to be normalized.
      */
     TuningReference(sequence::Tuning const &tuning, std::optional<Scale> const &scale,
-                    std::set<int> const &highlight_pitches);
+                    std::set<int> const &highlight_pitches,
+                    TranslateDirection scale_translate_direction);
 
   public:
     void paint(juce::Graphics &g) override;

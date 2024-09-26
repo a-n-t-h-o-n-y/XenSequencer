@@ -40,9 +40,10 @@ namespace
     return result;
 }
 
-[[nodiscard]] auto init_pitches(std::set<int> const &pitches,
-                                std::optional<xen::Scale> const &scale,
-                                sequence::Tuning const &tuning) -> std::set<int>
+[[nodiscard]] auto init_pitches(
+    std::set<int> const &pitches, std::optional<xen::Scale> const &scale,
+    sequence::Tuning const &tuning,
+    xen::TranslateDirection scale_translate_direction) -> std::set<int>
 {
     auto result = std::set<int>{};
     if (scale.has_value())
@@ -53,7 +54,7 @@ namespace
             auto const norm = (int)xen::normalize_pitch(pitch, tuning.intervals.size());
             result.insert(xen::map_pitch_to_scale(norm, valid_pitches,
                                                   tuning.intervals.size(),
-                                                  xen::TranslateDirection::Up));
+                                                  scale_translate_direction));
         }
     }
     else
@@ -73,9 +74,11 @@ namespace xen::gui
 
 TuningReference::TuningReference(sequence::Tuning const &tuning,
                                  std::optional<Scale> const &scale,
-                                 std::set<int> const &highlight_pitches)
+                                 std::set<int> const &highlight_pitches,
+                                 TranslateDirection scale_translate_direction)
     : tuning_{tuning}, scale_{scale},
-      pitches_{init_pitches(highlight_pitches, scale, tuning)},
+      pitches_{
+          init_pitches(highlight_pitches, scale, tuning, scale_translate_direction)},
       reference_ratios_{init_reference_ratios()},
       tuning_ratios_{init_tuning_ratios(tuning)}
 {

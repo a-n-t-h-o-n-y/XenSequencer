@@ -20,13 +20,13 @@ namespace xen
  * @param base_frequency The base frequency of the tuning.
  * @param daw_state The state of the DAW.
  * @param key The key to transpose to, simple addition.
+ * @param scale_translate_direction The direction to move a pitch when applying a scale.
  * @return sequence::midi::EventTimeline
  */
-[[nodiscard]] auto state_to_timeline(sequence::Measure measure,
-                                     sequence::Tuning const &tuning,
-                                     float base_frequency, DAWState const &daw_state,
-                                     std::optional<Scale> const &scale,
-                                     int key) -> sequence::midi::EventTimeline;
+[[nodiscard]] auto state_to_timeline(
+    sequence::Measure measure, sequence::Tuning const &tuning, float base_frequency,
+    DAWState const &daw_state, std::optional<Scale> const &scale, int key,
+    TranslateDirection scale_translate_direction) -> sequence::midi::EventTimeline;
 
 /**
  * Renders a sequence library midi::EventTimeline as a MIDI buffer.

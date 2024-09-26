@@ -78,16 +78,16 @@ namespace
 namespace xen
 {
 
-auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
-                       float base_frequency, DAWState const &daw_state,
-                       std::optional<Scale> const &scale,
-                       int key) -> sequence::midi::EventTimeline
+auto state_to_timeline(
+    sequence::Measure measure, sequence::Tuning const &tuning, float base_frequency,
+    DAWState const &daw_state, std::optional<Scale> const &scale, int key,
+    TranslateDirection scale_translate_direction) -> sequence::midi::EventTimeline
 {
     if (scale)
     {
         measure.cell =
             scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
-                                 tuning.intervals.size(), TranslateDirection::Up);
+                                 tuning.intervals.size(), scale_translate_direction);
     }
 
     measure.cell = key_transpose_cell(measure.cell, key);

@@ -28,16 +28,17 @@ namespace
  * @param base_frequency The base frequency of the tuning.
  * @param daw The state of the DAW.
  * @param key The key to transpose to, simple addition.
+ * @param scale_translate_direction The direction to move pitches for a Scale.
  * @return juce::MidiBuffer
  */
-[[nodiscard]] auto render_measure(sequence::Measure const &measure,
-                                  sequence::Tuning const &tuning, float base_frequency,
-                                  xen::DAWState const &daw,
-                                  std::optional<xen::Scale> const &scale,
-                                  int key) -> juce::MidiBuffer
+[[nodiscard]] auto render_measure(
+    sequence::Measure const &measure, sequence::Tuning const &tuning,
+    float base_frequency, xen::DAWState const &daw,
+    std::optional<xen::Scale> const &scale, int key,
+    xen::TranslateDirection scale_translate_direction) -> juce::MidiBuffer
 {
-    return xen::render_to_midi(
-        xen::state_to_timeline(measure, tuning, base_frequency, daw, scale, key));
+    return xen::render_to_midi(xen::state_to_timeline(
+        measure, tuning, base_frequency, daw, scale, key, scale_translate_direction));
 }
 
 /**
@@ -248,14 +249,17 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
                                     sequencer.base_frequency) ||
         daw_copy_.sample_rate != daw.sample_rate ||
         sequencer_copy_.scale != sequencer.scale ||
-        sequencer_copy_.key != sequencer.key)
+        sequencer_copy_.key != sequencer.key ||
+        sequencer_copy_.scale_translate_direction !=
+            sequencer.scale_translate_direction)
     {
         // Render Everything
         for (auto i = std::size_t{0}; i < sequencer.sequence_bank.size(); ++i)
         {
-            rendered_midi_[i] = render_measure(
-                sequencer.sequence_bank[i], sequencer.tuning, sequencer.base_frequency,
-                daw, sequencer.scale, sequencer.key);
+            rendered_midi_[i] =
+                render_measure(sequencer.sequence_bank[i], sequencer.tuning,
+                               sequencer.base_frequency, daw, sequencer.scale,
+                               sequencer.key, sequencer.scale_translate_direction);
         }
     }
     else
@@ -265,9 +269,10 @@ void MidiEngine::update(SequencerState sequencer, DAWState daw)
         {
             if (sequencer_copy_.sequence_bank[i] != sequencer.sequence_bank[i])
             {
-                rendered_midi_[i] = render_measure(
-                    sequencer.sequence_bank[i], sequencer.tuning,
-                    sequencer.base_frequency, daw, sequencer.scale, sequencer.key);
+                rendered_midi_[i] =
+                    render_measure(sequencer.sequence_bank[i], sequencer.tuning,
+                                   sequencer.base_frequency, daw, sequencer.scale,
+                                   sequencer.key, sequencer.scale_translate_direction);
             }
         }
     }
