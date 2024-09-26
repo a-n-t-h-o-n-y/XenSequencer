@@ -49,6 +49,8 @@ class ScalesList : public XenListBox
 
     void item_selected(std::size_t index) override;
 
+    auto getTooltipForRow(int row) -> juce::String override;
+
   private:
     std::vector<::xen::Scale> scales_;
 };

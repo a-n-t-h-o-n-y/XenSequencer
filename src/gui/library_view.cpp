@@ -15,6 +15,25 @@
 #include <xen/gui/themes.hpp>
 #include <xen/scale.hpp>
 
+namespace
+{
+
+[[nodiscard]] auto scale_interval_display(xen::Scale const &scale) -> juce::String
+{
+    auto result = juce::String{"["};
+    auto separator = juce::String{};
+    for (auto i : scale.intervals)
+    {
+        result += separator;
+        result += i;
+        separator = ", ";
+    }
+    result += "]";
+    return result;
+}
+
+} // namespace
+
 namespace xen::gui
 {
 
@@ -86,6 +105,18 @@ void ScalesList::item_selected(std::size_t index)
 {
     assert(index < scales_.size());
     this->on_scale_selected(scales_[index]);
+}
+
+auto ScalesList::getTooltipForRow(int row) -> juce::String
+{
+    if ((std::size_t)row < scales_.size())
+    {
+        return ::scale_interval_display(scales_[(std::size_t)row]);
+    }
+    else
+    {
+        return "";
+    }
 }
 
 // -------------------------------------------------------------------------------------
