@@ -37,7 +37,8 @@ class Rest : public Cell
 {
   public:
     explicit Rest(sequence::Rest, std::optional<Scale> const &scale,
-                  sequence::Tuning const &tuning);
+                  sequence::Tuning const &tuning,
+                  TranslateDirection scale_translate_direction);
 
   public:
     void paint(juce::Graphics &g) override;
@@ -45,6 +46,7 @@ class Rest : public Cell
   private:
     std::optional<Scale> scale_;
     sequence::Tuning tuning_;
+    TranslateDirection scale_translate_direction_;
 };
 
 // -------------------------------------------------------------------------------------
@@ -53,7 +55,7 @@ class Note : public Cell
 {
   public:
     Note(sequence::Note note, std::optional<Scale> const &scale,
-         sequence::Tuning const &tuning);
+         sequence::Tuning const &tuning, TranslateDirection scale_translate_direction);
 
   public:
     void paint(juce::Graphics &g) override;
@@ -62,6 +64,7 @@ class Note : public Cell
     sequence::Note note_;
     std::optional<Scale> scale_;
     sequence::Tuning tuning_;
+    TranslateDirection scale_translate_direction_;
 };
 
 // -------------------------------------------------------------------------------------
@@ -70,7 +73,8 @@ class Sequence : public Cell
 {
   public:
     explicit Sequence(sequence::Sequence const &seq, std::optional<Scale> const &scale,
-                      sequence::Tuning const &tuning);
+                      sequence::Tuning const &tuning,
+                      TranslateDirection scale_translate_direction);
 
   public:
     void select_child(std::vector<std::size_t> const &indices) override;
@@ -91,7 +95,8 @@ class BuildAndAllocateCell
 {
   public:
     BuildAndAllocateCell(std::optional<Scale> const &scale,
-                         sequence::Tuning const &tuning);
+                         sequence::Tuning const &tuning,
+                         TranslateDirection scale_translate_direction);
 
   public:
     [[nodiscard]] auto operator()(sequence::Rest r) const -> std::unique_ptr<Cell>;
@@ -103,6 +108,7 @@ class BuildAndAllocateCell
   private:
     std::optional<Scale> scale_;
     sequence::Tuning tuning_;
+    TranslateDirection scale_translate_direction_;
 };
 
 } // namespace xen::gui

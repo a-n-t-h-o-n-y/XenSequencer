@@ -32,8 +32,8 @@ auto const corner_radius = 10.f;
  * Returns list of background colors for each pitch in tuning, starting with pitch 0.
  */
 [[nodiscard]] auto generate_staff_line_colors(
-    std::optional<Scale> const &scale, juce::Colour light,
-    std::size_t pitch_count) -> std::vector<juce::Colour>
+    std::optional<Scale> const &scale, juce::Colour light, std::size_t pitch_count,
+    TranslateDirection scale_translate_direction) -> std::vector<juce::Colour>
 {
     auto colors = std::vector<juce::Colour>{};
     if (scale.has_value())
@@ -45,7 +45,7 @@ auto const corner_radius = 10.f;
         for (auto i = 0; i < (int)pitch_count; ++i)
         {
             auto const mapped_pitch =
-                map_pitch_to_scale(i, pitches, pitch_count, TranslateDirection::Up);
+                map_pitch_to_scale(i, pitches, pitch_count, scale_translate_direction);
 
             if (mapped_pitch != previous_pitch)
             {
@@ -107,10 +107,11 @@ auto const corner_radius = 10.f;
 
 void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
                 juce::Colour lighter_color, juce::Colour line_color,
-                std::optional<Scale> const &scale, sequence::Tuning const &tuning)
+                std::optional<Scale> const &scale, sequence::Tuning const &tuning,
+                TranslateDirection scale_translate_direction)
 {
-    auto const colors =
-        generate_staff_line_colors(scale, lighter_color, tuning.intervals.size());
+    auto const colors = generate_staff_line_colors(
+        scale, lighter_color, tuning.intervals.size(), scale_translate_direction);
 
     assert(tuning.intervals.size() == colors.size());
 
@@ -190,8 +191,9 @@ void Cell::paintOverChildren(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 Rest::Rest(sequence::Rest, std::optional<Scale> const &scale,
-           sequence::Tuning const &tuning)
-    : scale_{scale}, tuning_{tuning}
+           sequence::Tuning const &tuning, TranslateDirection scale_translate_direction)
+    : scale_{scale}, tuning_{tuning},
+      scale_translate_direction_{scale_translate_direction}
 {
 }
 
@@ -201,14 +203,16 @@ void Rest::paint(juce::Graphics &g)
 
     reduce_region(g, bounds);
     draw_staff(g, bounds, this->findColour(ColorID::BackgroundLow),
-               this->findColour(ColorID::ForegroundInverse), scale_, tuning_);
+               this->findColour(ColorID::ForegroundInverse), scale_, tuning_,
+               scale_translate_direction_);
 }
 
 // -------------------------------------------------------------------------------------
 
 Note::Note(sequence::Note note, std::optional<Scale> const &scale,
-           sequence::Tuning const &tuning)
-    : note_{note}, scale_{scale}, tuning_{tuning}
+           sequence::Tuning const &tuning, TranslateDirection scale_translate_direction)
+    : note_{note}, scale_{scale}, tuning_{tuning},
+      scale_translate_direction_{scale_translate_direction}
 {
 }
 
@@ -218,7 +222,8 @@ void Note::paint(juce::Graphics &g)
 
     reduce_region(g, bounds);
     draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
-               this->findColour(ColorID::ForegroundInverse), scale_, tuning_);
+               this->findColour(ColorID::ForegroundInverse), scale_, tuning_,
+               scale_translate_direction_);
 
     // Draw Note Box
     auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
@@ -244,7 +249,8 @@ void Note::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 Sequence::Sequence(sequence::Sequence const &seq, std::optional<Scale> const &scale,
-                   sequence::Tuning const &tuning)
+                   sequence::Tuning const &tuning,
+                   TranslateDirection scale_translate_direction)
     : cells_{juce::FlexItem{}.withFlex(1.f)}
 {
     this->addAndMakeVisible(cells_);
@@ -252,6 +258,7 @@ Sequence::Sequence(sequence::Sequence const &seq, std::optional<Scale> const &sc
     auto const build_and_allocate_cell = BuildAndAllocateCell{
         scale,
         tuning,
+        scale_translate_direction,
     };
 
     // for each sequence::Cell, construct it as a pointer and add it to cells_
@@ -289,25 +296,27 @@ void Sequence::resized()
 // -------------------------------------------------------------------------------------
 
 BuildAndAllocateCell::BuildAndAllocateCell(std::optional<Scale> const &scale,
-                                           sequence::Tuning const &tuning)
-    : scale_{scale}, tuning_{tuning}
+                                           sequence::Tuning const &tuning,
+                                           TranslateDirection scale_translate_direction)
+    : scale_{scale}, tuning_{tuning},
+      scale_translate_direction_{scale_translate_direction}
 {
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Rest r) const -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Rest>(r, scale_, tuning_);
+    return std::make_unique<Rest>(r, scale_, tuning_, scale_translate_direction_);
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Note n) const -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Note>(n, scale_, tuning_);
+    return std::make_unique<Note>(n, scale_, tuning_, scale_translate_direction_);
 }
 
 auto BuildAndAllocateCell::operator()(sequence::Sequence s) const
     -> std::unique_ptr<Cell>
 {
-    return std::make_unique<Sequence>(s, scale_, tuning_);
+    return std::make_unique<Sequence>(s, scale_, tuning_, scale_translate_direction_);
 }
 
 } // namespace xen::gui

@@ -49,6 +49,7 @@ struct SequencerState
 
     std::optional<Scale> scale{std::nullopt};
     int key{3}; // The pitch considered 'zero', transposition. [0, tuning size)
+    TranslateDirection scale_translate_direction{TranslateDirection::Up};
 
     float base_frequency{440.f};
 

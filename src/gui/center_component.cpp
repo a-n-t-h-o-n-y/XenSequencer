@@ -32,13 +32,16 @@
 namespace
 {
 
-[[nodiscard]] auto make_cell(
-    sequence::Cell const &cell, std::optional<xen::Scale> const &scale,
-    sequence::Tuning const &tuning) -> std::unique_ptr<xen::gui::Cell>
+[[nodiscard]] auto make_cell(sequence::Cell const &cell,
+                             std::optional<xen::Scale> const &scale,
+                             sequence::Tuning const &tuning,
+                             xen::TranslateDirection scale_translate_direction)
+    -> std::unique_ptr<xen::gui::Cell>
 {
     auto const builder = xen::gui::BuildAndAllocateCell{
         scale,
         tuning,
+        scale_translate_direction,
     };
     return std::visit(builder, cell);
 }
@@ -299,7 +302,7 @@ void PitchColumn::paint(juce::Graphics &g)
 
 MeasureView::MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
     : cell_ptr_{make_cell(sequence::Rest{}, std::nullopt,
-                          {.intervals = {0}, .octave = 1})},
+                          {.intervals = {0}, .octave = 1}, TranslateDirection::Up)},
       audio_thread_state_{audio_thread_state}
 {
     this->startTimer(34);
@@ -327,7 +330,8 @@ void MeasureView::update(SequencerState const &state, AuxState const &aux)
 
     // TODO can you do a simple equality check to conditionally rebuild the cell?
     cell_ptr_.reset();
-    cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning);
+    cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning,
+                          state.scale_translate_direction);
     this->addAndMakeVisible(*cell_ptr_);
     this->resized();
 }
