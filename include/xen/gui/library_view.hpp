@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -22,6 +23,10 @@ class TuningsList : public DirectoryListBox
 
   public:
     auto getTooltipForRow(int row) -> juce::String override;
+
+  private:
+    // {filename 32bit hash, tooltip string}
+    std::map<juce::int32, juce::String> tooltip_cache_;
 };
 
 // -------------------------------------------------------------------------------------

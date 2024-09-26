@@ -1,6 +1,9 @@
 #include <xen/gui/library_view.hpp>
 
 #include <cassert>
+#include <cstddef>
+#include <iterator>
+#include <map>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -25,14 +28,35 @@ TuningsList::TuningsList(juce::File const &tunings_dir)
 auto TuningsList::getTooltipForRow(int row) -> juce::String
 {
     auto const file = this->get_file((std::size_t)row);
-    if (file.has_value() && file->exists() && file->getSize() < 1'000'000)
+    try
     {
-        auto const tuning = sequence::from_scala(file->getFullPathName().toStdString());
-        return tuning.description;
+        if (file.has_value() && file->exists())
+        {
+            auto const at = tooltip_cache_.find(file->hashCode());
+            if (at != std::cend(tooltip_cache_))
+            {
+                return at->second;
+            }
+            else if (file->getSize() < 1'000'000)
+            {
+                auto const tuning =
+                    sequence::from_scala(file->getFullPathName().toStdString());
+                tooltip_cache_.emplace(file->hashCode(), tuning.description);
+                return tuning.description;
+            }
+            else
+            {
+                return "File Too Large";
+            }
+        }
+        else
+        {
+            return "";
+        }
     }
-    else
+    catch (...)
     {
-        return "";
+        return "Error Reading " + file->getFileName();
     }
 }
 

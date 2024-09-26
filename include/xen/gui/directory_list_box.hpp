@@ -38,6 +38,8 @@ class DirectoryListBox : public XenListBox,
 
     void timerCallback() override;
 
+    void visibilityChanged() override;
+
     auto get_row_display(std::size_t index) -> juce::String override;
 
     void item_selected(std::size_t index) override;

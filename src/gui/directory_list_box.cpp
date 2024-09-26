@@ -13,7 +13,6 @@ DirectoryListBox::DirectoryListBox(juce::File const &initial_directory,
     directory_contents_list_.setDirectory(initial_directory, true, true);
     this->on_directory_change(initial_directory);
     directory_contents_list_.addChangeListener(this);
-    this->startTimer(POLLING_MS);
     dcl_thread_.startThread(juce::Thread::Priority::low);
 }
 
@@ -41,6 +40,18 @@ void DirectoryListBox::changeListenerCallback(juce::ChangeBroadcaster *source)
 void DirectoryListBox::timerCallback()
 {
     directory_contents_list_.refresh();
+}
+
+void DirectoryListBox::visibilityChanged()
+{
+    if (this->isVisible())
+    {
+        this->startTimer(POLLING_MS);
+    }
+    else
+    {
+        this->stopTimer();
+    }
 }
 
 auto DirectoryListBox::get_row_display(std::size_t index) -> juce::String
