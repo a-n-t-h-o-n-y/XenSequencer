@@ -1,8 +1,6 @@
 #include <xen/gui/message_log.hpp>
 
-#include <memory>
-#include <utility>
-#include <vector>
+#include <cmath>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -14,62 +12,54 @@
 namespace xen::gui
 {
 
-MessageLog::MessageLog()
+void MessageLog::Log::append(juce::String const &text, juce::Colour color)
 {
-    this->setViewedComponent(&log, false);
-    this->setComponentID("MessageLog");
-    this->setWantsKeyboardFocus(true);
+    content_.append("\n" + juce::Time::getCurrentTime().toString(false, true, true) +
+                        " :: " + text,
+                    fonts::monospaced().regular.withHeight(18.f), color);
+    this->refresh();
 }
 
-void MessageLog::resized()
+void MessageLog::Log::paint(juce::Graphics &g)
 {
-    log.setSize(this->getLocalBounds().getWidth(), 0);
-}
-
-MessageLog::Log::Entry::Entry(juce::String const &message, ::xen::MessageLevel level)
-    : level_{level}
-{
-    this->setFont(fonts::monospaced().regular.withHeight(18.f));
-    this->setText(message, juce::dontSendNotification);
-}
-
-void MessageLog::Log::Entry::lookAndFeelChanged()
-{
-    this->setColour(juce::Label::backgroundColourId,
-                    this->findColour(ColorID::BackgroundHigh));
-    this->setColour(juce::Label::textColourId, this->findColour(get_color_id(level_)));
-}
-
-void MessageLog::Log::add_message(juce::String const &message,
-                                  ::xen::MessageLevel level)
-{
-    entries_.push_back(std::make_unique<Entry>(message, level));
-    this->addAndMakeVisible(*entries_.back());
-    entries_.back()->lookAndFeelChanged();
-    this->resized();
-    this->scroll_to_bottom();
+    g.fillAll(this->findColour(ColorID::BackgroundHigh));
+    layout_.draw(g, this->getLocalBounds().toFloat());
 }
 
 void MessageLog::Log::resized()
 {
-    auto const area = this->getLocalBounds();
-    auto const message_height = 23;
-
-    int y = 0;
-    for (auto &component : entries_)
-    {
-        component->setBounds(0, y, area.getWidth(), message_height);
-        y += message_height;
-    }
-
-    this->setSize(this->getWidth(), y);
+    this->refresh();
 }
 
-void MessageLog::Log::scroll_to_bottom()
+void MessageLog::Log::refresh()
 {
-    if (auto *parent_viewport = this->findParentComponentOfClass<juce::Viewport>())
-        parent_viewport->setViewPosition(
-            0, juce::jmax(0, this->getHeight() - parent_viewport->getHeight()));
+    layout_.createLayout(content_, (float)this->getWidth());
+    this->setSize(this->getWidth(), (int)std::ceil(layout_.getHeight()));
+    this->repaint();
+}
+
+// -------------------------------------------------------------------------------------
+
+MessageLog::MessageLog()
+{
+    this->setViewedComponent(&log_, false);
+    this->setComponentID("MessageLog");
+    this->setWantsKeyboardFocus(true);
+}
+
+void MessageLog::add_message(juce::String const &text, ::xen::MessageLevel level)
+{
+    // TODO On lookAndFeelUpdated you are not going to be able to change colors.
+    // You'd have to implement that with attribute string somehow.
+
+    log_.append(text, this->findColour(get_color_id(level)));
+    this->getVerticalScrollBar().setRangeLimits(0, log_.getHeight());
+    this->setViewPosition(0, log_.getHeight() - this->getHeight());
+}
+
+void MessageLog::resized()
+{
+    log_.setSize(this->getLocalBounds().getWidth(), 0);
 }
 
 } // namespace xen::gui

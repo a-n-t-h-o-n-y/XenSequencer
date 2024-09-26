@@ -1,13 +1,8 @@
 #pragma once
 
-#include <memory>
-#include <utility>
-#include <vector>
-
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/themes.hpp>
 #include <xen/message_level.hpp>
 
 namespace xen::gui
@@ -15,44 +10,35 @@ namespace xen::gui
 
 class MessageLog : public juce::Viewport
 {
+    class Log : public juce::Component
+    {
+      public:
+        void append(juce::String const &text, juce::Colour color);
+
+      public:
+        void paint(juce::Graphics &g) override;
+
+        void resized() override;
+
+      private:
+        void refresh();
+
+      private:
+        juce::AttributedString content_;
+        juce::TextLayout layout_;
+    };
+
   public:
     MessageLog();
+
+  public:
+    void add_message(juce::String const &text, ::xen::MessageLevel level);
 
   public:
     void resized() override;
 
   private:
-    class Log : public juce::Component
-    {
-      private:
-        class Entry : public juce::Label
-        {
-          public:
-            Entry(juce::String const &message, ::xen::MessageLevel level);
-
-          public:
-            void lookAndFeelChanged() override;
-
-          private:
-            ::xen::MessageLevel level_;
-        };
-
-      public:
-        void add_message(juce::String const &message, ::xen::MessageLevel level);
-
-      protected:
-        void resized() override;
-
-      private:
-        void scroll_to_bottom();
-
-      private:
-        std::vector<std::pair<juce::String, ::xen::MessageLevel>> messages_;
-        std::vector<std::unique_ptr<Entry>> entries_;
-    };
-
-  public:
-    Log log;
+    Log log_;
 };
 
 } // namespace xen::gui

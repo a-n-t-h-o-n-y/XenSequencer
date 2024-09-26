@@ -234,8 +234,8 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     {
         auto const message = std::string{"Check `user_keys.yml`: "} + e.what();
         plugin_window.bottom_bar.status_bar.set_status(MessageLevel::Error, message);
-        plugin_window.center_component.message_log.log.add_message(message,
-                                                                   MessageLevel::Error);
+        plugin_window.center_component.message_log.add_message(message,
+                                                               MessageLevel::Error);
     }
 
     this->execute_command_string("welcome");
@@ -276,7 +276,7 @@ void XenEditor::execute_command_string(std::string const &command_string)
         this->update();
     }
     plugin_window.bottom_bar.status_bar.set_status(level, message);
-    plugin_window.center_component.message_log.log.add_message(message, level);
+    plugin_window.center_component.message_log.add_message(message, level);
 }
 
 void XenEditor::set_key_listeners(
