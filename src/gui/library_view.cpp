@@ -6,12 +6,37 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <sequence/tuning.hpp>
+
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/scale.hpp>
 
 namespace xen::gui
 {
+
+TuningsList::TuningsList(juce::File const &tunings_dir)
+    : DirectoryListBox{tunings_dir,
+                       juce::WildcardFileFilter{"*.scl", "*", "scala filter"},
+                       "TuningsList"}
+{
+}
+
+auto TuningsList::getTooltipForRow(int row) -> juce::String
+{
+    auto const file = this->get_file((std::size_t)row);
+    if (file.has_value() && file->exists() && file->getSize() < 1'000'000)
+    {
+        auto const tuning = sequence::from_scala(file->getFullPathName().toStdString());
+        return tuning.description;
+    }
+    else
+    {
+        return "";
+    }
+}
+
+// -------------------------------------------------------------------------------------
 
 ScalesList::ScalesList() : XenListBox{"ScalesList"}
 {
@@ -54,9 +79,7 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     : sequences_list{sequence_library_dir,
                      juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"},
                      "SequencesList"},
-      tunings_list{tuning_library_dir,
-                   juce::WildcardFileFilter{"*.scl", "*", "scala filter"},
-                   "TuningsList"}
+      tunings_list{tuning_library_dir}
 {
     this->setComponentID("LibraryView");
 

@@ -78,4 +78,17 @@ void DirectoryListBox::item_selected(std::size_t index)
     }
 }
 
+auto DirectoryListBox::get_file(std::size_t index) -> std::optional<juce::File>
+{
+    auto const file = directory_contents_list_.getFile((int)index - 1);
+    if (file.exists() && !file.isDirectory())
+    {
+        return file;
+    }
+    else
+    {
+        return std::nullopt;
+    }
+}
+
 } // namespace xen::gui

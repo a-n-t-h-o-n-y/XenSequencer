@@ -73,6 +73,8 @@ class XenEditor : public juce::AudioProcessorEditor
     std::map<std::string, KeyConfigListener> key_config_listeners_;
 
     sl::Lifetime lifetime_;
+
+    juce::TooltipWindow tooltip_window_;
 };
 
 } // namespace xen::gui

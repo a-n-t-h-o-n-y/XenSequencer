@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <optional>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -38,6 +41,13 @@ class DirectoryListBox : public XenListBox,
     auto get_row_display(std::size_t index) -> juce::String override;
 
     void item_selected(std::size_t index) override;
+
+  protected:
+    /**
+     * Retrieve a file if it exists. Index of 0 will return nullopt, that is parent dir.
+     * @details Returns nullopt for directories.
+     */
+    [[nodiscard]] auto get_file(std::size_t index) -> std::optional<juce::File>;
 
   private:
     juce::TimeSliceThread dcl_thread_{"DirectoryListBoxThread"};

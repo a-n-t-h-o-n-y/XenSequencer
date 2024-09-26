@@ -49,7 +49,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
       plugin_window{p.plugin_state.current_phrase_directory,
                     p.plugin_state.current_tuning_directory,
                     p.plugin_state.command_history, p.audio_thread_state_for_gui},
-      processor_{p}
+      processor_{p}, tooltip_window_{this}
 {
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
 

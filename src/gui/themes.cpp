@@ -82,12 +82,43 @@ class CustomLookAndFeel : public juce::LookAndFeel_V4
                 g.fillRect(thumbStartPosition, y, thumbSize, height);
         }
     }
+
     void drawTextEditorOutline(juce::Graphics &g, int width, int height,
                                juce::TextEditor &) override
     {
         g.setColour(this->findColour(juce::TextEditor::outlineColourId));
         g.drawRect(0, 0, width, height, 1);
     }
+
+    // void drawTooltip(juce::Graphics &g, juce::String const &text, int width,
+    //                  int height) override
+    // {
+    //     g.fillAll(this->findColour(xen::gui::ColorID::BackgroundLow));
+
+    //     g.setColour(this->findColour(xen::gui::ColorID::ForegroundHigh));
+    //     g.setFont(xen::gui::fonts::monospaced().bold.withHeight(16.f));
+
+    //     g.drawFittedText(text, 5, 0, width - 10, height,
+    //                      juce::Justification::centredLeft, 1);
+    // }
+
+    // auto getTooltipBounds(juce::String const &text, juce::Point<int> pos,
+    //                       juce::Rectangle<int> parentArea)
+    //     -> juce::Rectangle<int> override
+    // {
+    //     // Calculate a custom width and height for the tooltip
+    //     auto font = xen::gui::fonts::monospaced().bold.withHeight(16.f);
+    //     auto width = font.getStringWidth(text) + 20;
+    //     auto height = font.getHeight() + 10;
+
+    //     // Position the tooltip at the mouse pointer position
+    //     auto bounds = juce::Rectangle<int>{pos.x, pos.y, width, (int)height};
+
+    //     // Ensure the tooltip fits within the parent area
+    //     bounds = bounds.constrainedWithin(parentArea);
+
+    //     return bounds;
+    // }
 };
 
 using xen::gui::Theme;

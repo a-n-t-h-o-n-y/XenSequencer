@@ -15,6 +15,17 @@
 namespace xen::gui
 {
 
+class TuningsList : public DirectoryListBox
+{
+  public:
+    explicit TuningsList(juce::File const &tunings_dir);
+
+  public:
+    auto getTooltipForRow(int row) -> juce::String override;
+};
+
+// -------------------------------------------------------------------------------------
+
 class ScalesList : public XenListBox
 {
   public:
@@ -36,6 +47,8 @@ class ScalesList : public XenListBox
   private:
     std::vector<::xen::Scale> scales_;
 };
+
+// -------------------------------------------------------------------------------------
 
 class LibraryView : public juce::Component
 {
@@ -59,7 +72,7 @@ class LibraryView : public juce::Component
     Divider divider_2;
 
     juce::Label tunings_label;
-    DirectoryListBox tunings_list;
+    TuningsList tunings_list;
     Divider divider_3;
 
     juce::Label scales_label;
