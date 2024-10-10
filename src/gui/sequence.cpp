@@ -74,9 +74,10 @@ auto const corner_radius = 10.f;
  * @exception std::invalid_argument If tuning_length is zero, to prevent
  * division by zero.
  */
-[[nodiscard]] auto compute_note_bounds(
-    juce::Rectangle<float> const &bounds, sequence::Note note,
-    sequence::Tuning const &tuning) -> juce::Rectangle<float>
+[[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &bounds,
+                                       sequence::Note note,
+                                       sequence::Tuning const &tuning)
+    -> juce::Rectangle<float>
 {
     auto const pitch_count = tuning.intervals.size();
     if (pitch_count == 0)
@@ -117,23 +118,20 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
 
     auto const height = bounds.getHeight() / (float)tuning.intervals.size();
 
-    // Rectangles
+    // Rectangles - Drawn bottom to top - starting with pitch zero.
     for (auto i = std::size_t{0}; i < colors.size(); ++i)
     {
         auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
         g.setColour(colors[i]);
-        // 1 pixel smudge added here, possibly float calculations leave space between.
-        g.fillRect(bounds.getX(), y - 0.5f, bounds.getWidth(), height + 1.f);
+        g.fillRect(bounds.getX(), y, bounds.getWidth(), height);
     }
     // Lines - Drawn on top
     for (auto i = std::size_t{0}; i + 1 < colors.size(); ++i)
     {
-        if (colors[i] != colors[i + 1])
-        {
-            auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
-            g.setColour(line_color);
-            g.fillRect(bounds.getX(), y - 0.25f, bounds.getWidth(), 0.5f);
-        }
+        auto const color = (colors[i] == colors[i + 1]) ? colors[i] : line_color;
+        auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
+        g.setColour(color);
+        g.fillRect(bounds.getX(), y - 0.4f, bounds.getWidth(), 0.8f);
     }
 }
 
@@ -147,8 +145,8 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 /**
  * \p velocity must be [0, 1]
  */
-[[nodiscard]] auto velocity_color(float velocity,
-                                  juce::LookAndFeel const &laf) -> juce::Colour
+[[nodiscard]] auto velocity_color(float velocity, juce::LookAndFeel const &laf)
+    -> juce::Colour
 {
     return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
 }
@@ -230,7 +228,7 @@ void Note::paint(juce::Graphics &g)
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
     g.fillRect(pitch_bounds);
     g.setColour(this->findColour(ColorID::ForegroundInverse));
-    g.drawRect(pitch_bounds, 0.5f);
+    g.drawRect(pitch_bounds, 0.8f);
 
     // Paint Octave Text
     auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
