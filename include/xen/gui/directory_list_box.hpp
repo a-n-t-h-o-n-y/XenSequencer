@@ -13,13 +13,8 @@
 namespace xen::gui
 {
 
-class DirectoryListBox : public XenListBox,
-                         public juce::ChangeListener,
-                         public juce::Timer
+class DirectoryListBox : public XenListBox, public juce::ChangeListener
 {
-  private:
-    inline static auto const POLLING_MS = 4'000;
-
   public:
     sl::Signal<void(juce::File const &)> on_file_selected;
     sl::Signal<void(juce::File const &)> on_directory_change;
@@ -35,10 +30,6 @@ class DirectoryListBox : public XenListBox,
     auto getNumRows() -> int override;
 
     void changeListenerCallback(juce::ChangeBroadcaster *source) override;
-
-    void timerCallback() override;
-
-    void visibilityChanged() override;
 
     auto get_row_display(std::size_t index) -> juce::String override;
 

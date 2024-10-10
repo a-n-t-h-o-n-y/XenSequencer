@@ -1,5 +1,7 @@
 #include <xen/gui/directory_list_box.hpp>
 
+#include <cassert>
+
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
 
@@ -18,8 +20,7 @@ DirectoryListBox::DirectoryListBox(juce::File const &initial_directory,
 
 DirectoryListBox::~DirectoryListBox()
 {
-    this->stopTimer();
-    dcl_thread_.stopThread(3'000); // Allow some time for thread to finish
+    assert(dcl_thread_.stopThread(3'000)); // Allow some time for thread to finish
     directory_contents_list_.removeChangeListener(this);
 }
 
@@ -33,24 +34,6 @@ void DirectoryListBox::changeListenerCallback(juce::ChangeBroadcaster *source)
     if (source == &directory_contents_list_)
     {
         this->updateContent();
-        this->repaint();
-    }
-}
-
-void DirectoryListBox::timerCallback()
-{
-    directory_contents_list_.refresh();
-}
-
-void DirectoryListBox::visibilityChanged()
-{
-    if (this->isVisible())
-    {
-        this->startTimer(POLLING_MS);
-    }
-    else
-    {
-        this->stopTimer();
     }
 }
 
