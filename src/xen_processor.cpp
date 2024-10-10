@@ -9,6 +9,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <sequence/measure.hpp>
 
@@ -150,10 +151,19 @@ auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
 
 void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
-    auto const json_str = serialize_plugin(plugin_state.timeline.get_state().sequencer,
-                                           plugin_state.display_name);
-    dest_data.setSize(json_str.size());
-    std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
+    try
+    {
+        auto const json_str = serialize_plugin(
+            plugin_state.timeline.get_state().sequencer, plugin_state.display_name);
+        dest_data.setSize(json_str.size());
+        std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
+    }
+    catch (std::exception const &e)
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon, "State Save Error",
+            "Error in getStateInformation: " + juce::String{e.what()});
+    }
 }
 
 void XenProcessor::setStateInformation(void const *data, int sizeInBytes)

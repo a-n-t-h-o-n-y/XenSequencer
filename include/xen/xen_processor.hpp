@@ -54,7 +54,7 @@ class XenProcessor : public juce::AudioProcessor
      * Execute a string as a command, using the command tree.
      *
      * @details This will normalize the input string, execute it on plugin_state and
-     * send the resulting status to the status bar.
+     * return the resulting status.
      * @param command_string The command string to execute
      */
     auto execute_command_string(std::string const &command_string)

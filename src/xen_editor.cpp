@@ -9,6 +9,8 @@
 #include <string>
 #include <utility>
 
+#include <juce_gui_basics/juce_gui_basics.h>
+
 #include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/gui/themes.hpp>
