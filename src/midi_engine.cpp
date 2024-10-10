@@ -14,6 +14,7 @@
 #include <sequence/measure.hpp>
 
 #include <xen/midi.hpp>
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
@@ -31,11 +32,12 @@ namespace
  * @param scale_translate_direction The direction to move pitches for a Scale.
  * @return juce::MidiBuffer
  */
-[[nodiscard]] auto render_measure(
-    sequence::Measure const &measure, sequence::Tuning const &tuning,
-    float base_frequency, xen::DAWState const &daw,
-    std::optional<xen::Scale> const &scale, int key,
-    xen::TranslateDirection scale_translate_direction) -> juce::MidiBuffer
+[[nodiscard]] auto render_measure(sequence::Measure const &measure,
+                                  sequence::Tuning const &tuning, float base_frequency,
+                                  xen::DAWState const &daw,
+                                  std::optional<xen::Scale> const &scale, int key,
+                                  xen::TranslateDirection scale_translate_direction)
+    -> juce::MidiBuffer
 {
     return xen::render_to_midi(xen::state_to_timeline(
         measure, tuning, base_frequency, daw, scale, key, scale_translate_direction));
@@ -101,8 +103,8 @@ namespace xen
 {
 
 auto MidiEngine::step(juce::MidiBuffer const &triggers,
-                      std::uint64_t current_sample_count,
-                      int buffer_length) -> juce::MidiBuffer
+                      std::uint64_t current_sample_count, int buffer_length)
+    -> juce::MidiBuffer
 {
     slices_.clear();
 
@@ -137,8 +139,8 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
                 auto const channel = allocate_channel(slices_, midi_number);
                 if (channel != -1)
                 {
-                    auto &live_note = live_notes_[(std::size_t)(
-                        midi_number - first_midi_trigger_note)];
+                    auto &live_note = live_notes_[(
+                        std::size_t)(midi_number - first_midi_trigger_note)];
                     live_note = {
                         .channel = channel,
                         .start_time = current_sample_count + (std::uint64_t)sample,
@@ -170,8 +172,8 @@ auto MidiEngine::step(juce::MidiBuffer const &triggers,
                     slice_it->end = sample;
                     slice_it->is_end = true;
 
-                    auto &live_note = live_notes_[(std::size_t)(
-                        midi_number - first_midi_trigger_note)];
+                    auto &live_note = live_notes_[(
+                        std::size_t)(midi_number - first_midi_trigger_note)];
                     live_note = {
                         .channel = -1,
                         .start_time = 0,
@@ -291,8 +293,8 @@ auto MidiEngine::get_note_start_samples() const -> std::array<std::uint64_t, 16>
     return result;
 }
 
-auto MidiEngine::allocate_channel(std::vector<Slice> const &slices,
-                                  int midi_number) -> int
+auto MidiEngine::allocate_channel(std::vector<Slice> const &slices, int midi_number)
+    -> int
 {
     assert(midi_number >= first_midi_trigger_note &&
            midi_number < first_midi_trigger_note + 16);

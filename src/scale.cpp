@@ -27,6 +27,17 @@ namespace
 namespace xen
 {
 
+auto Scale::operator==(Scale const &other) const -> bool
+{
+    return std::tie(this->tuning_length, this->intervals, this->mode) ==
+           std::tie(other.tuning_length, other.intervals, other.mode);
+}
+
+auto Scale::operator!=(Scale const &other) const -> bool
+{
+    return !(*this == other);
+}
+
 auto load_scales_from_files() -> std::vector<Scale>
 {
     auto system_node =
@@ -64,7 +75,7 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
                         std::size_t tuning_length, TranslateDirection direction) -> int
 {
     auto octave_shift = (int)std::floor(static_cast<double>(pitch) / tuning_length);
-    auto normalized_pitch = euclid_mod(pitch, tuning_length);
+    auto normalized_pitch = euclid_mod(pitch, (int)tuning_length);
 
     auto it = std::ranges::lower_bound(valid_pitches, normalized_pitch);
 
@@ -92,7 +103,7 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
         }
     }
 
-    return *it + octave_shift * tuning_length;
+    return *it + octave_shift * (int)tuning_length;
 }
 
 } // namespace xen

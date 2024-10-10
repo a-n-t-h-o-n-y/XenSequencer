@@ -14,7 +14,7 @@ SessionsListBox::SessionsListBox() : XenListBox{"SessionsListBox"}
 
 void SessionsListBox::add_item(juce::Uuid const &uuid, juce::String const &name)
 {
-    items_.emplace_back(uuid, name);
+    items_.push_back({uuid, name}); // with emplace_back clang 14 complains
 }
 
 void SessionsListBox::add_or_update_item(juce::Uuid const &uuid,
@@ -29,7 +29,7 @@ void SessionsListBox::add_or_update_item(juce::Uuid const &uuid,
     }
     else
     {
-        items_.emplace_back(uuid, name);
+        this->add_item(uuid, name);
     }
 
     this->updateContent();

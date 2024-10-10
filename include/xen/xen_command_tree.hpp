@@ -716,7 +716,7 @@ namespace xen
                     ps.timeline.set_commit_flag();
                     return minfo("Translate Direction Set");
                 },
-                ArgInfo<std::string>("Direction")),
+                ArgInfo<std::string>{"Direction"}),
 
             cmd(
                 "key", "Set the key to tranpose to, any integer value is valid.",

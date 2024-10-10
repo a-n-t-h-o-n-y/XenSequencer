@@ -40,10 +40,11 @@ namespace
     return result;
 }
 
-[[nodiscard]] auto init_pitches(
-    std::set<int> const &pitches, std::optional<xen::Scale> const &scale,
-    sequence::Tuning const &tuning,
-    xen::TranslateDirection scale_translate_direction) -> std::set<int>
+[[nodiscard]] auto init_pitches(std::set<int> const &pitches,
+                                std::optional<xen::Scale> const &scale,
+                                sequence::Tuning const &tuning,
+                                xen::TranslateDirection scale_translate_direction)
+    -> std::set<int>
 {
     auto result = std::set<int>{};
     if (scale.has_value())
@@ -89,11 +90,11 @@ void TuningReference::paint(juce::Graphics &g)
 {
     g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
-    auto const [bounds, physical_octave_length] = [&] {
-        auto const bounds = this->getLocalBounds().reduced(0, 4).toFloat();
+    auto const [bounds, physical_octave_length] = [this] {
+        auto const b = this->getLocalBounds().reduced(0, 4).toFloat();
         auto const vertical_offset =
-            bounds.getHeight() / ((float)tuning_.intervals.size() * 2.f);
-        return std::pair{bounds.reduced(0.f, vertical_offset), bounds.getHeight()};
+            b.getHeight() / ((float)tuning_.intervals.size() * 2.f);
+        return std::pair{b.reduced(0.f, vertical_offset), b.getHeight()};
     }();
 
     auto const mid_x = bounds.getX() + (bounds.getWidth() / 2.f);

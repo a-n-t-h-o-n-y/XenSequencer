@@ -20,7 +20,8 @@ struct Scale
     std::vector<std::uint8_t> intervals;
     std::uint8_t mode; // [0, intervals.size)
 
-    [[nodiscard]] auto operator<=>(Scale const &) const = default;
+    [[nodiscard]] auto operator==(Scale const &other) const -> bool;
+    [[nodiscard]] auto operator!=(Scale const &other) const -> bool;
 };
 
 /**
