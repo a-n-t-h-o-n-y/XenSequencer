@@ -142,7 +142,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     { // ActiveSessions Shutdown
         auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window.center_component.library_view.active_sessions_view
+            plugin_window.center_component.library_view.active_sessions_list
                 .sessions_list_box.remove_item(uuid);
         }};
         slot.track(lifetime_);
@@ -152,7 +152,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     { // ActiveSession ID Update
         auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
             [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window.center_component.library_view.active_sessions_view
+                plugin_window.center_component.library_view.active_sessions_list
                     .sessions_list_box.add_or_update_item(uuid, display_name);
             }};
         slot.track(lifetime_);
@@ -200,7 +200,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         });
 
     // ActiveSession Selected
-    plugin_window.center_component.library_view.active_sessions_view.sessions_list_box
+    plugin_window.center_component.library_view.active_sessions_list.sessions_list_box
         .on_session_selected.connect(
             // TODO This should pass in an index other than hardcoded 0.
             // You'll have to update the UI to list all the instances and allow the user
@@ -216,7 +216,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
             });
 
     // ActiveSession Name Change
-    plugin_window.center_component.library_view.active_sessions_view
+    plugin_window.center_component.library_view.active_sessions_list
         .current_session_name_edit.on_name_changed.connect(
             [&p](juce::String const &name) {
                 p.plugin_state.display_name = name.toStdString();
@@ -311,9 +311,9 @@ void XenEditor::set_key_listeners(
         remove_listener(plugin_window.center_component.library_view.sequences_list);
         add_listener(plugin_window.center_component.library_view.sequences_list);
 
-        remove_listener(plugin_window.center_component.library_view.active_sessions_view
+        remove_listener(plugin_window.center_component.library_view.active_sessions_list
                             .sessions_list_box);
-        add_listener(plugin_window.center_component.library_view.active_sessions_view
+        add_listener(plugin_window.center_component.library_view.active_sessions_list
                          .sessions_list_box);
 
         remove_listener(plugin_window.center_component.library_view.tunings_list);

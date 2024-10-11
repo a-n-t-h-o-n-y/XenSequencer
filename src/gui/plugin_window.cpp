@@ -8,7 +8,7 @@
 
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
-#include <xen/gui/active_sessions_view.hpp>
+#include <xen/gui/active_sessions_list.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/scale.hpp>
@@ -78,19 +78,19 @@ void PluginWindow::set_focus(std::string component_id)
             center_component.library_view.sequences_list.grabKeyboardFocus();
         }
     }
-    else if (component_id == to_lower(center_component.library_view.active_sessions_view
+    else if (component_id == to_lower(center_component.library_view.active_sessions_list
                                           .sessions_list_box.getComponentID()
                                           .toStdString()))
     {
-        if (center_component.library_view.active_sessions_view.sessions_list_box
+        if (center_component.library_view.active_sessions_list.sessions_list_box
                 .hasKeyboardFocus(true))
         {
             return;
         }
-        if (center_component.library_view.active_sessions_view.sessions_list_box
+        if (center_component.library_view.active_sessions_list.sessions_list_box
                 .isShowing())
         {
-            center_component.library_view.active_sessions_view.sessions_list_box
+            center_component.library_view.active_sessions_list.sessions_list_box
                 .grabKeyboardFocus();
         }
     }

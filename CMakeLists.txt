@@ -127,7 +127,7 @@ target_sources(XenSequencerLib
         src/inter_process_relay.cpp
 
         src/gui/accordion.cpp
-        src/gui/active_sessions_view.cpp
+        src/gui/active_sessions_list.cpp
         src/gui/bottom_bar.cpp
         src/gui/center_component.cpp
         src/gui/command_bar.cpp
@@ -173,7 +173,7 @@ target_sources(XenSequencerLib
         include/xen/xen_command_tree.hpp
 
         include/xen/gui/accordion.hpp
-        include/xen/gui/active_sessions_view.hpp
+        include/xen/gui/active_sessions_list.hpp
         include/xen/gui/bottom_bar.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp

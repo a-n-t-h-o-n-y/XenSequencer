@@ -85,14 +85,14 @@ class NameEdit : public juce::Label
  * Lists active session and current session names. Does not perform any logic, only
  * emits signals.
  */
-class ActiveSessionsView : public juce::Component
+class ActiveSessionsList : public juce::Component
 {
   public:
     NameEdit current_session_name_edit;
     SessionsListBox sessions_list_box;
 
   public:
-    ActiveSessionsView();
+    ActiveSessionsList();
 
   public:
     void resized() override;

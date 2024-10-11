@@ -518,7 +518,7 @@ void CenterComponent::update(SequencerState const &state, AuxState const &aux,
     state_ = state;
     sequence_view.update(state_, aux);
 
-    library_view.active_sessions_view.current_session_name_edit.set_name(display_name);
+    library_view.active_sessions_list.current_session_name_edit.set_name(display_name);
     library_view.scales_list.update(scales);
 }
 

@@ -8,8 +8,10 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/gui/active_sessions_view.hpp>
+#include <xen/gui/active_sessions_list.hpp>
 #include <xen/gui/directory_list_box.hpp>
+#include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/gui/xen_list_box.hpp>
 #include <xen/scale.hpp>
 
@@ -57,6 +59,43 @@ class ScalesList : public XenListBox
 
 // -------------------------------------------------------------------------------------
 
+template <typename ComponentType>
+class LabeledLibraryComponent : public juce::Component
+{
+  public:
+    juce::Label label;
+    ComponentType component;
+
+  public:
+    template <typename... Args>
+    explicit LabeledLibraryComponent(juce::String label_text, Args &&...args)
+        : component{std::forward<Args>(args)...}
+    {
+        this->addAndMakeVisible(label);
+        this->addAndMakeVisible(component);
+        label.setText(std::move(label_text), juce::dontSendNotification);
+        label.setFont(fonts::monospaced().bold.withHeight(18.f));
+    }
+
+  public:
+    void resized() override
+    {
+        auto fb = juce::FlexBox{};
+        fb.flexDirection = juce::FlexBox::Direction::column;
+        fb.items.add(juce::FlexItem{label}.withHeight(20.f));
+        fb.items.add(juce::FlexItem{component}.withFlex(1.f));
+        fb.performLayout(this->getLocalBounds());
+    }
+
+    void lookAndFeelChanged() override
+    {
+        label.setColour(juce::Label::backgroundColourId,
+                        this->findColour(ColorID::BackgroundMedium));
+    }
+};
+
+// -------------------------------------------------------------------------------------
+
 class LibraryView : public juce::Component
 {
   public:
@@ -67,23 +106,20 @@ class LibraryView : public juce::Component
     };
 
   public:
-    juce::Label label;
-    Divider divider_0;
-
-    juce::Label sequences_label;
-    DirectoryListBox sequences_list;
+    LabeledLibraryComponent<DirectoryListBox> sequences;
+    DirectoryListBox &sequences_list = sequences.component;
     Divider divider_1;
 
-    juce::Label active_sessions_label;
-    ActiveSessionsView active_sessions_view;
+    LabeledLibraryComponent<ActiveSessionsList> active_sessions;
+    ActiveSessionsList &active_sessions_list = active_sessions.component;
     Divider divider_2;
 
-    juce::Label tunings_label;
-    TuningsList tunings_list;
+    LabeledLibraryComponent<TuningsList> tunings;
+    TuningsList &tunings_list = tunings.component;
     Divider divider_3;
 
-    juce::Label scales_label;
-    ScalesList scales_list;
+    LabeledLibraryComponent<ScalesList> scales;
+    ScalesList &scales_list = scales.component;
 
   public:
     LibraryView(juce::File const &sequence_library_dir,
@@ -91,8 +127,6 @@ class LibraryView : public juce::Component
 
   public:
     void resized() override;
-
-    void lookAndFeelChanged() override;
 };
 
 } // namespace xen::gui

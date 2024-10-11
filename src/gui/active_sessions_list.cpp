@@ -1,4 +1,4 @@
-#include <xen/gui/active_sessions_view.hpp>
+#include <xen/gui/active_sessions_list.hpp>
 
 #include <algorithm>
 
@@ -101,13 +101,13 @@ void NameEdit::lookAndFeelChanged()
 
 // -------------------------------------------------------------------------------------
 
-ActiveSessionsView::ActiveSessionsView()
+ActiveSessionsList::ActiveSessionsList()
 {
     this->addAndMakeVisible(current_session_name_edit);
     this->addAndMakeVisible(sessions_list_box);
 }
 
-void ActiveSessionsView::resized()
+void ActiveSessionsList::resized()
 {
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
