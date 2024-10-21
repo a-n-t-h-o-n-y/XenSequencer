@@ -25,7 +25,6 @@ PluginWindow::PluginWindow(
     : center_component{sequence_library_dir, tuning_library_dir, audio_thread_state},
       bottom_bar{cmd_history}
 {
-    this->addAndMakeVisible(title_bar);
     this->addAndMakeVisible(center_component);
     this->addAndMakeVisible(bottom_bar);
 }
@@ -182,7 +181,6 @@ void PluginWindow::resized()
     auto flexbox = juce::FlexBox{};
     flexbox.flexDirection = juce::FlexBox::Direction::column;
 
-    flexbox.items.add(juce::FlexItem(title_bar).withHeight(23.f));
     flexbox.items.add(juce::FlexItem(center_component).withFlex(1.f));
     flexbox.items.add(
         juce::FlexItem(bottom_bar).withHeight(InputModeIndicator::preferred_size));
