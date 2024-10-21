@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -420,8 +421,8 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
     measure_view.update(state, aux);
 
     pitch_column.update(state.tuning.intervals.size());
-
-    if (state.tuning.octave == 1'200.f)
+    // std::ranges::equal_to to avoid float comparison warning
+    if (std::ranges::equal_to{}(state.tuning.octave, 1'200.f))
     {
         auto const selected_pitches = get_all_pitches(
             xen::get_selected_cell_const(state.sequence_bank, aux.selected));
