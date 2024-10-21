@@ -140,7 +140,6 @@ target_sources(XenSequencerLib
         src/gui/status_bar.cpp
         src/gui/themes.cpp
         src/gui/tile.cpp
-        src/gui/title_bar.cpp
         src/gui/tuning_reference.cpp
         src/gui/xen_list_box.cpp
 
@@ -187,7 +186,6 @@ target_sources(XenSequencerLib
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/tile.hpp
-        include/xen/gui/title_bar.hpp
         include/xen/gui/tuning_reference.hpp
         include/xen/gui/xen_list_box.hpp
 

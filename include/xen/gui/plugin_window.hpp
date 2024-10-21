@@ -8,7 +8,6 @@
 #include <xen/double_buffer.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/center_component.hpp>
-#include <xen/gui/title_bar.hpp>
 
 namespace xen
 {
@@ -28,7 +27,6 @@ namespace xen::gui
 class PluginWindow : public juce::Component
 {
   public:
-    TitleBar title_bar;
     CenterComponent center_component;
     BottomBar bottom_bar;
 
