@@ -10,9 +10,8 @@ namespace xen::gui
 
 /**
  * A custom ListBox to display string rows.
- *
  * @details Override the ListBoxModel::getNumRows, get_row_display, and item_selected
- * virtual functions to make this function\
+ * virtual functions.
  */
 class XenListBox : public juce::ListBoxModel, public juce::ListBox
 {
