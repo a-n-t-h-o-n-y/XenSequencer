@@ -69,6 +69,7 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 | `v` | Enable **Velocity** input mode, where the Up/Down arrows will change the note velocity |
 | `d` | Enable **Delay** input mode, where the Up/Down arrows will change the note delay |
 | `g` | Enable **Gate** input mode, where the Up/Down arrows will change the note gate |
+| `c` | Enable **Scale** input mode, where the Up/Down arrows will cycle through the currently loaded scales |
 | `esc` | Exit the command bar or revert to Note input mode |
 | `del` | Delete the current selection |
 

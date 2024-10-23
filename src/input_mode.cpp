@@ -23,6 +23,8 @@ auto operator<<(std::ostream &os, InputMode mode) -> std::ostream &
         return os << "delay";
     case InputMode::Gate:
         return os << "gate";
+    case InputMode::Scale:
+        return os << "scale";
     default:
         throw std::invalid_argument{"Invalid input mode: " +
                                     std::to_string(static_cast<int>(mode))};
@@ -50,6 +52,10 @@ auto operator>>(std::istream &is, InputMode &mode) -> std::istream &
     else if (lower_str == "gate")
     {
         mode = InputMode::Gate;
+    }
+    else if (lower_str == "scale")
+    {
+        mode = InputMode::Scale;
     }
     else
     {
