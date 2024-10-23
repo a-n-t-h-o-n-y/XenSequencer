@@ -16,6 +16,7 @@ enum class InputMode
     Delay,
     Gate,
     Scale,
+    ScaleMode,
 };
 
 auto operator<<(std::ostream &os, InputMode mode) -> std::ostream &;

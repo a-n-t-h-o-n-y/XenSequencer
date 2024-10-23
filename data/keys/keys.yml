@@ -27,6 +27,7 @@ SequenceView:
   "d": "inputMode delay"
   "g": "inputMode gate"
   "c": "inputMode scale"
+  "m": "inputMode scaleMode"
 
   # UI Display
   "Shift + :": "show commandbar;focus commandbar"
