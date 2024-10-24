@@ -7,6 +7,8 @@
 #  [v] : Velocity
 #  [d] : Delay
 #  [g] : Gate
+#  [c] : Scale
+#  [m] : ScaleMode
 
 # Shift is shift key
 # Cmd is Ctrl or Command depending on OS
@@ -109,6 +111,12 @@ SequenceView:
   "[g] + Cmd + ArrowDown": "shift Gate -0.01"
   "[g] + Cmd + k": "shift Gate +0.01"
   "[g] + Cmd + ArrowUp": "shift Gate +0.01"
+
+  # ShiftScaleMode
+  "[m] + j": "shift scaleMode -1"
+  "[m] + ArrowDown": "shift scaleMode -1"
+  "[m] + k": "shift scaleMode +1"
+  "[m] + ArrowUp": "shift scaleMode +1"
 
   # Misc
   "delete": "delete selection"

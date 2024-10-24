@@ -5,6 +5,8 @@
 #  [v] : Velocity
 #  [d] : Delay
 #  [g] : Gate
+#  [c] : Scale
+#  [m] : ScaleMode
 
 # Special Keys - case does not matter
 # "Cmd" - Same as Control key on Linux/Windows

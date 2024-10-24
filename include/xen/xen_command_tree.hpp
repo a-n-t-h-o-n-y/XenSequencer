@@ -809,7 +809,22 @@ namespace xen
                     ps.timeline.stage({std::move(seq), std::move(aux)});
                     return mdebug("Selected Sequence Shifted");
                 },
-                ArgInfo<int>{"amount"}))),
+                ArgInfo<int>{"amount"}),
+
+            cmd(
+                "scaleMode", "Increment/Decrement the mode of the current scale.",
+                [](PS &ps, sequence::Pattern const &, int amount) {
+                    auto [seq, aux] = ps.timeline.get_state();
+                    if (!seq.scale.has_value())
+                    {
+                        return merror("No Scale Set");
+                    }
+                    seq.scale = action::shift_scale_mode(*seq.scale, amount);
+                    ps.timeline.stage({std::move(seq), std::move(aux)});
+                    ps.timeline.set_commit_flag();
+                    return minfo("Scale Mode Shifted");
+                },
+                ArgInfo<int>{"amount", 1}))),
 
         pattern(cmd_group(
             "humanize", ArgInfo<InputMode>{"mode"},

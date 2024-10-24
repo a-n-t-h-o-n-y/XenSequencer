@@ -1,12 +1,12 @@
 #include <xen/actions.hpp>
 
-#include <optional>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -220,6 +220,14 @@ auto set_selected_sequence(AuxState aux, int index) -> AuxState
     aux.selected.cell.clear();
 
     return aux;
+}
+
+auto shift_scale_mode(Scale scale, int amount) -> Scale
+{
+    auto const size = (int)scale.intervals.size();
+    auto const offset = (scale.mode - 1 + amount) % size;
+    scale.mode = (std::uint8_t)((offset >= 0) ? offset + 1 : offset + size + 1);
+    return scale;
 }
 
 } // namespace xen::action

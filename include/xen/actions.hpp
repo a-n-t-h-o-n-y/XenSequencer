@@ -96,4 +96,6 @@ void save_measure(sequence::Measure const &measure,
 
 [[nodiscard]] auto set_selected_sequence(AuxState aux, int index) -> AuxState;
 
+[[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
+
 } // namespace xen::action

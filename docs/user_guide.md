@@ -70,6 +70,7 @@ All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user d
 | `d` | Enable **Delay** input mode, where the Up/Down arrows will change the note delay |
 | `g` | Enable **Gate** input mode, where the Up/Down arrows will change the note gate |
 | `c` | Enable **Scale** input mode, where the Up/Down arrows will cycle through the currently loaded scales |
+| `m` | Enable **ScaleMode** input mode, where the Up/Down arrows will change the scale mode |
 | `esc` | Exit the command bar or revert to Note input mode |
 | `del` | Delete the current selection |
 
@@ -110,6 +111,7 @@ The colon key `:` opens the command bar, it is used to type and execute commands
 | `[pattern] randomize [note\|velocity\|delay\|gate] ...` | Randomize the given property of the current selection. |
 | `save measure [filepath]` | Save the current measure to a `json` file. |
 | `load measure [filepath]` | Load the current measure from a `json` file. |
+| `shift scaleMode [amount=1]` | Increment/Decrement the mode of the current scale. |
 
 ## Contact and Support
 Contact by opening an issue or starting a discussion at the [github page](https://github.com/a-n-t-h-o-n-y/XenSequencer) for this project.
