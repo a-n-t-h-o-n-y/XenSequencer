@@ -229,7 +229,7 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     {
         scale_.set_value(state.scale->name);
         scale_mode_.setVisible(true);
-        scale_mode_.set_value(juce::String(state.scale->mode + 1));
+        scale_mode_.set_value(juce::String(state.scale->mode));
     }
     else
     {

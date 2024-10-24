@@ -17,8 +17,8 @@ struct Scale
 {
     std::string name; // Is stored as all lower case when read in via YAML.
     std::size_t tuning_length;
-    std::vector<std::uint8_t> intervals;
-    std::uint8_t mode; // [0, intervals.size)
+    std::vector<std::uint8_t> intervals; // 0 is implied
+    std::uint8_t mode;                   // [1, intervals.size]
 
     [[nodiscard]] auto operator==(Scale const &other) const -> bool;
     [[nodiscard]] auto operator!=(Scale const &other) const -> bool;

@@ -685,7 +685,7 @@ namespace xen
                         return merror("Invalid Mode Index. Must be in range [1, "
                                       "scale size).");
                     }
-                    state.sequencer.scale->mode = (std::uint8_t)(mode_index - 1);
+                    state.sequencer.scale->mode = (std::uint8_t)mode_index;
                     ps.timeline.stage(std::move(state));
                     ps.timeline.set_commit_flag();
                     return minfo("Scale Mode Set");
