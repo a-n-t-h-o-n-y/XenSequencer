@@ -230,4 +230,39 @@ auto shift_scale_mode(Scale scale, int amount) -> Scale
     return scale;
 }
 
+auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
+                       std::size_t scale_count) -> std::optional<std::size_t>
+{
+    if (scale_count == 0)
+    {
+        return std::nullopt;
+    }
+
+    if (shift_amount == 0)
+    {
+        return current;
+    }
+
+    if (current == std::nullopt)
+    {
+        current = 0;
+        shift_amount -= 1;
+    }
+
+    auto offset = ((int)*current + shift_amount) % ((int)scale_count + 1);
+    if (offset < 0)
+    {
+        offset = offset + (int)scale_count + 1;
+    }
+
+    if (offset == (int)scale_count) // chromatic
+    {
+        return std::nullopt;
+    }
+    else
+    {
+        return offset;
+    }
+}
+
 } // namespace xen::action

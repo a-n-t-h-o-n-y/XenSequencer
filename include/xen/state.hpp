@@ -141,6 +141,7 @@ struct PluginState
     inline static SharedState shared{};
     std::unique_ptr<juce::LookAndFeel> laf{nullptr};
     std::vector<Scale> scales{};
+    std::optional<std::size_t> scale_shift_index{std::nullopt};
 };
 
 struct AudioThreadStateForGUI

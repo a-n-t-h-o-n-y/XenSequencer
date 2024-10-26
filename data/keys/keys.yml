@@ -112,6 +112,12 @@ SequenceView:
   "[g] + Cmd + k": "shift Gate +0.01"
   "[g] + Cmd + ArrowUp": "shift Gate +0.01"
 
+  # ShiftScale
+  "[c] + j": "shift scale -1"
+  "[c] + ArrowDown": "shift scale -1"
+  "[c] + k": "shift scale +1"
+  "[c] + ArrowUp": "shift scale +1"
+
   # ShiftScaleMode
   "[m] + j": "shift scaleMode -1"
   "[m] + ArrowDown": "shift scaleMode -1"

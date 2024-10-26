@@ -98,4 +98,8 @@ void save_measure(sequence::Measure const &measure,
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 
+[[nodiscard]] auto shift_scale_index(std::optional<std::size_t> current,
+                                     int shift_amount, std::size_t scale_count)
+    -> std::optional<std::size_t>;
+
 } // namespace xen::action

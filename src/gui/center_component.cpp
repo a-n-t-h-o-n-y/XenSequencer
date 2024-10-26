@@ -185,15 +185,7 @@ MeasureInfo::MeasureInfo()
     });
 
     scale_.on_text_change.connect([this](juce::String const &text) {
-        if (auto const input = to_lower(strip(text.toStdString()));
-            input == "none" || input == "clear")
-        {
-            this->on_command("clear scale");
-        }
-        else
-        {
-            this->on_command("set scale " + double_quote(strip(text.toStdString())));
-        }
+        this->on_command("set scale " + double_quote(strip(text.toStdString())));
     });
 
     scale_mode_.on_text_change.connect([this](juce::String const &text) {
@@ -234,7 +226,7 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     else
     {
         scale_mode_.setVisible(false);
-        scale_.set_value("None");
+        scale_.set_value("Chromatic");
     }
 
     {

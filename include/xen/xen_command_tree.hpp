@@ -657,6 +657,14 @@ namespace xen
                 "scale", "Set the current scale by name.",
                 [](PS &ps, sequence::Pattern const &, std::string name) {
                     name = to_lower(name);
+                    if (name == "chromatic")
+                    {
+                        auto state = ps.timeline.get_state();
+                        state.sequencer.scale = std::nullopt;
+                        ps.timeline.stage(std::move(state));
+                        ps.timeline.set_commit_flag();
+                        return minfo("Scale Set to " + name + ".");
+                    }
                     // Scale names are stored as all lower case.
                     auto const at = std::ranges::find(
                         ps.scales, name, [](Scale const &s) { return s.name; });
@@ -812,16 +820,36 @@ namespace xen
                 ArgInfo<int>{"amount"}),
 
             cmd(
+                "scale", "Move Forward/Backward through the loaded Scales.",
+                [](PS &ps, sequence::Pattern const &, int amount) {
+                    auto [seq, aux] = ps.timeline.get_state();
+                    auto const index = action::shift_scale_index(
+                        ps.scale_shift_index, amount, ps.scales.size());
+                    ps.scale_shift_index = index;
+                    if (index.has_value() && *index < ps.scales.size())
+                    {
+                        seq.scale = ps.scales[*index];
+                    }
+                    else
+                    {
+                        seq.scale = std::nullopt;
+                    }
+                    ps.timeline.stage({std::move(seq), std::move(aux)});
+                    ps.timeline.set_commit_flag();
+                    return minfo("Scale Shifted");
+                },
+                ArgInfo<int>{"amount", 1}),
+
+            cmd(
                 "scaleMode", "Increment/Decrement the mode of the current scale.",
                 [](PS &ps, sequence::Pattern const &, int amount) {
                     auto [seq, aux] = ps.timeline.get_state();
-                    if (!seq.scale.has_value())
+                    if (seq.scale.has_value())
                     {
-                        return merror("No Scale Set");
+                        seq.scale = action::shift_scale_mode(*seq.scale, amount);
+                        ps.timeline.stage({std::move(seq), std::move(aux)});
+                        ps.timeline.set_commit_flag();
                     }
-                    seq.scale = action::shift_scale_mode(*seq.scale, amount);
-                    ps.timeline.stage({std::move(seq), std::move(aux)});
-                    ps.timeline.set_commit_flag();
                     return minfo("Scale Mode Shifted");
                 },
                 ArgInfo<int>{"amount", 1}))),
