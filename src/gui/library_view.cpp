@@ -93,18 +93,18 @@ void ScalesList::update(std::vector<::xen::Scale> const &scales)
 
 auto ScalesList::getNumRows() -> int
 {
-    return (int)scales_.size();
+    return (int)scales_.size() + 1;
 }
 
 auto ScalesList::get_row_display(std::size_t index) -> juce::String
 {
-    return scales_[index].name;
+    return index == 0 ? "chromatic" : scales_[index - 1].name;
 }
 
 void ScalesList::item_selected(std::size_t index)
 {
-    assert(index < scales_.size());
-    this->on_scale_selected(scales_[index]);
+    assert(index < scales_.size() + 1);
+    this->on_scale_selected(index == 0 ? "chromatic" : scales_[index - 1].name);
 }
 
 auto ScalesList::getTooltipForRow(int row) -> juce::String

@@ -108,8 +108,8 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     // Scale Selected
     plugin_window.center_component.library_view.scales_list.on_scale_selected.connect(
-        [this](Scale const &scale) {
-            this->execute_command_string("set scale " + double_quote(scale.name));
+        [this](std::string const &scale_name) {
+            this->execute_command_string("set scale " + double_quote(scale_name));
         });
 
     // SequenceView Command Requests

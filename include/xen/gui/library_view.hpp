@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -36,7 +37,8 @@ class TuningsList : public DirectoryListBox
 class ScalesList : public XenListBox
 {
   public:
-    sl::Signal<void(::xen::Scale const &)> on_scale_selected;
+    // Emits scale name
+    sl::Signal<void(std::string const &)> on_scale_selected;
 
   public:
     ScalesList();
