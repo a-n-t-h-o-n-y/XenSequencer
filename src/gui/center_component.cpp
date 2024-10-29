@@ -122,7 +122,12 @@ void FieldEdit::resized()
     auto flex_box = juce::FlexBox{};
     flex_box.flexDirection = juce::FlexBox::Direction::row;
 
-    auto const width = ((float)key_.getFont().getStringWidth(key_.getText()) + 6.f);
+    auto const width = [&]() {
+        auto glyph_arrangement = juce::GlyphArrangement{};
+        glyph_arrangement.addLineOfText(key_.getFont(), key_.getText(), 0.f, 0.f);
+        return glyph_arrangement.getBoundingBox(0, -1, true).getWidth() + 6.f;
+    }();
+
     flex_box.items.add(juce::FlexItem{key_}.withWidth(width));
     flex_box.items.add(juce::FlexItem{value_}.withFlex(1));
 
