@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
@@ -135,6 +136,32 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
+void draw_note_border(juce::Graphics &g, juce::Rectangle<float> bounds,
+                      sequence::Note const &note, juce::Colour border_color)
+{
+    auto const thickness = 0.8f;
+    g.setColour(border_color);
+    // Top
+    g.fillRect(bounds.withHeight(thickness));
+
+    // Bottom
+    g.fillRect(bounds.withHeight(thickness).withY(bounds.getY() + bounds.getHeight() -
+                                                  thickness));
+
+    // Left
+    if (std::not_equal_to{}(note.delay, 0.f))
+    {
+        g.fillRect(bounds.withWidth(thickness));
+    }
+
+    // Right
+    if (std::not_equal_to{}(note.gate, 1.f))
+    {
+        g.fillRect(bounds.withWidth(thickness).withX(bounds.getX() + bounds.getWidth() -
+                                                     thickness));
+    }
+}
+
 void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 {
     auto path = juce::Path{};
@@ -227,8 +254,8 @@ void Note::paint(juce::Graphics &g)
     auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
     g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
     g.fillRect(pitch_bounds);
-    g.setColour(this->findColour(ColorID::ForegroundInverse));
-    g.drawRect(pitch_bounds, 0.8f);
+    draw_note_border(g, pitch_bounds, note_,
+                     this->findColour(ColorID::ForegroundInverse));
 
     // Paint Octave Text
     auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
