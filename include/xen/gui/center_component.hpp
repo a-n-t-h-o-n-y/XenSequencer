@@ -105,12 +105,12 @@ class MeasureInfo : public juce::Component
     using BorderedFieldEdit = RightBordered<FieldEdit>;
 
     BorderedFieldEdit time_signature_;
-    BorderedFieldEdit base_frequency_;
-    BorderedFieldEdit measure_name_;
-    BorderedFieldEdit tuning_name_;
     BorderedFieldEdit key_;
+    BorderedFieldEdit base_frequency_;
     BorderedFieldEdit scale_;
     BorderedFieldEdit scale_mode_;
+    BorderedFieldEdit tuning_name_;
+    BorderedFieldEdit measure_name_;
 };
 
 // -------------------------------------------------------------------------------------

@@ -141,27 +141,23 @@ MeasureInfo::MeasureInfo()
     this->setComponentID("MeasureInfo");
 
     this->addAndMakeVisible(time_signature_);
-    this->addAndMakeVisible(base_frequency_);
-    this->addAndMakeVisible(measure_name_);
-    this->addAndMakeVisible(tuning_name_);
     this->addAndMakeVisible(key_);
+    this->addAndMakeVisible(base_frequency_);
     this->addAndMakeVisible(scale_);
     this->addAndMakeVisible(scale_mode_);
+    this->addAndMakeVisible(tuning_name_);
+    this->addAndMakeVisible(measure_name_);
 
     auto const font = fonts::monospaced().regular.withHeight(17.f);
+
     time_signature_.set_font(font);
     time_signature_.set_key("Time Signature");
 
-    base_frequency_.set_font(font);
-    base_frequency_.set_key("Base Frequency (Hz)");
-
-    measure_name_.set_font(font);
-
-    tuning_name_.set_font(font);
-    tuning_name_.set_key("Tuning");
-
     key_.set_font(font);
     key_.set_key("Key");
+
+    base_frequency_.set_font(font);
+    base_frequency_.set_key("Zero Freq. (Hz)");
 
     scale_.set_font(font);
     scale_.set_key("Scale");
@@ -169,24 +165,21 @@ MeasureInfo::MeasureInfo()
     scale_mode_.set_font(font);
     scale_mode_.set_key("Mode");
 
+    tuning_name_.set_font(font);
+    tuning_name_.set_key("Tuning");
+
+    measure_name_.set_font(font);
+
     time_signature_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set measure timesignature " + text.toStdString());
     });
 
-    base_frequency_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning basefrequency " + text.toStdString());
-    });
-
-    measure_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set measure name " + double_quote(strip(text.toStdString())));
-    });
-
-    tuning_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning name " + double_quote(strip(text.toStdString())));
-    });
-
     key_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set key " + text.toStdString());
+    });
+
+    base_frequency_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set tuning basefrequency " + text.toStdString());
     });
 
     scale_.on_text_change.connect([this](juce::String const &text) {
@@ -195,6 +188,14 @@ MeasureInfo::MeasureInfo()
 
     scale_mode_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set mode " + text.toStdString());
+    });
+
+    tuning_name_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set tuning name " + double_quote(strip(text.toStdString())));
+    });
+
+    measure_name_.on_text_change.connect([this](juce::String const &text) {
+        this->on_command("set measure name " + double_quote(strip(text.toStdString())));
     });
 }
 
@@ -208,18 +209,12 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     }
 
     {
+        key_.set_value(std::to_string(state.key));
+    }
+
+    {
         auto const text = juce::String{state.base_frequency};
         base_frequency_.set_value(text);
-    }
-
-    {
-        auto const index = aux.selected.measure;
-        measure_name_.set_key(juce::String{index});
-        measure_name_.set_value(state.measure_names[index]);
-    }
-
-    {
-        tuning_name_.set_value(state.tuning_name);
     }
 
     if (state.scale.has_value())
@@ -235,7 +230,13 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     }
 
     {
-        key_.set_value(std::to_string(state.key));
+        tuning_name_.set_value(state.tuning_name);
+    }
+
+    {
+        auto const index = aux.selected.measure;
+        measure_name_.set_key(juce::String{index});
+        measure_name_.set_value(state.measure_names[index]);
     }
 
     this->resized();
@@ -247,15 +248,15 @@ void MeasureInfo::resized()
     flex_box.flexDirection = juce::FlexBox::Direction::row;
 
     flex_box.items.add(juce::FlexItem{time_signature_}.withFlex(0.8f));
-    flex_box.items.add(juce::FlexItem{base_frequency_}.withFlex(1.f));
-    flex_box.items.add(juce::FlexItem{measure_name_}.withFlex(1.f));
-    flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1.f));
     flex_box.items.add(juce::FlexItem{key_}.withFlex(0.333f));
+    flex_box.items.add(juce::FlexItem{base_frequency_}.withFlex(0.8f));
     flex_box.items.add(juce::FlexItem{scale_}.withFlex(1.f));
     if (scale_mode_.isVisible())
     {
         flex_box.items.add(juce::FlexItem{scale_mode_}.withFlex(0.4f));
     }
+    flex_box.items.add(juce::FlexItem{tuning_name_}.withFlex(1.f));
+    flex_box.items.add(juce::FlexItem{measure_name_}.withFlex(1.f));
 
     flex_box.performLayout(this->getLocalBounds());
 }
