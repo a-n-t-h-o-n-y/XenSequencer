@@ -1034,7 +1034,10 @@ namespace xen
                 return minfo("Stepped");
             },
             ArgInfo<std::size_t>{"count"}, ArgInfo<int>{"pitch_distance"},
-            ArgInfo<float>{"velocity_distance", 0.f}));
+            ArgInfo<float>{"velocity_distance", 0.f}),
+
+        cmd("version", "Print the current version string.",
+            [](PS &) { return minfo(std::string{"v"} + VERSION); }));
 }
 
 using XenCommandTree = decltype(create_command_tree());
