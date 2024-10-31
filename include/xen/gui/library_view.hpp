@@ -92,7 +92,7 @@ class LabeledLibraryComponent : public juce::Component
     void lookAndFeelChanged() override
     {
         label.setColour(juce::Label::backgroundColourId,
-                        this->findColour(ColorID::BackgroundMedium));
+                        this->findColour(ColorID::BackgroundLow));
     }
 };
 
