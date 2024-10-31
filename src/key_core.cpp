@@ -37,11 +37,21 @@ using namespace xen;
  * @return YAML::Node The merged YAML node.
  * @throws YAML::Exception if there is an error parsing the YAML files.
  * @throws std::runtime_error if the YAML file structure is invalid.
+ * @throws std::runtime_error if either file is larger than 128MB
  */
 [[nodiscard]] auto merge_yaml_files(std::filesystem::path const &base_filepath,
                                     std::filesystem::path const &overlay_filepath)
     -> YAML::Node
 {
+    if (std::filesystem::file_size(base_filepath) > (128 * 1'024 * 1'024))
+    {
+        throw std::runtime_error{"System keys file size exceeds 128MB"};
+    }
+    if (std::filesystem::file_size(overlay_filepath) > (128 * 1'024 * 1'024))
+    {
+        throw std::runtime_error{"User keys file size exceeds 128MB"};
+    }
+
     auto base = YAML::LoadFile(base_filepath.string());
     auto overlay = YAML::LoadFile(overlay_filepath.string());
     base.remove("version");
@@ -353,8 +363,8 @@ KeyCore::KeyCore(std::vector<KeyConfig> const &configs)
     }
 }
 
-auto KeyCore::find_action(const juce::KeyPress &key,
-                          InputMode mode) const -> std::optional<std::string>
+auto KeyCore::find_action(const juce::KeyPress &key, InputMode mode) const
+    -> std::optional<std::string>
 {
     // Check mode-sensitive actions first
     auto const it_mode = mode_sensitive_actions_.find(mode);

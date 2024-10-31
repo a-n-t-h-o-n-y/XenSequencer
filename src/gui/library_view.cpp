@@ -56,7 +56,7 @@ auto TuningsList::getTooltipForRow(int row) -> juce::String
             {
                 return at->second;
             }
-            else if (file->getSize() < 1'000'000)
+            else if (file->getSize() < (1024 * 1'024))
             {
                 auto const tuning =
                     sequence::from_scala(file->getFullPathName().toStdString());

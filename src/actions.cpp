@@ -88,8 +88,8 @@ auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
     return {buffer, state};
 }
 
-auto paste(XenTimeline const &tl,
-           std::optional<sequence::Cell> const &copy_buffer) -> SequencerState
+auto paste(XenTimeline const &tl, std::optional<sequence::Cell> const &copy_buffer)
+    -> SequencerState
 {
     auto [state, aux] = tl.get_state();
     return paste_logic(state, aux, copy_buffer);
@@ -194,6 +194,11 @@ auto save_measure(sequence::Measure const &measure,
 
 auto load_measure(std::filesystem::path const &filepath) -> sequence::Measure
 {
+    if (std::filesystem::file_size(filepath) > (128 * 1'024 * 1'024))
+    {
+        throw std::runtime_error{"Measure file size exceeds 128MB"};
+    }
+
     auto const json_str = read_file_to_string(filepath);
     return deserialize_measure(json_str);
 }
