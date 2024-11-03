@@ -243,12 +243,13 @@ void MidiEngine::update(SequencerState const &sequencer, DAWState const &daw)
 {
     for (auto i = std::size_t{0}; i < sequencer.sequence_bank.size(); ++i)
     {
-        rendered_midi_[i].midi = render_measure(
-            sequencer.sequence_bank[i], sequencer.tuning, sequencer.base_frequency, daw,
-            sequencer.scale, sequencer.key, sequencer.scale_translate_direction);
-
-        rendered_midi_[i].sample_count = sequence::samples_count(
-            {sequencer.sequence_bank[i]}, daw.sample_rate, daw.bpm);
+        auto const &measure = sequencer.sequence_bank[i];
+        rendered_midi_[i] = {
+            .midi = render_measure(measure, sequencer.tuning, sequencer.base_frequency,
+                                   daw, sequencer.scale, sequencer.key,
+                                   sequencer.scale_translate_direction),
+            .sample_count = sequence::samples_count(measure, daw.sample_rate, daw.bpm),
+        };
     }
 }
 
