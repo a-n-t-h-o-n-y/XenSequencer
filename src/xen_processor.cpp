@@ -99,22 +99,15 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     }
 
     { // Receive new SequencerState data (if any) and render MIDI.
-        auto new_state = SequencerState{};
-        bool new_state_received = false;
-
-        while (new_state_transfer_queue.pop(new_state)) // Keep only the most recent
+        while (new_state_transfer_queue.pop(audio_thread_state_.sequencer))
         {
-            new_state_received = true;
+            update_needed = true;
         }
 
-        if (new_state_received)
+        if (update_needed)
         {
-            audio_thread_state_.midi_engine.update(std::move(new_state),
+            audio_thread_state_.midi_engine.update(audio_thread_state_.sequencer,
                                                    audio_thread_state_.daw);
-        }
-        else if (update_needed)
-        {
-            audio_thread_state_.midi_engine.update(audio_thread_state_.daw);
         }
     }
 

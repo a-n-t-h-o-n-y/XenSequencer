@@ -48,7 +48,7 @@ class MidiEngine
 
   public:
     /**
-     * Translates a slice of trigger notes to a slice of seuence notes.
+     * Translates a slice of trigger notes to a slice of sequence notes.
      *
      * @details This is intended to be used in the processBlock function to translate
      * incoming midi triggers to the corresponding output sequence notes. This will
@@ -56,28 +56,22 @@ class MidiEngine
      * @param triggers The incoming midi triggers.
      * @param current_sample_count The current sample count since the start of the
      * plugin.
+     * @param buffer_length
      * @return The midi buffer to be sent to the DAW.
      */
     [[nodiscard]] auto step(juce::MidiBuffer const &triggers,
-                            std::uint64_t current_sample_count,
-                            int buffer_length) -> juce::MidiBuffer;
+                            std::uint64_t current_sample_count, int buffer_length)
+        -> juce::MidiBuffer;
 
     /**
-     * Render the current SequencerState to MIDI and save in rendered_.
-     *
-     * @param daw The current state of the DAW.
-     */
-    void update(DAWState daw);
-
-    /**
-     * Render the current SequencerState to MIDI and save in rendered_.
+     * Render the current SequencerState to MIDI and save in rendered_midi_.
      *
      * @details This only renders Measures where there has been a change since the
      * previous render, and stores updates in rendered_.
      * @param sequencer The current state of the sequencer.
      * @param daw The current state of the DAW.
      */
-    void update(SequencerState sequencer, DAWState daw);
+    void update(SequencerState const &sequencer, DAWState const &daw);
 
     /**
      * For use by GUI thread, stored in processor by processBlock
@@ -100,16 +94,19 @@ class MidiEngine
                                                int midi_number) -> int;
 
   private:
-    SequencerState sequencer_copy_{};
-    DAWState daw_copy_{.bpm = -1.f}; // force render on first call to render(...)
-
     // Index is the MIDI trigger note, value contains info about the emitted sequence.
     std::array<LiveNote, 16> live_notes_;
 
     // Is a member only to avoid allocations, is cleared on every step(...) call.
     std::vector<Slice> slices_;
 
-    std::array<juce::MidiBuffer, 16> rendered_midi_;
+    struct MidiSequence
+    {
+        juce::MidiBuffer midi;
+        std::uint32_t sample_count;
+    };
+
+    std::array<MidiSequence, 16> rendered_midi_;
 };
 
 } // namespace xen
