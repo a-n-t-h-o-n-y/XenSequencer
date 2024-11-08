@@ -114,12 +114,11 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // Calculate MIDI buffer slice
     auto next_slice = audio_thread_state_.midi_engine.step(
         midi_buffer, audio_thread_state_.accumulated_sample_count,
-        buffer.getNumSamples());
+        (SampleCount)buffer.getNumSamples());
 
     midi_buffer.swapWith(next_slice);
 
-    audio_thread_state_.accumulated_sample_count +=
-        (std::uint64_t)buffer.getNumSamples();
+    audio_thread_state_.accumulated_sample_count += (SampleCount)buffer.getNumSamples();
 
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,

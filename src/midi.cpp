@@ -1,10 +1,7 @@
 #include <xen/midi.hpp>
 
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
+#include <cstddef>
 #include <optional>
-#include <stdexcept>
 #include <variant>
 #include <vector>
 
@@ -25,9 +22,11 @@ namespace
 /**
  * Maps any Notes to the list of valid pitches
  */
-[[nodiscard]] auto scale_translate_cell(
-    sequence::Cell const &cell, std::vector<int> const &valid_pitches,
-    std::size_t tuning_length, xen::TranslateDirection direction) -> sequence::Cell
+[[nodiscard]] auto scale_translate_cell(sequence::Cell const &cell,
+                                        std::vector<int> const &valid_pitches,
+                                        std::size_t tuning_length,
+                                        xen::TranslateDirection direction)
+    -> sequence::Cell
 {
     return std::visit(
         sequence::utility::overload{
@@ -52,8 +51,8 @@ namespace
 /**
  * Transposes notes based on a key value.
  */
-[[nodiscard]] auto key_transpose_cell(sequence::Cell const &cell,
-                                      int key) -> sequence::Cell
+[[nodiscard]] auto key_transpose_cell(sequence::Cell const &cell, int key)
+    -> sequence::Cell
 {
     return std::visit(
         sequence::utility::overload{
@@ -78,10 +77,11 @@ namespace
 namespace xen
 {
 
-auto state_to_timeline(
-    sequence::Measure measure, sequence::Tuning const &tuning, float base_frequency,
-    DAWState const &daw_state, std::optional<Scale> const &scale, int key,
-    TranslateDirection scale_translate_direction) -> sequence::midi::EventTimeline
+auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
+                       float base_frequency, DAWState const &daw_state,
+                       std::optional<Scale> const &scale, int key,
+                       TranslateDirection scale_translate_direction)
+    -> sequence::midi::EventTimeline
 {
     if (scale)
     {
@@ -122,162 +122,37 @@ auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::Midi
     return buffer;
 }
 
-auto find_subrange(juce::MidiBuffer const &buffer, int begin, int end,
-                   int loop_boundary) -> juce::MidiBuffer
+auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
+                    SampleIndex begin, SampleIndex end) -> juce::MidiBuffer
 {
-    if (begin < 0 || end < 0)
-    {
-        throw std::out_of_range{"begin and end must be greater than or equal to zero."};
-    }
+    auto out_buffer = juce::MidiBuffer{};
+    auto current_sample = begin;
 
-    auto sub_buffer = juce::MidiBuffer{};
-
-    if (begin <= end)
+    while (current_sample < end)
     {
-        for (auto at = buffer.findNextSamplePosition(begin); at != buffer.cend(); ++at)
+        auto const wrapped_position = current_sample % buffer_length;
+
+        for (auto at = buffer.findNextSamplePosition((int)wrapped_position);
+             at != buffer.cend(); ++at)
         {
             auto const &event = *at;
-            if (event.samplePosition < end)
-            {
-                sub_buffer.addEvent(event.data, event.numBytes,
-                                    event.samplePosition - begin);
-            }
-            else
+            auto const absolute_position =
+                current_sample + (SampleIndex)event.samplePosition - wrapped_position;
+
+            if (absolute_position >= end)
             {
                 break;
             }
-        }
-    }
-    // Loop from 'begin' to the loop boundary, then from the start to 'end'
-    else
-    {
-        for (auto at = buffer.findNextSamplePosition(begin); at != buffer.cend(); ++at)
-        {
-            auto const &event = *at;
-            sub_buffer.addEvent(event.data, event.numBytes,
-                                event.samplePosition - begin);
+
+            auto const relative_position = (int)(absolute_position - begin);
+            out_buffer.addEvent(event.data, event.numBytes, relative_position);
         }
 
-        for (auto at = buffer.findNextSamplePosition(0); at != buffer.cend(); ++at)
-        {
-            auto const &event = *at;
-            if (event.samplePosition < end)
-            {
-                // Adjust the sample position so it appears contiguous with the first
-                sub_buffer.addEvent(event.data, event.numBytes,
-                                    event.samplePosition + loop_boundary - begin);
-            }
-            else
-            {
-                break;
-            }
-        }
+        // Move current_sample forward by the remaining length in this buffer segment
+        current_sample += buffer_length - wrapped_position;
     }
 
-    return sub_buffer;
-}
-
-auto find_most_recent_pitch_bend_event(juce::MidiBuffer const &buffer,
-                                       long sample_begin)
-    -> std::optional<juce::MidiMessage>
-{
-    auto most_recent_pitch_bend = std::optional<juce::MidiMessage>{};
-
-    // Loop through the buffer once, starting from iter
-    for (auto iter = buffer.findNextSamplePosition((int)(sample_begin + 1L));
-         iter != buffer.cend(); ++iter)
-    {
-        auto const metadata = *iter;
-        if (metadata.getMessage().isPitchWheel())
-        {
-            most_recent_pitch_bend = metadata.getMessage();
-        }
-    }
-
-    // Loop from the beginning of the buffer to `sample_begin`
-    for (auto iter = buffer.cbegin(); iter != buffer.cend(); ++iter)
-    {
-        auto const metadata = *iter;
-
-        if (metadata.samplePosition > sample_begin)
-        {
-            break;
-        }
-
-        if (metadata.getMessage().isPitchWheel())
-        {
-            most_recent_pitch_bend = metadata.getMessage();
-        }
-    }
-
-    return most_recent_pitch_bend;
-}
-
-auto find_most_recent_note_event(juce::MidiBuffer const &buffer,
-                                 long sample_begin) -> std::optional<juce::MidiMessage>
-{
-    auto most_recent_event = std::optional<juce::MidiMessage>{};
-
-    // Loop through the buffer once, starting from iter
-    for (auto iter = buffer.findNextSamplePosition((int)(sample_begin + 1L));
-         iter != buffer.cend(); ++iter)
-    {
-        auto const metadata = *iter;
-        if (metadata.getMessage().isNoteOnOrOff())
-        {
-            most_recent_event = metadata.getMessage();
-        }
-    }
-
-    // Loop from the beginning of the buffer to `sample_begin`
-    for (auto iter = buffer.cbegin(); iter != buffer.cend(); ++iter)
-    {
-        auto const metadata = *iter;
-
-        if (metadata.samplePosition > sample_begin)
-        {
-            break;
-        }
-
-        if (metadata.getMessage().isNoteOnOrOff())
-        {
-            most_recent_event = metadata.getMessage();
-        }
-    }
-
-    return most_recent_event;
-}
-
-auto find_last_pitch_bend_event(juce::MidiBuffer const &midi_buffer)
-    -> std::optional<juce::MidiMessage>
-{
-    auto last_message = std::optional<juce::MidiMessage>{};
-
-    for (auto const &metadata : midi_buffer)
-    {
-        if (metadata.getMessage().isPitchWheel())
-        {
-            last_message = metadata.getMessage();
-        }
-    }
-
-    return last_message;
-}
-
-auto find_last_note_event(juce::MidiBuffer const &midi_buffer)
-    -> std::optional<juce::MidiMessage>
-{
-    auto last_message = std::optional<juce::MidiMessage>{};
-
-    for (auto const &metadata : midi_buffer)
-    {
-        if (metadata.getMessage().isNoteOnOrOff())
-        {
-            last_message = metadata.getMessage();
-        }
-    }
-
-    return last_message;
+    return out_buffer;
 }
 
 } // namespace xen

@@ -21,6 +21,18 @@
 namespace
 {
 
+auto const first_midi_trigger_note = 36;
+
+[[nodiscard]] auto note_to_index(int note) -> std::size_t
+{
+    return (std::size_t)(note - first_midi_trigger_note);
+}
+
+[[nodiscard]] auto is_valid_trigger(int note) -> bool
+{
+    return note >= first_midi_trigger_note && note < first_midi_trigger_note + 16;
+}
+
 /**
  * Renders a sequence::Measure as a MIDI buffer.
  *
@@ -71,30 +83,90 @@ void change_midi_channel(juce::MidiBuffer &midi_buffer, int new_channel)
 }
 
 /**
- * Finds the last dangling MIDI note on event in a MidiBuffer.
- *
- * @param buffer The MidiBuffer to search.
- * @return The last dangling MIDI note on event if found, otherwise std::nullopt.
+ * Return the last note on or note off MIDI event, or std::nullopt if none in \p buffer.
  */
-[[nodiscard]] auto find_dangling_note_on(juce::MidiBuffer const &buffer)
+[[nodiscard]] auto find_last_note_event(juce::MidiBuffer const &buffer)
     -> std::optional<juce::MidiMessage>
 {
-    auto last_note_on = std::optional<juce::MidiMessage>{};
-
+    auto last_note_event = std::optional<juce::MidiMessage>{std::nullopt};
     for (auto const &meta : buffer)
     {
-        auto const message = meta.getMessage();
-        if (message.isNoteOn())
+        if (auto const message = meta.getMessage(); message.isNoteOnOrOff())
         {
-            last_note_on = message;
+            last_note_event = message;
         }
-        else if (message.isNoteOff() && last_note_on)
+    }
+    return last_note_event;
+}
+
+/**
+ * Return the last pitch wheel MIDI event value, or -1 if none in \p buffer.
+ */
+[[nodiscard]] auto find_last_pitch_event(juce::MidiBuffer const &buffer) -> int
+{
+    auto last_pitch = -1;
+    for (auto const &meta : buffer)
+    {
+        if (auto const message = meta.getMessage(); message.isPitchWheel())
         {
-            last_note_on.reset();
+            last_pitch = message.getPitchWheelValue();
+        }
+    }
+    return last_pitch;
+}
+
+/**
+ * Create a new juce::MidiBuffer that has the half open range [begin, end) from \p midi.
+ */
+[[nodiscard]] auto slice(juce::MidiBuffer const &midi, xen::SampleIndex begin,
+                         xen::SampleIndex end) -> juce::MidiBuffer
+{
+    auto result = juce::MidiBuffer{};
+
+    for (auto it = midi.findNextSamplePosition((int)begin);
+         it != midi.cend() && (xen::SampleIndex)(*it).samplePosition < end; ++it)
+    {
+        result.addEvent((*it).getMessage(), (*it).samplePosition - (int)begin);
+    }
+
+    return result;
+}
+
+/**
+ * Finds an unused midi channel and returns it.
+ * @details A channel is considered unavailable if an active sequence is using it and
+ * does not have an `end` before `from`. Available channels are [2-16]. Returns -1 if
+ * there are no channels left to allocate.
+ */
+[[nodiscard]] auto allocate_channel(
+    std::vector<xen::MidiEngine::ActiveSequence> active_sequences,
+    xen::SampleIndex from) -> int
+{
+    // channel := index + 2;
+    auto used = std::array<bool, 15>{}; // Initialize all elements to false
+
+    // Mark used channels
+    for (auto const &seq : active_sequences)
+    {
+        auto const channel = seq.midi_channel;
+        assert(channel >= 2 && channel <= 16);
+
+        if (seq.end == (xen::SampleIndex)-1 || seq.end >= from)
+        {
+            used[(std::size_t)(channel - 2)] = true;
         }
     }
 
-    return last_note_on;
+    // Find the first unused number
+    for (auto i = std::size_t{0}; i < used.size(); ++i)
+    {
+        if (used[i] == false)
+        {
+            return (int)i + 2;
+        }
+    }
+
+    return -1; // If all numbers are used
 }
 
 } // namespace
@@ -102,139 +174,152 @@ void change_midi_channel(juce::MidiBuffer &midi_buffer, int new_channel)
 namespace xen
 {
 
-auto MidiEngine::step(juce::MidiBuffer const &triggers,
-                      std::uint64_t current_sample_count, int buffer_length)
-    -> juce::MidiBuffer
+auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
+                      SampleCount length) -> juce::MidiBuffer
 {
-    slices_.clear();
-
-    // Create a Slice for each of the existing trigger notes.
-    for (auto i = std::size_t{0}; i < live_notes_.size(); ++i)
+    // Make corrections for modified rendered_midi_ entries.
+    auto out_buffer = juce::MidiBuffer{};
+    for (auto &as : active_sequences_)
     {
-        auto &note = live_notes_[i];
-        if (note.channel != -1)
+        assert(as.rendered_midi_index < rendered_midi_.size());
+        auto const &rendered = rendered_midi_[as.rendered_midi_index];
+        auto const previous_slice =
+            slice(rendered.midi, 0, (offset - as.begin) % rendered.sample_count);
+        auto const note_event = find_last_note_event(previous_slice);
+        // Correct Note Value
+        if (!note_event.has_value() || note_event->isNoteOff()) // No Note
         {
-            slices_.push_back(Slice{
-                .begin = 0,
-                .end = -1, // placeholder value
-                .note = note,
-                .trigger_note = first_midi_trigger_note + (int)i,
-                .is_end = false,
-            });
+            // Note A -> Note Off
+            if (as.last_note_on != -1)
+            {
+                out_buffer.addEvent(
+                    juce::MidiMessage::noteOff(as.midi_channel, as.last_note_on), 0);
+                as.last_note_on = -1;
+            }
+        }
+        else if (note_event.has_value() && note_event->isNoteOn()) // Note
+        {
+            // Note Off -> Note A
+            if (as.last_note_on == -1)
+            {
+                out_buffer.addEvent(juce::MidiMessage::noteOn(
+                                        as.midi_channel, note_event->getNoteNumber(),
+                                        note_event->getVelocity()),
+                                    0);
+                as.last_note_on = note_event->getNoteNumber();
+                note_event->getPitchWheelValue();
+            }
+            // Note A -> Note B
+            else if (as.last_note_on != note_event->getNoteNumber())
+            {
+                out_buffer.addEvent(
+                    juce::MidiMessage::noteOff(as.midi_channel, as.last_note_on), 0);
+                out_buffer.addEvent(juce::MidiMessage::noteOn(
+                                        as.midi_channel, note_event->getNoteNumber(),
+                                        note_event->getVelocity()),
+                                    0);
+                as.last_note_on = note_event->getNoteNumber();
+            }
+        }
+
+        // Correct Pitch Wheel
+        auto const pitch_event = find_last_pitch_event(previous_slice);
+        if (pitch_event != -1 && as.last_pitch_wheel != pitch_event)
+        {
+            out_buffer.addEvent(
+                juce::MidiMessage::pitchWheel(as.midi_channel, pitch_event), 0);
+            as.last_pitch_wheel = pitch_event;
         }
     }
 
-    // Handle trigger notes on/off
-    for (auto const &metadata : triggers)
+    // Update active_sequences_ from midi_input.
+    for (auto const &metadata : midi_input)
     {
         auto const message = metadata.getMessage();
-        auto const sample = metadata.samplePosition;
+        auto const sample = offset + (SampleIndex)metadata.samplePosition;
+        if (message.getChannel() != 1)
+        {
+            continue;
+        }
 
         if (message.isNoteOn())
         {
-            auto const midi_number = message.getNoteNumber();
-            if (midi_number >= first_midi_trigger_note &&
-                midi_number < first_midi_trigger_note + 16)
+
+            if (auto const note = message.getNoteNumber(); is_valid_trigger(note))
             {
-                auto const channel = allocate_channel(slices_, midi_number);
-                if (channel != -1)
-                {
-                    auto &live_note = live_notes_[(
-                        std::size_t)(midi_number - first_midi_trigger_note)];
-                    live_note = {
-                        .channel = channel,
-                        .start_time = current_sample_count + (std::uint64_t)sample,
-                        .last_seq_midi_number = -1,
-                    };
-                    slices_.push_back({
-                        .begin = sample,
-                        .end = -1,
-                        .note = live_note,
-                        .trigger_note = midi_number,
-                        .is_end = false,
-                    });
-                }
+                active_sequences_.push_back({
+                    .begin = sample,
+                    .end = (SampleIndex)-1,
+                    .midi_channel = allocate_channel(active_sequences_, sample),
+                    .last_note_on = -1,
+                    .last_pitch_wheel = 8'192,
+                    .rendered_midi_index = note_to_index(note),
+                });
             }
         }
         else if (message.isNoteOff())
         {
-            auto const midi_number = message.getNoteNumber();
-            if (midi_number >= first_midi_trigger_note &&
-                midi_number < first_midi_trigger_note + 16)
+            auto const at = std::ranges::find(
+                active_sequences_, note_to_index(message.getNoteNumber()),
+                [](auto const &x) { return x.rendered_midi_index; });
+            if (at != std::end(active_sequences_))
             {
-                auto const slice_it =
-                    std::ranges::find_if(slices_, [midi_number](Slice const &slice) {
-                        return slice.trigger_note == midi_number && slice.end == -1;
-                    });
-                // It should always be found if DAW is consistent, but some are not.
-                if (slice_it != std::end(slices_))
-                {
-                    slice_it->end = sample;
-                    slice_it->is_end = true;
-
-                    auto &live_note = live_notes_[(
-                        std::size_t)(midi_number - first_midi_trigger_note)];
-                    live_note = {
-                        .channel = -1,
-                        .start_time = 0,
-                        .last_seq_midi_number = -1,
-                    };
-                }
+                at->end = sample;
             }
         }
+        else if (message.isAllNotesOff())
+        {
+            std::ranges::for_each(active_sequences_, [&](auto &x) { x.end = sample; });
+        }
     }
 
-    for (auto &slice : slices_)
+    // Grab MIDI from rendered_midi_ array.
+    for (auto &as : active_sequences_)
     {
-        if (slice.end == -1)
+        assert(as.rendered_midi_index < rendered_midi_.size());
+        auto const &rendered = rendered_midi_[as.rendered_midi_index];
+        auto const wbegin =
+            (SampleIndex)std::max((std::int64_t)offset - (std::int64_t)as.begin,
+                                  (std::int64_t)0) %
+            rendered.sample_count;
+        auto const wend =
+            wbegin + std::min(offset + length, as.end) - std::max(offset, as.begin);
+
+        auto midi = extract_window(rendered.midi, rendered.sample_count, wbegin, wend);
+
+        if (auto const last_note = find_last_note_event(midi); last_note.has_value())
         {
-            slice.end = buffer_length;
+            if (last_note->isNoteOn())
+            {
+                as.last_note_on = last_note->getNoteNumber();
+            }
+            else
+            {
+                assert(last_note->isNoteOff());
+                as.last_note_on = -1;
+            }
         }
+
+        if (auto const last_pitch = find_last_pitch_event(midi); last_pitch != -1)
+        {
+            as.last_pitch_wheel = last_pitch;
+        }
+
+        change_midi_channel(midi, as.midi_channel);
+
+        // Turn note off if a sequence is terminated (NoteOff from input buffer).
+        if (as.end != (SampleIndex)-1 && as.last_note_on != -1)
+        {
+            midi.addEvent(juce::MidiMessage::noteOff(as.midi_channel, as.last_note_on),
+                          as.end - offset);
+        }
+
+        out_buffer.addEvents(midi, 0, -1, std::max((int)as.begin - (int)offset, 0));
     }
 
-    // Grab MIDI output for each sequence slice
-    auto out_buffer = juce::MidiBuffer{};
-
-    for (auto &slice : slices_)
-    {
-        auto const index = (std::size_t)(slice.trigger_note - first_midi_trigger_note);
-        auto const samples_in_seq = rendered_midi_[index].sample_count;
-        auto const sample_offset = current_sample_count - slice.note.start_time;
-        auto const begin = (sample_offset + (std::size_t)slice.begin) % samples_in_seq;
-        auto const end = (sample_offset + (std::size_t)slice.end) % samples_in_seq;
-
-        auto midi_slice = find_subrange(rendered_midi_[index].midi, (int)begin,
-                                        (int)end, (int)samples_in_seq);
-
-        change_midi_channel(midi_slice, slice.note.channel);
-
-        auto const last_note = find_dangling_note_on(midi_slice);
-        if (last_note.has_value())
-        {
-            // Update current sequence note if exists
-            live_notes_[index].last_seq_midi_number = last_note->getNoteNumber();
-            slice.note.last_seq_midi_number = last_note->getNoteNumber();
-        }
-
-        // Add NoteOff Event if the slice is the last for the seq and trigger is off.
-        if (slice.is_end && slice.note.last_seq_midi_number != -1)
-        {
-            midi_slice.addEvent(
-                juce::MidiMessage::noteOff(slice.note.channel,
-                                           slice.note.last_seq_midi_number),
-                slice.end);
-        }
-
-        // TODO if slice.note.last_seq_midi_number != -1 and sequence has changed
-
-        // TODO if rendered midi does not match last seq midi number then send note off
-        // and note on. this only works if last seq midi number is saved from previous
-        // step() run
-        // Maybe this last note is kept in a separate array so that it isn't cleared
-        // each time, and also you can probably get rid of find dangling note on fn.
-
-        out_buffer.addEvents(midi_slice, 0, -1, slice.begin);
-    }
+    // Remove sequences as they become inactive.
+    std::erase_if(active_sequences_,
+                  [](auto const &x) { return x.end != (SampleIndex)-1; });
 
     return out_buffer;
 }
@@ -253,51 +338,15 @@ void MidiEngine::update(SequencerState const &sequencer, DAWState const &daw)
     }
 }
 
-auto MidiEngine::get_note_start_samples() const -> std::array<std::uint64_t, 16>
+auto MidiEngine::get_note_start_samples() const -> std::array<SampleIndex, 16>
 {
-    auto result = std::array<std::uint64_t, 16>{};
-    std::transform(std::cbegin(live_notes_), std::cend(live_notes_), std::begin(result),
-                   [](auto const &ln) {
-                       return ln.channel == -1 ? (std::uint64_t)-1 : ln.start_time;
-                   });
+    auto result = std::array<SampleIndex, 16>{};
+    result.fill((SampleIndex)-1);
+    for (auto const &as : active_sequences_)
+    {
+        result[as.rendered_midi_index] = as.begin;
+    }
     return result;
-}
-
-auto MidiEngine::allocate_channel(std::vector<Slice> const &slices, int midi_number)
-    -> int
-{
-    assert(midi_number >= first_midi_trigger_note &&
-           midi_number < first_midi_trigger_note + 16);
-
-    auto used = std::array<bool, 15>{}; // Initialize all elements to false
-
-    // Mark used numbers
-    for (auto const &[a_, b_, live_note, trigger_note, c_] : slices)
-    {
-        // Midi note can't be 'on' more than once at any given time, so reuse channel.
-        // TODO does the above mean you should only read ch 1 input triggers?
-        if (trigger_note == midi_number)
-        {
-            return live_note.channel;
-        }
-
-        auto const channel = live_note.channel;
-        if (channel >= 2 && channel <= 16)
-        {
-            used[(std::size_t)(channel - 2)] = true;
-        }
-    }
-
-    // Find the first unused number
-    for (auto i = std::size_t{0}; i < 15; ++i)
-    {
-        if (!used[i])
-        {
-            return (int)i + 2;
-        }
-    }
-
-    return -1; // Return -1 if all numbers are used
 }
 
 } // namespace xen

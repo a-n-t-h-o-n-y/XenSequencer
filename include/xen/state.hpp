@@ -34,6 +34,10 @@ class LookAndFeel;
 namespace xen
 {
 
+using SampleIndex = std::uint64_t;
+
+using SampleCount = std::uint64_t;
+
 using SequenceBank = std::array<sequence::Measure, 16>;
 
 /**
@@ -137,8 +141,8 @@ struct PluginState
 struct AudioThreadStateForGUI
 {
     DAWState daw;
-    std::uint64_t accumulated_sample_count;
-    std::array<std::uint64_t, 16> note_start_times;
+    SampleCount accumulated_sample_count;
+    std::array<SampleIndex, 16> note_start_times;
 };
 
 // -------------------------------------------------------------------------------------

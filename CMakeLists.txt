@@ -9,6 +9,7 @@ if(WIN32)
     cmake_policy(SET CMP0144 NEW)
 endif()
 set(Boost_USE_STATIC_LIBS ON)
+cmake_policy(SET CMP0167 OLD)
 find_package(Boost REQUIRED)
 
 add_subdirectory(external/signals-light)

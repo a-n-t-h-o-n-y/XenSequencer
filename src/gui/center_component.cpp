@@ -371,7 +371,7 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 void MeasureView::timerCallback()
 {
     auto const audio_thread_state = audio_thread_state_.read();
-    if (audio_thread_state.note_start_times[selected_measure_] != (std::uint64_t)-1)
+    if (audio_thread_state.note_start_times[selected_measure_] != (SampleIndex)-1)
     {
         auto const samples_in_measure = sequence::samples_count(
             measure_, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
