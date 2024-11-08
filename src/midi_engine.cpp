@@ -267,6 +267,10 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         {
             std::ranges::for_each(active_sequences_, [&](auto &x) { x.end = sample; });
         }
+        else
+        {
+            out_buffer.addEvent(message, metadata.samplePosition);
+        }
     }
 
     // Grab MIDI from rendered_midi_ array.
