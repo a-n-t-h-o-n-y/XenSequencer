@@ -237,10 +237,6 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     {
         auto const message = metadata.getMessage();
         auto const sample = offset + (SampleIndex)metadata.samplePosition;
-        if (message.getChannel() != 1)
-        {
-            continue;
-        }
 
         if (message.isNoteOn())
         {
@@ -311,7 +307,7 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         if (as.end != (SampleIndex)-1 && as.last_note_on != -1)
         {
             midi.addEvent(juce::MidiMessage::noteOff(as.midi_channel, as.last_note_on),
-                          as.end - offset);
+                          (int)(as.end - offset));
         }
 
         out_buffer.addEvents(midi, 0, -1, std::max((int)as.begin - (int)offset, 0));
