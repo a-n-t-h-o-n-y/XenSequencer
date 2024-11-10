@@ -25,8 +25,8 @@ namespace
  * @return nng_socket New socket.
  * @throws std::runtime_error if any errors encountered creating the socket.
  */
-[[nodiscard]] auto request_socket(std::string const &address,
-                                  int timeout = 0) -> nng_socket
+[[nodiscard]] auto request_socket(std::string const &address, int timeout = 0)
+    -> nng_socket
 {
     auto socket = nng_socket{};
 
@@ -66,8 +66,8 @@ namespace
  * @return nng_socket New socket.
  * @throws std::runtime_error if any errors encountered creating the socket.
  */
-[[nodiscard]] auto reply_socket(std::string const &address,
-                                int timeout = 0) -> nng_socket
+[[nodiscard]] auto reply_socket(std::string const &address, int timeout = 0)
+    -> nng_socket
 {
     auto socket = nng_socket{};
 

@@ -27,10 +27,10 @@ enum class MessageLevel : std::uint8_t
  * @param rhs The right-hand side MessageLevel.
  * @return A std::strong_ordering value indicating the comparison result.
  */
-[[nodiscard]] auto operator<=>(MessageLevel const lhs,
-                               MessageLevel const rhs) -> std::strong_ordering;
+[[nodiscard]] auto operator<=>(MessageLevel const lhs, MessageLevel const rhs)
+    -> std::strong_ordering;
 
-[[nodiscard]] auto operator<<(std::ostream &os, MessageLevel level) -> std::ostream &;
+auto operator<<(std::ostream &os, MessageLevel level) -> std::ostream &;
 
 /**
  * Return a MessageLevel::Debug message pair.

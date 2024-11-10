@@ -74,7 +74,7 @@ auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>
 auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
                         std::size_t tuning_length, TranslateDirection direction) -> int
 {
-    auto octave_shift = (int)std::floor(static_cast<double>(pitch) / tuning_length);
+    auto octave_shift = (int)std::floor((double)pitch / (double)tuning_length);
     auto normalized_pitch = euclid_mod(pitch, (int)tuning_length);
 
     auto it = std::ranges::lower_bound(valid_pitches, normalized_pitch);

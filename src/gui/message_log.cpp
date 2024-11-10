@@ -1,65 +1,54 @@
 #include <xen/gui/message_log.hpp>
 
-#include <cmath>
+#include <cassert>
+#include <cstddef>
+#include <sstream>
+#include <vector>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/gui/fonts.hpp>
-#include <xen/gui/themes.hpp>
+#include <xen/gui/xen_list_box.hpp>
 #include <xen/message_level.hpp>
-
 namespace xen::gui
 {
 
-void MessageLog::Log::append(juce::String const &text, juce::Colour color)
+MessageLog::MessageLog() : XenListBox{"MessageLog"}
 {
-    content_.append("\n" + juce::Time::getCurrentTime().toString(false, true, true) +
-                        " :: " + text,
-                    fonts::monospaced().regular.withHeight(18.f), color);
-    this->refresh();
-}
-
-void MessageLog::Log::paint(juce::Graphics &g)
-{
-    g.fillAll(this->findColour(ColorID::BackgroundHigh));
-    layout_.draw(g, this->getLocalBounds().toFloat());
-}
-
-void MessageLog::Log::resized()
-{
-    this->refresh();
-}
-
-void MessageLog::Log::refresh()
-{
-    layout_.createLayout(content_, (float)this->getWidth());
-    this->setSize(this->getWidth(), (int)std::ceil(layout_.getHeight()));
-    this->repaint();
-}
-
-// -------------------------------------------------------------------------------------
-
-MessageLog::MessageLog()
-{
-    this->setViewedComponent(&log_, false);
-    this->setComponentID("MessageLog");
-    this->setWantsKeyboardFocus(true);
 }
 
 void MessageLog::add_message(juce::String const &text, ::xen::MessageLevel level)
 {
-    // TODO On lookAndFeelUpdated you are not going to be able to change colors.
-    // You'd have to implement that with attribute string somehow.
+    auto oss = std::ostringstream{};
+    oss << level;
+    auto const level_str = juce::String{oss.str()};
 
-    log_.append(text, this->findColour(get_color_id(level)));
-    this->getVerticalScrollBar().setRangeLimits(0, log_.getHeight());
-    this->setViewPosition(0, log_.getHeight() - this->getHeight());
+    auto const max_level_length = 7;
+    assert(level_str.length() <= max_level_length);
+
+    auto const time_str = juce::Time::getCurrentTime().toString(false, true, true);
+
+    messages_.emplace_back(
+        time_str + " | " + level_str +
+        std::string((std::size_t)(max_level_length - level_str.length()), ' ') + " | " +
+        text);
+
+    this->updateContent();
 }
 
-void MessageLog::resized()
+auto MessageLog::getNumRows() -> int
 {
-    log_.setSize(this->getLocalBounds().getWidth(), 0);
+    return static_cast<int>(messages_.size());
+}
+
+auto MessageLog::get_row_display(std::size_t index) -> juce::String
+{
+    return (index < messages_.size()) ? messages_[index] : "";
+}
+
+void MessageLog::item_selected(std::size_t index)
+{
+    // Do nothing.
 }
 
 } // namespace xen::gui

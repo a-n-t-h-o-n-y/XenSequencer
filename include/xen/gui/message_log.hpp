@@ -1,44 +1,44 @@
 #pragma once
 
+#include <cassert>
+#include <cstddef>
+#include <sstream>
+#include <vector>
+
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <xen/gui/xen_list_box.hpp>
 #include <xen/message_level.hpp>
 
 namespace xen::gui
 {
 
-class MessageLog : public juce::Viewport
+class MessageLog : public XenListBox
 {
-    class Log : public juce::Component
-    {
-      public:
-        void append(juce::String const &text, juce::Colour color);
-
-      public:
-        void paint(juce::Graphics &g) override;
-
-        void resized() override;
-
-      private:
-        void refresh();
-
-      private:
-        juce::AttributedString content_;
-        juce::TextLayout layout_;
-    };
-
   public:
     MessageLog();
 
   public:
     void add_message(juce::String const &text, ::xen::MessageLevel level);
 
-  public:
-    void resized() override;
+    /**
+     * Gets the total number of rows (messages) in the log.
+     * @return The total number of rows.
+     */
+    [[nodiscard]] auto getNumRows() -> int override;
+
+    /**
+     * Returns the string to display for a given row.
+     * @param index The row index to display.
+     * @return The message to display at the specified row.
+     */
+    [[nodiscard]] auto get_row_display(std::size_t index) -> juce::String override;
+
+    void item_selected(std::size_t index) override;
 
   private:
-    Log log_;
+    std::vector<juce::String> messages_;
 };
 
 } // namespace xen::gui

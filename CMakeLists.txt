@@ -224,7 +224,7 @@ juce_add_plugin(XenSequencer
     PLUGIN_MANUFACTURER_CODE Juce           # A four-character manufacturer id with at least one upper-case character
     PLUGIN_CODE Dem0                        # A unique four-character plugin id with exactly one upper-case character
                                             # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
-    FORMATS VST3 # Standalone AU            # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
+    FORMATS VST3 Standalone # AU            # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
 )
 
 # `juce_generate_juce_header` will create a JuceHeader.h for a given target, which will be generated
@@ -265,7 +265,6 @@ target_link_libraries(XenSequencer
         XenSequencerLib
         juce::juce_audio_utils
         juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
 
