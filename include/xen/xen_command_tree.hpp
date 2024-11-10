@@ -66,10 +66,7 @@ namespace xen
 
         cmd("copy", "Put the current selection in the copy buffer.",
             [](PS &ps) {
-                {
-                    auto const lock = std::lock_guard{ps.shared.copy_buffer_mtx};
-                    ps.shared.copy_buffer = action::copy(ps.timeline);
-                }
+                action::copy(ps.timeline);
                 return minfo("Copied Selection");
             }),
 
@@ -77,13 +74,9 @@ namespace xen
             "Put the current selection in the copy buffer and replace it with a Rest.",
             [](PS &ps) {
                 auto [_, aux] = ps.timeline.get_state();
-                auto [buffer, state] = action::cut(ps.timeline);
+                auto state = action::cut(ps.timeline);
                 ps.timeline.stage({std::move(state), std::move(aux)});
                 ps.timeline.set_commit_flag();
-                {
-                    auto const lock = std::lock_guard{ps.shared.copy_buffer_mtx};
-                    ps.shared.copy_buffer = std::move(buffer);
-                }
                 return minfo("Cut Selection");
             }),
 
@@ -91,13 +84,7 @@ namespace xen
             "Overwrite the current selection with what is stored in the copy buffer.",
             [](PS &ps) {
                 auto [_, aux] = ps.timeline.get_state();
-                {
-                    auto const lock = std::lock_guard{ps.shared.copy_buffer_mtx};
-                    ps.timeline.stage({
-                        action::paste(ps.timeline, ps.shared.copy_buffer),
-                        std::move(aux),
-                    });
-                }
+                ps.timeline.stage({action::paste(ps.timeline), std::move(aux)});
                 ps.timeline.set_commit_flag();
                 return minfo("Pasted Over Selection");
             }),

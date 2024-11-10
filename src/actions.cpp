@@ -17,27 +17,10 @@
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
+#include <xen/copy_paste.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
-
-namespace
-{
-
-[[nodiscard]] auto paste_logic(xen::SequencerState &state, xen::AuxState const &aux,
-                               std::optional<sequence::Cell> const &copy_buffer)
-    -> xen::SequencerState
-{
-    if (!copy_buffer.has_value())
-    {
-        throw std::runtime_error{"Copy Buffer Is Empty"};
-    }
-    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
-    selected = *copy_buffer;
-    return state;
-}
-
-} // namespace
 
 namespace xen::action
 {
@@ -72,35 +55,48 @@ auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState
     return aux;
 }
 
-auto copy(XenTimeline const &tl) -> sequence::Cell
+void copy(XenTimeline const &tl)
 {
     auto const [state, aux] = tl.get_state();
-    return get_selected_cell_const(state.sequence_bank, aux.selected);
+    write_copy_buffer(get_selected_cell_const(state.sequence_bank, aux.selected));
 }
 
-auto cut(XenTimeline const &tl) -> std::pair<sequence::Cell, SequencerState>
+auto cut(XenTimeline const &tl) -> SequencerState
 {
-    auto const buffer = ::xen::action::copy(tl);
+    ::xen::action::copy(tl);
 
     auto [state, aux] = tl.get_state();
     auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
     selected = sequence::Rest{};
-    return {buffer, state};
+    return state;
 }
 
-auto paste(XenTimeline const &tl, std::optional<sequence::Cell> const &copy_buffer)
-    -> SequencerState
+auto paste(XenTimeline const &tl) -> SequencerState
 {
+    auto const cell = read_copy_buffer();
+
+    if (!cell.has_value())
+    {
+        throw std::runtime_error{"Copy Buffer Is Empty"};
+    }
+
     auto [state, aux] = tl.get_state();
-    return paste_logic(state, aux, copy_buffer);
+    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+    selected = *cell;
+    return state;
 }
 
 auto duplicate(XenTimeline const &tl) -> TrackedState
 {
-    auto const buffer = ::xen::action::copy(tl);
-    auto aux = ::xen::action::move_right(tl, 1);
-    auto [state, _] = tl.get_state();
-    return {::paste_logic(state, aux, buffer), std::move(aux)};
+    auto [state, aux] = tl.get_state();
+    auto selected_copy = get_selected_cell(state.sequence_bank, aux.selected);
+
+    auto new_selection = ::xen::move_right(state.sequence_bank, aux.selected, 1);
+    auto &selected = get_selected_cell(state.sequence_bank, new_selection);
+    selected = selected_copy;
+    aux.selected = new_selection;
+
+    return {state, aux};
 }
 
 auto set_input_mode(XenTimeline const &tl, InputMode mode) -> AuxState

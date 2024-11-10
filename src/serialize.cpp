@@ -158,6 +158,21 @@ static void from_json(nlohmann::json const &j, SequencerState &state)
 
 // -------------------------------------------------------------------------------------
 
+auto serialize_cell(sequence::Cell const &c) -> std::string
+{
+    auto json = nlohmann::json{};
+    to_json(json, c);
+    return json.dump();
+}
+
+auto deserialize_cell(std::string const &json_str) -> sequence::Cell
+{
+    auto const json = nlohmann::json::parse(json_str);
+    auto cell = sequence::Cell{};
+    from_json(json, cell);
+    return cell;
+}
+
 auto serialize_measure(sequence::Measure const &m) -> std::string
 {
     auto json = nlohmann::json{};
@@ -173,8 +188,8 @@ auto deserialize_measure(std::string const &json_str) -> sequence::Measure
     return measure;
 }
 
-auto serialize_plugin(SequencerState const &state,
-                      std::string const &display_name) -> std::string
+auto serialize_plugin(SequencerState const &state, std::string const &display_name)
+    -> std::string
 {
     auto const json = nlohmann::json{
         {"state", state},

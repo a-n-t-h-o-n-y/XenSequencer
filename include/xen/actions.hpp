@@ -60,14 +60,11 @@ namespace xen::action
 
 [[nodiscard]] auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState;
 
-[[nodiscard]] auto copy(XenTimeline const &tl) -> sequence::Cell;
+void copy(XenTimeline const &tl);
 
-[[nodiscard]] auto cut(XenTimeline const &tl)
-    -> std::pair<sequence::Cell, SequencerState>;
+[[nodiscard]] auto cut(XenTimeline const &tl) -> SequencerState;
 
-[[nodiscard]] auto paste(XenTimeline const &tl,
-                         std::optional<sequence::Cell> const &copy_buffer)
-    -> SequencerState;
+[[nodiscard]] auto paste(XenTimeline const &tl) -> SequencerState;
 
 [[nodiscard]] auto duplicate(XenTimeline const &tl) -> TrackedState;
 
@@ -76,12 +73,12 @@ namespace xen::action
 [[nodiscard]] auto lift(XenTimeline const &tl) -> TrackedState;
 
 [[nodiscard]] auto shift_note_octave(XenTimeline const &tl,
-                                     sequence::Pattern const &pattern,
-                                     int amount) -> SequencerState;
+                                     sequence::Pattern const &pattern, int amount)
+    -> SequencerState;
 
 [[nodiscard]] auto set_note_octave(XenTimeline const &tl,
-                                   sequence::Pattern const &pattern,
-                                   int octave) -> SequencerState;
+                                   sequence::Pattern const &pattern, int octave)
+    -> SequencerState;
 
 [[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
 
@@ -91,8 +88,8 @@ void save_measure(sequence::Measure const &measure,
 [[nodiscard]] auto load_measure(std::filesystem::path const &filepath)
     -> sequence::Measure;
 
-[[nodiscard]] auto set_base_frequency(XenTimeline const &tl,
-                                      float freq) -> SequencerState;
+[[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq)
+    -> SequencerState;
 
 [[nodiscard]] auto set_selected_sequence(AuxState aux, int index) -> AuxState;
 

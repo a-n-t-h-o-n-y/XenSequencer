@@ -110,6 +110,7 @@ target_sources(XenSequencerLib
     PUBLIC
         src/main.cpp
         src/actions.cpp
+        src/copy_paste.cpp
         src/command_history.cpp
         src/input_mode.cpp
         src/key_core.cpp
@@ -148,6 +149,7 @@ target_sources(XenSequencerLib
 
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
+        include/xen/copy_paste.hpp
         include/xen/command.hpp
         include/xen/command_history.hpp
         include/xen/constants.hpp
