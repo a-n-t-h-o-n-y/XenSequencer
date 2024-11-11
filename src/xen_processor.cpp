@@ -32,7 +32,7 @@ XenProcessor::XenProcessor()
     initialize_demo_files();
 
     // Send initial state to Audio Thread
-    (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
+    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
 
     this->execute_command_string("load scales");
 }
@@ -68,17 +68,16 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }
 
-    { // Receive new SequencerState data (if any) and render MIDI.
-        while (new_state_transfer_queue.pop(audio_thread_state_.sequencer))
-        {
-            update_needed = true;
-        }
+    if (auto new_state = pending_state_update.get(); new_state.has_value())
+    {
+        audio_thread_state_.sequencer = std::move(new_state.value());
+        update_needed = true;
+    }
 
-        if (update_needed)
-        {
-            audio_thread_state_.midi_engine.update(audio_thread_state_.sequencer,
-                                                   audio_thread_state_.daw);
-        }
+    if (update_needed)
+    {
+        audio_thread_state_.midi_engine.update(audio_thread_state_.sequencer,
+                                               audio_thread_state_.daw);
     }
 
     // Calculate MIDI buffer slice
@@ -135,7 +134,7 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     auto state = deserialize_plugin(json_str);
     plugin_state.timeline.stage({std::move(state), {}});
     plugin_state.timeline.commit();
-    (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
+    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
     auto *const editor_base = this->getActiveEditor();
     if (editor_base != nullptr)
     {
@@ -169,13 +168,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 id != previous_commit_id_)
             {
                 previous_commit_id_ = id;
-                auto const success =
-                    new_state_transfer_queue.push(ps.timeline.get_state().sequencer);
-                if (!success)
-                {
-                    throw std::runtime_error{
-                        "Buffer full, unable to send sequence change to audio thread."};
-                }
+                pending_state_update.set(ps.timeline.get_state().sequencer);
             }
             return status;
         }

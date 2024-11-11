@@ -11,7 +11,7 @@
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/gui/themes.hpp>
-#include <xen/lock_free_queue.hpp>
+#include <xen/lock_free_optional.hpp>
 #include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
@@ -30,7 +30,7 @@ class XenProcessor : public juce::AudioProcessor
 
   public:
     // Used to send new SequencerState to the Audio Thread.
-    LockFreeQueue<SequencerState, 16> new_state_transfer_queue;
+    LockFreeOptional<SequencerState> pending_state_update;
 
   public:
     XenProcessor();
