@@ -20,7 +20,6 @@ add_subdirectory(external/JUCE SYSTEM)
 add_subdirectory(external/JUCE/extras/AudioPluginHost SYSTEM)
 add_subdirectory(external/yaml-cpp SYSTEM)
 add_subdirectory(external/json SYSTEM)
-add_subdirectory(external/nng SYSTEM)
 if (NOT TARGET Catch2)
     add_subdirectory(external/Catch2 SYSTEM)
 endif()
@@ -102,7 +101,6 @@ target_link_libraries(XenSequencerLib
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
-        nng
         Boost::boost
 )
 
@@ -124,14 +122,10 @@ target_sources(XenSequencerLib
         src/utility.cpp
         src/string_manip.cpp
         src/serialize.cpp
-        src/active_sessions.cpp
         src/parse_args.cpp
         src/guide_text.cpp
-        src/instance_directory.cpp
-        src/inter_process_relay.cpp
 
         src/gui/accordion.cpp
-        src/gui/active_sessions_list.cpp
         src/gui/bottom_bar.cpp
         src/gui/center_component.cpp
         src/gui/command_bar.cpp
@@ -155,8 +149,6 @@ target_sources(XenSequencerLib
         include/xen/constants.hpp
         include/xen/guide_text.hpp
         include/xen/input_mode.hpp
-        include/xen/instance_directory.hpp
-        include/xen/inter_process_relay.hpp
         include/xen/invoke.hpp
         include/xen/key_core.hpp
         include/xen/lock_free_queue.hpp
@@ -166,7 +158,6 @@ target_sources(XenSequencerLib
         include/xen/parse_args.hpp
         include/xen/selection.hpp
         include/xen/serialize.hpp
-        include/xen/active_sessions.hpp
         include/xen/scale.hpp
         include/xen/signature.hpp
         include/xen/state.hpp
@@ -177,7 +168,6 @@ target_sources(XenSequencerLib
         include/xen/xen_command_tree.hpp
 
         include/xen/gui/accordion.hpp
-        include/xen/gui/active_sessions_list.hpp
         include/xen/gui/bottom_bar.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp

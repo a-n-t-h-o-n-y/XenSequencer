@@ -9,7 +9,6 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/gui/active_sessions_list.hpp>
 #include <xen/gui/directory_list_box.hpp>
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
@@ -112,13 +111,9 @@ class LibraryView : public juce::Component
     DirectoryListBox &sequences_list = sequences.component;
     Divider divider_1;
 
-    LabeledLibraryComponent<ActiveSessionsList> active_sessions;
-    ActiveSessionsList &active_sessions_list = active_sessions.component;
-    Divider divider_2;
-
     LabeledLibraryComponent<TuningsList> tunings;
     TuningsList &tunings_list = tunings.component;
-    Divider divider_3;
+    Divider divider_3; // TODO rename to 2
 
     LabeledLibraryComponent<ScalesList> scales;
     ScalesList &scales_list = scales.component;

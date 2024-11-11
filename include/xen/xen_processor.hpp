@@ -7,7 +7,6 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
@@ -25,7 +24,6 @@ class XenProcessor : public juce::AudioProcessor
 {
   public:
     PluginState plugin_state;
-    ActiveSessions active_sessions;
     XenCommandTree command_tree;
     int editor_width{1200};
     int editor_height{300};

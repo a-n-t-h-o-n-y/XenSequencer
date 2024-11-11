@@ -134,16 +134,12 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     : sequences{"Sequences", sequence_library_dir,
                 juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"},
                 "SequencesList"},
-      active_sessions{"Active Sessions"}, tunings{"Tunings", tuning_library_dir},
-      scales{"Scales"}
+      tunings{"Tunings", tuning_library_dir}, scales{"Scales"}
 {
     this->setComponentID("LibraryView");
 
     this->addAndMakeVisible(sequences);
     this->addAndMakeVisible(divider_1);
-
-    this->addAndMakeVisible(active_sessions);
-    this->addAndMakeVisible(divider_2);
 
     this->addAndMakeVisible(tunings);
     this->addAndMakeVisible(divider_3);
@@ -158,9 +154,6 @@ void LibraryView::resized()
 
     fb.items.add(juce::FlexItem{sequences}.withFlex(1.f));
     fb.items.add(juce::FlexItem{divider_1}.withWidth(1.f));
-
-    fb.items.add(juce::FlexItem{active_sessions}.withFlex(1.f));
-    fb.items.add(juce::FlexItem{divider_2}.withWidth(1.f));
 
     fb.items.add(juce::FlexItem{tunings}.withFlex(1.f));
     fb.items.add(juce::FlexItem{divider_3}.withWidth(1.f));

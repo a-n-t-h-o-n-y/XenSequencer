@@ -188,26 +188,16 @@ auto deserialize_measure(std::string const &json_str) -> sequence::Measure
     return measure;
 }
 
-auto serialize_plugin(SequencerState const &state, std::string const &display_name)
-    -> std::string
+auto serialize_plugin(SequencerState const &state) -> std::string
 {
-    auto const json = nlohmann::json{
-        {"state", state},
-        {"display_name", display_name},
-    };
-
+    auto json = nlohmann::json{};
+    to_json(json, state);
     return json.dump();
 }
 
-auto deserialize_plugin(std::string const &json_str)
-    -> std::pair<SequencerState, std::string>
+auto deserialize_plugin(std::string const &json_str) -> SequencerState
 {
-    auto const json = nlohmann::json::parse(json_str);
-
-    return {
-        json.at("state").get<SequencerState>(),
-        json.at("display_name").get<std::string>(),
-    };
+    return nlohmann::json::parse(json_str).get<SequencerState>();
 }
 
 } // namespace xen

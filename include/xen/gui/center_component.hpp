@@ -225,7 +225,7 @@ class CenterComponent : public juce::Component
     void show_message_log();
 
     void update(SequencerState const &state, AuxState const &aux,
-                std::string const &display_name, std::vector<Scale> const &scales);
+                std::vector<Scale> const &scales);
 
   public:
     void resized() override;

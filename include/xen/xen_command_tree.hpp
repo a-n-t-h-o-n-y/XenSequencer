@@ -285,9 +285,6 @@ namespace xen
                     get_user_library_directory().getFullPathName().toStdString());
             }),
 
-        cmd("UUID", "Display the UUID for this instance.",
-            [](PS &ps) { return minfo(ps.PROCESS_UUID.toString().toStdString()); }),
-
         cmd_group(
             "move", ArgInfo<std::string>{"direction"},
 

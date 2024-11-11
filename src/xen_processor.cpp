@@ -27,39 +27,9 @@ namespace xen
 
 XenProcessor::XenProcessor()
     : plugin_state{.timeline = XenTimeline{{init_state(), {}}}},
-      active_sessions{plugin_state.PROCESS_UUID, plugin_state.display_name},
       command_tree{create_command_tree()} /*, sequencer_state_copy_{init_state()} */
 {
     initialize_demo_files();
-
-    active_sessions.on_display_name_request.connect(
-        [this] { return plugin_state.display_name; });
-
-    active_sessions.on_measure_request.connect([this](std::size_t measure_index) {
-        auto const [state, _] = plugin_state.timeline.get_state();
-        return state.sequence_bank[measure_index];
-    });
-
-    active_sessions.on_measure_response.connect(
-        [this](sequence::Measure const &measure) {
-            auto [state, aux] = plugin_state.timeline.get_state();
-
-            state.sequence_bank[aux.selected.measure] = measure;
-            aux.selected.cell.clear();
-
-            plugin_state.timeline.stage({state, aux});
-            plugin_state.timeline.commit();
-
-            auto *const editor_base = this->getActiveEditor();
-            if (editor_base != nullptr)
-            {
-                auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
-                if (editor != nullptr)
-                {
-                    editor->update();
-                }
-            }
-        });
 
     // Send initial state to Audio Thread
     (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);
@@ -145,8 +115,8 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_plugin(
-            plugin_state.timeline.get_state().sequencer, plugin_state.display_name);
+        auto const json_str =
+            serialize_plugin(plugin_state.timeline.get_state().sequencer);
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -162,8 +132,7 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 {
     auto const json_str =
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-    auto [state, dn] = deserialize_plugin(json_str);
-    plugin_state.display_name = std::move(dn);
+    auto state = deserialize_plugin(json_str);
     plugin_state.timeline.stage({std::move(state), {}});
     plugin_state.timeline.commit();
     (void)new_state_transfer_queue.push(plugin_state.timeline.get_state().sequencer);

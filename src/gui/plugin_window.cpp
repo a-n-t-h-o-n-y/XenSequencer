@@ -8,7 +8,6 @@
 
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
-#include <xen/gui/active_sessions_list.hpp>
 #include <xen/gui/bottom_bar.hpp>
 #include <xen/gui/command_bar.hpp>
 #include <xen/scale.hpp>
@@ -32,7 +31,7 @@ PluginWindow::PluginWindow(
 void PluginWindow::update(PluginState const &ps)
 {
     auto const [state, aux] = ps.timeline.get_state();
-    center_component.update(state, aux, ps.display_name, ps.scales);
+    center_component.update(state, aux, ps.scales);
     bottom_bar.input_mode_indicator.set(aux.input_mode);
 }
 
@@ -75,22 +74,6 @@ void PluginWindow::set_focus(std::string component_id)
         if (center_component.library_view.sequences_list.isShowing())
         {
             center_component.library_view.sequences_list.grabKeyboardFocus();
-        }
-    }
-    else if (component_id == to_lower(center_component.library_view.active_sessions_list
-                                          .sessions_list_box.getComponentID()
-                                          .toStdString()))
-    {
-        if (center_component.library_view.active_sessions_list.sessions_list_box
-                .hasKeyboardFocus(true))
-        {
-            return;
-        }
-        if (center_component.library_view.active_sessions_list.sessions_list_box
-                .isShowing())
-        {
-            center_component.library_view.active_sessions_list.sessions_list_box
-                .grabKeyboardFocus();
         }
     }
     else if (component_id ==

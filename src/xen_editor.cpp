@@ -11,7 +11,6 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/active_sessions.hpp>
 #include <xen/command.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/guide_text.hpp>
@@ -140,25 +139,6 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         p.plugin_state.shared.on_theme_update.connect(slot);
     }
 
-    { // ActiveSessions Shutdown
-        auto slot = sl::Slot<void(juce::Uuid const &)>{[this](juce::Uuid const &uuid) {
-            plugin_window.center_component.library_view.active_sessions_list
-                .sessions_list_box.remove_item(uuid);
-        }};
-        slot.track(lifetime_);
-        p.active_sessions.on_instance_shutdown.connect(slot);
-    }
-
-    { // ActiveSession ID Update
-        auto slot = sl::Slot<void(juce::Uuid const &, std::string const &)>{
-            [this](juce::Uuid const &uuid, std::string const &display_name) {
-                plugin_window.center_component.library_view.active_sessions_list
-                    .sessions_list_box.add_or_update_item(uuid, display_name);
-            }};
-        slot.track(lifetime_);
-        p.active_sessions.on_id_update.connect(slot);
-    }
-
     { // Focus Change Request
         auto slot = sl::Slot<void(std::string const &)>{
             [this](std::string const &component_id) {
@@ -198,32 +178,6 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         .connect([&](juce::File const &directory) {
             p.plugin_state.current_tuning_directory = directory;
         });
-
-    // ActiveSession Selected
-    plugin_window.center_component.library_view.active_sessions_list.sessions_list_box
-        .on_session_selected.connect(
-            // TODO This should pass in an index other than hardcoded 0.
-            // You'll have to update the UI to list all the instances and allow the user
-            // to select one to request the state from. Or, since there are always 16
-            // you have some other method that doesn't require so much screen space.
-
-            // TODO You might want to display the measure names in the active sessions
-            // as well, in that case you do want to list all. It could be folded, then
-            // the user expands and then it takes less space and double clicking the
-            // instance will default to the zero index without having to expand.
-            [&p](juce::Uuid const &uuid) {
-                p.active_sessions.request_measure(uuid, 0);
-            });
-
-    // ActiveSession Name Change
-    plugin_window.center_component.library_view.active_sessions_list
-        .current_session_name_edit.on_name_changed.connect(
-            [&p](juce::String const &name) {
-                p.plugin_state.display_name = name.toStdString();
-                p.active_sessions.notify_display_name_update(name.toStdString());
-            });
-
-    p.active_sessions.request_other_session_ids();
 
     // Initialize GUI
     this->update();
@@ -310,11 +264,6 @@ void XenEditor::set_key_listeners(
 
         remove_listener(plugin_window.center_component.library_view.sequences_list);
         add_listener(plugin_window.center_component.library_view.sequences_list);
-
-        remove_listener(plugin_window.center_component.library_view.active_sessions_list
-                            .sessions_list_box);
-        add_listener(plugin_window.center_component.library_view.active_sessions_list
-                         .sessions_list_box);
 
         remove_listener(plugin_window.center_component.library_view.tunings_list);
         add_listener(plugin_window.center_component.library_view.tunings_list);

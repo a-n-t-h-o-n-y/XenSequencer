@@ -511,13 +511,10 @@ void CenterComponent::show_message_log()
 }
 
 void CenterComponent::update(SequencerState const &state, AuxState const &aux,
-                             std::string const &display_name,
                              std::vector<Scale> const &scales)
 {
     state_ = state;
     sequence_view.update(state_, aux);
-
-    library_view.active_sessions_list.current_session_name_edit.set_name(display_name);
     library_view.scales_list.update(scales);
 }
 

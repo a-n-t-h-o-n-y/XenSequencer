@@ -100,9 +100,6 @@ struct SharedState
     sl::Signal<void()> on_load_keys_request{};
     std::mutex on_load_keys_request_mtx{};
 
-    std::optional<sequence::Cell> copy_buffer{std::nullopt};
-    std::mutex copy_buffer_mtx{};
-
     gui::Theme theme{gui::find_theme("apollo")}; // Needed for editor startup.
     sl::Signal<void(gui::Theme const &)> on_theme_update{};
     std::mutex theme_mtx{};
@@ -117,14 +114,8 @@ struct DAWState
     std::uint32_t sample_rate = 0;
 };
 
-// bpm = 120.f,
-// sample rate = 44'100,
-
 struct PluginState
 {
-    juce::Uuid const PROCESS_UUID = juce::Uuid{};
-    std::string display_name = "XenSequencer";
-
     juce::File current_phrase_directory = get_sequences_directory();
     juce::File current_tuning_directory = get_tunings_directory();
 
