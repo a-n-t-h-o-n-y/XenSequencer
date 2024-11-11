@@ -75,6 +75,11 @@ auto read_copy_buffer() -> std::optional<sequence::Cell>
 {
     auto const filepath = copy_buffer_filepath();
 
+    if (!filepath.exists())
+    {
+        return std::nullopt;
+    }
+
     auto json_str = std::string{};
     guarded_file_action(filepath, [&json_str](juce::File const &fp) {
         json_str = fp.loadFileAsString().toStdString();

@@ -1,6 +1,7 @@
 #include <xen/serialize.hpp>
 
 #include <array>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -11,6 +12,7 @@
 
 #include <sequence/sequence.hpp>
 
+#include <xen/scale.hpp>
 #include <xen/state.hpp>
 
 namespace sequence
@@ -133,8 +135,57 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 
 } // namespace sequence
 
+namespace nlohmann
+{
+
+template <typename T>
+static void to_json(json &j, std::optional<T> const &opt)
+{
+    if (opt.has_value())
+    {
+        j = *opt;
+    }
+    else
+    {
+        j = nullptr;
+    }
+}
+
+template <typename T>
+static void from_json(json const &j, std::optional<T> &opt)
+{
+    if (j.is_null())
+    {
+        opt = std::nullopt;
+    }
+    else
+    {
+        opt = j.get<T>();
+    }
+}
+
+} // namespace nlohmann
+
 namespace xen
 {
+
+static void to_json(nlohmann::json &j, Scale const &scale)
+{
+    j = nlohmann::json{
+        {"name", scale.name},
+        {"tuning_length", scale.tuning_length},
+        {"intervals", scale.intervals},
+        {"mode", scale.mode},
+    };
+}
+
+static void from_json(nlohmann::json const &j, Scale &scale)
+{
+    scale.name = j.at("name").get<std::string>();
+    scale.tuning_length = j.at("tuning_length").get<std::size_t>();
+    scale.intervals = j.at("intervals").get<std::vector<std::uint8_t>>();
+    scale.mode = j.at("mode").get<std::uint8_t>();
+}
 
 static void to_json(nlohmann::json &j, SequencerState const &state)
 {
@@ -143,6 +194,9 @@ static void to_json(nlohmann::json &j, SequencerState const &state)
         {"measure_names", state.measure_names},
         {"tuning", state.tuning},
         {"tuning_name", state.tuning_name},
+        {"scale", state.scale},
+        {"key", state.key},
+        {"scale_translate_direction", state.scale_translate_direction},
         {"base_frequency", state.base_frequency},
     };
 }
@@ -153,6 +207,10 @@ static void from_json(nlohmann::json const &j, SequencerState &state)
     state.measure_names = j.at("measure_names").get<std::array<std::string, 16>>();
     state.tuning = j.at("tuning").get<sequence::Tuning>();
     state.tuning_name = j.at("tuning_name").get<std::string>();
+    state.scale = j.at("scale").get<std::optional<Scale>>();
+    state.key = j.at("key").get<int>();
+    state.scale_translate_direction =
+        j.at("scale_translate_direction").get<TranslateDirection>();
     state.base_frequency = j.at("base_frequency").get<float>();
 }
 
