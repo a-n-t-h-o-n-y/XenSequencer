@@ -26,8 +26,8 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{{init_state(), {}}}},
-      command_tree{create_command_tree()} /*, sequencer_state_copy_{init_state()} */
+    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
+      command_tree{create_command_tree()}
 {
     initialize_demo_files();
 

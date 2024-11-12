@@ -102,7 +102,7 @@ auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::Midi
     namespace seq = sequence;
 
     auto buffer = juce::MidiBuffer{};
-    buffer.ensureSize((int)timeline.size());
+    buffer.ensureSize(timeline.size());
     for (auto const &[event, sample] : timeline)
     {
         juce::MidiMessage midi = std::visit(

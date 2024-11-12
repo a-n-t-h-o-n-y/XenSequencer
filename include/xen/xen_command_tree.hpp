@@ -192,8 +192,6 @@ namespace xen
                     }
 
                     auto [seq, aux] = ps.timeline.get_state();
-                    // TODO update tuning name from file contents?
-                    // TODO grab description from file contents, from_scala should do it
                     seq.tuning_name =
                         filepath.getFileNameWithoutExtension().toStdString();
                     seq.tuning =

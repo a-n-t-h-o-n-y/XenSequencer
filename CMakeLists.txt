@@ -117,7 +117,6 @@ target_sources(XenSequencerLib
         src/midi_engine.cpp
         src/scale.cpp
         src/selection.cpp
-        src/state.cpp
         src/user_directory.cpp
         src/utility.cpp
         src/string_manip.cpp

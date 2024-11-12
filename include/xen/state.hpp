@@ -48,10 +48,14 @@ struct SequencerState
     SequenceBank sequence_bank{};
     std::array<std::string, 16> measure_names{};
 
-    sequence::Tuning tuning{};
-    std::string tuning_name{};
+    sequence::Tuning tuning{
+        .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
+        .octave = 1200,
+        .description = "",
+    };
+    std::string tuning_name{"12-TET"};
 
-    std::optional<Scale> scale{std::nullopt};
+    std::optional<Scale> scale{std::nullopt}; // Chromatic
     int key{3}; // The pitch considered 'zero', transposition. [0, tuning size)
     TranslateDirection scale_translate_direction{TranslateDirection::Up};
 
@@ -135,9 +139,5 @@ struct AudioThreadStateForGUI
     SampleCount accumulated_sample_count;
     std::array<SampleIndex, 16> note_start_times;
 };
-
-// -------------------------------------------------------------------------------------
-
-[[nodiscard]] auto init_state() -> SequencerState;
 
 } // namespace xen

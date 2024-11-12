@@ -301,7 +301,8 @@ void PitchColumn::paint(juce::Graphics &g)
 
 MeasureView::MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
     : cell_ptr_{make_cell(sequence::Rest{}, std::nullopt,
-                          {.intervals = {0}, .octave = 1}, TranslateDirection::Up)},
+                          {.intervals = {0}, .octave = 1, .description = ""},
+                          TranslateDirection::Up)},
       audio_thread_state_{audio_thread_state}
 {
     this->startTimer(34);
