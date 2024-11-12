@@ -579,32 +579,19 @@ namespace xen
                     ArgInfo<sequence::TimeSignature>{"timesignature", {{4, 4}}},
                     ArgInfo<int>{"index", -1})),
 
-            cmd_group("tuning", ArgInfo<std::string>{"trait"},
-
-                      cmd(
-                          "name",
-                          "Set the name of the current tuning. Ignores Pattern.",
-                          [](PS &ps, sequence::Pattern const &, std::string name) {
-                              auto [state, aux] = ps.timeline.get_state();
-                              state.tuning_name = std::move(name);
-                              ps.timeline.stage({std::move(state), std::move(aux)});
-                              ps.timeline.set_commit_flag();
-                              return minfo("Tuning Name Set");
-                          },
-                          ArgInfo<std::string>{"name"}),
-                      cmd(
-                          "baseFrequency",
-                          "Set the base note (pitch zero) frequency to `freq` Hz.",
-                          [](PS &ps, sequence::Pattern const &, float freq) {
-                              auto [_, aux] = ps.timeline.get_state();
-                              ps.timeline.stage({
-                                  action::set_base_frequency(ps.timeline, freq),
-                                  std::move(aux),
-                              });
-                              ps.timeline.set_commit_flag();
-                              return minfo("Base Frequency Set");
-                          },
-                          ArgInfo<float>{"freq", 440.f})),
+            cmd(
+                "baseFrequency",
+                "Set the base note (pitch zero) frequency to `freq` Hz.",
+                [](PS &ps, sequence::Pattern const &, float freq) {
+                    auto [_, aux] = ps.timeline.get_state();
+                    ps.timeline.stage({
+                        action::set_base_frequency(ps.timeline, freq),
+                        std::move(aux),
+                    });
+                    ps.timeline.set_commit_flag();
+                    return minfo("Base Frequency Set");
+                },
+                ArgInfo<float>{"freq", 440.f}),
 
             cmd(
                 "theme", "Set the color theme of the app by name.",

@@ -84,12 +84,13 @@ void CenterComponentLabel::lookAndFeelChanged()
 
 // -------------------------------------------------------------------------------------
 
-FieldEdit::FieldEdit(juce::String const &key, juce::String const &value)
+FieldEdit::FieldEdit(juce::String const &key, juce::String const &value,
+                     bool actually_editable)
 {
     this->addAndMakeVisible(key_);
     this->addAndMakeVisible(value_);
 
-    value_.setEditable(false, true);
+    value_.setEditable(false, actually_editable);
     value_.onEditorShow = [this] { temp_text_ = value_.getText(); };
     value_.onTextChange = [this] {
         auto const new_text = value_.getText();
@@ -136,7 +137,18 @@ void FieldEdit::resized()
 
 // -------------------------------------------------------------------------------------
 
+// BorderedFieldEdit time_signature_;
+// BorderedFieldEdit key_;
+// BorderedFieldEdit base_frequency_;
+// BorderedFieldEdit scale_;
+// BorderedFieldEdit scale_mode_;
+// BorderedFieldEdit tuning_name_;
+// BorderedFieldEdit measure_name_;
 MeasureInfo::MeasureInfo()
+    : time_signature_{"Time Signature"}, key_{"Key"},
+      base_frequency_{"Zero Freq. (Hz)"}, scale_{"Scale"}, scale_mode_{"Mode"},
+      tuning_name_{"Tuning", "", false}, measure_name_{""}
+
 {
     this->setComponentID("MeasureInfo");
 
@@ -148,27 +160,17 @@ MeasureInfo::MeasureInfo()
     this->addAndMakeVisible(tuning_name_);
     this->addAndMakeVisible(measure_name_);
 
-    auto const font = fonts::monospaced().regular.withHeight(17.f);
+    {
+        auto const font = fonts::monospaced().regular.withHeight(17.f);
 
-    time_signature_.set_font(font);
-    time_signature_.set_key("Time Signature");
-
-    key_.set_font(font);
-    key_.set_key("Key");
-
-    base_frequency_.set_font(font);
-    base_frequency_.set_key("Zero Freq. (Hz)");
-
-    scale_.set_font(font);
-    scale_.set_key("Scale");
-
-    scale_mode_.set_font(font);
-    scale_mode_.set_key("Mode");
-
-    tuning_name_.set_font(font);
-    tuning_name_.set_key("Tuning");
-
-    measure_name_.set_font(font);
+        time_signature_.set_font(font);
+        key_.set_font(font);
+        base_frequency_.set_font(font);
+        scale_.set_font(font);
+        scale_mode_.set_font(font);
+        tuning_name_.set_font(font);
+        measure_name_.set_font(font);
+    }
 
     time_signature_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set measure timesignature " + text.toStdString());
@@ -179,7 +181,7 @@ MeasureInfo::MeasureInfo()
     });
 
     base_frequency_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning basefrequency " + text.toStdString());
+        this->on_command("set basefrequency " + text.toStdString());
     });
 
     scale_.on_text_change.connect([this](juce::String const &text) {
@@ -188,10 +190,6 @@ MeasureInfo::MeasureInfo()
 
     scale_mode_.on_text_change.connect([this](juce::String const &text) {
         this->on_command("set mode " + text.toStdString());
-    });
-
-    tuning_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set tuning name " + double_quote(strip(text.toStdString())));
     });
 
     measure_name_.on_text_change.connect([this](juce::String const &text) {

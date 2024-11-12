@@ -65,7 +65,8 @@ class FieldEdit : public juce::Component
     sl::Signal<void(juce::String const &)> on_text_change;
 
   public:
-    FieldEdit(juce::String const &key = "", juce::String const &value = "");
+    FieldEdit(juce::String const &key = "", juce::String const &value = "",
+              bool actually_editable = true);
 
   public:
     void set_key(juce::String const &key);
