@@ -178,6 +178,26 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
     return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
 }
 
+/**
+ * Creates a list of gui::Cell components from a sequence::Sequence.
+ * @param seq The sequence to create cells from.
+ * @param build_and_allocate_cell The function to create a Cell from a sequence::Cell.
+ */
+[[nodiscard]] auto create_cells_components(
+    sequence::Sequence const &seq,
+    xen::gui::BuildAndAllocateCell const &build_and_allocate_cell)
+    -> std::vector<std::unique_ptr<xen::gui::Cell>>
+{
+    auto cells = std::vector<std::unique_ptr<xen::gui::Cell>>{};
+    cells.reserve(seq.cells.size());
+
+    std::ranges::transform(seq.cells, std::back_inserter(cells), [&](auto const &cell) {
+        return std::visit(build_and_allocate_cell, cell);
+    });
+
+    return cells;
+}
+
 } // namespace
 
 namespace xen::gui
@@ -276,21 +296,15 @@ void Note::paint(juce::Graphics &g)
 Sequence::Sequence(sequence::Sequence const &seq, std::optional<Scale> const &scale,
                    sequence::Tuning const &tuning,
                    TranslateDirection scale_translate_direction)
-    : cells_{juce::FlexItem{}.withFlex(1.f)}
+    : cells_{create_cells_components(seq,
+                                     BuildAndAllocateCell{
+                                         scale,
+                                         tuning,
+                                         scale_translate_direction,
+                                     }),
+             juce::FlexItem{}.withFlex(1.f)}
 {
     this->addAndMakeVisible(cells_);
-
-    auto const build_and_allocate_cell = BuildAndAllocateCell{
-        scale,
-        tuning,
-        scale_translate_direction,
-    };
-
-    // for each sequence::Cell, construct it as a pointer and add it to cells_
-    for (auto const &cell : seq.cells)
-    {
-        cells_.push_back(std::visit(build_and_allocate_cell, cell));
-    }
 }
 
 void Sequence::make_selected()

@@ -45,6 +45,22 @@ class HomogenousRow : public juce::Component
     {
     }
 
+    /**
+     * Create a HomogenousRow with the given children.
+     * @param children The children to add to the row.
+     * @param flex The FlexItem to use as the default for each child.
+     */
+    explicit HomogenousRow(std::vector<std::unique_ptr<T>> children,
+                           juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
+        : children_{std::move(children)}, flex_item_{std::move(flex)}
+    {
+        for (auto &child : children_)
+        {
+            this->addAndMakeVisible(*child);
+        }
+        this->resized();
+    }
+
   public:
     [[nodiscard]] auto get_children() const -> const std::vector<std::unique_ptr<T>> &
     {
