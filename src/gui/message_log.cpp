@@ -46,7 +46,7 @@ auto MessageLog::get_row_display(std::size_t index) -> juce::String
     return (index < messages_.size()) ? messages_[index] : "";
 }
 
-void MessageLog::item_selected(std::size_t index)
+void MessageLog::item_selected(std::size_t)
 {
     // Do nothing.
 }
