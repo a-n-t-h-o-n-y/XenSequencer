@@ -41,6 +41,14 @@ namespace xen
                 return minfo(std::string{"Welcome to XenSequencer v"} + VERSION);
             }),
 
+        cmd("reset", "Reset the timeline to a blank state.",
+            [](PS &ps) {
+                ps.timeline.stage({SequencerState{}, AuxState{}});
+                ps.timeline.set_commit_flag();
+                ps.scale_shift_index = std::nullopt; // Chromatic
+                return minfo("Plugin State Reset");
+            }),
+
         cmd("undo", "Revert the last action.",
             [](PS &ps) {
                 ps.timeline.reset_stage();
