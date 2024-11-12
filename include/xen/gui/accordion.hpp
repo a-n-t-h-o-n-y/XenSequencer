@@ -110,6 +110,27 @@ class HAccordion : public juce::Component
         return is_expanded_ ? flexitem_ : juce::FlexItem{*this}.withWidth(23.f);
     }
 
+  public:
+    [[nodiscard]] auto operator->() -> ChildComponentType *
+    {
+        return &child;
+    }
+
+    [[nodiscard]] auto operator->() const -> ChildComponentType const *
+    {
+        return &child;
+    }
+
+    [[nodiscard]] auto operator*() -> ChildComponentType &
+    {
+        return child;
+    }
+
+    [[nodiscard]] auto operator*() const -> ChildComponentType const &
+    {
+        return child;
+    }
+
   protected:
     void resized() override
     {

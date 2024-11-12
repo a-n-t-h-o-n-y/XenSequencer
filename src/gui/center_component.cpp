@@ -464,7 +464,6 @@ void SequenceView::resized()
         horizontal_flex.items.add(
             juce::FlexItem{*tuning_reference_ptr}.withWidth(23.f));
     }
-    // TODO figure out how to make square
     horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());
 
     flex_box.items.add(juce::FlexItem{measure_info}.withHeight(23.f));
