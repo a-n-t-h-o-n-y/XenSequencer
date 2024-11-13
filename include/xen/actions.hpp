@@ -99,4 +99,7 @@ void save_measure(sequence::Measure const &measure,
                                      int shift_amount, std::size_t scale_count)
     -> std::optional<std::size_t>;
 
+[[nodiscard]] auto step(sequence::Cell cell, std::size_t count, int pitch_distance,
+                        float velocity_distance) -> sequence::Cell;
+
 } // namespace xen::action

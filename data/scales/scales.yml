@@ -15,7 +15,7 @@ scales:
   - name: Diminished
     tuning_length: 12
     intervals: [1, 2, 1, 2, 1, 2, 1, 2]
-  - name: Melodic Minor
+  - name: Melodic Minor Ascending
     tuning_length: 12
     intervals: [2, 1, 2, 2, 2, 2, 1]
   - name: Enigmatic
