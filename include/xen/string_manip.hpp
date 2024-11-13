@@ -67,8 +67,18 @@ namespace xen
  * @param delimiter The character to split on.
  * @return Container of strings, without the delimiter.
  */
-[[nodiscard]] auto split(std::string const &input,
-                         char delimiter) -> std::vector<std::string>;
+[[nodiscard]] auto split(std::string const &input, char delimiter)
+    -> std::vector<std::string>;
+
+/**
+ * Joins a vector of strings into a single string.
+ *
+ * @param input The vector of strings to join.
+ * @param delimiter The character to join the strings with.
+ * @return std::string The joined string.
+ */
+[[nodiscard]] auto join(std::vector<std::string> const &input, char delimiter)
+    -> std::string;
 
 /**
  * Surrounds a string with double quotes.

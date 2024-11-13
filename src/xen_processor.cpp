@@ -17,6 +17,7 @@
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
+#include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_command_tree.hpp>
@@ -154,14 +155,25 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         auto &ps = plugin_state;
         try
         {
-            auto const commands = split(command_string, ';');
+            auto commands = split(command_string, ';');
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-            for (auto const &command : commands)
+            for (auto &command : commands)
             {
-                status = execute(command_tree, ps, normalize_command_string(command));
+                command = minimize_spaces(command);
+                if (normalize_id(command) == "again")
+                {
+                    command = previous_command_string_;
+                }
+                if (command.empty())
+                {
+                    continue;
+                }
+                status = execute(command_tree, ps, command);
             }
             if (ps.timeline.get_commit_flag())
             {
+                // join() so that 'again' is replaced with the full command string
+                previous_command_string_ = join(commands, ';');
                 ps.timeline.commit();
             }
             if (auto const id = ps.timeline.get_current_commit_id();

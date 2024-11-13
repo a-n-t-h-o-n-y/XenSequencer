@@ -20,15 +20,6 @@
 namespace xen
 {
 
-/**
- * Normalize a command string so it can be parsed easily.
- */
-[[nodiscard]] inline auto normalize_command_string(std::string const &command_str)
-    -> std::string
-{
-    return minimize_spaces(command_str);
-}
-
 [[nodiscard]] inline auto normalize_id(std::string const &x) -> std::string
 {
     return to_lower(x);
@@ -216,8 +207,8 @@ template <typename ID_t, typename ChildID_t, typename... Args, typename T>
  */
 template <typename Command_t, typename T>
 [[nodiscard]] auto is_match(PatternPrefix<Command_t> const &pattern,
-                            std::string command_str,
-                            std::optional<T> const &default_id) -> bool
+                            std::string command_str, std::optional<T> const &default_id)
+    -> bool
 {
     return sequence::contains_valid_pattern(command_str) &&
            is_match(pattern.command, sequence::pop_pattern_chars(command_str),
@@ -327,8 +318,8 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 template <typename ID_t, typename ChildID_t, typename... Commands>
 [[nodiscard]] auto execute(
     CommandGroup<ID_t, ChildID_t, Commands...> const &command_group, PluginState &ps,
-    std::string command_str,
-    sequence::Pattern pattern) -> std::pair<MessageLevel, std::string>
+    std::string command_str, sequence::Pattern pattern)
+    -> std::pair<MessageLevel, std::string>
 {
     if constexpr (std::is_same_v<ID_t, std::string_view>)
     {

@@ -43,6 +43,7 @@ SequenceView:
   "Cmd + d": "duplicate"
   "Cmd + z": "undo"
   "Cmd + y": "redo"
+  ".": "again"
 
   # Movement
   "h": "move left"

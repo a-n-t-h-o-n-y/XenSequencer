@@ -175,6 +175,26 @@ auto split(std::string const &input, char delimiter) -> std::vector<std::string>
     return result;
 }
 
+auto join(std::vector<std::string> const &input, char delimiter) -> std::string
+{
+    auto result = std::string{};
+    auto it = std::begin(input);
+
+    if (it != std::end(input))
+    {
+        result += *it;
+        ++it;
+    }
+
+    for (; it != std::end(input); ++it)
+    {
+        result.push_back(delimiter);
+        result += *it;
+    }
+
+    return result;
+}
+
 auto double_quote(std::string const &input) -> std::string
 {
     return '"' + input + '"';

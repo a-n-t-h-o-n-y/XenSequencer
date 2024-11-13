@@ -88,6 +88,7 @@ class XenProcessor : public juce::AudioProcessor
     } audio_thread_state_;
 
     int previous_commit_id_{-1};
+    std::string previous_command_string_{""};
 
   public:
     DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;
