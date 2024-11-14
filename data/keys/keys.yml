@@ -19,7 +19,7 @@
 # Ex: "s": "split :N=2:" will call "split 2" when `s` is pressed, and "split 5" when
 # `5s` is pressed.
 
-version: "0.2.0"
+version: "0.3.0"
 
 SequenceView:
   # Input Mode

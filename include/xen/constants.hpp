@@ -6,6 +6,6 @@ namespace xen
 /**
  * The current version of the plugin.
  */
-inline constexpr auto VERSION = "0.2.0";
+inline constexpr auto VERSION = "0.3.0";
 
 } // namespace xen
