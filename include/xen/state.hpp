@@ -80,7 +80,7 @@ struct SelectedState
 struct AuxState
 {
     SelectedState selected{};
-    InputMode input_mode = InputMode::Note;
+    InputMode input_mode = InputMode::Pitch;
 };
 
 struct TrackedState

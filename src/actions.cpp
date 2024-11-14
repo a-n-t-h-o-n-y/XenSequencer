@@ -125,8 +125,8 @@ auto lift(XenTimeline const &tl) -> TrackedState
     return {state, action::move_up(tl, 1)};
 }
 
-auto shift_note_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
-                       int amount) -> SequencerState
+auto shift_octave(XenTimeline const &tl, sequence::Pattern const &pattern, int amount)
+    -> SequencerState
 {
     auto [state, aux] = tl.get_state();
     auto &cell = get_selected_cell(state.sequence_bank, aux.selected);

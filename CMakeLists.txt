@@ -106,7 +106,6 @@ target_link_libraries(XenSequencerLib
 
 target_sources(XenSequencerLib
     PUBLIC
-        src/main.cpp
         src/actions.cpp
         src/copy_paste.cpp
         src/command_history.cpp
@@ -247,6 +246,7 @@ target_sources(XenSequencer
     PRIVATE
         src/xen_editor.cpp
         src/xen_processor.cpp
+        src/main.cpp
 
         include/xen/xen_editor.hpp
         include/xen/xen_processor.hpp

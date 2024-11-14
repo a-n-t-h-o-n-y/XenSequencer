@@ -15,13 +15,28 @@ namespace
 {
 
 /**
- * Return the first letter of the mode name given.
+ * Return the display letter corresponding to the given InputMode.
  */
-[[nodiscard]] auto get_first_letter(xen::InputMode mode) -> char
+[[nodiscard]] auto get_mode_letter(xen::InputMode mode) -> char
 {
-    auto const str = to_string(mode);
-    assert(!str.empty());
-    return static_cast<char>(std::toupper(str[0]));
+    switch (mode)
+    {
+    case xen::InputMode::Pitch:
+        return 'P';
+    case xen::InputMode::Velocity:
+        return 'V';
+    case xen::InputMode::Delay:
+        return 'D';
+    case xen::InputMode::Gate:
+        return 'G';
+    case xen::InputMode::Scale:
+        return 'S';
+    case xen::InputMode::ScaleMode:
+        return 'M';
+    default:
+        assert(false);
+        return ' ';
+    }
 }
 
 } // namespace
@@ -49,13 +64,13 @@ void LetterSquare::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 InputModeIndicator::InputModeIndicator(InputMode mode)
-    : LetterSquare{std::string(1, get_first_letter(mode)), 2}
+    : LetterSquare{std::string(1, get_mode_letter(mode)), 2}
 {
 }
 
 void InputModeIndicator::set(InputMode mode)
 {
-    auto const first_letter = get_first_letter(mode);
+    auto const first_letter = get_mode_letter(mode);
     this->LetterSquare::set(std::string(1, first_letter));
 }
 

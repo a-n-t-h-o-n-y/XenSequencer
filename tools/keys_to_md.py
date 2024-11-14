@@ -6,7 +6,7 @@ from pathlib import Path
 
 def get_input_mode_name(short_mode):
     mode_translations = {
-        'n': 'Note',
+        'p': 'Pitch',
         'v': 'Velocity',
         'd': 'Delay',
         'g': 'Gate',

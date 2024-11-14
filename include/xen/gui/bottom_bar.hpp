@@ -104,7 +104,7 @@ class BottomBar : public juce::Component
     [[nodiscard]] auto current_component() -> juce::Component &;
 
   public:
-    InputModeIndicator input_mode_indicator{InputMode::Note};
+    InputModeIndicator input_mode_indicator{InputMode::Pitch};
     StatusBar status_bar;
     CommandBar command_bar;
     LibrarySequencerToggle library_sequencer_toggle{'L'};

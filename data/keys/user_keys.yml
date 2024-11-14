@@ -1,7 +1,7 @@
 # Description: User Override Key bindings for the XenSequencer Plugin
 
 # Input Modes:
-#  [n] : Note
+#  [p] : Pitch
 #  [v] : Velocity
 #  [d] : Delay
 #  [g] : Gate
@@ -27,8 +27,8 @@
 # Example:
 
 # SequenceView:
-#   "escape": "inputMode note"
-#   "n": "inputMode note"
+#   "escape": "inputMode pitch"
+#   "p": "inputMode pitch"
 #   "v": "inputMode velocity"
 #   "d": "inputMode delay"
 #   "g": "inputMode gate"

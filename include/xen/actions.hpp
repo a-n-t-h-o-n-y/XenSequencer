@@ -72,9 +72,8 @@ void copy(XenTimeline const &tl);
 
 [[nodiscard]] auto lift(XenTimeline const &tl) -> TrackedState;
 
-[[nodiscard]] auto shift_note_octave(XenTimeline const &tl,
-                                     sequence::Pattern const &pattern, int amount)
-    -> SequencerState;
+[[nodiscard]] auto shift_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
+                                int amount) -> SequencerState;
 
 [[nodiscard]] auto set_note_octave(XenTimeline const &tl,
                                    sequence::Pattern const &pattern, int octave)

@@ -4,8 +4,8 @@
 
 | Input Mode | Key | Command |
 |------------|-----|--------|
-| --- | `escape` | `inputMode note` |
-| --- | `n` | `inputMode note` |
+| --- | `escape` | `inputMode pitch` |
+| --- | `p` | `inputMode pitch` |
 | --- | `v` | `inputMode velocity` |
 | --- | `d` | `inputMode delay` |
 | --- | `g` | `inputMode gate` |
@@ -41,10 +41,10 @@
 | --- | `Cmd + Shift + k` | `shift selectedSequence +4` |
 | --- | `Cmd + Shift + ArrowDown` | `shift selectedSequence -4` |
 | --- | `Cmd + Shift + j` | `shift selectedSequence -4` |
-| Note | `j` | `shift Note -1` |
-| Note | `ArrowDown` | `shift Note -1` |
-| Note | `k` | `shift Note +1` |
-| Note | `ArrowUp` | `shift Note +1` |
+| Pitch | `j` | `shift Pitch -1` |
+| Pitch | `ArrowDown` | `shift Pitch -1` |
+| Pitch | `k` | `shift Pitch +1` |
+| Pitch | `ArrowUp` | `shift Pitch +1` |
 | --- | `PageDown` | `shift Octave -1` |
 | --- | `PageUp` | `shift Octave +1` |
 | Velocity | `j` | `shift Velocity -0.05` |
@@ -81,7 +81,7 @@
 | Scale Mode | `ArrowUp` | `shift scaleMode +1` |
 | --- | `delete` | `delete selection` |
 | --- | `s` | `split :N=2:` |
-| Note | `r` | `randomize note 0 12` |
+| Pitch | `r` | `randomize pitch 0 12` |
 | Velocity | `r` | `randomize velocity 0.0 1.0` |
 | Delay | `r` | `randomize delay 0.0 0.5` |
 | Gate | `r` | `randomize gate 0.5 1.0` |

@@ -15,8 +15,8 @@ auto operator<<(std::ostream &os, InputMode mode) -> std::ostream &
 {
     switch (mode)
     {
-    case InputMode::Note:
-        return os << "note";
+    case InputMode::Pitch:
+        return os << "pitch";
     case InputMode::Velocity:
         return os << "velocity";
     case InputMode::Delay:
@@ -39,9 +39,9 @@ auto operator>>(std::istream &is, InputMode &mode) -> std::istream &
     is >> str;
     auto lower_str = to_lower(str);
 
-    if (lower_str == "note")
+    if (lower_str == "pitch")
     {
-        mode = InputMode::Note;
+        mode = InputMode::Pitch;
     }
     else if (lower_str == "velocity")
     {

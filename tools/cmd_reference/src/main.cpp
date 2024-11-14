@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string_view>
 
+#include <xen/constants.hpp>
 #include <xen/xen_command_tree.hpp>
 
 #include "make_command_reference.hpp"
@@ -29,8 +30,9 @@ int main(int argc, char const *argv[])
                                      output_path.string()};
         }
 
-        auto const doc_str =
-            "# Command Reference\n\n" + make_command_reference(xen::command_tree, 1);
+        auto const doc_str = "# Command Reference (v" + std::string{xen::VERSION} +
+                             ")\n\n" +
+                             make_command_reference_table(xen::create_command_tree());
 
         auto output_stream = std::ofstream{output_path};
         output_stream << doc_str;

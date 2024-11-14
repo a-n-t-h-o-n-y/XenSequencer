@@ -107,8 +107,8 @@ namespace xen
 
         cmd(
             "inputMode",
-            "Change the input mode."
-            "\n\nThe input mode determines the behavior of the up/down keys.",
+            "Change the input mode. The input mode determines the behavior of the "
+            "up/down keys.",
             [](PS &ps, InputMode mode) {
                 auto [state, _] = ps.timeline.get_state();
                 ps.timeline.stage({
@@ -492,7 +492,7 @@ namespace xen
             "set", ArgInfo<std::string>{"trait"},
 
             cmd(
-                "note", "Set the note pitch of any selected Notes.",
+                "pitch", "Set the pitch of any selected Notes.",
                 [](PS &ps, sequence::Pattern const &pattern, int pitch) {
                     increment_state(ps.timeline, &sequence::modify::set_pitch, pattern,
                                     pitch);
@@ -567,9 +567,8 @@ namespace xen
 
                 cmd(
                     "timeSignature",
-                    "Set the time signature of a Measure. If no index is given, "
-                    "set "
-                    "the time signature of the current Measure. Ignores Pattern.",
+                    "Set the time signature of a Measure. If no index is given, set "
+                    "the time signature of the current Measure.",
                     [](PS &ps, sequence::Pattern const &,
                        sequence::TimeSignature const &ts, int index) {
                         auto [state, aux] = ps.timeline.get_state();
@@ -728,12 +727,12 @@ namespace xen
             "shift", ArgInfo<std::string>{"trait"},
 
             cmd(
-                "note", "Increment/Decrement the note pitch of any selected Notes.",
+                "pitch", "Increment/Decrement the pitch of any selected Notes.",
                 [](PS &ps, sequence::Pattern const &pattern, int amount) {
                     increment_state(ps.timeline, &sequence::modify::shift_pitch,
                                     pattern, amount);
                     ps.timeline.set_commit_flag();
-                    return minfo("Note Shifted");
+                    return minfo("Pitch Shifted");
                 },
                 ArgInfo<int>{"amount", 1}),
 
@@ -742,7 +741,7 @@ namespace xen
                 [](PS &ps, sequence::Pattern const &pattern, int amount) {
                     auto [_, aux] = ps.timeline.get_state();
                     ps.timeline.stage({
-                        action::shift_note_octave(ps.timeline, pattern, amount),
+                        action::shift_octave(ps.timeline, pattern, amount),
                         std::move(aux),
                     });
                     ps.timeline.set_commit_flag();
@@ -871,8 +870,8 @@ namespace xen
             "randomize", ArgInfo<InputMode>{"mode"},
 
             cmd(
-                InputMode::Note,
-                "Set the note pitch of any selected Notes to a random value.",
+                InputMode::Pitch,
+                "Set the pitch of any selected Notes to a random value.",
                 [](PS &ps, sequence::Pattern const &pattern, int min, int max) {
                     increment_state(ps.timeline, &sequence::modify::randomize_pitch,
                                     pattern, min, max);
@@ -942,14 +941,14 @@ namespace xen
 
         pattern(cmd(
             "mirror",
-            "Mirror the note pitches of the current selection around `centerNote`.",
+            "Mirror the note pitches of the current selection around `centerPitch`.",
             [](PS &ps, sequence::Pattern const &pattern, int center_pitch) {
                 increment_state(ps.timeline, &sequence::modify::mirror, pattern,
                                 center_pitch);
                 ps.timeline.set_commit_flag();
                 return minfo("Selection Mirrored");
             },
-            ArgInfo<int>{"centerNote", 0})),
+            ArgInfo<int>{"centerPitch", 0})),
 
         pattern(cmd("quantize",
                     "Set the delay to zero and gate to one for all Notes in the "
