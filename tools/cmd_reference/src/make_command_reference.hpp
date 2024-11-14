@@ -35,8 +35,11 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
     xen::CommandGroup<ID_t, ChildID_t, Commands...> const &cmd_group, std::string name,
     std::string signature) -> std::string
 {
-    name += std::string{cmd_group.id} + " ";
-    signature += std::string{cmd_group.id} + " ";
+    if (!cmd_group.id.empty())
+    {
+        name += std::string{cmd_group.id} + " ";
+        signature += std::string{cmd_group.id} + " ";
+    }
     return std::apply(
         [&](auto const &...child_cmds) {
             return (... + make_command_reference(child_cmds, name, signature));

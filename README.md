@@ -1,4 +1,4 @@
-# XenSequencer
+# XenSequencer 🎶
 
 ![XenSequencer](/docs/img/title-screenshot.png)
 
