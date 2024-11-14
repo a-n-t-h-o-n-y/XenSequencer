@@ -1,117 +1,101 @@
 # XenSequencer User Guide
 
-## Table of Contents
+## DAW Setup
 
-1. [Overview](#overview)
-1. [Getting Started](#getting-started)
-   - [User Interface](#user-interface)
-   - [Load Demo](#load-demo)
-1. [Keyboard Navigation](#keyboard-navigation)
-   - [Navigating the UI](#navigating-the-ui)
-   - [Editing Keyboard Shortcuts](#editing-keyboard-shortcuts)
-1. [Commands](#commands)
-   - [Patterns](#patterns)
-   - [Command Bar](#command-bar)
-   - [Common Commands](#common-commands)
-1. [Contact and Support](#contact-and-support)
+Buckle up, this is the most complicated part of the process. XenSequencer is a VST plugin that works with MIDI and support across DAWs is varied. The following are some general steps to get the plugin up and running in your DAW.
 
-## Overview
-- Monophonic Step Sequencer
-- VST3 Plugin
-- Sequence Creation Tools
+### General Steps
+- Add XenSequencer to a MIDI track in your DAW.
+- Route the MIDI output from XenSequencer to a MIDI instrument.
+   - If you're lucky enough to have a DAW that supports MIDI plugins directly, it can be placed inline with the instrument on the same track.
+   - Otherwise the instrument will need to be on a separate track, and the MIDI output from XenSequencer can be routed to the instrument's input.
+- Enable MPE support if offered by your DAW.
 
-## Getting Started
-- Build from source, or download the latest release from the [releases page](https://github.com/a-n-t-h-o-n-y/XenSequencer/releases).
-- Place the XenSequencer VST in your system's VST3 plugin directory.
-   - If using the pre-built VST, MacOS will have an 'unverified developer' warning. To get around this, build from source, or search "MacOS unverified developer VST3".
-- Open the plugin in your DAW and a MIDI instrument.
-- Route MIDI output from the XenSequencer into the instrument.
 
-### User Interface
-- Phrase Timeline
-- Measure Editor
-- Command Bar
-   - Only visible when in focus via `:` key
-- Status Bar
-   - Input mode letter
-   - Message from last executed command
+### Ableton
+- Needs separate tracks for XenSequencer and instrument.
+- Instrument track needs input from XenSequencer track, and to have monitoring set to 'In'.
+- Right click on the XenSequencer plugin box and enable MPE.
 
-### Load Demo
-- Open the XenSequencer GUI, click on the middle element of the sequencer to give it focus.
-- Press the colon key `:` to open the command bar.
-- Type `demo` and press enter.
-- The sequencer will now be filled with a demo sequence.
-- Move around the sequence with the arrow keys.
-   - Left/Right will move the selection within the current sequence.
-   - Shift + Up/Down will move the selection between layers of sub-sequences.
-- With a note or sequence selected, press the `d` key to switch from note to delay input mode. The Up/Down arrows will now control the note delay, if a sequence is selected, the change will apply to all notes in that sequence.
-- Move between measures in a phrase by pressing the up key until you are at the top most layer, then move left or right.
-- Press the spacebar to play the sequence.
-- Change the tempo in your DAW.
+### Bitwig
+- Can be placed inline with the instrument on the same track.
+- MPE button is available when plugin is selected, but have yet to get pitch bend data to work.
 
-## Keyboard Navigation
-Mouse input is not supported in this initial version. There are a few default key bindings for basic tasks and the rest happens via the command bar. Make sure the plugin is in focus (click on it) before using keyboard shortcuts.
+## Brief Tutorial
 
-All keyboard shortcuts can be viewed/edited in the `keys.yml` file in the user data directory, and `user_keys.yml` (in the same directory) will override the defaults.
+Start out by creating a new MIDI clip in your DAW with the C1 note held for a measure. Loop it.
 
-### Navigating the UI
-| Key Combination | Action |
-| --- | --- |
-| Left/Right Arrows or `h`/`l` | Move among a sequence |
-| Shift + Up/Down Arrows or `k`/`j` | Move between layers of sequences |
-| `:` | Open the command bar |
-| `ctrl/cmd`+`z` | **Undo** the last action |
-| `ctrl/cmd`+`y` | **Redo** the last action |
-| `ctrl/cmd`+`c` | **Copy** the current selection |
-| `ctrl/cmd`+`x` | **Cut** the current selection |
-| `ctrl/cmd`+`v` | **Paste** over the current selection |
-| `n` | Enable **Note** input mode, where the Up/Down arrows will change the note pitch |
-| `v` | Enable **Velocity** input mode, where the Up/Down arrows will change the note velocity |
-| `d` | Enable **Delay** input mode, where the Up/Down arrows will change the note delay |
-| `g` | Enable **Gate** input mode, where the Up/Down arrows will change the note gate |
-| `c` | Enable **Scale** input mode, where the Up/Down arrows will cycle through the currently loaded scales |
-| `m` | Enable **ScaleMode** input mode, where the Up/Down arrows will change the scale mode |
-| `esc` | Exit the command bar or revert to Note input mode |
-| `del` | Delete the current selection |
+Open the plugin and you'll see a blank timeline. Click on the middle element of the sequencer to give it focus, then press the colon key `:` to open the command bar at the bottom. Type 'note' and press enter. This will fill the sequence with a single note of pitch '0'. Press play.
 
-### Custom Keyboard Shortcuts
-- Keyboard shortcuts can be added in the `user_keys.yml` file in the user data directory.
-- Possible locations of the user data directory:
-   - Windows: `\Users\username\AppData\Roaming\XenSequencer\`
-   - MacOS: `~/Library/XenSequencer/`
-   - Linux: `~/.config/XenSequencer/`
-- Each entry in the `yml` files is a string to be passed to the command bar.
+Press `p` to enter pitch input mode. Use the up and down arrows to change the pitch. Press `v` to enter velocity input mode, and change the velocity. Press `d` to enter delay input mode, and change the delay. Press `g` to enter gate input mode, and change the gate.
+
+If you go past an octave boundary, you'll notice the note wraps around back to the bottom with an icon to denote the octave. This allows you to see interval pitch relations and limits the vertical space needed.
+
+Press `s` to split the current note into two notes. This is the main mechanism to create more notes. Now both notes are selected, press `p` to enter pitch input mode and change the pitch of both notes at once.
+
+The `s` keybinding can also take an number parameter, you do this by first typing out the number, and then hitting the `s` key. This number will determine the number of divisions within the split. Be careful with large numbers here.
+
+Press `Shift` and the down arrow to 'drop down' one layer into the sequence. This will allow you to select individual notes that were created by the split. Press `Shift` and the up arrow to move back up a layer. This is the recursive nature of the sequencer, every level operates the same as the one above it and is a complete sequence itself.
+
+![Sequencer](img/guide-sequencer.png)
+
+Try copy and pasting any selection with the common `ctrl+c` and `ctrl+v` keybindings. You'll notice that copying a sequence and pasting it into a shorter or longer selection will stretch or compress the sequence to fit the new length. This copy and paste buffer works across instances as well, so if you want to copy a drum rhythm into your synth track that is possible.
+
+Open the Sequence Bank by clicking on the arrow icon. You will see the 16 available sequences. Click on one to select it, then create a new sequence. Go back to your DAW track and add the C# note just above the previous C note. The new sequence should start playing back.
+
+From here try the Library view out by pressing `w`. This will show you the saved sequences, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that scales only make sense for tunings with 12 notes per octave, and not even all of those too.
+
+Check out the [command reference](command_reference.md) and the [keybindings reference](keybindings_reference.md) for more ideas.
+
+## Scales
+The current scale defines a subset of notes available. Any notes outside of this set will be transposed to the next valid note in the current translate direction. The easiest way to change scales is to enter the scale input mode with the `c` key and cycle through the available scales with the arrow keys. All scales are 12 tone scales, with any notes outside of the 12 tone scale being ignored.
+
+The **Scale Mode** shifts the scale's interval pattern by some amount. For example, a major scale has the interval pattern `[2, 2, 1, 2, 2, 2, 1]`. If the scale mode is set to `3`, then the scale will start on the third note of the major scale, `[1, 2, 2, 2, 1, 2, 2]`. This can be cycled through by entering 'scale mode' input mode with the `m` key, then the arrow keys to cycle the mode.
 
 ## Commands
-All actions in the plugin are defined by command strings. These follow the format of `[pattern] command_name [arguments...]` where square brackets delimit optional items. The command bar is the main UI element to enter commands.
 
-The command reference can be found [here](command_reference.md).
+Commands are entered into the command bar at the bottom of the plugin window. The command bar will autocomplete commands and arguments as you type. Press the up and down arrows to cycle through the command history, and press `tab` to autocomplete any shown guide text. Some commands have default arguments that are used if not provided, these values are displayed in the guide text. `Enter` key will execute the typed command.
+Multiple commands can be run at once by separating them with a semicolon `;`.
+
+![Command Bar](img/guide-command-bar.png)
+
+The `again` command will repeat the previous command, that has the `.` keybinding.
+
+Commands can be bound to keyboard shortcuts in the `user_keys.yml` file in the user data directory. Possible locations of the user data directory:
+- Windows: `\Users\username\AppData\Roaming\XenSequencer\`
+- MacOS: `~/Library/XenSequencer/`
+- Linux: `~/.config/XenSequencer/`
 
 ### Patterns
 
-`+1 3 2`
+Some commands take a `Pattern` as an argument. Patterns have the following format: `[offset] intervals...` where `offset` is optional. `offset` is defined by putting a plus sign followed immediately by an integer. `intervals...` is a space separated list of integers. The patterns defines the selection of notes in the current sequence to run the command against. If no pattern is provided, then the entire selection will be used.
 
-Patterns have the following format: `[offset] intervals...` where `offset` is optional. `offset` is defined by putting a plus sign followed immediately by an integer. `intervals...` is a space separated list of integers.
+The `offset` is used to shift the pattern to the right by the given number of steps. For example, `+1` will apply the command to everything except the first note. `+1 2` will skip the first note, then skip every other note after that. `2 3` will apply to the first, third, sixth, eighth note, etc... An iterval cannot be less than one. The default Pattern, when one is not provided, is `+0 1`.
 
-If a command takes a Pattern, the pattern will be used to select notes in the current sequence. If no pattern is provided, then the entire selection will be used.
+The command reference can be found [here](command_reference.md).
 
-The `offset` is used to shift the pattern to the right by the given number of steps, the default is `+0`. For example, `+1` will apply the command to everything except the first note. `+1 2` will skip the first note, then skip every other note after that. `2 3` will apply to the first, third, sixth, eighth note, etc... An iterval cannot be less than one. The default Pattern, when one is not provided, is `+0 1`.
+## Sequence Bank
+Contains 16 monophonic sequences, each activated by a different MIDI note. Can be played simultaneously, up to 15 note polyphony. Switch between sequences with `Ctrl` + `Shift` + `Arrow` keys.
 
-### Command Bar
-The colon key `:` opens the command bar, it is used to type and execute commands. It will autocomplete commands and arguments as you type. Press the up and down arrows to cycle through the command history, and press `tab` to autocomplete any shown guide text. Some commands have default arguments that are used if not provided, these values are displayed in the guide text. `Enter` key will execute the typed command.
+![Sequence Bank](img/guide-sequence-bank.png)
 
-### Common Commands
-| Command | Description |
-| --- | --- |
-| `append measure [time signature=4/4]` | Append an empty measure to the current phrase. |
-| `note [pitch=0] [velocity=0.8] [delay=0] [gate=1]` | Create a new note, overwriting the current selection. |
-| `rest` | Create a new rest, overwriting the current selection. |
-| `split [count=2]` | Split the current selection into two sequences. |
-| `[pattern] fill [note\|rest] ...` | Fill the current selection with the given note or rest. |
-| `[pattern] randomize [note\|velocity\|delay\|gate] ...` | Randomize the given property of the current selection. |
-| `save measure [filepath]` | Save the current measure to a `json` file. |
-| `load measure [filepath]` | Load the current measure from a `json` file. |
-| `shift scaleMode [amount=1]` | Increment/Decrement the mode of the current scale. |
+## Top Bar
+Along the top of the plugin window you'll find a listing of some settings, these are all editable by double clicking and typing unless otherwise noted.
 
-## Contact and Support
-Contact by opening an issue or starting a discussion at the [github page](https://github.com/a-n-t-h-o-n-y/XenSequencer) for this project.
+![Top Bar](img/guide-top-bar.png)
+
+| Element | Description |
+| ------- | ----------- |
+| Time Signature | The time signature of the sequence in view. |
+| Zero Frequency | The frequency of the zero-th pitch. |
+| Key | A transposition parameter, applied to all notes. |
+| Scale | The scale applied to all notes. |
+| Scale Mode | The mode of the scale, if any; range of [1, scale size]. |
+| Tuning | The current tuning name, not editable. |
+| Sequence Name | The current sequence index and name. |
+
+## Library
+Press `w` to toggle the Library view. This view contains the following sections:
+- Saved Sequences
+- Tunings
+- Scales
