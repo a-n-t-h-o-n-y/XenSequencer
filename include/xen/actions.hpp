@@ -101,4 +101,7 @@ void save_measure(sequence::Measure const &measure,
 [[nodiscard]] auto step(sequence::Cell cell, std::size_t count, int pitch_distance,
                         float velocity_distance) -> sequence::Cell;
 
+[[nodiscard]] auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
+                       std::vector<int> const &intervals) -> sequence::Cell;
+
 } // namespace xen::action

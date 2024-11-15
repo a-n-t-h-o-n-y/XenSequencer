@@ -16,6 +16,7 @@
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
+#include <sequence/utility.hpp>
 
 #include <xen/copy_paste.hpp>
 #include <xen/serialize.hpp>
@@ -297,6 +298,28 @@ auto step(sequence::Cell cell, std::size_t count, int pitch_distance,
     }
 
     return cell;
+}
+
+auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
+         std::vector<int> const &intervals) -> sequence::Cell
+{
+    return std::visit(
+        sequence::utility::overload{
+            [](sequence::Note const &note) -> sequence::Cell { return note; },
+            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
+            [&](sequence::Sequence &seq) -> sequence::Cell {
+                auto view = sequence::PatternView{seq.cells, pattern};
+                auto i = std::size_t{0};
+                for (auto &c : view)
+                {
+                    c = sequence::modify::shift_pitch(c, {0, {1}},
+                                                      intervals[i % intervals.size()]);
+                    ++i;
+                }
+                return seq;
+            },
+        },
+        cell);
 }
 
 } // namespace xen::action

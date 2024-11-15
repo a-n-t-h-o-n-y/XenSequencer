@@ -79,4 +79,25 @@ auto find_next_chord(std::vector<Chord> const &chords, std::string const &name) 
     }
 }
 
+auto invert_chord(Chord const &chord, int inversion, std::size_t tuning_size)
+    -> std::vector<int>
+{
+    if (inversion < 0 || inversion >= (int)chord.intervals.size())
+    {
+        throw std::runtime_error{"Invalid inversion."};
+    }
+
+    auto inverted = chord.intervals;
+
+    for (auto i = 0; i < inversion; ++i)
+    {
+        inverted[(std::size_t)i] += tuning_size;
+    }
+
+    std::rotate(std::begin(inverted), std::begin(inverted) + inversion,
+                std::end(inverted));
+
+    return inverted;
+}
+
 } // namespace xen

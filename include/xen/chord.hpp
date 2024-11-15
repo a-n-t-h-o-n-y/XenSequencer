@@ -43,4 +43,16 @@ struct Chord
 [[nodiscard]] auto find_next_chord(std::vector<Chord> const &chords,
                                    std::string const &name) -> Chord;
 
+/**
+ * Applies an inversion to the given chord and returns the intervals.
+ *
+ * @param chord The chord to invert.
+ * @param inversion The number of times to invert the chord.
+ * @param tuning_size The size of the tuning.
+ * @return The intervals of the inverted chord.
+ * @throws std::runtime_error If the inversion is out of bounds.
+ */
+[[nodiscard]] auto invert_chord(Chord const &chord, int inversion,
+                                std::size_t tuning_size) -> std::vector<int>;
+
 } // namespace xen

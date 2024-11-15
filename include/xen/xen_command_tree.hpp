@@ -994,6 +994,26 @@ namespace xen
             ArgInfo<std::size_t>{"count"}, ArgInfo<int>{"pitch_distance"},
             ArgInfo<float>{"velocity_distance", 0.f}),
 
+        pattern(cmd(
+            "arp",
+            "Plays a given chord across the current selection, each interval in the "
+            "chord is applied to each child cell in the selection.",
+            [](PS &ps, sequence::Pattern const &pattern, std::string chord_name,
+               int inversion) {
+                auto [state, aux] = ps.timeline.get_state();
+                auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+                auto const chord = find_chord(ps.chords, chord_name);
+                auto const intervals =
+                    invert_chord(chord, inversion, state.tuning.intervals.size());
+                selected = action::arp(selected, pattern, intervals);
+
+                ps.timeline.stage({std::move(state), std::move(aux)});
+                ps.timeline.set_commit_flag();
+
+                return minfo("Arpeggiated");
+            },
+            ArgInfo<std::string>{"chord", "cycle"}, ArgInfo<int>{"inversion", -1})),
+
         cmd("version", "Print the current version string.",
             [](PS &) { return minfo(std::string{"v"} + VERSION); }));
 }
