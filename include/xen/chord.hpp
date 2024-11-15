@@ -33,12 +33,12 @@ struct Chord
 
 /**
  * Find the next chord in the list of chords with the given name, wrapping around \p
- * chords if necessary.
+ * chords if necessary. Returns the first entry if the given name is not found.
  *
  * @param chords The list of chords to search.
  * @param name The name of the chord to find. Case sensitive.
  * @return The chord at the index after the chord with the given name.
- * @throws std::runtime_error If no chord with the given name is found.
+ * @throws std::runtime_error chords is empty.
  */
 [[nodiscard]] auto find_next_chord(std::vector<Chord> const &chords,
                                    std::string const &name) -> Chord;
@@ -54,5 +54,14 @@ struct Chord
  */
 [[nodiscard]] auto invert_chord(Chord const &chord, int inversion,
                                 std::size_t tuning_size) -> std::vector<int>;
+
+/**
+ * Adds one to the inversion of the given chord, wraps on chord interval size.
+ *
+ * @param chord The chord to increment the inversion of.
+ * @param inversion The current inversion.
+ * @return The new inversion.
+ */
+[[nodiscard]] auto increment_inversion(Chord const &chord, int inversion) -> int;
 
 } // namespace xen

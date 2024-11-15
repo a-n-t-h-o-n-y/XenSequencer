@@ -63,13 +63,17 @@ auto find_chord(std::vector<Chord> const &chords, std::string const &name) -> Ch
 
 auto find_next_chord(std::vector<Chord> const &chords, std::string const &name) -> Chord
 {
-    auto const it = std::ranges::find(chords, name, &Chord::name);
-    if (it == std::end(chords))
+    if (chords.empty())
     {
-        throw std::runtime_error{"Chord not found."};
+        throw std::runtime_error{"Chords parameter is empty."};
+    }
+    auto const it = std::ranges::find(chords, name, &Chord::name);
+    if (it == std::end(chords)) // Not found
+    {
+        return chords.front();
     }
     auto const next_it = std::next(it);
-    if (next_it == std::end(chords))
+    if (next_it == std::end(chords)) // Wrap around
     {
         return chords.front();
     }
@@ -98,6 +102,11 @@ auto invert_chord(Chord const &chord, int inversion, std::size_t tuning_size)
                 std::end(inverted));
 
     return inverted;
+}
+
+auto increment_inversion(Chord const &chord, int inversion) -> int
+{
+    return (inversion + 1) % (int)chord.intervals.size();
 }
 
 } // namespace xen

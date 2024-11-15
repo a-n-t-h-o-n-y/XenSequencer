@@ -73,6 +73,26 @@ struct SelectedState
 
     /// The index of the currently selected Cell in the current Measure.
     std::vector<std::size_t> cell{};
+
+    auto operator==(SelectedState const &other) const -> bool = default;
+    auto operator!=(SelectedState const &other) const -> bool = default;
+};
+
+/**
+ * The state of the arpeggiator held for cycling through chords.
+ */
+struct ArpState
+{
+    // The state of the sequencer when the arpeggiator was first used in a chain.
+    SequencerState sequencer{};
+    SelectedState selected{};
+
+    // The commit ID from just before the last arp call.
+    int previous_commit_id{-1};
+
+    // parameters for the arpeggiator
+    std::string previous_chord_name{""};
+    int previous_inversion{-1};
 };
 
 /**
@@ -82,6 +102,7 @@ struct AuxState
 {
     SelectedState selected{};
     InputMode input_mode = InputMode::Pitch;
+    ArpState arp_state{};
 };
 
 struct TrackedState

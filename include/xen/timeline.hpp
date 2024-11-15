@@ -60,7 +60,7 @@ class Timeline
     }
 
     /**
-     * Retrieve the latest state.
+     * Retrieve the current state.
      *
      * @details This is the state that was last staged or a previous commit if undo has
      * been called.
@@ -77,6 +77,14 @@ class Timeline
     [[nodiscard]] auto get_current_commit_id() -> int
     {
         return timeline_[at_].second;
+    }
+
+    /**
+     * Return the unique commit ID for the next commit.
+     */
+    [[nodiscard]] auto get_next_commit_id() -> int
+    {
+        return id_origin_;
     }
 
     /**

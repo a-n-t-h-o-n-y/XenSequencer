@@ -57,7 +57,11 @@ namespace xen
                 if (ps.timeline.undo())
                 {
                     auto new_state = ps.timeline.get_state();
-                    new_state.aux = std::move(current_aux); // Important for continuity
+
+                    // Important for continuity
+                    new_state.aux.selected = std::move(current_aux.selected);
+                    new_state.aux.input_mode = current_aux.input_mode;
+
                     ps.timeline.stage(new_state);
                     return minfo("Undone");
                 }
@@ -997,10 +1001,64 @@ namespace xen
         pattern(cmd(
             "arp",
             "Plays a given chord across the current selection, each interval in the "
-            "chord is applied to each child cell in the selection.",
+            "chord is applied in order to child cells in the selection.",
             [](PS &ps, sequence::Pattern const &pattern, std::string chord_name,
                int inversion) {
                 auto [state, aux] = ps.timeline.get_state();
+
+                bool const starting_new_chain =
+                    aux.selected != aux.arp_state.selected ||
+                    aux.arp_state.previous_commit_id !=
+                        ps.timeline.get_current_commit_id();
+
+                if (starting_new_chain)
+                {
+                    aux.arp_state.sequencer = state;
+                    aux.arp_state.selected = aux.selected;
+                }
+
+                // Find chord name and inversion if either is a 'cycle' value.
+                if (chord_name == "cycle" && inversion != -1)
+                {
+                    chord_name =
+                        find_next_chord(ps.chords, aux.arp_state.previous_chord_name)
+                            .name;
+                    auto const chord = find_chord(ps.chords, chord_name);
+                    inversion = std::min(inversion, (int)chord.intervals.size() - 1);
+                }
+                else if (chord_name != "cycle" && inversion == -1)
+                {
+                    auto const chord = find_chord(ps.chords, chord_name);
+                    inversion =
+                        increment_inversion(chord, aux.arp_state.previous_inversion);
+                }
+                else if (chord_name == "cycle" && inversion == -1)
+                {
+                    chord_name = aux.arp_state.previous_chord_name;
+                    if (chord_name.empty())
+                    {
+                        inversion = 0;
+                    }
+                    else
+                    {
+                        auto const chord = find_chord(ps.chords, chord_name);
+                        inversion = increment_inversion(
+                            chord, aux.arp_state.previous_inversion);
+                    }
+                    if (inversion == 0)
+                    {
+                        chord_name = find_next_chord(ps.chords, chord_name).name;
+                    }
+                }
+
+                // chord_name and inversion are now valid.
+                aux.arp_state.previous_chord_name = chord_name;
+                aux.arp_state.previous_inversion = inversion;
+                aux.arp_state.previous_commit_id = ps.timeline.get_next_commit_id();
+
+                state = aux.arp_state.sequencer;
+                aux.selected = aux.arp_state.selected;
+
                 auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
                 auto const chord = find_chord(ps.chords, chord_name);
                 auto const intervals =
@@ -1010,7 +1068,8 @@ namespace xen
                 ps.timeline.stage({std::move(state), std::move(aux)});
                 ps.timeline.set_commit_flag();
 
-                return minfo("Arpeggiated");
+                return minfo("Arpeggiated with " + chord_name +
+                             " inversion: " + std::to_string(inversion));
             },
             ArgInfo<std::string>{"chord", "cycle"}, ArgInfo<int>{"inversion", -1})),
 
