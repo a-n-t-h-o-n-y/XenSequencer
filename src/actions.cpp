@@ -25,7 +25,8 @@
 namespace xen::action
 {
 
-// These can throw exceptions with error messages and those will be displayed
+// These can throw exceptions with error messages and those will be displayed as errors
+// in the status bar.
 
 auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState
 {

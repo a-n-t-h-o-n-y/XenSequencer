@@ -1,0 +1,5 @@
+# chords:
+#   - names: ["Major", "M"]
+#     intervals: [0, 4, 7]
+#   - names: ["Minor", "m"]
+#     intervals: [0, 3, 7]

@@ -67,6 +67,25 @@ namespace xen
 [[nodiscard]] auto get_user_scales_file() -> juce::File;
 
 /**
+ * Retrieve the location of the system chords.yml file.
+ *
+ * @details If the file does not exist, it will be created. If it is outdated, it will
+ * be overwritten.
+ * @return The filesystem path of the system chords file.
+ * @throws std::runtime_error if the file cannot be created.
+ */
+[[nodiscard]] auto get_system_chords_file() -> juce::File;
+
+/**
+ * Retrieve the location of the user_chords.yml file.
+ *
+ * @details If the file does not exist, it will be created.
+ * @return The filesystem path of the user chords file.
+ * @throws std::runtime_error if the file cannot be created.
+ */
+[[nodiscard]] auto get_user_chords_file() -> juce::File;
+
+/**
  * Create and populate the demos/ directory with the demo files.
  */
 void initialize_demo_files();

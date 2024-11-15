@@ -52,12 +52,3 @@ enum class TranslateDirection
                                       TranslateDirection direction) -> int;
 
 } // namespace xen
-
-namespace YAML
-{
-template <>
-struct convert<::xen::Scale>
-{
-    static auto decode(Node const &node, ::xen::Scale &scale) -> bool;
-};
-} // namespace YAML

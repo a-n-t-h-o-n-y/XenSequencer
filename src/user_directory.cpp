@@ -8,6 +8,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <embed_chords.hpp>
 #include <embed_demos.hpp>
 #include <embed_keys.hpp>
 #include <embed_scales.hpp>
@@ -161,6 +162,59 @@ auto get_user_scales_file() -> juce::File
     }
 
     return scales_file;
+}
+
+auto get_system_chords_file() -> juce::File
+{
+    auto const chords_file = get_user_library_directory().getChildFile("chords.yml");
+    auto const full_path = chords_file.getFullPathName().toStdString();
+
+    auto write_system_chords = [&chords_file] {
+        return chords_file.create().wasOk() &&
+               chords_file.appendData(embed_chords::chords_yml,
+                                      (std::size_t)embed_chords::chords_ymlSize);
+    };
+
+    auto const file_exists = chords_file.existsAsFile();
+
+    if (file_exists)
+    {
+        auto root = YAML::LoadFile(full_path);
+        auto const ver_node = root["version"];
+        if (ver_node.IsDefined() && ver_node.as<std::string>() == xen::VERSION)
+        {
+            return chords_file;
+        }
+    }
+
+    return write_system_chords()
+               ? chords_file
+               : throw std::runtime_error("Unable to create chords file: " + full_path +
+                                          ".");
+}
+
+auto get_user_chords_file() -> juce::File
+{
+    auto const chords_file =
+        get_user_library_directory().getChildFile("user_chords.yml");
+
+    // Check if the file exists, if not create it.
+    if (!chords_file.existsAsFile())
+    {
+        // write out the default chords file
+        if (chords_file.create().wasOk())
+        {
+            chords_file.appendData(embed_chords::user_chords_yml,
+                                   (std::size_t)embed_chords::user_chords_ymlSize);
+        }
+        else
+        {
+            throw std::runtime_error("Unable to create chords file: " +
+                                     chords_file.getFullPathName().toStdString() + ".");
+        }
+    }
+
+    return chords_file;
 }
 
 void initialize_demo_files()

@@ -54,6 +54,15 @@ juce_add_binary_data(EmbedScales
         data/scales/user_scales.yml
 )
 
+# Add chord files as a binary resource
+juce_add_binary_data(EmbedChords
+    HEADER_NAME "embed_chords.hpp"
+    NAMESPACE embed_chords
+    SOURCES
+        data/chords/chords.yml
+        data/chords/user_chords.yml
+)
+
 # Add demo files as a binary resource
 juce_add_binary_data(EmbedDemos
     HEADER_NAME "embed_demos.hpp"
@@ -96,6 +105,7 @@ target_link_libraries(XenSequencerLib
         nlohmann_json::nlohmann_json
         EmbedKeys
         EmbedScales
+        EmbedChords
         EmbedDemos
         EmbedFonts
         juce::juce_recommended_config_flags
@@ -107,6 +117,7 @@ target_link_libraries(XenSequencerLib
 target_sources(XenSequencerLib
     PUBLIC
         src/actions.cpp
+        src/chord.cpp
         src/copy_paste.cpp
         src/command_history.cpp
         src/input_mode.cpp
@@ -141,6 +152,7 @@ target_sources(XenSequencerLib
 
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
+        include/xen/chord.hpp
         include/xen/copy_paste.hpp
         include/xen/command.hpp
         include/xen/command_history.hpp

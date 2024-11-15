@@ -13,6 +13,7 @@
 #include <sequence/sequence.hpp>
 
 #include <xen/actions.hpp>
+#include <xen/chord.hpp>
 #include <xen/command.hpp>
 #include <xen/constants.hpp>
 #include <xen/gui/themes.hpp>
@@ -229,10 +230,17 @@ namespace xen
                         return merror("Failed to Load Keys: " + std::string{e.what()});
                     }
                 }),
+
             cmd("scales", "Load scales.yml and user_scales.yml from Library directory",
                 [](PS &ps) {
                     ps.scales = load_scales_from_files();
                     return minfo("Scales Loaded: " + std::to_string(ps.scales.size()));
+                }),
+
+            cmd("chords", "Load chords.yml and user_chords.yml from Library directory",
+                [](PS &ps) {
+                    ps.chords = load_chords_from_files();
+                    return minfo("Chords Loaded: " + std::to_string(ps.chords.size()));
                 })),
 
         cmd_group(

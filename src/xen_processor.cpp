@@ -36,6 +36,7 @@ XenProcessor::XenProcessor()
     pending_state_update.set(plugin_state.timeline.get_state().sequencer);
 
     this->execute_command_string("load scales");
+    this->execute_command_string("load chords");
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,

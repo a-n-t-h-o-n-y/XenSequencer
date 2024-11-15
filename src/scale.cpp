@@ -24,6 +24,33 @@ namespace
 
 } // namespace
 
+namespace YAML
+{
+template <>
+struct convert<::xen::Scale>
+{
+    static auto decode(Node const &node, ::xen::Scale &scale) -> bool
+    {
+        if (!node["name"] || !node["tuning_length"] || !node["intervals"])
+        {
+            return false;
+        }
+        scale.name = ::xen::to_lower(node["name"].as<std::string>());
+        scale.tuning_length = node["tuning_length"].as<std::size_t>();
+        scale.intervals = node["intervals"].as<std::vector<std::uint8_t>>();
+        if (node["mode"])
+        {
+            scale.mode = node["mode"].as<std::uint8_t>();
+        }
+        else
+        {
+            scale.mode = 1;
+        }
+        return true;
+    }
+};
+} // namespace YAML
+
 namespace xen
 {
 
@@ -40,9 +67,9 @@ auto Scale::operator!=(Scale const &other) const -> bool
 
 auto load_scales_from_files() -> std::vector<Scale>
 {
-    auto system_node =
+    auto const system_node =
         YAML::LoadFile(get_system_scales_file().getFullPathName().toStdString());
-    auto user_node =
+    auto const user_node =
         YAML::LoadFile(get_user_scales_file().getFullPathName().toStdString());
 
     auto system_scales = system_node["scales"].as<std::vector<Scale>>();
@@ -107,28 +134,3 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
 }
 
 } // namespace xen
-
-namespace YAML
-{
-
-auto convert<::xen::Scale>::decode(Node const &node, ::xen::Scale &scale) -> bool
-{
-    if (!node["name"] || !node["tuning_length"] || !node["intervals"])
-    {
-        return false;
-    }
-    scale.name = ::xen::to_lower(node["name"].as<std::string>());
-    scale.tuning_length = node["tuning_length"].as<std::size_t>();
-    scale.intervals = node["intervals"].as<std::vector<std::uint8_t>>();
-    if (node["mode"])
-    {
-        scale.mode = node["mode"].as<std::uint8_t>();
-    }
-    else
-    {
-        scale.mode = 1;
-    }
-    return true;
-}
-
-} // namespace YAML

@@ -23,6 +23,7 @@ class LookAndFeel;
 
 #include <signals_light/signal.hpp>
 
+#include <xen/chord.hpp>
 #include <xen/command_history.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
@@ -131,6 +132,7 @@ struct PluginState
     std::unique_ptr<juce::LookAndFeel> laf{nullptr};
     std::vector<Scale> scales{};
     std::optional<std::size_t> scale_shift_index{std::nullopt};
+    std::vector<Chord> chords{};
 };
 
 struct AudioThreadStateForGUI
