@@ -66,8 +66,8 @@ auto get_system_keys_file() -> juce::File
 
     auto write_system_keys = [&key_file] {
         return key_file.create().wasOk() &&
-               key_file.appendData(embed_keys::keys_yml,
-                                   (std::size_t)embed_keys::keys_ymlSize);
+        key_file.replaceWithData(embed_keys::keys_yml,
+                                 (std::size_t)embed_keys::keys_ymlSize);
     };
 
     auto const file_exists = key_file.existsAsFile();
@@ -118,8 +118,8 @@ auto get_system_scales_file() -> juce::File
 
     auto write_system_scales = [&scales_file] {
         return scales_file.create().wasOk() &&
-               scales_file.appendData(embed_scales::scales_yml,
-                                      (std::size_t)embed_scales::scales_ymlSize);
+               scales_file.replaceWithData(embed_scales::scales_yml,
+                                          (std::size_t)embed_scales::scales_ymlSize);
     };
 
     auto const file_exists = scales_file.existsAsFile();
@@ -145,7 +145,6 @@ auto get_user_scales_file() -> juce::File
     auto const scales_file =
         get_user_library_directory().getChildFile("user_scales.yml");
 
-    // Check if the file exists, if not create it.
     if (!scales_file.existsAsFile())
     {
         // write out the default scales file
@@ -171,8 +170,8 @@ auto get_system_chords_file() -> juce::File
 
     auto write_system_chords = [&chords_file] {
         return chords_file.create().wasOk() &&
-               chords_file.appendData(embed_chords::chords_yml,
-                                      (std::size_t)embed_chords::chords_ymlSize);
+               chords_file.replaceWithData(embed_chords::chords_yml,
+                                          (std::size_t)embed_chords::chords_ymlSize);
     };
 
     auto const file_exists = chords_file.existsAsFile();
