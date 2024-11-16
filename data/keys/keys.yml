@@ -130,7 +130,6 @@ SequenceView:
 
   # Modifiers
   "s": "split :N=2:"
-  "a": "split :N=8:;arp"
 
   "[p] + r": "randomize pitch 0 12"
   "[v] + r": "randomize velocity 0.0 1.0"
