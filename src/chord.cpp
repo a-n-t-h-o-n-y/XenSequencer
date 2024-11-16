@@ -95,7 +95,7 @@ auto invert_chord(Chord const &chord, int inversion, std::size_t tuning_size)
 
     for (auto i = 0; i < inversion; ++i)
     {
-        inverted[(std::size_t)i] += tuning_size;
+        inverted[(std::size_t)i] += (int)tuning_size;
     }
 
     std::rotate(std::begin(inverted), std::begin(inverted) + inversion,

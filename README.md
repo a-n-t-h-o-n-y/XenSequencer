@@ -13,7 +13,6 @@
 
 ### Prerequisites
 - A C++20 Compiler
-- Boost Libraries
 - CMake
 - Git
 
