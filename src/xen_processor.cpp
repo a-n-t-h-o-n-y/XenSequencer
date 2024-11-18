@@ -224,7 +224,7 @@ void XenProcessor::releaseResources()
 
 auto XenProcessor::getName() const -> juce::String const
 {
-    return JucePlugin_Name;
+    return "XenSequencer";
 }
 
 auto XenProcessor::hasEditor() const -> bool

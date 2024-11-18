@@ -27,7 +27,7 @@ namespace xen
 /**
  * Serialize a sequence::Measure object to a JSON string.
  *
- * @param state The sequence::Measure object to serialize.
+ * @param m The sequence::Measure object to serialize.
  * @return std::string The JSON string.
  */
 [[nodiscard]] auto serialize_measure(sequence::Measure const &m) -> std::string;
@@ -41,6 +41,24 @@ namespace xen
  */
 [[nodiscard]] auto deserialize_measure(std::string const &json_str)
     -> sequence::Measure;
+
+/**
+ * Serialize a SequenceBank object to a JSON string.
+ *
+ * @param bank The SequenceBank object to serialize.
+ * @return std::string The JSON string.
+ */
+[[nodiscard]] auto serialize_sequence_bank(SequenceBank const &bank) -> std::string;
+
+/**
+ * Deserialize a JSON string to a SequenceBank object.
+ *
+ * @param json_str The JSON string to deserialize.
+ * @return SequenceBank The deserialized SequenceBank object.
+ * @throw std::invalid_argument If the JSON string is invalid.
+ */
+[[nodiscard]] auto deserialize_sequence_bank(std::string const &json_str)
+    -> SequenceBank;
 
 /**
  * Serialize the full plugin state to a JSON string.

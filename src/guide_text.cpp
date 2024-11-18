@@ -72,8 +72,8 @@ template <typename... Args>
  * @param target The string to check against.
  * @return bool True if `candidate` is a prefix of `target`, otherwise false.
  */
-[[nodiscard]] auto is_prefix(std::string const &candidate,
-                             std::string const &target) -> bool
+[[nodiscard]] auto is_prefix(std::string const &candidate, std::string const &target)
+    -> bool
 {
     if (candidate.empty())
     {
@@ -198,8 +198,8 @@ template <typename ID_t, typename ChildID_t, typename... Commands>
 }
 
 template <typename Command_t>
-[[nodiscard]] auto complete_id(PatternPrefix<Command_t> const &,
-                               std::string const &) -> std::string
+[[nodiscard]] auto complete_id(PatternPrefix<Command_t> const &, std::string const &)
+    -> std::string
 {
     return std::string{};
 }
@@ -321,8 +321,8 @@ auto generate_guide_text(XenCommandTree const &command_tree,
     }
 }
 
-auto complete_id(XenCommandTree const &command_tree,
-                 std::string const &partial_command) -> std::string
+auto complete_id(XenCommandTree const &command_tree, std::string const &partial_command)
+    -> std::string
 {
     // This could have a proper implementation, but this is enough for now.
     auto const potential =

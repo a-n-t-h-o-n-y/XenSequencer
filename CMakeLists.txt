@@ -14,7 +14,7 @@ if (NOT TARGET Catch2)
     add_subdirectory(external/Catch2 SYSTEM)
 endif()
 
-# XenSequencer Code - separate library so can be linked to tests.
+# XenSequencer Code - separate library so can be linked to tests and tools.
 add_library(XenSequencerLib STATIC)
 
 target_include_directories(XenSequencerLib

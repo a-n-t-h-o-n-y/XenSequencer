@@ -144,46 +144,34 @@ namespace xen
             "load", ArgInfo<std::string>{"filetype"},
 
             cmd(
-                "measure",
-                "Load a Measure from a file in the current sequence directory. Do not "
-                "include the .xenseq extension in the filename you provide.",
-                [](PS &ps, std::string const &filename, int index) {
-                    auto [state, aux] = ps.timeline.get_state();
-                    index = (index == -1) ? (int)aux.selected.measure : index;
-                    if (index < 0 || index >= (int)state.sequence_bank.size())
-                    {
-                        return merror("Invalid Measure Index");
-                    }
+                "sequenceBank",
+                "Load the entire sequence bank into the plugin from file. filename "
+                "must be located in the library's currently set sequence directory. Do "
+                "not include the .xss extension in the filename you provide.",
+                [](PS &ps, std::string const &filename) {
                     auto const cd = ps.current_phrase_directory;
                     if (!cd.isDirectory())
                     {
-                        return merror("Invalid Current Sequence Library Directory");
+                        return merror("Invalid Current Phrase Directory");
                     }
 
-                    auto const filepath = cd.getChildFile(filename + ".xenseq");
+                    auto const filepath = cd.getChildFile(filename + ".xss");
                     if (!filepath.exists())
                     {
                         return merror("File Not Found: " +
                                       filepath.getFullPathName().toStdString());
                     }
 
-                    // Call early in case of error
-                    auto loaded_measure =
-                        action::load_measure(filepath.getFullPathName().toStdString());
-
-                    state.sequence_bank[(std::size_t)index] = std::move(loaded_measure);
-                    // Manually reset selection if overwriting current display measure.
-                    if ((std::size_t)index == aux.selected.measure)
-                    {
-                        aux.selected = {aux.selected.measure, {}};
-                    }
+                    auto [state, aux] = ps.timeline.get_state();
+                    state.sequence_bank = action::load_sequence_bank(
+                        filepath.getFullPathName().toStdString());
 
                     ps.timeline.stage({std::move(state), std::move(aux)});
                     ps.timeline.set_commit_flag();
 
-                    return minfo("State Loaded");
+                    return minfo("Sequence Bank Loaded");
                 },
-                ArgInfo<std::string>{"filename"}, ArgInfo<int>{"index", -1}),
+                ArgInfo<std::string>{"filename"}),
 
             cmd(
                 "tuning",
@@ -251,50 +239,26 @@ namespace xen
             "save", ArgInfo<std::string>{"filetype"},
 
             cmd(
-                "measure",
-                "Save the current measure to a file in the current sequence directory. "
-                "Do not include any extension in the filename you provide. This will "
-                "overwrite any existing file.",
-                [](PS &ps, std::string filename) {
+                "sequenceBank",
+                "Save the entire sequence bank to a file. The file will be located in "
+                "the library's current sequence directory. Do not include the .xss "
+                "extension in the filename you provide.",
+                [](PS &ps, std::string const &filename) {
                     auto const cd = ps.current_phrase_directory;
                     if (!cd.isDirectory())
                     {
                         return merror("Invalid Current Phrase Directory");
                     }
 
-                    if (filename.empty())
-                    {
-                        auto const state = ps.timeline.get_state();
-                        filename =
-                            state.sequencer.measure_names[state.aux.selected.measure];
-
-                        if (filename.empty())
-                        {
-                            return merror("No Measure Name Found.");
-                        }
-                    }
-                    else // store new measure name
-                    {
-                        auto state = ps.timeline.get_state();
-                        state.sequencer.measure_names[state.aux.selected.measure] =
-                            filename;
-                        ps.timeline.stage(
-                            {std::move(state.sequencer), std::move(state.aux)});
-                        ps.timeline.set_commit_flag();
-                    }
-
-                    auto const filepath = cd.getChildFile(filename + ".xenseq")
+                    auto const filepath = cd.getChildFile(filename + ".xss")
                                               .getFullPathName()
                                               .toStdString();
 
-                    // TODO add index to this command with default for current selection
-                    auto const state = ps.timeline.get_state();
-                    auto const &measure =
-                        state.sequencer.sequence_bank[state.aux.selected.measure];
-                    action::save_measure(measure, filepath);
-                    return minfo("State Saved to " + single_quote(filepath));
+                    auto const [state, _] = ps.timeline.get_state();
+                    action::save_sequence_bank(state.sequence_bank, filepath);
+                    return minfo("Sequence Bank Saved to " + single_quote(filepath));
                 },
-                ArgInfo<std::string>{"filename", ""})),
+                ArgInfo<std::string>{"filename"})),
 
         cmd("libraryDirectory",
             "Display the path to the directory where the user library is stored.",

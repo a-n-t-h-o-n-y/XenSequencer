@@ -87,6 +87,12 @@ void save_measure(sequence::Measure const &measure,
 [[nodiscard]] auto load_measure(std::filesystem::path const &filepath)
     -> sequence::Measure;
 
+void save_sequence_bank(SequenceBank const &bank,
+                        std::filesystem::path const &filepath);
+
+[[nodiscard]] auto load_sequence_bank(std::filesystem::path const &filepath)
+    -> SequenceBank;
+
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq)
     -> SequencerState;
 

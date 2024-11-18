@@ -137,13 +137,6 @@ void FieldEdit::resized()
 
 // -------------------------------------------------------------------------------------
 
-// BorderedFieldEdit time_signature_;
-// BorderedFieldEdit key_;
-// BorderedFieldEdit base_frequency_;
-// BorderedFieldEdit scale_;
-// BorderedFieldEdit scale_mode_;
-// BorderedFieldEdit tuning_name_;
-// BorderedFieldEdit measure_name_;
 MeasureInfo::MeasureInfo()
     : time_signature_{"Time Signature"}, key_{"Key"},
       base_frequency_{"Zero Freq. (Hz)"}, scale_{"Scale"}, scale_mode_{"Mode"},
@@ -200,7 +193,7 @@ MeasureInfo::MeasureInfo()
 void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
 {
     {
-        auto &measure = state.sequence_bank[aux.selected.measure];
+        auto const &measure = state.sequence_bank[aux.selected.measure];
         auto const text = juce::String{measure.time_signature.numerator} + "/" +
                           juce::String{measure.time_signature.denominator};
         time_signature_.set_value(text);

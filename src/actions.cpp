@@ -201,6 +201,24 @@ auto load_measure(std::filesystem::path const &filepath) -> sequence::Measure
     return deserialize_measure(json_str);
 }
 
+auto save_sequence_bank(SequenceBank const &bank, std::filesystem::path const &filepath)
+    -> void
+{
+    auto const json_str = serialize_sequence_bank(bank);
+    write_string_to_file(filepath, json_str);
+}
+
+auto load_sequence_bank(std::filesystem::path const &filepath) -> SequenceBank
+{
+    if (std::filesystem::file_size(filepath) > (128 * 1'024 * 1'024))
+    {
+        throw std::runtime_error{"Sequence Bank file size exceeds 128MB"};
+    }
+
+    auto const json_str = read_file_to_string(filepath);
+    return deserialize_sequence_bank(json_str);
+}
+
 auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState
 {
     auto [state, _] = tl.get_state();

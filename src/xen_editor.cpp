@@ -94,7 +94,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     plugin_window.center_component.library_view.sequences_list.on_file_selected.connect(
         [this](juce::File const &file) {
             auto const filename = file.getFileNameWithoutExtension().toStdString();
-            this->execute_command_string("load measure " + double_quote(filename) +
+            this->execute_command_string("load sequenceBank " + double_quote(filename) +
                                          ";show SequenceView;focus SequenceView");
         });
 
@@ -102,13 +102,15 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     plugin_window.center_component.library_view.tunings_list.on_file_selected.connect(
         [this](juce::File const &file) {
             auto const filename = file.getFileNameWithoutExtension().toStdString();
-            this->execute_command_string("load tuning " + double_quote(filename));
+            this->execute_command_string("load tuning " + double_quote(filename) +
+                                         ";show SequenceView;focus SequenceView");
         });
 
     // Scale Selected
     plugin_window.center_component.library_view.scales_list.on_scale_selected.connect(
         [this](std::string const &scale_name) {
-            this->execute_command_string("set scale " + double_quote(scale_name));
+            this->execute_command_string("set scale " + double_quote(scale_name) +
+                                         ";show SequenceView;focus SequenceView");
         });
 
     // SequenceView Command Requests

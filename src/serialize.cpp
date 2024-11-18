@@ -246,6 +246,21 @@ auto deserialize_measure(std::string const &json_str) -> sequence::Measure
     return measure;
 }
 
+auto serialize_sequence_bank(SequenceBank const &bank) -> std::string
+{
+    auto json = nlohmann::json{};
+    to_json(json, bank);
+    return json.dump();
+}
+
+auto deserialize_sequence_bank(std::string const &json_str) -> SequenceBank
+{
+    auto const json = nlohmann::json::parse(json_str);
+    auto bank = SequenceBank{};
+    from_json(json, bank);
+    return bank;
+}
+
 auto serialize_plugin(SequencerState const &state) -> std::string
 {
     auto json = nlohmann::json{};

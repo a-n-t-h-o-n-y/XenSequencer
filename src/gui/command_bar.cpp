@@ -165,7 +165,6 @@ void CommandBar::do_tab_press()
 
     auto const input = command_input_.getText().toStdString();
     auto const id = this->on_complete_id_request(input);
-    // auto const completed_id = complete_id(command_tree_, input);
     if (id.has_value())
     {
         auto const completed_text = input + *id + (id->empty() ? "" : " ");
