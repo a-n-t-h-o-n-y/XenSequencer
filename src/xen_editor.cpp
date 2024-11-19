@@ -19,7 +19,6 @@
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
-#include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
 
 namespace

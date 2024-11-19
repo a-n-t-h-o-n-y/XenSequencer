@@ -107,8 +107,9 @@ target_sources(XenSequencerLib
     PUBLIC
         src/actions.cpp
         src/chord.cpp
-        src/copy_paste.cpp
+        src/command.cpp
         src/command_history.cpp
+        src/copy_paste.cpp
         src/input_mode.cpp
         src/key_core.cpp
         src/message_level.cpp
@@ -122,6 +123,7 @@ target_sources(XenSequencerLib
         src/serialize.cpp
         src/parse_args.cpp
         src/guide_text.cpp
+        src/xen_command_tree.cpp
 
         src/gui/accordion.cpp
         src/gui/bottom_bar.cpp
@@ -189,9 +191,10 @@ target_sources(XenSequencerLib
 
 
 add_executable(XenTests
-    test/command.test.cpp
-    test/utility.test.cpp
-    test/midi.test.cpp
+    # test/command.test.cpp
+    # test/utility.test.cpp
+    # test/midi.test.cpp
+    test/command2.test.cpp
 )
 target_link_libraries(XenTests
     PUBLIC

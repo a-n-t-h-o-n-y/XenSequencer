@@ -35,17 +35,25 @@ struct ArgInfo
 template <typename... Args>
 using ArgInfos = std::tuple<ArgInfo<Args>...>;
 
-template <typename ID_t, typename... Args>
+template <typename... Args>
 struct Signature
 {
-    ID_t id;
-    ArgInfos<Args...> args;
+    std::string_view id;
+    ArgInfos<Args...> args = {};
+};
+
+template <typename... Args>
+struct PatternedSignature
+{
+    std::string_view id;
+    ArgInfos<Args...> args = {};
 };
 
 /**
  * Holds display information about a command signature.
  *
  * @details Used to display pieces of the command as it is typed into the CommandBar.
+ * Pattern is not used because it is never displayed as part of the guide text.
  */
 struct SignatureDisplay
 {
@@ -134,9 +142,10 @@ template <typename T>
     return os.str();
 }
 
-template <typename ID_t, typename... Args, std::size_t... I>
-[[nodiscard]] auto generate_display(ID_t const &id, ArgInfos<Args...> const &arg_infos,
-                                    std::index_sequence<I...>) -> SignatureDisplay
+template <typename... Args, std::size_t... Is>
+[[nodiscard]] auto generate_display(std::string_view id,
+                                    ArgInfos<Args...> const &arg_infos,
+                                    std::index_sequence<Is...>) -> SignatureDisplay
 {
     auto oss = std::ostringstream{};
     oss << id;
@@ -147,21 +156,35 @@ template <typename ID_t, typename... Args, std::size_t... I>
         display.arguments.push_back('[' + str + ']');
     };
 
-    (add_arg(arg_info_to_string(std::get<I>(arg_infos))), ...);
+    (add_arg(arg_info_to_string(std::get<Is>(arg_infos))), ...);
 
     return display;
 }
 
 /**
- * Generate a signature display for the given command name and arg infos.
+ * Generate a signature display for the given Signature.
  *
  * @tparam Args The types of the arguments.
- * @param id The id of the command.
- * @param arg_infos The argument infos.
- * @return SignatureDisplay The generated signature display.
+ * @param signature The signature to generate the display for.
+ * @return SignatureDisplay
  */
-template <typename ID_t, typename... Args>
-[[nodiscard]] auto generate_display(Signature<ID_t, Args...> const &signature)
+template <typename... Args>
+[[nodiscard]] auto generate_display(Signature<Args...> const &signature)
+    -> SignatureDisplay
+{
+    return generate_display(signature.id, signature.args,
+                            std::index_sequence_for<Args...>());
+}
+
+/**
+ * Generate a signature display for the given PatternedSignature.
+ *
+ * @tparam Args The types of the arguments.
+ * @param signature The signature to generate the display for.
+ * @return SignatureDisplay
+ */
+template <typename... Args>
+[[nodiscard]] auto generate_display(PatternedSignature<Args...> const &signature)
     -> SignatureDisplay
 {
     return generate_display(signature.id, signature.args,

@@ -126,7 +126,7 @@ SequenceView:
   "[m] + ArrowUp": "shift scaleMode +1"
 
   # Misc
-  "delete": "delete selection"
+  "delete": "delete"
 
   # Modifiers
   "s": "split :N=2:"

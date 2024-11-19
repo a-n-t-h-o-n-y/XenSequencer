@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace xen
@@ -13,7 +14,7 @@ namespace xen
  * @param x The string to convert.
  * @return std::string The converted string.
  */
-[[nodiscard]] auto to_lower(std::string x) -> std::string;
+[[nodiscard]] auto to_lower(std::string_view x) -> std::string;
 
 /**
  * Return string with leading and trailing whitespace removed.
@@ -68,6 +69,16 @@ namespace xen
  * @return Container of strings, without the delimiter.
  */
 [[nodiscard]] auto split(std::string const &input, char delimiter)
+    -> std::vector<std::string>;
+
+/**
+ * Splits a string into a vector of strings based on spaces, unless within double
+ * quotes.
+ *
+ * @param input The string to split.
+ * @return std::vector<std::string> The split string.
+ */
+[[nodiscard]] auto split_quoted_string(std::string const &input)
     -> std::vector<std::string>;
 
 /**

@@ -161,7 +161,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             for (auto &command : commands)
             {
                 command = minimize_spaces(command);
-                if (normalize_id(command) == "again")
+                if (to_lower(command) == "again")
                 {
                     command = previous_command_string_;
                 }
@@ -169,7 +169,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 {
                     continue;
                 }
-                status = execute(command_tree, ps, command);
+                status = command_tree.execute(ps, split_input(command));
             }
             if (ps.timeline.get_commit_flag())
             {

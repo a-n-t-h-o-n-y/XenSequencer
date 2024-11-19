@@ -10,7 +10,6 @@
 #include <xen/gui/plugin_window.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
-#include <xen/xen_command_tree.hpp>
 #include <xen/xen_processor.hpp>
 
 namespace xen::gui

@@ -5,17 +5,20 @@
 #include <cstddef>
 #include <iterator>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace xen
 {
 
-auto to_lower(std::string x) -> std::string
+auto to_lower(std::string_view x) -> std::string
 {
-    std::transform(std::cbegin(x), std::cend(x), std::begin(x),
+    auto result = std::string{};
+    std::transform(std::cbegin(x), std::cend(x), std::back_inserter(result),
                    [](char c) { return static_cast<char>(::tolower(c)); });
-    return x;
+    return result;
 }
 
 auto strip(std::string const &input) -> std::string
@@ -170,6 +173,40 @@ auto split(std::string const &input, char delimiter) -> std::vector<std::string>
     while (std::getline(stream, word, delimiter))
     {
         result.push_back(word);
+    }
+
+    return result;
+}
+
+auto split_quoted_string(std::string const &input) -> std::vector<std::string>
+{
+    auto result = std::vector<std::string>{};
+    auto current_word = std::string{};
+    bool in_quotes = false;
+
+    for (char ch : input)
+    {
+        if (ch == '"')
+        {
+            in_quotes = !in_quotes;
+        }
+        else if (std::isspace(ch) && !in_quotes)
+        {
+            if (!current_word.empty())
+            {
+                result.push_back(current_word);
+                current_word.clear();
+            }
+        }
+        else
+        {
+            current_word += ch;
+        }
+    }
+
+    if (!current_word.empty())
+    {
+        result.push_back(current_word);
     }
 
     return result;
