@@ -59,8 +59,7 @@ juce_add_binary_data(EmbedDemos
     HEADER_NAME "embed_demos.hpp"
     NAMESPACE embed_demos
     SOURCES
-        data/demos/empty.xenseq
-        data/demos/demo.xenseq
+        "data/demos/by this river.xss"
 )
 
 # Add font files as a binary resource
