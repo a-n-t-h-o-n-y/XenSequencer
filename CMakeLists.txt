@@ -151,7 +151,6 @@ target_sources(XenSequencerLib
         include/xen/constants.hpp
         include/xen/guide_text.hpp
         include/xen/input_mode.hpp
-        include/xen/invoke.hpp
         include/xen/key_core.hpp
         include/xen/lock_free_optional.hpp
         include/xen/lock_free_queue.hpp

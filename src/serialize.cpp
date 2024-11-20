@@ -191,7 +191,7 @@ static void to_json(nlohmann::json &j, SequencerState const &state)
 {
     j = nlohmann::json{
         {"sequence_bank", state.sequence_bank},
-        {"measure_names", state.measure_names},
+        {"sequence_names", state.sequence_names},
         {"tuning", state.tuning},
         {"tuning_name", state.tuning_name},
         {"scale", state.scale},
@@ -204,7 +204,7 @@ static void to_json(nlohmann::json &j, SequencerState const &state)
 static void from_json(nlohmann::json const &j, SequencerState &state)
 {
     state.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
-    state.measure_names = j.at("measure_names").get<std::array<std::string, 16>>();
+    state.sequence_names = j.at("sequence_names").get<std::array<std::string, 16>>();
     state.tuning = j.at("tuning").get<sequence::Tuning>();
     state.tuning_name = j.at("tuning_name").get<std::string>();
     state.scale = j.at("scale").get<std::optional<Scale>>();
@@ -246,19 +246,25 @@ auto deserialize_measure(std::string const &json_str) -> sequence::Measure
     return measure;
 }
 
-auto serialize_sequence_bank(SequenceBank const &bank) -> std::string
+auto serialize_sequence_bank(SequenceBank const &bank,
+                             std::array<std::string, 16> const &sequence_names)
+    -> std::string
 {
-    auto json = nlohmann::json{};
-    to_json(json, bank);
+    auto json = nlohmann::json{
+        {"sequence_bank", bank},
+        {"sequence_names", sequence_names},
+    };
     return json.dump();
 }
 
-auto deserialize_sequence_bank(std::string const &json_str) -> SequenceBank
+auto deserialize_sequence_bank(std::string const &json_str)
+    -> std::pair<SequenceBank, std::array<std::string, 16>>
 {
     auto const json = nlohmann::json::parse(json_str);
-    auto bank = SequenceBank{};
-    from_json(json, bank);
-    return bank;
+    auto bank = json.at("sequence_bank").get<SequenceBank>();
+    auto const sequence_names =
+        json.at("sequence_names").get<std::array<std::string, 16>>();
+    return {bank, sequence_names};
 }
 
 auto serialize_plugin(SequencerState const &state) -> std::string

@@ -227,7 +227,7 @@ void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
     {
         auto const index = aux.selected.measure;
         measure_name_.set_key(juce::String{index});
-        measure_name_.set_value(state.measure_names[index]);
+        measure_name_.set_value(state.sequence_names[index]);
     }
 
     this->resized();

@@ -1,8 +1,10 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -88,10 +90,11 @@ void save_measure(sequence::Measure const &measure,
     -> sequence::Measure;
 
 void save_sequence_bank(SequenceBank const &bank,
+                        std::array<std::string, 16> const &sequence_names,
                         std::filesystem::path const &filepath);
 
 [[nodiscard]] auto load_sequence_bank(std::filesystem::path const &filepath)
-    -> SequenceBank;
+    -> std::pair<SequenceBank, std::array<std::string, 16>>;
 
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq)
     -> SequencerState;

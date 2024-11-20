@@ -132,7 +132,7 @@ void LibraryView::Divider::paint(juce::Graphics &g)
 LibraryView::LibraryView(juce::File const &sequence_library_dir,
                          juce::File const &tuning_library_dir)
     : sequences{"Sequences", sequence_library_dir,
-                juce::WildcardFileFilter{"*.xenseq", "*", "XenSeq filter"},
+                juce::WildcardFileFilter{"*.xss", "*", "XenSeq filter"},
                 "SequencesList"},
       tunings{"Tunings", tuning_library_dir}, scales{"Scales"}
 {

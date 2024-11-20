@@ -196,8 +196,10 @@ auto create_command_tree() -> XenCommandTree
                 }
 
                 auto [state, aux] = ps.timeline.get_state();
-                state.sequence_bank = action::load_sequence_bank(
+                auto [sb, names] = action::load_sequence_bank(
                     filepath.getFullPathName().toStdString());
+                state.sequence_bank = std::move(sb);
+                state.sequence_names = std::move(names);
 
                 ps.timeline.stage({std::move(state), std::move(aux)});
                 ps.timeline.set_commit_flag();
@@ -301,7 +303,8 @@ auto create_command_tree() -> XenCommandTree
                     cd.getChildFile(filename + ".xss").getFullPathName().toStdString();
 
                 auto const [state, _] = ps.timeline.get_state();
-                action::save_sequence_bank(state.sequence_bank, filepath);
+                action::save_sequence_bank(state.sequence_bank, state.sequence_names,
+                                           filepath);
                 return minfo("Sequence Bank Saved to " + single_quote(filepath));
             },
             "Save the entire sequence bank to a file. The file will be located in "
@@ -510,7 +513,7 @@ auto create_command_tree() -> XenCommandTree
                 auto [seq, aux] = ps.timeline.get_state();
                 if (aux.selected.measure == (std::size_t)index)
                 {
-                    return mwarning("Already Selected");
+                    return mdebug("Already Selected");
                 }
                 aux = action::set_selected_sequence(aux, index);
                 ps.timeline.stage({std::move(seq), std::move(aux)});
@@ -614,11 +617,11 @@ auto create_command_tree() -> XenCommandTree
                 [](PS &ps, std::string name, int index) {
                     auto [state, aux] = ps.timeline.get_state();
                     index = (index == -1) ? (int)aux.selected.measure : index;
-                    if (index < 0 || index >= (int)state.measure_names.size())
+                    if (index < 0 || index >= (int)state.sequence_names.size())
                     {
                         return merror("Invalid Measure Index");
                     }
-                    state.measure_names[(std::size_t)index] = std::move(name);
+                    state.sequence_names[(std::size_t)index] = std::move(name);
                     ps.timeline.stage({std::move(state), std::move(aux)});
                     ps.timeline.set_commit_flag();
                     return minfo("Measure Name Set");

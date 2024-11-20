@@ -201,14 +201,16 @@ auto load_measure(std::filesystem::path const &filepath) -> sequence::Measure
     return deserialize_measure(json_str);
 }
 
-auto save_sequence_bank(SequenceBank const &bank, std::filesystem::path const &filepath)
-    -> void
+auto save_sequence_bank(SequenceBank const &bank,
+                        std::array<std::string, 16> const &sequence_names,
+                        std::filesystem::path const &filepath) -> void
 {
-    auto const json_str = serialize_sequence_bank(bank);
+    auto const json_str = serialize_sequence_bank(bank, sequence_names);
     write_string_to_file(filepath, json_str);
 }
 
-auto load_sequence_bank(std::filesystem::path const &filepath) -> SequenceBank
+auto load_sequence_bank(std::filesystem::path const &filepath)
+    -> std::pair<SequenceBank, std::array<std::string, 16>>
 {
     if (std::filesystem::file_size(filepath) > (128 * 1'024 * 1'024))
     {

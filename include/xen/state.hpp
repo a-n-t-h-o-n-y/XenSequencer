@@ -47,7 +47,7 @@ using SequenceBank = std::array<sequence::Measure, 16>;
 struct SequencerState
 {
     SequenceBank sequence_bank{};
-    std::array<std::string, 16> measure_names{};
+    std::array<std::string, 16> sequence_names{};
 
     sequence::Tuning tuning{
         .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
