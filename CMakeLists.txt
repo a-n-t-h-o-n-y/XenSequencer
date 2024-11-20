@@ -21,6 +21,7 @@ target_include_directories(XenSequencerLib
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
 target_compile_options(XenSequencerLib INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
@@ -237,6 +238,7 @@ juce_add_plugin(XenSequencer
 # definitions will be visible both to your code, and also the JUCE module code, so for new
 # definitions, pick unique names that are unlikely to collide! This is a standard CMake command.
 
+
 target_compile_definitions(XenSequencerLib
     PUBLIC
         # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
@@ -244,6 +246,8 @@ target_compile_definitions(XenSequencerLib
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MODAL_LOOPS_PERMITTED=1
+    # PRIVATE
+        # $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>
 )
 
 target_sources(XenSequencer
