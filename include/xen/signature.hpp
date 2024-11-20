@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <sequence/pattern.hpp>
 #include <sequence/time_signature.hpp>
 
 #include <xen/input_mode.hpp>
@@ -32,6 +33,18 @@ struct ArgInfo
     std::optional<T> default_value = std::nullopt;
 };
 
+template <typename U>
+struct ArgType;
+
+template <typename T>
+struct ArgType<ArgInfo<T>>
+{
+    using type = T;
+};
+
+template <typename U>
+using arg_type_t = typename ArgType<U>::type;
+
 template <typename... Args>
 using ArgInfos = std::tuple<ArgInfo<Args>...>;
 
@@ -48,6 +61,73 @@ struct PatternedSignature
     std::string_view id;
     ArgInfos<Args...> args = {};
 };
+
+/**
+ * Create a Signature with the given id and arguments.
+ * @details This exists because Apple clang 14 does not support deduction guides for
+ * aggregate initialization.
+ * @param id The id of the signature.
+ * @param args The arguments.
+ * @return Signature object.
+ */
+template <typename... Args>
+[[nodiscard]] auto signature(std::string_view id, Args &&...args)
+{
+    return Signature<arg_type_t<Args>...>{
+        .id = id,
+        .args = std::tuple{std::forward<Args>(args)...},
+    };
+}
+
+/**
+ * Create a PatternedSignature if passed a sequence::Pattern ArgInfo as first param.
+ * @details This exists because Apple clang 14 does not support deduction guides for
+ * aggregate initialization.
+ * @param id The id of the signature.
+ * @param pattern The pattern argument, its ID is not used.
+ * @param args All other arguments.
+ * @return PatternedSignature object.
+ */
+template <typename... Args>
+[[nodiscard]] auto signature(std::string_view id, ArgInfo<sequence::Pattern>,
+                             Args &&...args)
+{
+    // ^^ This must take pattern arg by value, otherwise other overload is picked up.
+    return PatternedSignature<arg_type_t<Args>...>{
+        .id = id,
+        .args = std::tuple{std::forward<Args>(args)...},
+    };
+}
+
+/**
+ * Create a PatternedSignature with the given id and arguments.
+ * @details Overload provided instead of optional<T> for implicit construction at call
+ * site.
+ * @tparam T The type of the argument.
+ * @param name The name of the argument.
+ * @param default_value The default value of the argument.
+ * @return ArgInfo<T>
+ */
+template <typename T>
+[[nodiscard]] auto arg(std::string_view name, T &&default_value) -> ArgInfo<T>
+{
+    return ArgInfo<T>{
+        .name = name,
+        .default_value = std::forward<T>(default_value),
+    };
+}
+
+/**
+ * Create an ArgInfo with the given name and no default value.
+ * @tparam T The type of the argument.
+ * @param name The name of the argument.
+ * @return ArgInfo<T>
+ */
+template <typename T>
+[[nodiscard]] auto arg(std::string_view name) -> ArgInfo<T>
+{
+    return ArgInfo<T>{.name = name};
+}
 
 /**
  * Holds display information about a command signature.

@@ -164,7 +164,7 @@ class Command : public CommandBase
  * Allocate a new Command object as a std::unique_ptr.
  */
 template <typename Signature_t, typename Fn>
-[[nodiscard]] auto cmd(Signature_t signature, Fn fn, char const *description)
+[[nodiscard]] auto cmd(Signature_t signature, char const *description, Fn fn)
     -> std::unique_ptr<Command<Signature_t, Fn>>
 {
     return std::make_unique<Command<Signature_t, Fn>>(std::move(signature),
