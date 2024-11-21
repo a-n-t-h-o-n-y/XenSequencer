@@ -57,7 +57,7 @@ struct SequencerState
     std::string tuning_name{"12-TET"};
 
     std::optional<Scale> scale{std::nullopt}; // Chromatic
-    int key{3}; // The pitch considered 'zero', transposition. [0, tuning size)
+    int key{0}; // The pitch considered 'zero', transposition. [0, tuning size)
     TranslateDirection scale_translate_direction{TranslateDirection::Up};
 
     float base_frequency{440.f};
