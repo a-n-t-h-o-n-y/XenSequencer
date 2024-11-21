@@ -166,7 +166,7 @@ MeasureInfo::MeasureInfo()
     }
 
     time_signature_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set measure timesignature " + text.toStdString());
+        this->on_command("set sequence timesignature " + text.toStdString());
     });
 
     key_.on_text_change.connect([this](juce::String const &text) {
@@ -186,7 +186,8 @@ MeasureInfo::MeasureInfo()
     });
 
     measure_name_.on_text_change.connect([this](juce::String const &text) {
-        this->on_command("set measure name " + double_quote(strip(text.toStdString())));
+        this->on_command("set sequence name " +
+                         double_quote(strip(text.toStdString())));
     });
 }
 

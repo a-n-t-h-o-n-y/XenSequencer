@@ -516,39 +516,39 @@ auto create_command_tree() -> XenCommandTree
                      }));
 
         {
-            auto measure = cmd_group("measure");
+            auto seq = cmd_group("sequence");
 
-            // set measure name
-            measure->add(
+            // set sequence name
+            seq->add(
                 cmd(signature("name", arg<std::string>("name"), arg<int>("index", -1)),
-                    "Set the name of a Measure. If no index is given, set the name of "
-                    "the current Measure.",
+                    "Set the name of a Sequence. If no index is given, set the name of "
+                    "the current Sequence.",
                     [](PS &ps, std::string name, int index) {
                         auto [state, aux] = ps.timeline.get_state();
                         index = (index == -1) ? (int)aux.selected.measure : index;
                         if (index < 0 || index >= (int)state.sequence_names.size())
                         {
-                            return merror("Invalid Measure Index");
+                            return merror("Invalid Sequence Index");
                         }
                         state.sequence_names[(std::size_t)index] = std::move(name);
                         ps.timeline.stage({std::move(state), std::move(aux)});
                         ps.timeline.set_commit_flag();
-                        return minfo("Measure Name Set");
+                        return minfo("Sequence Name Set");
                     }));
 
-            // set measure timeSignature
-            measure->add(
+            // set sequence timeSignature
+            seq->add(
                 cmd(signature("timeSignature",
                               arg<sequence::TimeSignature>("timesignature", {4, 4}),
                               arg<int>("index", -1)),
-                    "Set the time signature of a Measure. If no index is given, set "
-                    "the time signature of the current Measure.",
+                    "Set the time signature of a Sequence. If no index is given, set "
+                    "the time signature of the current Sequence.",
                     [](PS &ps, sequence::TimeSignature const &ts, int index) {
                         auto [state, aux] = ps.timeline.get_state();
                         index = (index == -1) ? (int)aux.selected.measure : index;
                         if (index < 0 || index >= (int)state.sequence_bank.size())
                         {
-                            return merror("Invalid Measure Index");
+                            return merror("Invalid Sequence Index");
                         }
                         state.sequence_bank[(std::size_t)index].time_signature = ts;
                         ps.timeline.stage({std::move(state), std::move(aux)});
@@ -556,7 +556,7 @@ auto create_command_tree() -> XenCommandTree
                         return minfo("TimeSignature Set");
                     }));
 
-            set->add(std::move(measure));
+            set->add(std::move(seq));
         }
 
         // set baseFrequency
