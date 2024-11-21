@@ -288,8 +288,8 @@ auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
     }
 }
 
-auto step(sequence::Cell cell, int pitch_distance, float velocity_distance)
-    -> sequence::Cell
+auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_distance,
+          float velocity_distance) -> sequence::Cell
 {
     if (velocity_distance > 1.f || velocity_distance < -1.f)
     {
@@ -300,18 +300,16 @@ auto step(sequence::Cell cell, int pitch_distance, float velocity_distance)
     {
         auto &seq = std::get<sequence::Sequence>(cell);
 
-        // Increment Pitch
-        for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
+        // Call shift_pitch for each cell instead of passing in sequence because each
+        // cell is a different pitch and velocity value.
+        auto view = sequence::PatternView{seq.cells, pattern};
+        auto i = std::size_t{0};
+        for (auto &c : view)
         {
-            seq.cells[i] = sequence::modify::shift_pitch(seq.cells[i], {0, {1}},
-                                                         (int)i * pitch_distance);
-        }
-
-        // Increment Velocity
-        for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
-        {
-            seq.cells[i] = sequence::modify::shift_velocity(
-                seq.cells[i], {0, {1}}, (float)i * velocity_distance);
+            c = sequence::modify::shift_pitch(c, {0, {1}}, (int)i * pitch_distance);
+            c = sequence::modify::shift_velocity(c, {0, {1}},
+                                                 (float)i * velocity_distance);
+            ++i;
         }
     }
 
@@ -321,23 +319,19 @@ auto step(sequence::Cell cell, int pitch_distance, float velocity_distance)
 auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
          std::vector<int> const &intervals) -> sequence::Cell
 {
-    return std::visit(
-        sequence::utility::overload{
-            [](sequence::Note const &note) -> sequence::Cell { return note; },
-            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
-            [&](sequence::Sequence &seq) -> sequence::Cell {
-                auto view = sequence::PatternView{seq.cells, pattern};
-                auto i = std::size_t{0};
-                for (auto &c : view)
-                {
-                    c = sequence::modify::shift_pitch(c, {0, {1}},
-                                                      intervals[i % intervals.size()]);
-                    ++i;
-                }
-                return seq;
-            },
-        },
-        cell);
+    if (std::holds_alternative<sequence::Sequence>(cell))
+    {
+        auto &seq = std::get<sequence::Sequence>(cell);
+        auto view = sequence::PatternView{seq.cells, pattern};
+        auto i = std::size_t{0};
+        for (auto &c : view)
+        {
+            c = sequence::modify::shift_pitch(c, {0, {1}},
+                                              intervals[i % intervals.size()]);
+            ++i;
+        }
+    }
+    return cell;
 }
 
 } // namespace xen::action

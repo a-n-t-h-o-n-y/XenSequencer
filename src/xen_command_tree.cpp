@@ -979,19 +979,21 @@ auto create_command_tree() -> XenCommandTree
             }));
 
     // step
-    head.add(cmd(signature("step", arg<int>("pitchDistance", 1),
-                           arg<float>("velocityDistance", 0.f)),
-                 "Increments pitch and velocity of each child cell in the selection.",
-                 [](PS &ps, int pitch_distance, float velocity_distance) {
-                     auto [state, aux] = ps.timeline.get_state();
-                     auto &selected =
-                         get_selected_cell(state.sequence_bank, aux.selected);
-                     selected =
-                         action::step(selected, pitch_distance, velocity_distance);
-                     ps.timeline.stage({std::move(state), std::move(aux)});
-                     ps.timeline.set_commit_flag();
-                     return minfo("Stepped");
-                 }));
+    head.add(cmd(
+        signature("step", arg<Pattern>(""), arg<int>("pitchDistance", 1),
+                  arg<float>("velocityDistance", 0.f)),
+        "Increments pitch and velocity of each child cell in the selection. "
+        "If pattern is given, only adds to increments on cells that match the pattern.",
+        [](PS &ps, Pattern const &pattern, int pitch_distance,
+           float velocity_distance) {
+            auto [state, aux] = ps.timeline.get_state();
+            auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+            selected =
+                action::step(selected, pattern, pitch_distance, velocity_distance);
+            ps.timeline.stage({std::move(state), std::move(aux)});
+            ps.timeline.set_commit_flag();
+            return minfo("Stepped");
+        }));
 
     // arp
     head.add(cmd(

@@ -107,8 +107,8 @@ void save_sequence_bank(SequenceBank const &bank,
                                      int shift_amount, std::size_t scale_count)
     -> std::optional<std::size_t>;
 
-[[nodiscard]] auto step(sequence::Cell cell, int pitch_distance,
-                        float velocity_distance) -> sequence::Cell;
+[[nodiscard]] auto step(sequence::Cell cell, sequence::Pattern const &pattern,
+                        int pitch_distance, float velocity_distance) -> sequence::Cell;
 
 [[nodiscard]] auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
                        std::vector<int> const &intervals) -> sequence::Cell;
