@@ -316,15 +316,25 @@ auto MeasureView::get_cell() const -> Cell const &
 
 void MeasureView::update(SequencerState const &state, AuxState const &aux)
 {
-    selected_measure_ = aux.selected.measure;
-    measure_ = state.sequence_bank[selected_measure_];
+    if (selected_state_ != aux.selected ||
+        measure_ != state.sequence_bank[selected_state_.measure])
+    {
+        selected_state_ = aux.selected;
+        measure_ = state.sequence_bank[selected_state_.measure];
 
-    // TODO can you do a simple equality check to conditionally rebuild the cell?
-    cell_ptr_.reset();
-    cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning,
-                          state.scale_translate_direction);
-    this->addAndMakeVisible(*cell_ptr_);
-    this->resized();
+        this->removeChildComponent(cell_ptr_.get());
+
+        cell_ptr_.reset();
+        cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning,
+                              state.scale_translate_direction);
+        this->addAndMakeVisible(*cell_ptr_);
+
+        if (auto const child_ptr = this->get_selected_child(); child_ptr != nullptr)
+        {
+            child_ptr->make_selected();
+        }
+        this->resized();
+    }
 }
 
 void MeasureView::set_playhead(std::optional<float> percent)
@@ -334,6 +344,11 @@ void MeasureView::set_playhead(std::optional<float> percent)
         playhead_ = percent;
         this->repaint();
     }
+}
+
+auto MeasureView::get_selected_child() -> Cell *
+{
+    return this->get_cell().find_child(selected_state_.cell);
 }
 
 void MeasureView::resized()
@@ -363,7 +378,7 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 void MeasureView::timerCallback()
 {
     auto const audio_thread_state = audio_thread_state_.read();
-    if (audio_thread_state.note_start_times[selected_measure_] != (SampleIndex)-1)
+    if (audio_thread_state.note_start_times[selected_state_.measure] != (SampleIndex)-1)
     {
         auto const samples_in_measure = sequence::samples_count(
             measure_, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
@@ -374,7 +389,7 @@ void MeasureView::timerCallback()
         }
         auto const current_sample = audio_thread_state.accumulated_sample_count;
         auto const start_sample =
-            audio_thread_state.note_start_times[selected_measure_];
+            audio_thread_state.note_start_times[selected_state_.measure];
         auto const percent =
             (float)((current_sample - start_sample) % samples_in_measure) /
             (float)samples_in_measure;
@@ -430,23 +445,7 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
 
     sequence_bank.update(aux.selected.measure);
 
-    this->select(aux.selected.cell);
     this->resized();
-}
-
-void SequenceView::select(std::vector<std::size_t> const &indices)
-{
-    selected_child_ = indices;
-    auto const child_ptr = this->get_selected_child();
-    if (child_ptr != nullptr)
-    {
-        child_ptr->make_selected();
-    }
-}
-
-auto SequenceView::get_selected_child() -> Cell *
-{
-    return measure_view.get_cell().find_child(selected_child_);
 }
 
 void SequenceView::resized()

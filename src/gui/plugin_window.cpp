@@ -29,7 +29,8 @@ PluginWindow::PluginWindow(
 
     bottom_bar.command_bar.on_pattern_update.connect(
         [this](sequence::Pattern const &pattern) {
-            Cell *const child = center_component.sequence_view.get_selected_child();
+            Cell *const child =
+                center_component.sequence_view.measure_view.get_selected_child();
             if (child != nullptr)
             {
                 child->update_pattern(pattern);

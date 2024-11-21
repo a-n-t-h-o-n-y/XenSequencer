@@ -128,8 +128,8 @@ void BottomBar::show_command_bar()
 {
     status_bar.setVisible(false);
     command_bar.setVisible(true);
-    command_bar.on_pattern_update(command_bar.extract_pattern_from_content());
     this->resized();
+    command_bar.on_pattern_update(command_bar.extract_pattern_from_content());
 }
 
 void BottomBar::resized()

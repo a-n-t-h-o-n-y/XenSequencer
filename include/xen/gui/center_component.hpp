@@ -157,6 +157,11 @@ class MeasureView : public juce::Component, juce::Timer
      */
     void set_playhead(std::optional<float> percent);
 
+    /**
+     * Return the selected child cell.
+     */
+    [[nodiscard]] auto get_selected_child() -> Cell *;
+
   public:
     void resized() override;
 
@@ -174,7 +179,7 @@ class MeasureView : public juce::Component, juce::Timer
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
 
     sequence::Measure measure_;
-    std::size_t selected_measure_{0};
+    SelectedState selected_state_{};
 };
 
 // -------------------------------------------------------------------------------------
@@ -190,13 +195,6 @@ class SequenceView : public juce::Component
   public:
     void update(SequencerState const &state, AuxState const &aux);
 
-    void select(std::vector<std::size_t> const &indices);
-
-    /**
-     * Return the selected child of the measure_view.
-     */
-    [[nodiscard]] auto get_selected_child() -> Cell *;
-
   public:
     void resized() override;
 
@@ -207,9 +205,6 @@ class SequenceView : public juce::Component
     std::unique_ptr<TuningReference> tuning_reference_ptr{nullptr};
     HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
     SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;
-
-  private:
-    std::vector<std::size_t> selected_child_{};
 };
 
 // -------------------------------------------------------------------------------------
