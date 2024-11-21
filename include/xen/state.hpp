@@ -61,6 +61,12 @@ struct SequencerState
     TranslateDirection scale_translate_direction{TranslateDirection::Up};
 
     float base_frequency{440.f};
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
+    auto operator==(SequencerState const &) const -> bool = default;
+    auto operator!=(SequencerState const &) const -> bool = default;
+#pragma clang diagnostic pop
 };
 
 /**

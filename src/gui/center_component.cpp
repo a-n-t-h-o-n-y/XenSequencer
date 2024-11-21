@@ -316,16 +316,14 @@ auto MeasureView::get_cell() const -> Cell const &
 
 void MeasureView::update(SequencerState const &state, AuxState const &aux)
 {
-    if (selected_state_ != aux.selected ||
-        measure_ != state.sequence_bank[selected_state_.measure])
+    if (selected_state_ != aux.selected || sequencer_state_ != state)
     {
         selected_state_ = aux.selected;
-        measure_ = state.sequence_bank[selected_state_.measure];
-
-        this->removeChildComponent(cell_ptr_.get());
+        sequencer_state_ = state;
 
         cell_ptr_.reset();
-        cell_ptr_ = make_cell(measure_.cell, state.scale, state.tuning,
+        auto &measure = state.sequence_bank[selected_state_.measure];
+        cell_ptr_ = make_cell(measure.cell, state.scale, state.tuning,
                               state.scale_translate_direction);
         this->addAndMakeVisible(*cell_ptr_);
 
@@ -380,8 +378,9 @@ void MeasureView::timerCallback()
     auto const audio_thread_state = audio_thread_state_.read();
     if (audio_thread_state.note_start_times[selected_state_.measure] != (SampleIndex)-1)
     {
+        auto &measure = sequencer_state_.sequence_bank[selected_state_.measure];
         auto const samples_in_measure = sequence::samples_count(
-            measure_, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
+            measure, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
         if (samples_in_measure == 0)
         {
             this->set_playhead(std::nullopt);

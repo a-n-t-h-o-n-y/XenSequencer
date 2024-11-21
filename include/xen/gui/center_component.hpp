@@ -178,7 +178,7 @@ class MeasureView : public juce::Component, juce::Timer
     // Owned by XenProcessor
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
 
-    sequence::Measure measure_{.time_signature = {123, 1}}; // Force initial paint.
+    SequencerState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
     SelectedState selected_state_{};
 };
 
