@@ -200,35 +200,40 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 
 } // namespace
 
+// -------------------------------------------------------------------------------------
+
 namespace xen::gui
 {
 
 void Cell::make_selected()
 {
-    selected = true;
+    selected_ = true;
 }
 
-void Cell::select_child(std::vector<std::size_t> const &indices)
+void Cell::emphasize_selection(bool emphasized)
 {
-    if (indices.empty())
-    {
-        this->make_selected();
-    }
-    else
-    {
-        throw std::runtime_error(
-            "Invalid index or unexpected type encountered in traversal.");
-    }
+    emphasized_ = emphasized;
+}
+
+void Cell::update_pattern(sequence::Pattern const &)
+{
+}
+
+auto Cell::find_child(std::vector<std::size_t> const &indices) -> Cell *
+{
+    return indices.empty() ? this : nullptr;
 }
 
 void Cell::paintOverChildren(juce::Graphics &g)
 {
-    if (selected)
+    if (selected_)
     {
+        auto const color =
+            this->findColour(ColorID::ForegroundHigh).darker(emphasized_ ? 0.f : 0.8f);
         auto const line_thickness = 1.4f;
         auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
-        g.setColour(this->findColour(ColorID::ForegroundHigh));
+        g.setColour(color);
         g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
     }
 }
@@ -311,20 +316,39 @@ void Sequence::make_selected()
 {
     for (auto &cell_ptr : cells_.get_children())
     {
-        cell_ptr->selected = true;
+        cell_ptr->Cell::make_selected();
     }
 }
 
-void Sequence::select_child(std::vector<std::size_t> const &indices)
+void Sequence::update_pattern(sequence::Pattern const &pattern)
+{
+    for (auto &cell : cells_.get_children())
+    {
+        cell->emphasize_selection(false);
+    }
+
+    auto pattern_view = sequence::PatternView{cells_.get_children(), pattern};
+    for (auto &cell : pattern_view)
+    {
+        cell->emphasize_selection();
+    }
+    this->repaint();
+}
+
+auto Sequence::find_child(std::vector<std::size_t> const &indices) -> Cell *
 {
     if (indices.empty())
     {
-        this->make_selected();
-        return;
+        return this;
     }
 
-    cells_.at(indices[0])
-        .select_child(std::vector(std::next(indices.cbegin()), indices.cend()));
+    if (indices.front() >= cells_.get_children().size())
+    {
+        return nullptr;
+    }
+
+    return cells_.get_children()[indices.front()]->find_child(
+        std::vector(std::next(indices.cbegin()), indices.cend()));
 }
 
 void Sequence::resized()

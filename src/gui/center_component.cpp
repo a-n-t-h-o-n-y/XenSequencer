@@ -436,7 +436,17 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
 
 void SequenceView::select(std::vector<std::size_t> const &indices)
 {
-    measure_view.get_cell().select_child(indices);
+    selected_child_ = indices;
+    auto const child_ptr = this->get_selected_child();
+    if (child_ptr != nullptr)
+    {
+        child_ptr->make_selected();
+    }
+}
+
+auto SequenceView::get_selected_child() -> Cell *
+{
+    return measure_view.get_cell().find_child(selected_child_);
 }
 
 void SequenceView::resized()

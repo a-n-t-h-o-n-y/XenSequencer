@@ -7,6 +7,8 @@
 
 #include <signals_light/signal.hpp>
 
+#include <sequence/pattern.hpp>
+
 #include <xen/command_history.hpp>
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/themes.hpp>
@@ -75,7 +77,19 @@ CommandBar::CommandBar(CommandHistory &cmd_history) : command_history_{cmd_histo
         this->clear();
         this->close();
     };
-    command_input_.onTextChange = [this] { this->add_guide_text(); };
+    command_input_.onTextChange = [this] {
+        // Part I
+        this->add_guide_text();
+
+        // Part II
+        // Emit Pattern
+        auto const pattern = this->extract_pattern_from_content();
+        if (pattern != last_pattern_)
+        {
+            last_pattern_ = pattern;
+            this->on_pattern_update(last_pattern_);
+        }
+    };
     command_input_.onEscapeKey = [this] { this->close(); };
     command_input_.onTabKey = [this] {
         this->do_tab_press();
@@ -112,6 +126,19 @@ void CommandBar::close()
 {
     this->clear();
     this->on_command("show StatusBar;focus SequenceView");
+}
+
+auto CommandBar::extract_pattern_from_content() const -> sequence::Pattern
+{
+    auto const text = command_input_.getText().toStdString();
+    if (sequence::contains_valid_pattern(text))
+    {
+        return sequence::parse_pattern(text);
+    }
+    else
+    {
+        return {0, {1}};
+    }
 }
 
 void CommandBar::resized()

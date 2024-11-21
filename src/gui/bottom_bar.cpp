@@ -118,6 +118,7 @@ BottomBar::BottomBar(CommandHistory &cmd_history) : command_bar{cmd_history}
 
 void BottomBar::show_status_bar()
 {
+    command_bar.on_pattern_update({0, {1}});
     command_bar.setVisible(false);
     status_bar.setVisible(true);
     this->resized();
@@ -127,6 +128,7 @@ void BottomBar::show_command_bar()
 {
     status_bar.setVisible(false);
     command_bar.setVisible(true);
+    command_bar.on_pattern_update(command_bar.extract_pattern_from_content());
     this->resized();
 }
 

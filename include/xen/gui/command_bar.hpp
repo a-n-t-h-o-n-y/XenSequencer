@@ -8,6 +8,8 @@
 
 #include <signals_light/signal.hpp>
 
+#include <sequence/pattern.hpp>
+
 #include <xen/command_history.hpp>
 
 namespace xen::gui
@@ -49,19 +51,27 @@ class CommandBar : public juce::Component
     sl::Signal<void(std::string const &)> on_command;
     sl::Signal<std::string(std::string const &)> on_guide_text_request;
     sl::Signal<std::string(std::string const &)> on_complete_id_request;
+    sl::Signal<void(sequence::Pattern const &)> on_pattern_update;
 
   public:
     explicit CommandBar(CommandHistory &cmd_history);
 
   public:
-    auto clear() -> void;
+    void clear();
 
-    auto focus() -> void;
+    void focus();
 
     /**
      * Closes the command bar by sending the command to show the status bar.
      */
-    auto close() -> void;
+    void close();
+
+    /**
+     * Parses any text in the command bar and returns a sequence::Pattern.
+     * @details returns the default {0, {1}} pattern if the text does not contain a
+     * valid pattern.
+     */
+    [[nodiscard]] auto extract_pattern_from_content() const -> sequence::Pattern;
 
   public:
     void resized() override;
@@ -91,6 +101,7 @@ class CommandBar : public juce::Component
     juce::TextEditor ghost_text_;
 
     CommandHistory &command_history_;
+    sequence::Pattern last_pattern_{0, {1}};
 };
 
 } // namespace xen::gui
