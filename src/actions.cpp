@@ -288,33 +288,31 @@ auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
     }
 }
 
-auto step(sequence::Cell cell, std::size_t count, int pitch_distance,
-          float velocity_distance) -> sequence::Cell
+auto step(sequence::Cell cell, int pitch_distance, float velocity_distance)
+    -> sequence::Cell
 {
     if (velocity_distance > 1.f || velocity_distance < -1.f)
     {
         throw std::runtime_error{"velocity distance must be in the range: [-1, 1]"};
     }
 
-    // Split
-    cell = sequence::modify::repeat(cell, count);
-
-    assert(std::holds_alternative<sequence::Sequence>(cell));
-
-    auto &seq = std::get<sequence::Sequence>(cell);
-
-    // Increment Pitch
-    for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
+    if (std::holds_alternative<sequence::Sequence>(cell))
     {
-        seq.cells[i] = sequence::modify::shift_pitch(seq.cells[i], {0, {1}},
-                                                     (int)i * pitch_distance);
-    }
+        auto &seq = std::get<sequence::Sequence>(cell);
 
-    // Increment Velocity
-    for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
-    {
-        seq.cells[i] = sequence::modify::shift_velocity(seq.cells[i], {0, {1}},
-                                                        (float)i * velocity_distance);
+        // Increment Pitch
+        for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
+        {
+            seq.cells[i] = sequence::modify::shift_pitch(seq.cells[i], {0, {1}},
+                                                         (int)i * pitch_distance);
+        }
+
+        // Increment Velocity
+        for (auto i = (std::size_t)0; i < seq.cells.size(); ++i)
+        {
+            seq.cells[i] = sequence::modify::shift_velocity(
+                seq.cells[i], {0, {1}}, (float)i * velocity_distance);
+        }
     }
 
     return cell;
