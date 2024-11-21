@@ -130,15 +130,8 @@ SequenceView:
 
   # Modifiers
   "s": "split :N=2:"
-
-  "[p] + r": "randomize pitch 0 12"
-  "[v] + r": "randomize velocity 0.0 1.0"
-  "[d] + r": "randomize delay 0.0 0.5"
-  "[g] + r": "randomize gate 0.5 1.0"
-
-  "[v] + t": "humanize velocity 0.05"
-  "[d] + t": "humanize delay 0.05"
-  "[g] + t": "humanize gate 0.05"
+  "n": "note :N=0:"
+  "r": "rest"
 
 SequencesList:
   "escape" : "show SequenceView;focus SequenceView"
