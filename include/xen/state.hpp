@@ -62,11 +62,15 @@ struct SequencerState
 
     float base_frequency{440.f};
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
     auto operator==(SequencerState const &) const -> bool = default;
     auto operator!=(SequencerState const &) const -> bool = default;
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 };
 
 /**
