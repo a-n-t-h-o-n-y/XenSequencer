@@ -60,6 +60,7 @@ juce_add_binary_data(EmbedDemos
     NAMESPACE embed_demos
     SOURCES
         "data/demos/by this river.xss"
+        "data/demos/in a landscape.xss"
 )
 
 # Add font files as a binary resource
