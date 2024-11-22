@@ -148,7 +148,7 @@ struct DAWState
 
 struct PluginState
 {
-    juce::File current_phrase_directory = get_sequences_directory();
+    juce::File current_sequence_directory = get_sequences_directory();
     juce::File current_tuning_directory = get_tunings_directory();
 
     sl::Signal<void(std::string const &)> on_focus_request{};

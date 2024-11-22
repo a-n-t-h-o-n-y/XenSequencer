@@ -159,10 +159,10 @@ auto create_command_tree() -> XenCommandTree
             "located in the library's currently set sequence directory. Do not include "
             "the .xss extension in the filename you provide.",
             [](PS &ps, std::string const &filename) {
-                auto const cd = ps.current_phrase_directory;
+                auto const cd = ps.current_sequence_directory;
                 if (!cd.isDirectory())
                 {
-                    return merror("Invalid Current Phrase Directory");
+                    return merror("Invalid Current Sequence Directory");
                 }
 
                 auto const filepath = cd.getChildFile(filename + ".xss");
@@ -258,10 +258,10 @@ auto create_command_tree() -> XenCommandTree
             "the library's current sequence directory. Do not include the .xss "
             "extension in the filename you provide.",
             [](PS &ps, std::string const &filename) {
-                auto const cd = ps.current_phrase_directory;
+                auto const cd = ps.current_sequence_directory;
                 if (!cd.isDirectory())
                 {
-                    return merror("Invalid Current Phrase Directory");
+                    return merror("Invalid Current Sequence Directory");
                 }
 
                 auto const filepath =

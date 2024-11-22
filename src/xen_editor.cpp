@@ -46,7 +46,7 @@ namespace xen::gui
 
 XenEditor::XenEditor(XenProcessor &p, int width, int height)
     : AudioProcessorEditor{p},
-      plugin_window{p.plugin_state.current_phrase_directory,
+      plugin_window{p.plugin_state.current_sequence_directory,
                     p.plugin_state.current_tuning_directory,
                     p.plugin_state.command_history, p.audio_thread_state_for_gui},
       processor_{p}, tooltip_window_{this}
@@ -171,7 +171,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     // Sequence Library Directory Change
     plugin_window.center_component.library_view.sequences_list.on_directory_change
         .connect([&](juce::File const &directory) {
-            p.plugin_state.current_phrase_directory = directory;
+            p.plugin_state.current_sequence_directory = directory;
         });
 
     // Tuning Library Directory Change
