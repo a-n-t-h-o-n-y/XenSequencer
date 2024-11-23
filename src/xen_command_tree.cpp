@@ -341,7 +341,8 @@ auto create_command_tree() -> XenCommandTree
     }
 
     // note
-    head.add(cmd(signature("note", arg<int>("pitch", 0), arg<float>("velocity", 0.8f),
+    head.add(cmd(signature("note", arg<int>("pitch", 0),
+                           arg<float>("velocity", 100.f / 127.f),
                            arg<float>("delay", 0.f), arg<float>("gate", 1.f)),
                  "Create a new Note, overwritting the current selection.",
                  [](PS &ps, int pitch, float velocity, float delay, float gate) {
@@ -410,8 +411,8 @@ auto create_command_tree() -> XenCommandTree
 
         // fill note
         fill->add(cmd(signature("note", arg<Pattern>(""), arg<int>("pitch", 0),
-                                arg<float>("velocity", 0.8f), arg<float>("delay", 0.f),
-                                arg<float>("gate", 1.f)),
+                                arg<float>("velocity", 100.f / 127.f),
+                                arg<float>("delay", 0.f), arg<float>("gate", 1.f)),
                       "Fill the current selection with Notes, this works specifically "
                       "over sequences.",
                       [](PS &ps, Pattern const &pattern, int pitch, float velocity,
@@ -485,15 +486,15 @@ auto create_command_tree() -> XenCommandTree
                      }));
 
         // set velocity
-        set->add(
-            cmd(signature("velocity", arg<Pattern>(""), arg<float>("velocity", 0.8f)),
-                "Set the velocity of all selected Notes.",
-                [](PS &ps, Pattern const &pattern, float velocity) {
-                    increment_state(ps.timeline, &sequence::modify::set_velocity,
-                                    pattern, velocity);
-                    ps.timeline.set_commit_flag();
-                    return minfo("Velocity Set");
-                }));
+        set->add(cmd(signature("velocity", arg<Pattern>(""),
+                               arg<float>("velocity", 100.f / 127.f)),
+                     "Set the velocity of all selected Notes.",
+                     [](PS &ps, Pattern const &pattern, float velocity) {
+                         increment_state(ps.timeline, &sequence::modify::set_velocity,
+                                         pattern, velocity);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Velocity Set");
+                     }));
 
         // set delay
         set->add(cmd(signature("delay", arg<Pattern>(""), arg<float>("delay", 0.f)),

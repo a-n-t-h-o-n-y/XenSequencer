@@ -136,11 +136,24 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
+[[nodiscard]] auto make_left_gradient(juce::Rectangle<float> const &bounds,
+                                      juce::Colour const &begin,
+                                      juce::Colour const &end, float length_ratio)
+    -> juce::ColourGradient
+{
+    auto start_pos = bounds.getTopLeft();
+    auto end_pos = start_pos.translated(bounds.getWidth() * length_ratio, 0.f);
+
+    return juce::ColourGradient{
+        begin, start_pos, end, end_pos, false,
+    };
+}
+
 void draw_note_border(juce::Graphics &g, juce::Rectangle<float> bounds,
-                      sequence::Note const &note, juce::Colour border_color)
+                      sequence::Note const &note)
 {
     auto const thickness = 0.8f;
-    g.setColour(border_color);
+
     // Top
     g.fillRect(bounds.withHeight(thickness));
 
@@ -170,12 +183,24 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 }
 
 /**
- * \p velocity must be [0, 1]
+ * Generates background color for Note display.
  */
-[[nodiscard]] auto velocity_color(float velocity, juce::LookAndFeel const &laf)
-    -> juce::Colour
+[[nodiscard]] auto generate_note_color(juce::Colour base_color,
+                                       sequence::Note const &note) -> juce::Colour
 {
-    return laf.findColour(gui::ColorID::ForegroundMedium).brighter(1.f - velocity);
+    if (note.velocity == 0.f)
+    {
+        return base_color.withAlpha(note.velocity);
+    }
+
+    auto const vel_ratio = note.velocity / (100.f / 127.f);
+    if (vel_ratio <= 1.f)
+    {
+        return base_color.withAlpha(std::lerp(0.2f, 1.f, vel_ratio));
+    }
+
+    return base_color.withMultipliedSaturation(std::lerp(
+        1.f, 1.2f, (note.velocity - (100.f / 127.f)) / (1.f - 100.f / 127.f)));
 }
 
 /**
@@ -269,31 +294,36 @@ Note::Note(sequence::Note note, std::optional<Scale> const &scale,
 void Note::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
-
     reduce_region(g, bounds);
+
+    // Draw Staff
     draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
                this->findColour(ColorID::ForegroundInverse), scale_, tuning_,
                scale_translate_direction_);
 
-    // Draw Note Box
+    // Draw Note
+    auto const note_color =
+        generate_note_color(this->findColour(ColorID::ForegroundMedium), note_);
+    g.setColour(note_color);
     auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
-    g.setColour(velocity_color(note_.velocity, this->getLookAndFeel()));
     g.fillRect(pitch_bounds);
-    draw_note_border(g, pitch_bounds, note_,
-                     this->findColour(ColorID::ForegroundInverse));
+
+    // Draw Border
+    g.setColour(this->findColour(ColorID::BackgroundHigh));
+    draw_note_border(g, pitch_bounds, note_);
 
     // Paint Octave Text
-    auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
-    auto const octave_display =
-        juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
-            .dropLastCharacters(1);
+    // auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
+    // auto const octave_display =
+    //     juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
+    //         .dropLastCharacters(1);
 
-    g.setColour(this->findColour(ColorID::BackgroundLow));
-    g.setFont(
-        fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
-    g.drawText(octave_display,
-               pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
-               juce::Justification::centred, false);
+    // g.setColour(this->findColour(ColorID::BackgroundLow));
+    // g.setFont(
+    //     fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
+    // g.drawText(octave_display,
+    //            pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
+    //            juce::Justification::centred, false);
 }
 
 // -------------------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 ![XenSequencer](/docs/img/title-screenshot.png)
 
-[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) is a VST MIDI sequencer.It is opinionated and consists of a unique structure where sequences are built up by 'splitting' notes and sequences into copies of themselves. It supports various tunings and needs MPE support for polyphony in non-standard tunings. The interface is vim like, with keyboard only input and a command bar and keybindings for all actions.
+[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) is a VST MIDI sequencer. It is opinionated and consists of a unique structure where sequences are built up by 'splitting' notes and sequences into copies of themselves. It supports `.scl` tunings and needs MPE support for polyphony in non-standard tunings. The interface is vim like, with keyboard only input and a command bar and keybindings for all actions.
 
 ## Documentation
 - [User Guide](docs/user_guide.md)
