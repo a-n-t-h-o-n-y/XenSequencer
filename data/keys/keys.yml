@@ -81,15 +81,15 @@ SequenceView:
   "PageUp": "shift Octave +1"
 
   # ShiftVelocity
-  "[v] + j": "shift Velocity -0.02"
-  "[v] + ArrowDown": "shift Velocity -0.02"
-  "[v] + k": "shift Velocity +0.02"
-  "[v] + ArrowUp": "shift Velocity +0.02"
+  "[v] + j": "shift Velocity -0.015"
+  "[v] + ArrowDown": "shift Velocity -0.015"
+  "[v] + k": "shift Velocity +0.015"
+  "[v] + ArrowUp": "shift Velocity +0.015"
 
-  "[v] + Cmd + j": "shift Velocity -0.01"
-  "[v] + Cmd + ArrowDown": "shift Velocity -0.01"
-  "[v] + Cmd + k": "shift Velocity +0.01"
-  "[v] + Cmd + ArrowUp": "shift Velocity +0.01"
+  "[v] + Cmd + j": "shift Velocity -0.007"
+  "[v] + Cmd + ArrowDown": "shift Velocity -0.007"
+  "[v] + Cmd + k": "shift Velocity +0.007"
+  "[v] + Cmd + ArrowUp": "shift Velocity +0.007"
 
   # ShiftDelay
   "[d] + j": "shift Delay -0.05"

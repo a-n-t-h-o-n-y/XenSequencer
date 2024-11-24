@@ -185,22 +185,23 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 /**
  * Generates background color for Note display.
  */
-[[nodiscard]] auto generate_note_color(juce::Colour base_color,
+[[nodiscard]] auto generate_note_color(juce::Colour const &base_color,
                                        sequence::Note const &note) -> juce::Colour
 {
-    if (note.velocity == 0.f)
+    if (compare_within_tolerance(note.velocity, 0.f, 0.0001f))
     {
         return base_color.withAlpha(note.velocity);
     }
 
-    auto const vel_ratio = note.velocity / (100.f / 127.f);
-    if (vel_ratio <= 1.f)
+    auto const default_velocity = 100.f / 127.f;
+    if (auto const ratio = note.velocity / default_velocity; ratio <= 1.f)
     {
-        return base_color.withAlpha(std::lerp(0.2f, 1.f, vel_ratio));
+        return base_color.withAlpha(std::lerp(0.2f, 1.f, ratio));
     }
 
-    return base_color.withMultipliedSaturation(std::lerp(
-        1.f, 1.2f, (note.velocity - (100.f / 127.f)) / (1.f - 100.f / 127.f)));
+    auto const ratio = (note.velocity - default_velocity) / (1.f - default_velocity);
+    return base_color.withMultipliedSaturation(std::lerp(1.f, 0.9f, ratio))
+        .withMultipliedBrightness(std::lerp(1.f, 1.1f, ratio));
 }
 
 /**
