@@ -27,7 +27,8 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
+    : AudioProcessor{BusesProperties{}}, // No Audio Ins/Outs
+      plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
       command_tree{create_command_tree()}
 {
     initialize_demo_files();
