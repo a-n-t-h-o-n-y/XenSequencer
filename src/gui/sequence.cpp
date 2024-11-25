@@ -136,19 +136,6 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
-[[nodiscard]] auto make_left_gradient(juce::Rectangle<float> const &bounds,
-                                      juce::Colour const &begin,
-                                      juce::Colour const &end, float length_ratio)
-    -> juce::ColourGradient
-{
-    auto start_pos = bounds.getTopLeft();
-    auto end_pos = start_pos.translated(bounds.getWidth() * length_ratio, 0.f);
-
-    return juce::ColourGradient{
-        begin, start_pos, end, end_pos, false,
-    };
-}
-
 void draw_note_border(juce::Graphics &g, juce::Rectangle<float> bounds,
                       sequence::Note const &note)
 {
@@ -314,17 +301,17 @@ void Note::paint(juce::Graphics &g)
     draw_note_border(g, pitch_bounds, note_);
 
     // Paint Octave Text
-    // auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
-    // auto const octave_display =
-    //     juce::String::repeatedString((octave > 0 ? "● " : "🞆 "), std::abs(octave))
-    //         .dropLastCharacters(1);
+    auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
+    auto const octave_display =
+        juce::String::repeatedString((octave > 0 ? "▲ " : "▼ "), std::abs(octave))
+            .dropLastCharacters(1);
 
-    // g.setColour(this->findColour(ColorID::BackgroundLow));
-    // g.setFont(
-    //     fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
-    // g.drawText(octave_display,
-    //            pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
-    //            juce::Justification::centred, false);
+    g.setColour(this->findColour(ColorID::BackgroundLow));
+    g.setFont(
+        fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
+    g.drawText(octave_display,
+               pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
+               juce::Justification::centred, false);
 }
 
 // -------------------------------------------------------------------------------------
