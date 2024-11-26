@@ -268,6 +268,7 @@ PitchColumn::PitchColumn(std::size_t size) : size_{size}
 void PitchColumn::update(std::size_t new_size)
 {
     size_ = new_size;
+    this->repaint();
 }
 
 void PitchColumn::paint(juce::Graphics &g)
