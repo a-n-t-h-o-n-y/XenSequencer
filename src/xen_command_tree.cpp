@@ -1076,7 +1076,7 @@ auto create_command_tree() -> XenCommandTree
         "general midi drum notes and the number of notes displayed is increased to "
         "`octaveSize`.",
         [](PS &ps, std::size_t octave_size, int offset) {
-            octave_size = std::clamp(octave_size, 1ul, 128ul);
+            octave_size = std::clamp(octave_size, (std::size_t)1, (std::size_t)128);
             auto [state, aux] = ps.timeline.get_state();
 
             state.base_frequency = 440.f;
@@ -1113,7 +1113,7 @@ auto create_command_tree() -> XenCommandTree
                  "Enter Drum Mode, but with each note spead over a given number of "
                  "steps, so pitch bend is applied.",
                  [](PS &ps, std::size_t octave_size, int offset) {
-                     octave_size = std::clamp(octave_size, 1ul, 128ul);
+                     octave_size = std::clamp(octave_size, (std::size_t)1, (std::size_t)128);
                      auto [state, aux] = ps.timeline.get_state();
 
                      state.base_frequency = 440.f;

@@ -27,7 +27,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : AudioProcessor{BusesProperties{}}, // No Audio Ins/Outs
+    : AudioProcessor{BusesProperties{}.withOutput("Output", juce::AudioChannelSet::stereo())},
       plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
       command_tree{create_command_tree()}
 {
