@@ -94,7 +94,6 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,
-        .accumulated_sample_count = audio_thread_state_.accumulated_sample_count,
         .note_start_times = audio_thread_state_.midi_engine.get_note_start_samples(),
     });
 }

@@ -378,7 +378,15 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 void MeasureView::timerCallback()
 {
     auto const audio_thread_state = audio_thread_state_.read();
-    if (audio_thread_state.note_start_times[selected_state_.measure] != (SampleIndex)-1)
+    auto note_start_sample =
+        audio_thread_state.note_start_times[selected_state_.measure];
+    if (note_start_sample != last_key_down_sample_)
+    {
+        last_key_down_ = std::chrono::steady_clock::now();
+        last_key_down_sample_ = note_start_sample;
+    }
+
+    if (note_start_sample != (SampleIndex)-1)
     {
         auto &measure = sequencer_state_.sequence_bank[selected_state_.measure];
         auto const samples_in_measure = sequence::samples_count(
@@ -388,12 +396,13 @@ void MeasureView::timerCallback()
             this->set_playhead(std::nullopt);
             return;
         }
-        auto const current_sample = audio_thread_state.accumulated_sample_count;
-        auto const start_sample =
-            audio_thread_state.note_start_times[selected_state_.measure];
+        auto const sample_count =
+            (SampleIndex)(std::chrono::duration_cast<std::chrono::duration<double>>(
+                              std::chrono::steady_clock::now() - last_key_down_)
+                              .count() *
+                          audio_thread_state.daw.sample_rate);
         auto const percent =
-            (float)((current_sample - start_sample) % samples_in_measure) /
-            (float)samples_in_measure;
+            (float)(sample_count % samples_in_measure) / (float)samples_in_measure;
         this->set_playhead(percent);
     }
     else

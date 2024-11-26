@@ -169,7 +169,6 @@ struct PluginState
 struct AudioThreadStateForGUI
 {
     DAWState daw;
-    SampleCount accumulated_sample_count;
     std::array<SampleIndex, 16> note_start_times;
 };
 
