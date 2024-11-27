@@ -1097,8 +1097,9 @@ auto create_command_tree() -> XenCommandTree
             state.scale = std::nullopt;
             ps.scale_shift_index = std::nullopt;
 
-            auto const C4 = 60;
-            state.key = 35 + offset - C4;
+            // A3 is the zero pitch
+            auto const A3 = 57;
+            state.key = 23 + offset - A3;
 
             state.tuning = {
                 .intervals =
@@ -1119,46 +1120,6 @@ auto create_command_tree() -> XenCommandTree
             ps.timeline.set_commit_flag();
             return minfo("Drum Mode Active");
         }));
-
-    // pitchedDrums
-    head.add(cmd(signature("pitchedDrums", arg<std::size_t>("octaveSize", 16),
-                           arg<int>("offset", 1)),
-                 "Enter Drum Mode, but with each note spead over a given number of "
-                 "steps, so pitch bend is applied.",
-                 [](PS &ps, std::size_t octave_size, int offset) {
-                     octave_size =
-                         std::clamp(octave_size, (std::size_t)1, (std::size_t)128);
-                     auto [state, aux] = ps.timeline.get_state();
-
-                     state.base_frequency = 440.f;
-
-                     state.scale = std::nullopt;
-                     ps.scale_shift_index = std::nullopt;
-
-                     auto const C4 = 60;
-                     state.key = 35 + offset - C4;
-
-                     state.tuning = {
-                         .intervals =
-                             [octave_size] {
-                                 auto intervals = std::vector<float>{};
-                                 for (std::size_t i = 0; i < octave_size; ++i)
-                                 {
-                                     intervals.push_back((100.f / (float)octave_size) *
-                                                         (float)i);
-                                 }
-                                 return intervals;
-                             }(),
-                         .octave = 100.f,
-                         .description = "",
-                     };
-                     state.tuning_name =
-                         "Pitched Drums (" + std::to_string(octave_size) + ")";
-
-                     ps.timeline.stage({std::move(state), std::move(aux)});
-                     ps.timeline.set_commit_flag();
-                     return minfo("Pitched Drum Mode Active");
-                 }));
 
     return head;
 }
