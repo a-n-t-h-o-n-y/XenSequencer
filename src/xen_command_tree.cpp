@@ -536,24 +536,34 @@ auto create_command_tree() -> XenCommandTree
                     }));
 
             // set sequence timeSignature
-            seq->add(
-                cmd(signature("timeSignature",
-                              arg<sequence::TimeSignature>("timesignature", {4, 4}),
-                              arg<int>("index", -1)),
-                    "Set the time signature of a Sequence. If no index is given, set "
-                    "the time signature of the current Sequence.",
-                    [](PS &ps, sequence::TimeSignature const &ts, int index) {
-                        auto [state, aux] = ps.timeline.get_state();
-                        index = (index == -1) ? (int)aux.selected.measure : index;
-                        if (index < 0 || index >= (int)state.sequence_bank.size())
-                        {
-                            return merror("Invalid Sequence Index");
-                        }
-                        state.sequence_bank[(std::size_t)index].time_signature = ts;
-                        ps.timeline.stage({std::move(state), std::move(aux)});
-                        ps.timeline.set_commit_flag();
-                        return minfo("TimeSignature Set");
-                    }));
+            seq->add(cmd(
+                signature("timeSignature",
+                          arg<sequence::TimeSignature>("timesignature", {4, 4}),
+                          arg<int>("index", -1)),
+                "Set the time signature of a Sequence. If no index is given, set "
+                "the time signature of the current Sequence.",
+                [](PS &ps, sequence::TimeSignature const &ts, int index) {
+                    if (ts.denominator == 0 || ts.numerator == 0)
+                    {
+                        return merror("Invalid TimeSignature");
+                    }
+                    if ((float)ts.numerator / (float)ts.denominator > 64.f)
+                    {
+                        return merror(
+                            "TimeSignature Too Large, Max length is 64 Whole Notes.");
+                    }
+                    auto [state, aux] = ps.timeline.get_state();
+                    index = (index == -1) ? (int)aux.selected.measure : index;
+                    if (index < 0 || index >= (int)state.sequence_bank.size())
+                    {
+                        return merror("Invalid Sequence Index");
+                    }
+                    state.sequence_bank[(std::size_t)index].time_signature = ts;
+                    ps.timeline.stage({std::move(state), std::move(aux)});
+                    ps.timeline.set_commit_flag();
+                    return minfo("TimeSignature Set: " + std::to_string(ts.numerator) +
+                                 "/" + std::to_string(ts.denominator));
+                }));
 
             set->add(std::move(seq));
         }
@@ -675,6 +685,11 @@ auto create_command_tree() -> XenCommandTree
         set->add(cmd(signature("key", arg<int>("key", 0)),
                      "Set the key to tranpose to, any integer value is valid.",
                      [](PS &ps, int key) {
+                         if (key > 127 || key < -127)
+                         {
+                             return merror("Invalid Key Value: " + std::to_string(key) +
+                                           ". Must be in range [-127, 127].");
+                         }
                          auto state = ps.timeline.get_state();
                          state.sequencer.key = key;
                          ps.timeline.stage(std::move(state));
@@ -1111,7 +1126,8 @@ auto create_command_tree() -> XenCommandTree
                  "Enter Drum Mode, but with each note spead over a given number of "
                  "steps, so pitch bend is applied.",
                  [](PS &ps, std::size_t octave_size, int offset) {
-                     octave_size = std::clamp(octave_size, (std::size_t)1, (std::size_t)128);
+                     octave_size =
+                         std::clamp(octave_size, (std::size_t)1, (std::size_t)128);
                      auto [state, aux] = ps.timeline.get_state();
 
                      state.base_frequency = 440.f;
