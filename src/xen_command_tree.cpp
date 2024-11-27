@@ -173,8 +173,7 @@ auto create_command_tree() -> XenCommandTree
                 }
 
                 auto [state, aux] = ps.timeline.get_state();
-                auto [sb, names] = action::load_sequence_bank(
-                    filepath.getFullPathName().toStdString());
+                auto [sb, names] = action::load_sequence_bank(filepath);
                 state.sequence_bank = std::move(sb);
                 state.sequence_names = std::move(names);
 
@@ -264,13 +263,12 @@ auto create_command_tree() -> XenCommandTree
                     return merror("Invalid Current Sequence Directory");
                 }
 
-                auto const filepath =
-                    cd.getChildFile(filename + ".xss").getFullPathName().toStdString();
-
+                auto const filepath = cd.getChildFile(filename + ".xss");
                 auto const [state, _] = ps.timeline.get_state();
                 action::save_sequence_bank(state.sequence_bank, state.sequence_names,
                                            filepath);
-                return minfo("Sequence Bank Saved to " + single_quote(filepath));
+                return minfo("Sequence Bank Saved to " +
+                             single_quote(filepath.getFullPathName().toStdString()));
             }));
 
         head.add(std::move(save));

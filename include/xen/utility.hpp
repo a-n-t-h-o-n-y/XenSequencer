@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -35,26 +34,6 @@ template <typename T>
 struct always_false : std::false_type
 {
 };
-
-/**
- * Reads the content of a text file into a std::string.
- *
- * @param filepath Path of the text file to read.
- * @return std::string Contents of the text file.
- * @throws std::runtime_error Thrown if file cannot be read.
- */
-[[nodiscard]] auto read_file_to_string(std::filesystem::path const &filepath)
-    -> std::string;
-
-/**
- * Writes a std::string to a text file.
- *
- * @param filepath Path of the text file to write.
- * @param content Content to write to the text file.
- * @throws std::runtime_error Thrown if file cannot be written to.
- */
-void write_string_to_file(std::filesystem::path const &filepath,
-                          std::string const &content);
 
 /**
  * Checks if a tuple contains a single element that satisfies a given predicate.

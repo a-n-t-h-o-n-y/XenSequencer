@@ -2,11 +2,12 @@
 
 #include <array>
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+
+#include <juce_core/juce_core.h>
 
 #include <sequence/measure.hpp>
 #include <sequence/pattern.hpp>
@@ -83,17 +84,15 @@ void copy(XenTimeline const &tl);
 
 [[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
 
-void save_measure(sequence::Measure const &measure,
-                  std::filesystem::path const &filepath);
+void save_measure(juce::File const &filepath, sequence::Measure const &measure);
 
-[[nodiscard]] auto load_measure(std::filesystem::path const &filepath)
-    -> sequence::Measure;
+[[nodiscard]] auto load_measure(juce::File const &filepath) -> sequence::Measure;
 
 void save_sequence_bank(SequenceBank const &bank,
                         std::array<std::string, 16> const &sequence_names,
-                        std::filesystem::path const &filepath);
+                        juce::File const &filepath);
 
-[[nodiscard]] auto load_sequence_bank(std::filesystem::path const &filepath)
+[[nodiscard]] auto load_sequence_bank(juce::File const &filepath)
     -> std::pair<SequenceBank, std::array<std::string, 16>>;
 
 [[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq)

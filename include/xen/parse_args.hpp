@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
+
+#include <juce_core/juce_core.h>
 
 #include <sequence/time_signature.hpp>
 
@@ -184,9 +185,9 @@ template <typename T>
     {
         return parse_input_mode(x);
     }
-    else if constexpr (std::is_same_v<T, std::filesystem::path>)
+    else if constexpr (std::is_same_v<T, juce::File>)
     {
-        return std::filesystem::path{x};
+        return juce::File{x};
     }
     else if constexpr (std::is_same_v<T, std::string>)
     {

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
 #include <iterator>
 #include <map>
 #include <optional>
@@ -14,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <yaml-cpp/yaml.h>
@@ -39,21 +39,20 @@ using namespace xen;
  * @throws std::runtime_error if the YAML file structure is invalid.
  * @throws std::runtime_error if either file is larger than 128MB
  */
-[[nodiscard]] auto merge_yaml_files(std::filesystem::path const &base_filepath,
-                                    std::filesystem::path const &overlay_filepath)
-    -> YAML::Node
+[[nodiscard]] auto merge_yaml_files(juce::File const &base_filepath,
+                                    juce::File const &overlay_filepath) -> YAML::Node
 {
-    if (std::filesystem::file_size(base_filepath) > (128 * 1'024 * 1'024))
+    if (base_filepath.getSize() > (128 * 1'024 * 1'024))
     {
         throw std::runtime_error{"System keys file size exceeds 128MB"};
     }
-    if (std::filesystem::file_size(overlay_filepath) > (128 * 1'024 * 1'024))
+    if (overlay_filepath.getSize() > (128 * 1'024 * 1'024))
     {
         throw std::runtime_error{"User keys file size exceeds 128MB"};
     }
 
-    auto base = YAML::LoadFile(base_filepath.string());
-    auto overlay = YAML::LoadFile(overlay_filepath.string());
+    auto base = YAML::LoadFile(base_filepath.getFullPathName().toStdString());
+    auto overlay = YAML::LoadFile(overlay_filepath.getFullPathName().toStdString());
     base.remove("version");
 
     if (!base.IsMap() || !overlay.IsMap())
@@ -438,9 +437,7 @@ auto build_key_listeners(juce::File const &default_keys, juce::File const &user_
                          XenTimeline const &tl)
     -> std::map<std::string, KeyConfigListener>
 {
-    auto const keys_node =
-        merge_yaml_files(default_keys.getFullPathName().toStdString(),
-                         user_keys.getFullPathName().toStdString());
+    auto const keys_node = merge_yaml_files(default_keys, user_keys);
     auto key_cores = create_component_key_cores(keys_node);
     auto result = std::map<std::string, KeyConfigListener>{};
 

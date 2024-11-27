@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -10,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <juce_core/juce_core.h>
 
 #include <sequence/pattern.hpp>
 #include <sequence/time_signature.hpp>
@@ -182,7 +183,7 @@ template <typename T>
     {
         return "InputMode";
     }
-    else if constexpr (std::is_same_v<T, std::filesystem::path>)
+    else if constexpr (std::is_same_v<T, juce::File>)
     {
         return "Filepath";
     }

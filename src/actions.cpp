@@ -4,13 +4,14 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <juce_core/juce_core.h>
 
 #include <sequence/modify.hpp>
 #include <sequence/pattern.hpp>
@@ -183,42 +184,35 @@ auto delete_cell(TrackedState ts) -> TrackedState
     return ts;
 }
 
-auto save_measure(sequence::Measure const &measure,
-                  std::filesystem::path const &filepath) -> void
+auto save_measure(juce::File const &filepath, sequence::Measure const &measure) -> void
 {
-    auto const json_str = serialize_measure(measure);
-    write_string_to_file(filepath, json_str);
+    filepath.replaceWithText(serialize_measure(measure));
 }
 
-auto load_measure(std::filesystem::path const &filepath) -> sequence::Measure
+auto load_measure(juce::File const &filepath) -> sequence::Measure
 {
-    if (std::filesystem::file_size(filepath) > (128 * 1'024 * 1'024))
+    if (filepath.getSize() > (128 * 1'024 * 1'024))
     {
         throw std::runtime_error{"Measure file size exceeds 128MB"};
     }
-
-    auto const json_str = read_file_to_string(filepath);
-    return deserialize_measure(json_str);
+    return deserialize_measure(filepath.loadFileAsString().toStdString());
 }
 
 auto save_sequence_bank(SequenceBank const &bank,
                         std::array<std::string, 16> const &sequence_names,
-                        std::filesystem::path const &filepath) -> void
+                        juce::File const &filepath) -> void
 {
-    auto const json_str = serialize_sequence_bank(bank, sequence_names);
-    write_string_to_file(filepath, json_str);
+    filepath.replaceWithText(serialize_sequence_bank(bank, sequence_names));
 }
 
-auto load_sequence_bank(std::filesystem::path const &filepath)
+auto load_sequence_bank(juce::File const &filepath)
     -> std::pair<SequenceBank, std::array<std::string, 16>>
 {
-    if (std::filesystem::file_size(filepath) > (128 * 1'024 * 1'024))
+    if (filepath.getSize() > (128 * 1'024 * 1'024))
     {
         throw std::runtime_error{"Sequence Bank file size exceeds 128MB"};
     }
-
-    auto const json_str = read_file_to_string(filepath);
-    return deserialize_sequence_bank(json_str);
+    return deserialize_sequence_bank(filepath.loadFileAsString().toStdString());
 }
 
 auto set_base_frequency(XenTimeline const &tl, float freq) -> SequencerState
