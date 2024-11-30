@@ -811,45 +811,6 @@ auto create_command_tree() -> XenCommandTree
     }
 
     {
-        auto humanize = cmd_group("humanize");
-
-        // humanize velocity
-        humanize->add(
-            cmd(signature("velocity", arg<Pattern>(""), arg<float>("amount", 0.1f)),
-                "Apply a random shift to the velocity of any selected Notes.",
-                [](PS &ps, Pattern const &pattern, float amount) {
-                    increment_state(ps.timeline, &sequence::modify::humanize_velocity,
-                                    pattern, amount);
-                    ps.timeline.set_commit_flag();
-                    return minfo("Humanized Velocity");
-                }));
-
-        // humanize delay
-        humanize->add(
-            cmd(signature("delay", arg<Pattern>(""), arg<float>("amount", 0.1f)),
-                "Apply a random shift to the delay of any selected Notes.",
-                [](PS &ps, Pattern const &pattern, float amount) {
-                    increment_state(ps.timeline, &sequence::modify::humanize_delay,
-                                    pattern, amount);
-                    ps.timeline.set_commit_flag();
-                    return minfo("Humanized Delay");
-                }));
-
-        // humanize gate
-        humanize->add(
-            cmd(signature("gate", arg<Pattern>(""), arg<float>("amount", 0.1f)),
-                "Apply a random shift to the gate of any selected Notes.",
-                [](PS &ps, Pattern const &pattern, float amount) {
-                    increment_state(ps.timeline, &sequence::modify::humanize_gate,
-                                    pattern, amount);
-                    ps.timeline.set_commit_flag();
-                    return minfo("Humanized Gate");
-                }));
-
-        head.add(std::move(humanize));
-    }
-
-    {
         auto randomize = cmd_group("randomize");
 
         // randomize pitch
