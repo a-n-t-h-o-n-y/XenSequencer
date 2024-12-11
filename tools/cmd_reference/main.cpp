@@ -2,12 +2,40 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
+#include <string>
 #include <string_view>
 
+#include <xen/command.hpp>
 #include <xen/constants.hpp>
 #include <xen/xen_command_tree.hpp>
 
-#include "make_command_reference.hpp"
+[[nodiscard]] auto make_command_reference_table(xen::CommandBase &head) -> std::string
+{
+    auto cmds = head.generate_docs();
+    auto result = std::string{"name | signature | description\n"
+                              "---- | --------- | -----------\n"};
+
+    for (auto &doc : cmds)
+    {
+        auto sig = std::string{"`"};
+        if (doc.signature.pattern_arg)
+        {
+            sig += "[pattern] ";
+        }
+        sig += doc.signature.id;
+        for (auto const &arg : doc.signature.arguments)
+        {
+            sig += (" " + arg);
+        }
+        sig += '`';
+        auto description = doc.description;
+        description = std::regex_replace(description, std::regex{"\n"}, "<br>");
+        result.append(doc.signature.id + " | " + sig + " | " + description + "\n");
+    }
+
+    return result;
+}
 
 /**
  * Generate a markdown document containing a reference for all commands
@@ -30,9 +58,9 @@ int main(int argc, char const *argv[])
                                      output_path.string()};
         }
 
+        auto tree = xen::create_command_tree();
         auto const doc_str = "# Command Reference (v" + std::string{xen::VERSION} +
-                             ")\n\n" +
-                             make_command_reference_table(xen::create_command_tree());
+                             ")\n\n" + make_command_reference_table(tree);
 
         auto output_stream = std::ofstream{output_path};
         output_stream << doc_str;

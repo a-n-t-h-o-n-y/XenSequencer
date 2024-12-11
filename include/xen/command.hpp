@@ -73,8 +73,7 @@ class CommandBase
 
     [[nodiscard]] virtual auto complete_text(SplitInput input) const -> std::string = 0;
 
-    // TODO This probably isn't correct.
-    // virtual auto generate_docs() -> std::vector<Documentation> = 0;
+    [[nodiscard]] virtual auto generate_docs() -> std::vector<Documentation> = 0;
 };
 
 // -------------------------------------------------------------------------------------
@@ -125,6 +124,14 @@ class Command : public CommandBase
         }
 
         return oss.str();
+    }
+
+    [[nodiscard]] auto generate_docs() -> std::vector<Documentation> override
+    {
+        return {Documentation{
+            .signature = generate_display(signature),
+            .description = this->description,
+        }};
     }
 
   private:
@@ -188,6 +195,8 @@ class CommandGroup : public CommandBase
         -> std::pair<MessageLevel, std::string> override;
 
     [[nodiscard]] auto complete_text(SplitInput input) const -> std::string override;
+
+    [[nodiscard]] auto generate_docs() -> std::vector<Documentation> override;
 
   private:
     std::string_view id_;

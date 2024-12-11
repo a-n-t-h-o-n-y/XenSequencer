@@ -140,6 +140,7 @@ struct SignatureDisplay
 {
     std::string id;
     std::vector<std::string> arguments;
+    bool pattern_arg = false;
 };
 
 // -----------------------------------------------------------------------------
@@ -268,8 +269,10 @@ template <typename... Args>
 [[nodiscard]] auto generate_display(PatternedSignature<Args...> const &signature)
     -> SignatureDisplay
 {
-    return generate_display(signature.id, signature.args,
-                            std::index_sequence_for<Args...>());
+    auto result = generate_display(signature.id, signature.args,
+                                   std::index_sequence_for<Args...>());
+    result.pattern_arg = true;
+    return result;
 }
 
 } // namespace xen

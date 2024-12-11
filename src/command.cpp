@@ -98,6 +98,24 @@ auto CommandGroup::complete_text(SplitInput input) const -> std::string
     return "";
 }
 
+auto CommandGroup::generate_docs() -> std::vector<Documentation>
+{
+    auto result = std::vector<Documentation>{};
+    for (auto &command : commands_)
+    {
+        auto docs = command->generate_docs();
+        for (auto &doc : docs)
+        {
+            if (!id_.empty())
+            {
+                doc.signature.id.insert(0, std::string{id_} + " ");
+            }
+        }
+        result.insert(std::end(result), std::cbegin(docs), std::cend(docs));
+    }
+    return result;
+}
+
 auto cmd_group(std::string_view id) -> std::unique_ptr<CommandGroup>
 {
     return std::make_unique<CommandGroup>(id);
