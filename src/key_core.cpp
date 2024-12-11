@@ -128,7 +128,7 @@ auto const key_map = [] {
         {"-", get_code("-")},
         {"_", get_code("_")},
         {"=", get_code("=")},
-        {"+", get_code("+")},
+        {"plus", get_code("+")},
         {"[", get_code("[")},
         {"{", get_code("{")},
         {"]", get_code("]")},

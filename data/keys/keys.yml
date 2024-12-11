@@ -125,6 +125,10 @@ SequenceView:
   "[m] + k": "shift scaleMode +1"
   "[m] + ArrowUp": "shift scaleMode +1"
 
+  # TimeSignature
+  "Shift + plus": "double sequence timeSignature"
+  "-": "halve sequence timeSignature"
+
   # Misc
   "delete": "delete"
 

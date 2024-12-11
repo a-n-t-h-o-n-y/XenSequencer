@@ -701,6 +701,95 @@ auto create_command_tree() -> XenCommandTree
     }
 
     {
+        auto dbl = cmd_group("double");
+        {
+            auto seq = cmd_group("sequence");
+
+            // double sequence timeSignature
+            seq->add(cmd(
+                signature("timeSignature", arg<int>("index", -1)),
+                "Double the given Sequence's TimeSignature, or the currently "
+                "selected Sequence's TimeSignature if index is -1.",
+                [](PS &ps, int index) {
+                    auto [state, aux] = ps.timeline.get_state();
+                    index = (index == -1) ? (int)aux.selected.measure : index;
+                    if (index < 0 || index >= (int)state.sequence_bank.size())
+                    {
+                        return merror("Invalid Sequence Index");
+                    }
+
+                    auto &ts = state.sequence_bank[(std::size_t)index].time_signature;
+
+                    ts.numerator *= 2;
+
+                    if ((float)ts.numerator / (float)ts.denominator > 64.f)
+                    {
+                        return merror(
+                            "TimeSignature Too Large, Max length is 64 Whole Notes.");
+                    }
+
+                    if (ts.numerator == 0)
+                    {
+                        return merror("Cannot Double the TimeSignature.");
+                    }
+
+                    ps.timeline.stage({std::move(state), std::move(aux)});
+                    ps.timeline.set_commit_flag();
+                    return minfo("TimeSignature Doubled.");
+                }));
+
+            dbl->add(std::move(seq));
+        }
+
+        head.add(std::move(dbl));
+    }
+
+    {
+        auto halve = cmd_group("halve");
+        {
+            auto seq = cmd_group("sequence");
+
+            // halve sequence timeSignature
+            seq->add(cmd(signature("timeSignature", arg<int>("index", -1)),
+                         "Halve the given Sequence's TimeSignature, or the currently "
+                         "selected Sequence's TimeSignature if index is -1.",
+                         [](PS &ps, int index) {
+                             auto [state, aux] = ps.timeline.get_state();
+                             index = (index == -1) ? (int)aux.selected.measure : index;
+                             if (index < 0 || index >= (int)state.sequence_bank.size())
+                             {
+                                 return merror("Invalid Sequence Index");
+                             }
+
+                             auto &ts =
+                                 state.sequence_bank[(std::size_t)index].time_signature;
+
+                             if (ts.numerator % 2 == 0)
+                             {
+                                 ts.numerator /= 2;
+                             }
+                             else
+                             {
+                                 ts.denominator *= 2;
+                             }
+
+                             if (ts.denominator == 0)
+                             {
+                                 return merror("Cannot Halve the TimeSignature.");
+                             }
+
+                             ps.timeline.stage({std::move(state), std::move(aux)});
+                             ps.timeline.set_commit_flag();
+                             return minfo("TimeSignature Halved.");
+                         }));
+
+            halve->add(std::move(seq));
+        }
+
+        head.add(std::move(halve));
+    }
+
+    {
         auto shift = cmd_group("shift");
 
         // shift pitch
