@@ -2,7 +2,7 @@
 
 ![XenSequencer](/docs/img/title-screenshot.png)
 
-[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) is a VST MIDI sequencer. It is opinionated and consists of a unique structure where sequences are built up by 'splitting' notes and sequences into copies of themselves. It supports `.scl` tunings and needs MPE support for polyphony in non-standard tunings. The interface is vim like, with keyboard only input and a command bar and keybindings for all actions.
+[XenSequencer](https://github.com/a-n-t-h-o-n-y/XenSequencer) (XS) is a VST MIDI sequencer. It intends to be a composition tool where user input is quick and ideas can be generated, iterated, and edited. It takes inspiration from the `vim` text editor, all input is keyboard based, with a built in `:` key command line and various insert modes. XS supports `.scl` tuning files via MPE.
 
 ## Documentation
 - [User Guide](docs/user_guide.md)
@@ -28,15 +28,6 @@ cmake --build . --target XenSequencer_VST3
 
 ## Installation
 Move the XenSequencer VST to your system's VST3 folder. If building from source, the VST can be found in `XenSequencer/build/XenSequencer_artefacts/Release/VST3/`.
-
-## Tests
-Currently Unsupported.
-
-```bash
-cd build/
-cmake --build . --target XenTests
-./XenTests
-```
 
 ## License
 This project is licensed under the AGLPv3 License - see the [LICENSE](LICENSE) file for details.
