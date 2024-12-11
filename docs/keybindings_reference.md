@@ -1,4 +1,4 @@
-# Keybindings (v0.2.0)
+# Keybindings (v0.3.0)
 
 ## SequenceView
 
@@ -47,14 +47,14 @@
 | Pitch | `ArrowUp` | `shift Pitch +1` |
 | --- | `PageDown` | `shift Octave -1` |
 | --- | `PageUp` | `shift Octave +1` |
-| Velocity | `j` | `shift Velocity -0.05` |
-| Velocity | `ArrowDown` | `shift Velocity -0.05` |
-| Velocity | `k` | `shift Velocity +0.05` |
-| Velocity | `ArrowUp` | `shift Velocity +0.05` |
-| Velocity | `Cmd + j` | `shift Velocity -0.01` |
-| Velocity | `Cmd + ArrowDown` | `shift Velocity -0.01` |
-| Velocity | `Cmd + k` | `shift Velocity +0.01` |
-| Velocity | `Cmd + ArrowUp` | `shift Velocity +0.01` |
+| Velocity | `j` | `shift Velocity -0.015` |
+| Velocity | `ArrowDown` | `shift Velocity -0.015` |
+| Velocity | `k` | `shift Velocity +0.015` |
+| Velocity | `ArrowUp` | `shift Velocity +0.015` |
+| Velocity | `Cmd + j` | `shift Velocity -0.007` |
+| Velocity | `Cmd + ArrowDown` | `shift Velocity -0.007` |
+| Velocity | `Cmd + k` | `shift Velocity +0.007` |
+| Velocity | `Cmd + ArrowUp` | `shift Velocity +0.007` |
 | Delay | `j` | `shift Delay -0.05` |
 | Delay | `ArrowDown` | `shift Delay -0.05` |
 | Delay | `k` | `shift Delay +0.05` |
@@ -79,15 +79,12 @@
 | Scale Mode | `ArrowDown` | `shift scaleMode -1` |
 | Scale Mode | `k` | `shift scaleMode +1` |
 | Scale Mode | `ArrowUp` | `shift scaleMode +1` |
-| --- | `delete` | `delete selection` |
+| --- | `Shift + plus` | `double sequence timeSignature` |
+| --- | `-` | `halve sequence timeSignature` |
+| --- | `delete` | `delete` |
 | --- | `s` | `split :N=2:` |
-| Pitch | `r` | `randomize pitch 0 12` |
-| Velocity | `r` | `randomize velocity 0.0 1.0` |
-| Delay | `r` | `randomize delay 0.0 0.5` |
-| Gate | `r` | `randomize gate 0.5 1.0` |
-| Velocity | `t` | `humanize velocity 0.05` |
-| Delay | `t` | `humanize delay 0.05` |
-| Gate | `t` | `humanize gate 0.05` |
+| --- | `n` | `note :N=0:` |
+| --- | `r` | `rest` |
 
 ## SequencesList
 
