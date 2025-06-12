@@ -44,7 +44,8 @@ static void to_json(nlohmann::json &j, Sequence const &sequence)
 
 static void to_json(nlohmann::json &j, Cell const &cell)
 {
-    std::visit([&j](auto const &variant_item) { to_json(j, variant_item); }, cell);
+    std::visit([&j](auto const &element) { to_json(j, element); }, cell.element);
+    j["weight"] = cell.weight;
 }
 
 static void to_json(nlohmann::json &j, TimeSignature const &ts)
@@ -96,18 +97,20 @@ static void from_json(nlohmann::json const &j, Sequence &sequence)
 
 static void from_json(nlohmann::json const &j, Cell &cell)
 {
+    cell.weight = j.value("weight", 1.f);
+
     auto const type = j.at("type").get<std::string>();
     if (type == "Note")
     {
-        cell = j.get<Note>();
+        cell.element = j.get<Note>();
     }
     else if (type == "Rest")
     {
-        cell = j.get<Rest>();
+        cell.element = j.get<Rest>();
     }
     else if (type == "Sequence")
     {
-        cell = j.get<Sequence>();
+        cell.element = j.get<Sequence>();
     }
     else
     {

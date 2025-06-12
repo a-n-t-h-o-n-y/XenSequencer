@@ -20,6 +20,9 @@ namespace xen::gui
 class Cell : public juce::Component
 {
   public:
+    float weight = 1.f;
+
+  public:
     virtual void make_selected();
 
     /**

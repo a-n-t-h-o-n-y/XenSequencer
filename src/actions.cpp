@@ -70,7 +70,7 @@ auto cut(XenTimeline const &tl) -> SequencerState
 
     auto [state, aux] = tl.get_state();
     auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
-    selected = sequence::Rest{};
+    selected = {.element = sequence::Rest{}, .weight = selected.weight};
     return state;
 }
 
@@ -158,8 +158,8 @@ auto delete_cell(TrackedState ts) -> TrackedState
     if (parent != nullptr)
     {
         // Delete Cell
-        assert(std::holds_alternative<sequence::Sequence>(*parent));
-        auto &cells = std::get<sequence::Sequence>(*parent).cells;
+        assert(std::holds_alternative<sequence::Sequence>(parent->element));
+        auto &cells = std::get<sequence::Sequence>(parent->element).cells;
         cells.erase(std::next(
             std::begin(cells),
             (std::vector<sequence::Cell>::difference_type)ts.aux.selected.cell.back()));
@@ -178,7 +178,7 @@ auto delete_cell(TrackedState ts) -> TrackedState
     else // Replace with a rest
     {
 
-        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell = sequence::Rest{};
+        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell = {sequence::Rest{}};
     }
 
     return ts;
@@ -290,9 +290,9 @@ auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_dista
         throw std::runtime_error{"velocity distance must be in the range: [-1, 1]"};
     }
 
-    if (std::holds_alternative<sequence::Sequence>(cell))
+    if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
-        auto &seq = std::get<sequence::Sequence>(cell);
+        auto &seq = std::get<sequence::Sequence>(cell.element);
 
         // Call shift_pitch for each cell instead of passing in sequence because each
         // cell is a different pitch and velocity value.
@@ -313,9 +313,9 @@ auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_dista
 auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
          std::vector<int> const &intervals) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell))
+    if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
-        auto &seq = std::get<sequence::Sequence>(cell);
+        auto &seq = std::get<sequence::Sequence>(cell.element);
         auto view = sequence::PatternView{seq.cells, pattern};
         auto i = std::size_t{0};
         for (auto &c : view)
@@ -325,6 +325,17 @@ auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
             ++i;
         }
     }
+    return cell;
+}
+
+auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
+{
+    if (weight <= 0.f)
+    {
+        throw std::runtime_error{"Weight must be greater than 0."};
+    }
+
+    cell.weight = weight;
     return cell;
 }
 

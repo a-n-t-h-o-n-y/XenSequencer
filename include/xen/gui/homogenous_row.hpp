@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -16,6 +17,11 @@
 namespace xen::gui
 {
 
+template <typename T>
+concept HasFloatWeight = requires(T t) {
+    { t.weight } -> std::convertible_to<float>;
+};
+
 /**
  * A row of components of the same type.
  *
@@ -23,10 +29,9 @@ namespace xen::gui
  * @tparam T The type of the child components.
  */
 template <typename T>
+    requires std::is_base_of_v<juce::Component, T> && HasFloatWeight<T>
 class HomogenousRow : public juce::Component
 {
-    static_assert(std::is_base_of<juce::Component, T>::value);
-
   public:
     using iterator = utility::DereferenceIterator<std::vector<std::unique_ptr<T>>>;
     using const_iterator =
@@ -36,23 +41,11 @@ class HomogenousRow : public juce::Component
 
   public:
     /**
-     * Create an empty HomogenousRow.
-     *
-     * @param flex The FlexItem to use as the default for each child.
-     */
-    explicit HomogenousRow(juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
-        : flex_item_{std::move(flex)}
-    {
-    }
-
-    /**
      * Create a HomogenousRow with the given children.
      * @param children The children to add to the row.
-     * @param flex The FlexItem to use as the default for each child.
      */
-    explicit HomogenousRow(std::vector<std::unique_ptr<T>> children,
-                           juce::FlexItem flex = juce::FlexItem{}.withFlex(1.f))
-        : children_{std::move(children)}, flex_item_{std::move(flex)}
+    explicit HomogenousRow(std::vector<std::unique_ptr<T>> children = {})
+        : children_{std::move(children)}
     {
         for (auto &child : children_)
         {
@@ -286,9 +279,7 @@ class HomogenousRow : public juce::Component
         // Add each child component to the FlexBox
         for (auto &child : children_)
         {
-            auto item = flex_item_;
-            item.associatedComponent = child.get();
-            flex_box.items.add(std::move(item));
+            flex_box.items.add(juce::FlexItem{*child}.withFlex(child->weight));
         }
 
         flex_box.performLayout(this->getLocalBounds());
@@ -315,7 +306,6 @@ class HomogenousRow : public juce::Component
 
   private:
     std::vector<std::unique_ptr<T>> children_;
-    juce::FlexItem flex_item_;
 };
 
 } // namespace xen::gui

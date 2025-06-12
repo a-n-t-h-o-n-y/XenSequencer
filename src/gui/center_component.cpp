@@ -33,10 +33,13 @@
 namespace
 {
 
-[[nodiscard]] auto make_cell(sequence::Cell const &cell,
-                             std::optional<xen::Scale> const &scale,
-                             sequence::Tuning const &tuning,
-                             xen::TranslateDirection scale_translate_direction)
+/**
+ * Initiates the UI cell building process for the top level cell. It's weight is ignored
+ * because it is alone.
+ */
+[[nodiscard]] auto make_top_level_cell(
+    sequence::Cell const &cell, std::optional<xen::Scale> const &scale,
+    sequence::Tuning const &tuning, xen::TranslateDirection scale_translate_direction)
     -> std::unique_ptr<xen::gui::Cell>
 {
     auto const builder = xen::gui::BuildAndAllocateCell{
@@ -44,10 +47,10 @@ namespace
         tuning,
         scale_translate_direction,
     };
-    return std::visit(builder, cell);
+    return std::visit(builder, cell.element);
 }
 
-[[nodiscard]] auto get_all_pitches(sequence::Cell const &cell) -> std::set<int>
+[[nodiscard]] auto gather_all_pitches(sequence::Cell const &cell) -> std::set<int>
 {
     return std::visit(
         sequence::utility::overload{
@@ -57,14 +60,14 @@ namespace
                 auto result = std::set<int>{};
                 for (auto const &c : s.cells)
                 {
-                    auto temp = get_all_pitches(c);
+                    auto temp = gather_all_pitches(c);
                     result.insert(std::make_move_iterator(std::begin(temp)),
                                   std::make_move_iterator(std::end(temp)));
                 }
                 return result;
             },
         },
-        cell);
+        cell.element);
 }
 
 } // namespace
@@ -293,9 +296,9 @@ void PitchColumn::paint(juce::Graphics &g)
 // -------------------------------------------------------------------------------------
 
 MeasureView::MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state)
-    : cell_ptr_{make_cell(sequence::Rest{}, std::nullopt,
-                          {.intervals = {0}, .octave = 1, .description = ""},
-                          TranslateDirection::Up)},
+    : cell_ptr_{make_top_level_cell({sequence::Rest{}}, std::nullopt,
+                                    {.intervals = {0}, .octave = 1, .description = ""},
+                                    TranslateDirection::Up)},
       audio_thread_state_{audio_thread_state}
 {
     this->startTimer(34);
@@ -325,8 +328,8 @@ void MeasureView::update(SequencerState const &state, AuxState const &aux)
 
         cell_ptr_.reset();
         auto &measure = state.sequence_bank[selected_state_.measure];
-        cell_ptr_ = make_cell(measure.cell, state.scale, state.tuning,
-                              state.scale_translate_direction);
+        cell_ptr_ = make_top_level_cell(measure.cell, state.scale, state.tuning,
+                                        state.scale_translate_direction);
         this->addAndMakeVisible(*cell_ptr_);
 
         if (auto const child_ptr = this->get_selected_child(); child_ptr != nullptr)
@@ -439,7 +442,7 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
     // std::ranges::equal_to to avoid float comparison warning
     if (std::ranges::equal_to{}(state.tuning.octave, 1'200.f))
     {
-        auto const selected_pitches = get_all_pitches(
+        auto const selected_pitches = gather_all_pitches(
             xen::get_selected_cell_const(state.sequence_bank, aux.selected));
 
         tuning_reference_ptr = std::make_unique<TuningReference>(

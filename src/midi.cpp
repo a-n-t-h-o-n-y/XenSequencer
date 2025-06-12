@@ -28,24 +28,29 @@ namespace
                                         xen::TranslateDirection direction)
     -> sequence::Cell
 {
-    return std::visit(
-        sequence::utility::overload{
-            [&](sequence::Note note) -> sequence::Cell {
-                note.pitch = xen::map_pitch_to_scale(note.pitch, valid_pitches,
-                                                     tuning_length, direction);
-                return note;
-            },
-            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
-            [&](sequence::Sequence seq) -> sequence::Cell {
-                for (auto &c : seq.cells)
-                {
-                    c = scale_translate_cell(c, valid_pitches, tuning_length,
-                                             direction);
-                }
-                return seq;
-            },
-        },
-        cell);
+    return {
+        .element =
+            std::visit(sequence::utility::overload{
+                           [&](sequence::Note note) -> sequence::MusicElement {
+                               note.pitch = xen::map_pitch_to_scale(
+                                   note.pitch, valid_pitches, tuning_length, direction);
+                               return note;
+                           },
+                           [](sequence::Rest const &rest) -> sequence::MusicElement {
+                               return rest;
+                           },
+                           [&](sequence::Sequence seq) -> sequence::MusicElement {
+                               for (auto &c : seq.cells)
+                               {
+                                   c = scale_translate_cell(c, valid_pitches,
+                                                            tuning_length, direction);
+                               }
+                               return seq;
+                           },
+                       },
+                       cell.element),
+        .weight = cell.weight,
+    };
 }
 
 /**
@@ -54,22 +59,27 @@ namespace
 [[nodiscard]] auto key_transpose_cell(sequence::Cell const &cell, int key)
     -> sequence::Cell
 {
-    return std::visit(
-        sequence::utility::overload{
-            [&](sequence::Note note) -> sequence::Cell {
-                note.pitch += key;
-                return note;
-            },
-            [](sequence::Rest const &rest) -> sequence::Cell { return rest; },
-            [&](sequence::Sequence seq) -> sequence::Cell {
-                for (auto &c : seq.cells)
-                {
-                    c = key_transpose_cell(c, key);
-                }
-                return seq;
-            },
-        },
-        cell);
+    return {
+        .element =
+            std::visit(sequence::utility::overload{
+                           [&](sequence::Note note) -> sequence::MusicElement {
+                               note.pitch += key;
+                               return note;
+                           },
+                           [](sequence::Rest const &rest) -> sequence::MusicElement {
+                               return rest;
+                           },
+                           [&](sequence::Sequence seq) -> sequence::MusicElement {
+                               for (auto &c : seq.cells)
+                               {
+                                   c = key_transpose_cell(c, key);
+                               }
+                               return seq;
+                           },
+                       },
+                       cell.element),
+        .weight = cell.weight,
+    };
 }
 
 } // namespace

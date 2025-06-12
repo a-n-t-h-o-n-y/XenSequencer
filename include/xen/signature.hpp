@@ -68,7 +68,7 @@ struct PatternedSignature
  * @details This exists because Apple clang 14 does not support deduction guides for
  * aggregate initialization.
  * @param id The id of the signature.
- * @param args The arguments.
+ * @param args The ArgInfos.
  * @return Signature object.
  */
 template <typename... Args>
@@ -86,7 +86,7 @@ template <typename... Args>
  * aggregate initialization.
  * @param id The id of the signature.
  * @param pattern The pattern argument, its ID is not used.
- * @param args All other arguments.
+ * @param args All other ArgInfos.
  * @return PatternedSignature object.
  */
 template <typename... Args>

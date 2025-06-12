@@ -205,7 +205,9 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
     cells.reserve(seq.cells.size());
 
     std::ranges::transform(seq.cells, std::back_inserter(cells), [&](auto const &cell) {
-        return std::visit(build_and_allocate_cell, cell);
+        auto ui = std::visit(build_and_allocate_cell, cell.element);
+        ui->weight = cell.weight;
+        return ui;
     });
 
     return cells;
@@ -319,13 +321,11 @@ void Note::paint(juce::Graphics &g)
 Sequence::Sequence(sequence::Sequence const &seq, std::optional<Scale> const &scale,
                    sequence::Tuning const &tuning,
                    TranslateDirection scale_translate_direction)
-    : cells_{create_cells_components(seq,
-                                     BuildAndAllocateCell{
-                                         scale,
-                                         tuning,
-                                         scale_translate_direction,
-                                     }),
-             juce::FlexItem{}.withFlex(1.f)}
+    : cells_{create_cells_components(seq, BuildAndAllocateCell{
+                                              scale,
+                                              tuning,
+                                              scale_translate_direction,
+                                          })}
 {
     this->addAndMakeVisible(cells_);
 }

@@ -697,6 +697,13 @@ auto create_command_tree() -> XenCommandTree
                          return minfo("Key Set to " + std::to_string(key) + ".");
                      }));
 
+        set->add(cmd(signature("weight", arg<float>("value")),
+                     "Set the weight of the selected cell", [](PS &ps, float weight) {
+                         increment_state(ps.timeline, &action::set_weight, weight);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Weight Set");
+                     }));
+
         head.add(std::move(set));
     }
 
