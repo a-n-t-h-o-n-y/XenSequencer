@@ -116,7 +116,7 @@ target_sources(XenSequencerLib
         src/message_level.cpp
         src/midi.cpp
         src/midi_engine.cpp
-        src/modulators.cpp
+        src/modulator.cpp
         src/scale.cpp
         src/selection.cpp
         src/user_directory.cpp
@@ -158,7 +158,7 @@ target_sources(XenSequencerLib
         include/xen/message_level.hpp
         include/xen/midi.hpp
         include/xen/midi_engine.hpp
-        include/xen/modulators.hpp
+        include/xen/modulator.hpp
         include/xen/parse_args.hpp
         include/xen/selection.hpp
         include/xen/serialize.hpp

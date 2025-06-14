@@ -21,6 +21,7 @@
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
+#include <xen/modulator.hpp>
 #include <xen/scale.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
@@ -702,6 +703,14 @@ auto create_command_tree() -> XenCommandTree
                          increment_state(ps.timeline, &action::set_weight, weight);
                          ps.timeline.set_commit_flag();
                          return minfo("Weight Set");
+                     }));
+
+        set->add(cmd(signature("weights", arg<Modulator>("Modulator")),
+                     "Set the weights of the children of the selected cell",
+                     [](PS &ps, Modulator const &mod) {
+                         increment_state(ps.timeline, &action::set_weights, mod);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Weights Set");
                      }));
 
         head.add(std::move(set));

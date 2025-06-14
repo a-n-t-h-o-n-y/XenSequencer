@@ -13,6 +13,7 @@
 #include <sequence/time_signature.hpp>
 
 #include <xen/input_mode.hpp>
+#include <xen/modulator.hpp>
 #include <xen/signature.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
@@ -134,6 +135,13 @@ template <typename T = float>
     -> sequence::TimeSignature;
 
 /**
+ * Parses a JSON string into a Modulator.
+ * @throws std::invalid_argument if the string is not in the correct format.
+ */
+[[nodiscard]]
+auto parse_modulator(std::string const &mod_json) -> Modulator;
+
+/**
  * Parses a string into a type T object.
  */
 template <typename T>
@@ -196,6 +204,10 @@ template <typename T>
     else if constexpr (std::is_same_v<T, std::string_view>)
     {
         return x;
+    }
+    else if constexpr (std::is_same_v<T, Modulator>)
+    {
+        return parse_modulator(x);
     }
     else
     {

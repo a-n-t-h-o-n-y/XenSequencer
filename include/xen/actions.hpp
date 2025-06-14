@@ -15,6 +15,7 @@
 #include <sequence/time_signature.hpp>
 
 #include <xen/input_mode.hpp>
+#include <xen/modulator.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
 
@@ -112,6 +113,10 @@ void save_sequence_bank(SequenceBank const &bank,
 [[nodiscard]] auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
                        std::vector<int> const &intervals) -> sequence::Cell;
 
-[[nodiscard]] auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell;
+[[nodiscard]]
+auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell;
+
+[[nodiscard]]
+auto set_weights(sequence::Cell cell, Modulator const &mod) -> sequence::Cell;
 
 } // namespace xen::action

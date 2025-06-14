@@ -183,14 +183,25 @@ auto split_quoted_string(std::string const &input) -> std::vector<std::string>
     auto result = std::vector<std::string>{};
     auto current_word = std::string{};
     bool in_quotes = false;
+    int json_depth = 0;
 
     for (char ch : input)
     {
-        if (ch == '"')
+        if (ch == '"' && json_depth == 0)
         {
             in_quotes = !in_quotes;
         }
-        else if (std::isspace(ch) && !in_quotes)
+        else if (ch == '{')
+        {
+            json_depth++;
+            current_word += ch;
+        }
+        else if (ch == '}' && json_depth > 0)
+        {
+            json_depth--;
+            current_word += ch;
+        }
+        else if (std::isspace(ch) && !in_quotes && json_depth == 0)
         {
             if (!current_word.empty())
             {
@@ -211,6 +222,40 @@ auto split_quoted_string(std::string const &input) -> std::vector<std::string>
 
     return result;
 }
+
+// auto split_quoted_string(std::string const &input) -> std::vector<std::string>
+// {
+//     auto result = std::vector<std::string>{};
+//     auto current_word = std::string{};
+//     bool in_quotes = false;
+
+//     for (char ch : input)
+//     {
+//         if (ch == '"')
+//         {
+//             in_quotes = !in_quotes;
+//         }
+//         else if (std::isspace(ch) && !in_quotes)
+//         {
+//             if (!current_word.empty())
+//             {
+//                 result.push_back(current_word);
+//                 current_word.clear();
+//             }
+//         }
+//         else
+//         {
+//             current_word += ch;
+//         }
+//     }
+
+//     if (!current_word.empty())
+//     {
+//         result.push_back(current_word);
+//     }
+
+//     return result;
+// }
 
 auto join(std::vector<std::string> const &input, char delimiter) -> std::string
 {

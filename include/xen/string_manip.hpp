@@ -75,6 +75,7 @@ namespace xen
  * Splits a string into a vector of strings based on spaces, unless within double
  * quotes.
  *
+ * @details This removes the quotes once split.
  * @param input The string to split.
  * @return std::vector<std::string> The split string.
  */

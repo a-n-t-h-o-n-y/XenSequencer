@@ -16,6 +16,7 @@
 #include <sequence/time_signature.hpp>
 
 #include <xen/input_mode.hpp>
+#include <xen/modulator.hpp>
 #include <xen/utility.hpp>
 
 namespace xen
@@ -188,6 +189,10 @@ template <typename T>
     {
         return "Filepath";
     }
+    else if constexpr (std::is_same_v<T, Modulator>)
+    {
+        return "Modulator";
+    }
     else
     {
         static_assert(always_false<T>::value, "Unsupported type.");
@@ -214,6 +219,10 @@ template <typename T>
         if constexpr (std::is_same_v<T, std::string>)
         {
             os << '\"' << arg.default_value.value() << '\"';
+        }
+        else if constexpr (std::is_same_v<T, Modulator>)
+        {
+            os << "[](float){???}";
         }
         else
         {

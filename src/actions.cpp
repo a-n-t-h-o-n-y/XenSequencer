@@ -339,4 +339,20 @@ auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
     return cell;
 }
 
+auto set_weights(sequence::Cell cell, Modulator const &mod) -> sequence::Cell
+{
+    if (std::holds_alternative<sequence::Sequence>(cell.element))
+    {
+        auto &seq = std::get<sequence::Sequence>(cell.element);
+
+        auto index = 0.f;
+        for (auto &c : seq.cells)
+        {
+            c.weight = mod(index / seq.cells.size());
+            ++index;
+        }
+    }
+    return cell;
+}
+
 } // namespace xen::action
