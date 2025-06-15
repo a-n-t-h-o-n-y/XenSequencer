@@ -18,6 +18,7 @@
 #include <xen/gui/accordion.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/message_log.hpp>
+#include <xen/gui/modulation_pane.hpp>
 #include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/tuning_reference.hpp>
@@ -208,6 +209,8 @@ class SequenceView : public juce::Component
     std::unique_ptr<TuningReference> tuning_reference_ptr{nullptr};
     HAccordion<SequenceBankGrid> sequence_bank_accordion{"Sequence Bank"};
     SequenceBankGrid &sequence_bank = sequence_bank_accordion.child;
+    HAccordion<ModulationPane> modulation_pane_accordion{"Modulation"};
+    ModulationPane &modulation_pane = modulation_pane_accordion.child;
 };
 
 // -------------------------------------------------------------------------------------

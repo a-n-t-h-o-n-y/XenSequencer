@@ -151,6 +151,10 @@ auto power(float exponent) -> Modulator
 auto chain(std::vector<Modulator> mods) -> Modulator
 {
     return [modulators = std::move(mods)](float input) -> float {
+        if (modulators.empty())
+        {
+            return 0.f;
+        }
         auto output = input;
         for (auto const &mod : modulators)
         {

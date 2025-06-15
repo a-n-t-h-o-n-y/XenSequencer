@@ -425,10 +425,17 @@ SequenceView::SequenceView(
 
     this->addAndMakeVisible(measure_info);
     this->addAndMakeVisible(sequence_bank_accordion);
+    this->addAndMakeVisible(modulation_pane_accordion);
     this->addAndMakeVisible(pitch_column);
     this->addAndMakeVisible(measure_view);
 
     measure_info.on_command.connect(
+        [this](std::string const &command) { this->on_command(command); });
+
+    modulation_pane.on_change.connect(
+        [this](std::string const &command) { this->on_command(command); });
+
+    modulation_pane.on_commit_change.connect(
         [this](std::string const &command) { this->on_command(command); });
 }
 
@@ -466,6 +473,9 @@ void SequenceView::resized()
     sequence_bank_accordion.set_flexitem(
         juce::FlexItem{}.withWidth((float)this->getHeight()));
 
+    modulation_pane_accordion.set_flexitem(
+        juce::FlexItem{}.withWidth((float)this->getHeight()));
+
     auto flex_box = juce::FlexBox{};
     flex_box.flexDirection = juce::FlexBox::Direction::column;
 
@@ -478,6 +488,7 @@ void SequenceView::resized()
         horizontal_flex.items.add(
             juce::FlexItem{*tuning_reference_ptr}.withWidth(23.f));
     }
+    horizontal_flex.items.add(modulation_pane_accordion.get_flexitem());
     horizontal_flex.items.add(sequence_bank_accordion.get_flexitem());
 
     flex_box.items.add(juce::FlexItem{measure_info}.withHeight(23.f));

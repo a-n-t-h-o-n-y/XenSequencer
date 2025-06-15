@@ -495,6 +495,16 @@ auto create_command_tree() -> XenCommandTree
                          return minfo("Velocity Set");
                      }));
 
+        // TODO integrate this into set velocity with variant param
+        // set velocities
+        set->add(cmd(signature("velocities", arg<Modulator>("Modulator")),
+                     "Set the velocities of the children of the selected cell",
+                     [](PS &ps, Modulator const &mod) {
+                         increment_state(ps.timeline, &action::set_velocities, mod);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Velocities Set");
+                     }));
+
         // set delay
         set->add(cmd(signature("delay", arg<Pattern>(""), arg<float>("delay", 0.f)),
                      "Set the delay of all selected Notes.",
@@ -505,6 +515,16 @@ auto create_command_tree() -> XenCommandTree
                          return minfo("Delay Set");
                      }));
 
+        // TODO integrate this into set delay with variant param
+        // set delays
+        set->add(cmd(signature("delays", arg<Modulator>("Modulator")),
+                     "Set the delays of the children of the selected cell",
+                     [](PS &ps, Modulator const &mod) {
+                         increment_state(ps.timeline, &action::set_delays, mod);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Delays Set");
+                     }));
+
         // set gate
         set->add(cmd(signature("gate", arg<Pattern>(""), arg<float>("gate", 1.f)),
                      "Set the gate of all selected Notes.",
@@ -513,6 +533,16 @@ auto create_command_tree() -> XenCommandTree
                                          pattern, gate);
                          ps.timeline.set_commit_flag();
                          return minfo("Gate Set");
+                     }));
+
+        // TODO integrate this into set gate with variant param
+        // set gates
+        set->add(cmd(signature("gates", arg<Modulator>("Modulator")),
+                     "Set the gates of the children of the selected cell",
+                     [](PS &ps, Modulator const &mod) {
+                         increment_state(ps.timeline, &action::set_gates, mod);
+                         ps.timeline.set_commit_flag();
+                         return minfo("Gates Set");
                      }));
 
         {
