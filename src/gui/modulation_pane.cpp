@@ -47,7 +47,7 @@ auto MODULATORS =
                 .id = "value",
                 .display_name = "Value",
                 .initial = 1.f,
-                .min = 0.01,
+                .min = 0.01f,
                 .max = 10.f,
             }},
         },
@@ -273,19 +273,27 @@ ModulationButtons::ModulationButtons()
 
 void ModulationButtons::resized()
 {
-    // constexpr auto width = 2;
-    constexpr auto height = 8;
-
-    auto grid = juce::Grid{};
-
-    // Define the track sizes
     using Track = juce::Grid::TrackInfo;
     using Fr = juce::Grid::Fr;
-    grid.templateColumns = {Track(Fr(1)), Track(Fr(1))};
-    grid.templateRows = {Track(Fr(1)), Track(Fr(1)), Track(Fr(1)), Track(Fr(1)),
-                         Track(Fr(1)), Track(Fr(1)), Track(Fr(1)), Track(Fr(1))};
 
-    for (auto row = 0; row < height; ++row)
+    auto const make_tracks = [](std::size_t count) -> juce::Array<Track> {
+        auto tracks = juce::Array<Track>{};
+        tracks.ensureStorageAllocated((int)count);
+        for (auto i = std::size_t{0}; i < count; ++i)
+        {
+            tracks.add(Track(Fr(1)));
+        }
+        return tracks;
+    };
+
+    auto const width = 2;
+    auto const height = std::size_t{8};
+
+    auto grid = juce::Grid{};
+    grid.templateColumns = make_tracks(width);
+    grid.templateRows = make_tracks(height);
+
+    for (auto row = std::size_t{0}; row < height; ++row)
     {
         grid.items.add(juce::GridItem(buttons_[row]));
         grid.items.add(juce::GridItem(buttons_[row + 8]));
@@ -316,25 +324,29 @@ ModulationParameters::ModulationParameters(
 
         auto &[label_ptr, slider_ptr] = sliders_.emplace_back(std::pair{
             std::make_unique<juce::Label>(), std::make_unique<juce::Slider>()});
-        this->addAndMakeVisible(*label_ptr);
-        this->addAndMakeVisible(*slider_ptr);
 
-        label_ptr->setText(data.display_name, juce::dontSendNotification);
-        label_ptr->attachToComponent(slider_ptr.get(), false);
+        auto &slider = *slider_ptr;
+        auto &label = *label_ptr;
 
-        slider_ptr->setComponentID(data.id);
-        slider_ptr->setRange(data.min, data.max);
-        slider_ptr->setValue(data.initial);
+        this->addAndMakeVisible(label);
+        this->addAndMakeVisible(slider);
+
+        label.setText(data.display_name, juce::dontSendNotification);
+        label.attachToComponent(&slider, false);
+
+        slider.setComponentID(data.id);
+        slider.setRange(data.min, data.max);
+        slider.setValue(data.initial);
         if (data.midpoint.has_value())
         {
-            slider_ptr->setSkewFactorFromMidPoint(*data.midpoint);
+            slider.setSkewFactorFromMidPoint(*data.midpoint);
         }
 
-        slider_ptr->setTextBoxStyle(juce::Slider::TextBoxBelow, false,
-                                    slider_ptr->getTextBoxWidth(),
-                                    slider_ptr->getTextBoxHeight());
+        slider.setNumDecimalPlacesToDisplay(2);
+        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false,
+                               slider.getTextBoxWidth() / 2, slider.getTextBoxHeight());
 
-        slider_ptr->onValueChange = [this] { this->on_change(); };
+        slider.onValueChange = [this] { this->on_change(); };
 
         // TODO
         // on slider mouse up emit signal?
@@ -379,7 +391,7 @@ void ModulationParameters::resized()
 
 ModulationPane::ModulationPane()
 {
-    std::generate(std::begin(parameter_uis_), std::end(parameter_uis_), [this] {
+    std::generate(std::begin(parameter_uis_), std::end(parameter_uis_), [] {
         return std::make_unique<ModulationParameters>("", std::get<2>(MODULATORS[0]));
     });
 
@@ -397,7 +409,7 @@ ModulationPane::ModulationPane()
 
     modulator_dropdown_.onChange = [this] {
         auto &ui_ptr = parameter_uis_[current_selection_];
-        auto const mod_index = modulator_dropdown_.getSelectedId() - 1;
+        auto const mod_index = (std::size_t)modulator_dropdown_.getSelectedId() - 1;
         ui_ptr = std::make_unique<ModulationParameters>(
             std::get<1>(MODULATORS[mod_index]), std::get<2>(MODULATORS[mod_index]));
         ui_ptr->on_change.connect([this] {
@@ -444,7 +456,7 @@ ModulationPane::ModulationPane()
         if (at != std::end(MODULATORS))
         {
             modulator_dropdown_.setSelectedId(
-                1 + std::distance(std::begin(MODULATORS), at),
+                1 + (int)std::distance(std::begin(MODULATORS), at),
                 juce::dontSendNotification);
         }
         this->resized();
@@ -481,7 +493,7 @@ auto ModulationPane::generate_json() -> std::string
                        {"children",
                         [this] {
                             auto result = std::vector<nlohmann::json>{};
-                            for (auto i = 0; i < 8; ++i)
+                            for (auto i = std::size_t{0}; i < 8; ++i)
                             {
                                 if (!parameter_uis_[i]->empty())
                                 {
@@ -494,7 +506,7 @@ auto ModulationPane::generate_json() -> std::string
                        {"children",
                         [this] {
                             auto result = std::vector<nlohmann::json>{};
-                            for (auto i = 8; i < 16; ++i)
+                            for (auto i = std::size_t{8}; i < 16; ++i)
                             {
                                 if (!parameter_uis_[i]->empty())
                                 {
@@ -517,8 +529,9 @@ auto ModulationPane::generate_command_string() -> std::string
     }
     else
     {
-        return COMMANDS[target_command_dropdown_.getSelectedId() - 1].second +
-               this->generate_json();
+        auto const cmd_index =
+            (std::size_t)target_command_dropdown_.getSelectedId() - 1;
+        return COMMANDS[cmd_index].second + this->generate_json();
     }
 }
 
