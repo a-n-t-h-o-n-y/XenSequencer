@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include <signals_light/signal.hpp>
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/tile.hpp>
@@ -14,6 +16,9 @@ namespace xen::gui
  */
 class VLabel : public juce::Component
 {
+  public:
+    sl::Signal<void()> clicked;
+
   public:
     explicit VLabel(juce::String text);
 
@@ -28,6 +33,8 @@ class VLabel : public juce::Component
   public:
     void paint(juce::Graphics &g) override;
 
+    void mouseUp(juce::MouseEvent const &event) override;
+
   private:
     juce::String text_;
     float letter_spacing_;
@@ -41,6 +48,8 @@ class AccordionTop : public juce::Component
   public:
     ClickableTile toggle_button;
     VLabel title;
+
+    sl::Signal<void()> clicked;
 
   public:
     explicit AccordionTop(juce::String title_);
@@ -87,7 +96,7 @@ class HAccordion : public juce::Component
         this->set_flexitem(juce::FlexItem{}.withFlex(1.f));
 
         top_.title.set_letter_spacing(1.f);
-        top_.toggle_button.clicked.connect([this] { this->toggle_child_component(); });
+        top_.clicked.connect([this] { this->toggle_child_component(); });
 
         this->toggle_child_component();
     }

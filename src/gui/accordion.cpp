@@ -52,20 +52,30 @@ void VLabel::paint(juce::Graphics &g)
     }
 }
 
+void VLabel::mouseUp(juce::MouseEvent const &event)
+{
+    if (event.mods.isLeftButtonDown())
+    {
+        this->clicked();
+    }
+}
+
 // -------------------------------------------------------------------------------------
 
 AccordionTop::AccordionTop(juce::String title_)
-    : toggle_button{"❮", 1}, title{std::move(title_)}
+    : toggle_button{"❯", 1}, title{std::move(title_)}
 {
     toggle_button.font = fonts::symbols();
     this->addAndMakeVisible(toggle_button);
     this->addAndMakeVisible(title);
+    toggle_button.clicked.connect([this] { this->clicked(); });
+    title.clicked.connect([this] { this->clicked(); });
 }
 
 void AccordionTop::toggle()
 {
     is_expanded_ = !is_expanded_;
-    toggle_button.set(is_expanded_ ? "❯" : "❮");
+    toggle_button.set(is_expanded_ ? "❮" : "❯");
 }
 
 void AccordionTop::resized()
