@@ -500,9 +500,8 @@ auto create_command_tree() -> XenCommandTree
                                                    pattern, v);
                                },
                                [&](Modulator const &mod) {
-                                   // TODO add pattern
                                    increment_state(ps.timeline, &action::set_velocities,
-                                                   mod);
+                                                   pattern, mod);
                                },
                            },
                            velocity);
@@ -516,18 +515,18 @@ auto create_command_tree() -> XenCommandTree
                       arg<std::variant<float, Modulator>>("delay", 0.f)),
             "Set the delay of all selected Notes.",
             [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> delay) {
-                std::visit(
-                    sequence::utility::overload{
-                        [&](float d) {
-                            increment_state(ps.timeline, &sequence::modify::set_delay,
-                                            pattern, d);
-                        },
-                        [&](Modulator const &mod) {
-                            // TODO add pattern
-                            increment_state(ps.timeline, &action::set_delays, mod);
-                        },
-                    },
-                    delay);
+                std::visit(sequence::utility::overload{
+                               [&](float d) {
+                                   increment_state(ps.timeline,
+                                                   &sequence::modify::set_delay,
+                                                   pattern, d);
+                               },
+                               [&](Modulator const &mod) {
+                                   increment_state(ps.timeline, &action::set_delays,
+                                                   pattern, mod);
+                               },
+                           },
+                           delay);
                 ps.timeline.set_commit_flag();
                 return minfo("Delay Set");
             }));
@@ -538,18 +537,18 @@ auto create_command_tree() -> XenCommandTree
                       arg<std::variant<float, Modulator>>("gate", 1.f)),
             "Set the gate of all selected Notes.",
             [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> gate) {
-                std::visit(
-                    sequence::utility::overload{
-                        [&](float g) {
-                            increment_state(ps.timeline, &sequence::modify::set_gate,
-                                            pattern, g);
-                        },
-                        [&](Modulator const &mod) {
-                            // TODO add pattern
-                            increment_state(ps.timeline, &action::set_gates, mod);
-                        },
-                    },
-                    gate);
+                std::visit(sequence::utility::overload{
+                               [&](float g) {
+                                   increment_state(ps.timeline,
+                                                   &sequence::modify::set_gate, pattern,
+                                                   g);
+                               },
+                               [&](Modulator const &mod) {
+                                   increment_state(ps.timeline, &action::set_gates,
+                                                   pattern, mod);
+                               },
+                           },
+                           gate);
                 ps.timeline.set_commit_flag();
                 return minfo("Gate Set");
             }));
@@ -737,6 +736,7 @@ auto create_command_tree() -> XenCommandTree
                          return minfo("Key Set to " + std::to_string(key) + ".");
                      }));
 
+        // set weight
         set->add(cmd(signature("weight", arg<float>("value")),
                      "Set the weight of the selected cell", [](PS &ps, float weight) {
                          increment_state(ps.timeline, &action::set_weight, weight);
@@ -744,13 +744,16 @@ auto create_command_tree() -> XenCommandTree
                          return minfo("Weight Set");
                      }));
 
-        set->add(cmd(signature("weights", arg<Modulator>("Modulator")),
-                     "Set the weights of the children of the selected cell",
-                     [](PS &ps, Modulator const &mod) {
-                         increment_state(ps.timeline, &action::set_weights, mod);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Weights Set");
-                     }));
+        // set weights
+        set->add(
+            cmd(signature("weights", arg<sequence::Pattern>(""),
+                          arg<Modulator>("Modulator")),
+                "Set the weights of the children of the selected cell",
+                [](PS &ps, sequence::Pattern const &pattern, Modulator const &mod) {
+                    increment_state(ps.timeline, &action::set_weights, pattern, mod);
+                    ps.timeline.set_commit_flag();
+                    return minfo("Weights Set");
+                }));
 
         head.add(std::move(set));
     }

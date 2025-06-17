@@ -117,15 +117,19 @@ void save_sequence_bank(SequenceBank const &bank,
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_weights(sequence::Cell cell, Modulator const &mod) -> sequence::Cell;
+auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_velocities(sequence::Cell cell, Modulator const &mod) -> sequence::Cell;
+auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
+                    Modulator const &mod) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_delays(sequence::Cell cell, Modulator const &mod) -> sequence::Cell;
+auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
+                Modulator const &mod) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_gates(sequence::Cell cell, Modulator const &mod) -> sequence::Cell;
+auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
+               Modulator const &mod) -> sequence::Cell;
 
 } // namespace xen::action

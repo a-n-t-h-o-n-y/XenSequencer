@@ -339,98 +339,80 @@ auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
     return cell;
 }
 
-auto set_weights(sequence::Cell cell, Modulator const &mod) -> sequence::Cell
+auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::Cell
 {
     if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
         auto &seq = std::get<sequence::Sequence>(cell.element);
 
-        auto index = 0.f;
-        for (auto &c : seq.cells)
+        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
         {
-            c.weight = mod(index / (float)seq.cells.size());
-            index += 1.f;
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &c = seq.cells[i];
+                c.weight = mod((float)i / (float)seq.cells.size());
+            }
         }
     }
     return cell;
 }
 
-auto set_velocities(sequence::Cell cell, Modulator const &mod) -> sequence::Cell
+auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
+                    Modulator const &mod) -> sequence::Cell
 {
     if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
-        auto &top_seq = std::get<sequence::Sequence>(cell.element);
+        auto &seq = std::get<sequence::Sequence>(cell.element);
 
-        auto index = 0.f;
-        for (auto &c : top_seq.cells)
+        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
         {
-            std::visit(sequence::utility::overload{
-                           [&](sequence::Note &note) {
-                               note.velocity = mod(index / (float)top_seq.cells.size());
-                           },
-                           [](sequence::Rest &) {},
-                           [&](sequence::Sequence &seq) {
-                               auto result = sequence::modify::set_velocity(
-                                   {seq}, {0, {1}},
-                                   mod(index / (float)seq.cells.size()));
-                               seq = std::get<sequence::Sequence>(result.element);
-                           }},
-                       c.element);
-            index += 1.f;
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &c = seq.cells[i];
+                c = sequence::modify::set_velocity(
+                    c, pattern, mod((float)i / (float)seq.cells.size()));
+            }
         }
     }
     return cell;
 }
 
-auto set_delays(sequence::Cell cell, Modulator const &mod) -> sequence::Cell
+auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
+                Modulator const &mod) -> sequence::Cell
 {
     if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
-        auto &top_seq = std::get<sequence::Sequence>(cell.element);
+        auto &seq = std::get<sequence::Sequence>(cell.element);
 
-        auto index = 0.f;
-        for (auto &c : top_seq.cells)
+        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
         {
-            std::visit(sequence::utility::overload{
-                           [&](sequence::Note &note) {
-                               note.delay = mod(index / (float)top_seq.cells.size());
-                           },
-                           [](sequence::Rest &) {},
-                           [&](sequence::Sequence &seq) {
-                               auto result = sequence::modify::set_delay(
-                                   {seq}, {0, {1}},
-                                   mod(index / (float)seq.cells.size()));
-                               seq = std::get<sequence::Sequence>(result.element);
-                           }},
-                       c.element);
-            index += 1.f;
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &c = seq.cells[i];
+                c = sequence::modify::set_delay(
+                    c, pattern, mod((float)i / (float)seq.cells.size()));
+            }
         }
     }
     return cell;
 }
 
-auto set_gates(sequence::Cell cell, Modulator const &mod) -> sequence::Cell
+auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
+               Modulator const &mod) -> sequence::Cell
 {
     if (std::holds_alternative<sequence::Sequence>(cell.element))
     {
-        auto &top_seq = std::get<sequence::Sequence>(cell.element);
+        auto &seq = std::get<sequence::Sequence>(cell.element);
 
-        auto index = 0.f;
-        for (auto &c : top_seq.cells)
+        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
         {
-            std::visit(sequence::utility::overload{
-                           [&](sequence::Note &note) {
-                               note.gate = mod(index / (float)top_seq.cells.size());
-                           },
-                           [](sequence::Rest &) {},
-                           [&](sequence::Sequence &seq) {
-                               auto result = sequence::modify::set_gate(
-                                   {seq}, {0, {1}},
-                                   mod(index / (float)seq.cells.size()));
-                               seq = std::get<sequence::Sequence>(result.element);
-                           }},
-                       c.element);
-            index += 1.f;
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &c = seq.cells[i];
+                c = sequence::modify::set_gate(c, pattern,
+                                               mod((float)i / (float)seq.cells.size()));
+            }
         }
     }
     return cell;
