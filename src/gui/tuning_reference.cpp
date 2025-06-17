@@ -52,7 +52,8 @@ namespace
         auto valid_pitches = xen::generate_valid_pitches(*scale);
         for (auto pitch : pitches)
         {
-            auto const norm = (int)xen::normalize_pitch(pitch, tuning.intervals.size());
+            auto const norm =
+                (int)xen::utility::normalize_pitch(pitch, tuning.intervals.size());
             result.insert(xen::map_pitch_to_scale(norm, valid_pitches,
                                                   tuning.intervals.size(),
                                                   scale_translate_direction));
@@ -62,7 +63,8 @@ namespace
     {
         for (auto pitch : pitches)
         {
-            result.insert((int)xen::normalize_pitch(pitch, tuning.intervals.size()));
+            result.insert(
+                (int)xen::utility::normalize_pitch(pitch, tuning.intervals.size()));
         }
     }
     return result;

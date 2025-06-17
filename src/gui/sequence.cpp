@@ -86,7 +86,7 @@ auto const corner_radius = 10.f;
         throw std::invalid_argument("Tuning length must not be zero.");
     }
 
-    auto const normalized = normalize_pitch(note.pitch, pitch_count);
+    auto const normalized = utility::normalize_pitch(note.pitch, pitch_count);
 
     assert(normalized < tuning.intervals.size());
 
@@ -175,7 +175,7 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 [[nodiscard]] auto generate_note_color(juce::Colour const &base_color,
                                        sequence::Note const &note) -> juce::Colour
 {
-    if (compare_within_tolerance(note.velocity, 0.f, 0.0001f))
+    if (utility::compare_within_tolerance(note.velocity, 0.f, 0.0001f))
     {
         return base_color.withAlpha(note.velocity);
     }
@@ -303,7 +303,8 @@ void Note::paint(juce::Graphics &g)
     draw_note_border(g, pitch_bounds, note_);
 
     // Paint Octave Text
-    auto const octave = get_octave(note_.pitch, tuning_.intervals.size());
+    auto const octave =
+        ::xen::utility::get_octave(note_.pitch, tuning_.intervals.size());
     auto const octave_display =
         juce::String::repeatedString((octave > 0 ? "▲ " : "▼ "), std::abs(octave))
             .dropLastCharacters(1);

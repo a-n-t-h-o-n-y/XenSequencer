@@ -10,9 +10,11 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
+#include <sequence/utility.hpp> //temp
 
 #include <xen/actions.hpp>
 #include <xen/chord.hpp>
@@ -485,65 +487,72 @@ auto create_command_tree() -> XenCommandTree
                      }));
 
         // set velocity
-        set->add(cmd(signature("velocity", arg<Pattern>(""),
-                               arg<float>("velocity", 100.f / 127.f)),
-                     "Set the velocity of all selected Notes.",
-                     [](PS &ps, Pattern const &pattern, float velocity) {
-                         increment_state(ps.timeline, &sequence::modify::set_velocity,
-                                         pattern, velocity);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Velocity Set");
-                     }));
-
-        // TODO integrate this into set velocity with variant param
-        // set velocities
-        set->add(cmd(signature("velocities", arg<Modulator>("Modulator")),
-                     "Set the velocities of the children of the selected cell",
-                     [](PS &ps, Modulator const &mod) {
-                         increment_state(ps.timeline, &action::set_velocities, mod);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Velocities Set");
-                     }));
+        set->add(cmd(
+            signature("velocity", arg<Pattern>(""),
+                      arg<std::variant<float, Modulator>>("velocity", 100.f / 127.f)),
+            "Set the velocity of all selected Notes.",
+            [](PS &ps, Pattern const &pattern,
+               std::variant<float, Modulator> velocity) {
+                std::visit(sequence::utility::overload{
+                               [&](float v) {
+                                   increment_state(ps.timeline,
+                                                   &sequence::modify::set_velocity,
+                                                   pattern, v);
+                               },
+                               [&](Modulator const &mod) {
+                                   // TODO add pattern
+                                   increment_state(ps.timeline, &action::set_velocities,
+                                                   mod);
+                               },
+                           },
+                           velocity);
+                ps.timeline.set_commit_flag();
+                return minfo("Velocity Set");
+            }));
 
         // set delay
-        set->add(cmd(signature("delay", arg<Pattern>(""), arg<float>("delay", 0.f)),
-                     "Set the delay of all selected Notes.",
-                     [](PS &ps, Pattern const &pattern, float delay) {
-                         increment_state(ps.timeline, &sequence::modify::set_delay,
-                                         pattern, delay);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Delay Set");
-                     }));
-
-        // TODO integrate this into set delay with variant param
-        // set delays
-        set->add(cmd(signature("delays", arg<Modulator>("Modulator")),
-                     "Set the delays of the children of the selected cell",
-                     [](PS &ps, Modulator const &mod) {
-                         increment_state(ps.timeline, &action::set_delays, mod);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Delays Set");
-                     }));
+        set->add(cmd(
+            signature("delay", arg<Pattern>(""),
+                      arg<std::variant<float, Modulator>>("delay", 0.f)),
+            "Set the delay of all selected Notes.",
+            [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> delay) {
+                std::visit(
+                    sequence::utility::overload{
+                        [&](float d) {
+                            increment_state(ps.timeline, &sequence::modify::set_delay,
+                                            pattern, d);
+                        },
+                        [&](Modulator const &mod) {
+                            // TODO add pattern
+                            increment_state(ps.timeline, &action::set_delays, mod);
+                        },
+                    },
+                    delay);
+                ps.timeline.set_commit_flag();
+                return minfo("Delay Set");
+            }));
 
         // set gate
-        set->add(cmd(signature("gate", arg<Pattern>(""), arg<float>("gate", 1.f)),
-                     "Set the gate of all selected Notes.",
-                     [](PS &ps, Pattern const &pattern, float gate) {
-                         increment_state(ps.timeline, &sequence::modify::set_gate,
-                                         pattern, gate);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Gate Set");
-                     }));
-
-        // TODO integrate this into set gate with variant param
-        // set gates
-        set->add(cmd(signature("gates", arg<Modulator>("Modulator")),
-                     "Set the gates of the children of the selected cell",
-                     [](PS &ps, Modulator const &mod) {
-                         increment_state(ps.timeline, &action::set_gates, mod);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Gates Set");
-                     }));
+        set->add(cmd(
+            signature("gate", arg<Pattern>(""),
+                      arg<std::variant<float, Modulator>>("gate", 1.f)),
+            "Set the gate of all selected Notes.",
+            [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> gate) {
+                std::visit(
+                    sequence::utility::overload{
+                        [&](float g) {
+                            increment_state(ps.timeline, &sequence::modify::set_gate,
+                                            pattern, g);
+                        },
+                        [&](Modulator const &mod) {
+                            // TODO add pattern
+                            increment_state(ps.timeline, &action::set_gates, mod);
+                        },
+                    },
+                    gate);
+                ps.timeline.set_commit_flag();
+                return minfo("Gate Set");
+            }));
 
         {
             auto seq = cmd_group("sequence");

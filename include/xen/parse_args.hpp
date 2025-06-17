@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -56,7 +57,7 @@ template <typename T = std::size_t>
         }
         else
         {
-            static_assert(xen::always_false<T>::value, "Unsupported size_t.");
+            static_assert(xen::utility::always_false<T>::value, "Unsupported size_t.");
         }
 
         // This verifies the entire string was parsed.
@@ -101,7 +102,7 @@ template <typename T = float>
         }
         else
         {
-            static_assert(xen::always_false<T>::value, "Unsupported float.");
+            static_assert(xen::utility::always_false<T>::value, "Unsupported float.");
         }
 
         // This verifies the entire string was parsed.
@@ -140,6 +141,52 @@ template <typename T = float>
  */
 [[nodiscard]]
 auto parse_modulator(std::string const &mod_json) -> Modulator;
+
+// Forward Declation for parse_variant
+template <typename T>
+[[nodiscard]] auto parse(std::string const &x) -> T;
+
+/**
+ * Parses a variant from a string.
+ * @details Attempts string parsing in order of variant types using the parse<T>(...)
+ * function.
+ * @throws std::invalid_argument if none of the variant types can be parsed.
+ */
+template <typename VariantType>
+[[nodiscard]]
+auto parse_variant(std::string const &input) -> VariantType
+{
+    return []<std::size_t... Is>(std::string const &in,
+                                 std::index_sequence<Is...>) -> VariantType {
+        auto result = std::optional<VariantType>{};
+
+        // Try each type in order
+        auto try_parse = [&]<std::size_t I>() {
+            if (!result.has_value())
+            {
+                using T = std::variant_alternative_t<I, VariantType>;
+                try
+                {
+                    result = VariantType{parse<T>(in)};
+                }
+                catch (...)
+                {
+                    // Continue to next type
+                }
+            }
+        };
+
+        (try_parse.template operator()<Is>(), ...);
+
+        if (result.has_value())
+        {
+            return *result;
+        }
+
+        throw std::invalid_argument("Cannot parse input (" + in +
+                                    ") as any variant type");
+    }(input, std::make_index_sequence<std::variant_size_v<VariantType>>{});
+}
 
 /**
  * Parses a string into a type T object.
@@ -209,9 +256,13 @@ template <typename T>
     {
         return parse_modulator(x);
     }
+    else if constexpr (utility::is_variant_v<T>)
+    {
+        return parse_variant<T>(x);
+    }
     else
     {
-        static_assert(xen::always_false<T>::value, "Unsupported type.");
+        static_assert(xen::utility::always_false<T>::value, "Unsupported type.");
     }
 }
 

@@ -8,6 +8,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -146,14 +147,38 @@ struct SignatureDisplay
 
 // -----------------------------------------------------------------------------
 
+// Forward Declartion for generate_variant_type_names()
+template <typename T>
+[[nodiscard]]
+auto type_name() -> std::string;
+
+template <typename VariantType>
+[[nodiscard]]
+auto generate_variant_type_names() -> std::string
+{
+    return []<std::size_t... Is>(std::index_sequence<Is...>) -> std::string {
+        // sequence of type name strings with | divider
+        auto oss = std::ostringstream{};
+        ((oss << type_name<std::variant_alternative_t<Is, VariantType>>() << '|'), ...);
+
+        auto result = oss.str();
+        if (!result.empty()) // Remove the last '|'
+        {
+            result.pop_back();
+        }
+        return result;
+    }(std::make_index_sequence<std::variant_size_v<VariantType>>{});
+}
+
 /**
  * Stringify the given template type parameter.
  *
  * @tparam T The type to stringify.
- * @return std::string_view The type name display.
+ * @return std::string The type name display.
  */
 template <typename T>
-[[nodiscard]] auto type_name() -> std::string_view
+[[nodiscard]]
+auto type_name() -> std::string
 {
     if constexpr (std::is_floating_point_v<T>)
     {
@@ -193,9 +218,38 @@ template <typename T>
     {
         return "Modulator";
     }
+    else if constexpr (utility::is_variant_v<T>)
+    {
+        return generate_variant_type_names<T>();
+    }
     else
     {
-        static_assert(always_false<T>::value, "Unsupported type.");
+        static_assert(utility::always_false<T>::value, "Unsupported type.");
+    }
+}
+
+template <typename T>
+[[nodiscard]]
+auto arg_to_string(T const &arg) -> std::string
+{
+    if constexpr (std::is_same_v<T, std::string>)
+    {
+        return '\"' + arg + '\"';
+    }
+    else if constexpr (std::is_same_v<T, Modulator>)
+    {
+        (void)arg;
+        return "[](float){???}";
+    }
+    else if constexpr (utility::is_variant_v<T>)
+    {
+        return std::visit([](auto const &v) { return arg_to_string(v); }, arg);
+    }
+    else
+    {
+        auto os = std::ostringstream{};
+        os << arg;
+        return os.str();
     }
 }
 
@@ -215,19 +269,7 @@ template <typename T>
     // Default Value
     if (arg.default_value.has_value())
     {
-        os << "=";
-        if constexpr (std::is_same_v<T, std::string>)
-        {
-            os << '\"' << arg.default_value.value() << '\"';
-        }
-        else if constexpr (std::is_same_v<T, Modulator>)
-        {
-            os << "[](float){???}";
-        }
-        else
-        {
-            os << arg.default_value.value();
-        }
+        os << "=" << arg_to_string(arg.default_value.value());
     }
 
     return os.str();

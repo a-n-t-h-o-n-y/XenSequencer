@@ -20,9 +20,9 @@ using namespace xen::gui;
 auto COMMANDS = std::vector<std::pair<std::string, std::string>>{
     {"None", ""},
     {"Weight", "set weights "},
-    {"Velocity", "set velocities "},
-    {"Delay", "set delays "},
-    {"Gate", "set gates "},
+    {"Velocity", "set velocity "},
+    {"Delay", "set delay "},
+    {"Gate", "set gate "},
 };
 
 // TODO when min/max are set invalid/backwards, it throws, and the user can easily do

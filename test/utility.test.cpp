@@ -27,19 +27,19 @@ TEST_CASE("normalize_interval", "[Utility]")
 
 TEST_CASE("get_octave", "[Utility]")
 {
-    CHECK(xen::get_octave(0, 12) == 0);
-    CHECK(xen::get_octave(1, 12) == 0);
-    CHECK(xen::get_octave(11, 12) == 0);
-    CHECK(xen::get_octave(12, 12) == 1);
-    CHECK(xen::get_octave(23, 12) == 1);
-    CHECK(xen::get_octave(24, 12) == 2);
+    CHECK(xen::utility::get_octave(0, 12) == 0);
+    CHECK(xen::utility::get_octave(1, 12) == 0);
+    CHECK(xen::utility::get_octave(11, 12) == 0);
+    CHECK(xen::utility::get_octave(12, 12) == 1);
+    CHECK(xen::utility::get_octave(23, 12) == 1);
+    CHECK(xen::utility::get_octave(24, 12) == 2);
 
-    CHECK(xen::get_octave(-1, 12) == -1);
-    CHECK(xen::get_octave(-2, 12) == -1);
-    CHECK(xen::get_octave(-11, 12) == -1);
-    CHECK(xen::get_octave(-12, 12) == -1);
-    CHECK(xen::get_octave(-13, 12) == -2);
-    CHECK(xen::get_octave(-23, 12) == -2);
-    CHECK(xen::get_octave(-24, 12) == -2);
-    CHECK(xen::get_octave(-25, 12) == -3);
+    CHECK(xen::utility::get_octave(-1, 12) == -1);
+    CHECK(xen::utility::get_octave(-2, 12) == -1);
+    CHECK(xen::utility::get_octave(-11, 12) == -1);
+    CHECK(xen::utility::get_octave(-12, 12) == -1);
+    CHECK(xen::utility::get_octave(-13, 12) == -2);
+    CHECK(xen::utility::get_octave(-23, 12) == -2);
+    CHECK(xen::utility::get_octave(-24, 12) == -2);
+    CHECK(xen::utility::get_octave(-25, 12) == -3);
 }

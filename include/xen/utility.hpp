@@ -7,8 +7,9 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <variant>
 
-namespace xen
+namespace xen::utility
 {
 
 /**
@@ -130,4 +131,20 @@ template <typename T>
 [[nodiscard]] auto split_version_string(std::string const &version)
     -> std::array<int, 3>;
 
-} // namespace xen
+/**
+ * Trait to check if a type is a std::variant.
+ */
+template <typename T>
+struct is_variant : std::false_type
+{
+};
+
+template <typename... Ts>
+struct is_variant<std::variant<Ts...>> : std::true_type
+{
+};
+
+template <typename T>
+constexpr auto is_variant_v = is_variant<T>::value;
+
+} // namespace xen::utility

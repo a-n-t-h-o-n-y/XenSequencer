@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace xen
+namespace xen::utility
 {
 
 auto normalize_pitch(int pitch, std::size_t length) -> std::size_t
@@ -42,4 +42,4 @@ auto split_version_string(std::string const &version) -> std::array<int, 3>
     return result;
 }
 
-} // namespace xen
+} // namespace xen::utility

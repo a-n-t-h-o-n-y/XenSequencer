@@ -27,7 +27,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-      :plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
+    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
       command_tree{create_command_tree()}
 {
     initialize_demo_files();
@@ -60,9 +60,9 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
         auto const sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
 
-        update_needed =
-            !compare_within_tolerance(audio_thread_state_.daw.bpm, bpm, 0.0001f) ||
-            audio_thread_state_.daw.sample_rate != sample_rate;
+        update_needed = !utility::compare_within_tolerance(audio_thread_state_.daw.bpm,
+                                                           bpm, 0.0001f) ||
+                        audio_thread_state_.daw.sample_rate != sample_rate;
 
         audio_thread_state_.daw = DAWState{
             .bpm = bpm,
@@ -199,7 +199,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             throw; // rethrow so you can return proper message without duplicating above
         }
     }
-    catch (ErrorNoMatch const &)
+    catch (utility::ErrorNoMatch const &)
     {
         return {MessageLevel::Error, "Command not found: " + command_string};
     }
