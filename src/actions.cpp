@@ -358,6 +358,28 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
     return cell;
 }
 
+auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float weight)
+    -> sequence::Cell
+{
+    if (weight <= 0.f)
+    {
+        throw std::runtime_error{"Weight must be greater than 0."};
+    }
+
+    if (std::holds_alternative<sequence::Sequence>(cell.element))
+    {
+        auto &seq = std::get<sequence::Sequence>(cell.element);
+
+        auto view = sequence::PatternView{seq.cells, pattern};
+
+        for (auto &c : view)
+        {
+            c.weight = weight;
+        }
+    }
+    return cell;
+}
+
 auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
                     Modulator const &mod) -> sequence::Cell
 {

@@ -489,10 +489,11 @@ auto create_command_tree() -> XenCommandTree
         // set velocity
         set->add(cmd(
             signature("velocity", arg<Pattern>(""),
-                      arg<std::variant<float, Modulator>>("velocity", 100.f / 127.f)),
+                      arg<std::variant<float, Modulator>>("velocity", 100.f / 127.f),
+                      arg<bool>("commit", true)),
             "Set the velocity of all selected Notes.",
-            [](PS &ps, Pattern const &pattern,
-               std::variant<float, Modulator> velocity) {
+            [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> velocity,
+               bool commit) {
                 std::visit(sequence::utility::overload{
                                [&](float v) {
                                    increment_state(ps.timeline,
@@ -505,53 +506,66 @@ auto create_command_tree() -> XenCommandTree
                                },
                            },
                            velocity);
-                ps.timeline.set_commit_flag();
+                if (commit)
+                {
+                    ps.timeline.set_commit_flag();
+                }
                 return minfo("Velocity Set");
             }));
 
         // set delay
-        set->add(cmd(
-            signature("delay", arg<Pattern>(""),
-                      arg<std::variant<float, Modulator>>("delay", 0.f)),
-            "Set the delay of all selected Notes.",
-            [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> delay) {
-                std::visit(sequence::utility::overload{
-                               [&](float d) {
-                                   increment_state(ps.timeline,
-                                                   &sequence::modify::set_delay,
-                                                   pattern, d);
-                               },
-                               [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_delays,
-                                                   pattern, mod);
-                               },
-                           },
-                           delay);
-                ps.timeline.set_commit_flag();
-                return minfo("Delay Set");
-            }));
+        set->add(cmd(signature("delay", arg<Pattern>(""),
+                               arg<std::variant<float, Modulator>>("delay", 0.f),
+                               arg<bool>("commit", true)),
+                     "Set the delay of all selected Notes.",
+                     [](PS &ps, Pattern const &pattern,
+                        std::variant<float, Modulator> delay, bool commit) {
+                         std::visit(
+                             sequence::utility::overload{
+                                 [&](float d) {
+                                     increment_state(ps.timeline,
+                                                     &sequence::modify::set_delay,
+                                                     pattern, d);
+                                 },
+                                 [&](Modulator const &mod) {
+                                     increment_state(ps.timeline, &action::set_delays,
+                                                     pattern, mod);
+                                 },
+                             },
+                             delay);
+                         if (commit)
+                         {
+                             ps.timeline.set_commit_flag();
+                         }
+                         return minfo("Delay Set");
+                     }));
 
         // set gate
-        set->add(cmd(
-            signature("gate", arg<Pattern>(""),
-                      arg<std::variant<float, Modulator>>("gate", 1.f)),
-            "Set the gate of all selected Notes.",
-            [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> gate) {
-                std::visit(sequence::utility::overload{
-                               [&](float g) {
-                                   increment_state(ps.timeline,
-                                                   &sequence::modify::set_gate, pattern,
-                                                   g);
-                               },
-                               [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_gates,
-                                                   pattern, mod);
-                               },
-                           },
-                           gate);
-                ps.timeline.set_commit_flag();
-                return minfo("Gate Set");
-            }));
+        set->add(cmd(signature("gate", arg<Pattern>(""),
+                               arg<std::variant<float, Modulator>>("gate", 1.f),
+                               arg<bool>("commit", true)),
+                     "Set the gate of all selected Notes.",
+                     [](PS &ps, Pattern const &pattern,
+                        std::variant<float, Modulator> gate, bool commit) {
+                         std::visit(sequence::utility::overload{
+                                        [&](float g) {
+                                            increment_state(ps.timeline,
+                                                            &sequence::modify::set_gate,
+                                                            pattern, g);
+                                        },
+                                        [&](Modulator const &mod) {
+                                            increment_state(ps.timeline,
+                                                            &action::set_gates, pattern,
+                                                            mod);
+                                        },
+                                    },
+                                    gate);
+                         if (commit)
+                         {
+                             ps.timeline.set_commit_flag();
+                         }
+                         return minfo("Gate Set");
+                     }));
 
         {
             auto seq = cmd_group("sequence");
@@ -745,15 +759,38 @@ auto create_command_tree() -> XenCommandTree
                      }));
 
         // set weights
-        set->add(
-            cmd(signature("weights", arg<sequence::Pattern>(""),
-                          arg<Modulator>("Modulator")),
-                "Set the weights of the children of the selected cell",
-                [](PS &ps, sequence::Pattern const &pattern, Modulator const &mod) {
-                    increment_state(ps.timeline, &action::set_weights, pattern, mod);
+        set->add(cmd(
+            signature("weights", arg<sequence::Pattern>(""),
+                      arg<std::variant<float, Modulator>>("weight"),
+                      arg<bool>("commit", true)),
+            "Set the weights of the children of the selected cell",
+            [](PS &ps, sequence::Pattern const &pattern,
+               std::variant<float, Modulator> const &weight, bool commit) {
+                std::visit(
+                    sequence::utility::overload{
+                        [&](float w) {
+                            increment_state(
+                                ps.timeline,
+                                static_cast<sequence::Cell (*)(
+                                    sequence::Cell, sequence::Pattern const &, float)>(
+                                    &action::set_weights),
+                                pattern, w);
+                        },
+                        [&](Modulator const &mod) {
+                            increment_state(
+                                ps.timeline,
+                                static_cast<sequence::Cell (*)(
+                                    sequence::Cell, sequence::Pattern const &,
+                                    Modulator const &)>(&action::set_weights),
+                                pattern, mod);
+                        }},
+                    weight);
+                if (commit)
+                {
                     ps.timeline.set_commit_flag();
-                    return minfo("Weights Set");
-                }));
+                }
+                return minfo("Weights Set");
+            }));
 
         head.add(std::move(set));
     }

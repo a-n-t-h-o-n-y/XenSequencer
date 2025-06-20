@@ -434,9 +434,6 @@ SequenceView::SequenceView(
 
     modulation_pane.on_change.connect(
         [this](std::string const &command) { this->on_command(command); });
-
-    modulation_pane.on_commit_change.connect(
-        [this](std::string const &command) { this->on_command(command); });
 }
 
 void SequenceView::update(SequencerState const &state, AuxState const &aux)

@@ -143,6 +143,7 @@ target_sources(XenSequencerLib
         src/gui/tile.cpp
         src/gui/tuning_reference.cpp
         src/gui/xen_list_box.cpp
+        src/gui/xen_slider.cpp
 
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
@@ -189,6 +190,7 @@ target_sources(XenSequencerLib
         include/xen/gui/tile.hpp
         include/xen/gui/tuning_reference.hpp
         include/xen/gui/xen_list_box.hpp
+        include/xen/gui/xen_slider.hpp
 
         include/xen/gui/utility/dereference_iterator.hpp
 )

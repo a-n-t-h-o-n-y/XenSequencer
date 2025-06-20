@@ -33,8 +33,7 @@ auto COMMANDS = std::vector<std::pair<std::string, std::string>>{
 
 // {display name, type/id, parameters}
 auto MODULATORS =
-    std::vector<std::tuple<std::string, std::string,
-                           std::vector<ModulationParameters::SliderMetadata>>>{
+    std::vector<std::tuple<std::string, std::string, std::vector<XenSlider::Metadata>>>{
         {
             "None",
             "",
@@ -305,51 +304,18 @@ void ModulationButtons::resized()
 // -------------------------------------------------------------------------------------
 
 ModulationParameters::ModulationParameters(
-    std::string const &mod_type, std::vector<SliderMetadata> const &slider_data)
+    std::string const &mod_type, std::vector<XenSlider::Metadata> const &slider_data)
     : type_{mod_type}
 {
     for (auto const &data : slider_data)
     {
-        if (data.initial < data.min || data.initial > data.max)
-        {
-            throw std::invalid_argument{"ModulationParameters: Slider initial value "
-                                        "must be within min and max."};
-        }
-        if (data.midpoint.has_value() &&
-            (*data.midpoint < data.min || *data.midpoint > data.max))
-        {
-            throw std::invalid_argument{"ModulationParameters: Slider midpoint must be "
-                                        "within min and max."};
-        }
+        auto &slider_ptr = sliders_.emplace_back(
+            std::make_unique<XenSlider>(data, juce::Slider::LinearHorizontal));
 
-        auto &[label_ptr, slider_ptr] = sliders_.emplace_back(std::pair{
-            std::make_unique<juce::Label>(), std::make_unique<juce::Slider>()});
+        this->addAndMakeVisible(*slider_ptr);
 
-        auto &slider = *slider_ptr;
-        auto &label = *label_ptr;
-
-        this->addAndMakeVisible(label);
-        this->addAndMakeVisible(slider);
-
-        label.setText(data.display_name, juce::dontSendNotification);
-        label.attachToComponent(&slider, false);
-
-        slider.setComponentID(data.id);
-        slider.setRange(data.min, data.max);
-        slider.setValue(data.initial);
-        if (data.midpoint.has_value())
-        {
-            slider.setSkewFactorFromMidPoint(*data.midpoint);
-        }
-
-        slider.setNumDecimalPlacesToDisplay(2);
-        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false,
-                               slider.getTextBoxWidth() / 2, slider.getTextBoxHeight());
-
-        slider.onValueChange = [this] { this->on_change(); };
-
-        // TODO
-        // on slider mouse up emit signal?
+        slider_ptr->on_change.connect([this](float) { this->on_change(); });
+        slider_ptr->on_release.connect([this] { this->on_commit(); });
     }
 }
 
@@ -357,9 +323,10 @@ auto ModulationParameters::get_json() -> nlohmann::json
 {
     auto j = nlohmann::json{};
     j["type"] = type_;
-    for (auto const &[_, slider_ptr] : sliders_)
+    for (auto const &slider_ptr : sliders_)
     {
-        j[slider_ptr->getComponentID().toStdString()] = slider_ptr->getValue();
+        j[slider_ptr->slider.getComponentID().toStdString()] =
+            slider_ptr->slider.getValue();
     }
     return j;
 }
@@ -377,11 +344,11 @@ auto ModulationParameters::get_type() -> std::string const &
 void ModulationParameters::resized()
 {
     auto fb = juce::FlexBox{};
+
     fb.flexDirection = juce::FlexBox::Direction::column;
-    for (auto const &[label_ptr, slider_ptr] : sliders_)
+    for (auto const &slider_ptr : sliders_)
     {
-        fb.items.add(juce::FlexItem(*label_ptr).withHeight(40.0f));
-        fb.items.add(juce::FlexItem{*slider_ptr}.withHeight(60.f));
+        fb.items.add(juce::FlexItem{*slider_ptr}.withFlex(1.f));
     }
 
     fb.performLayout(this->getLocalBounds());
@@ -413,7 +380,14 @@ ModulationPane::ModulationPane()
         ui_ptr = std::make_unique<ModulationParameters>(
             std::get<1>(MODULATORS[mod_index]), std::get<2>(MODULATORS[mod_index]));
         ui_ptr->on_change.connect([this] {
-            auto const cmd_str = this->generate_command_string();
+            auto const cmd_str = this->generate_command_string(false);
+            if (!cmd_str.empty())
+            {
+                this->on_change(cmd_str);
+            }
+        });
+        ui_ptr->on_commit.connect([this] {
+            auto const cmd_str = this->generate_command_string(true);
             if (!cmd_str.empty())
             {
                 this->on_change(cmd_str);
@@ -422,7 +396,7 @@ ModulationPane::ModulationPane()
         this->addAndMakeVisible(*ui_ptr);
         this->resized();
 
-        auto const cmd_str = this->generate_command_string();
+        auto const cmd_str = this->generate_command_string(true);
         if (!cmd_str.empty())
         {
             this->on_change(cmd_str);
@@ -437,7 +411,7 @@ ModulationPane::ModulationPane()
     target_command_dropdown_.setSelectedId(1, juce::dontSendNotification);
 
     target_command_dropdown_.onChange = [this] {
-        auto const cmd_str = this->generate_command_string();
+        auto const cmd_str = this->generate_command_string(true);
         if (!cmd_str.empty())
         {
             this->on_change(cmd_str);
@@ -520,7 +494,7 @@ auto ModulationPane::generate_json() -> std::string
     return j.dump();
 }
 
-auto ModulationPane::generate_command_string() -> std::string
+auto ModulationPane::generate_command_string(bool commit) -> std::string
 {
     if (target_command_dropdown_.getSelectedId() == 1 ||
         modulator_dropdown_.getSelectedId() == 1)
@@ -531,7 +505,8 @@ auto ModulationPane::generate_command_string() -> std::string
     {
         auto const cmd_index =
             (std::size_t)target_command_dropdown_.getSelectedId() - 1;
-        return COMMANDS[cmd_index].second + this->generate_json();
+        return COMMANDS[cmd_index].second + this->generate_json() +
+               (commit ? " true" : " false");
     }
 }
 
