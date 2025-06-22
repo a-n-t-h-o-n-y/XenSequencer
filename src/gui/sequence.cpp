@@ -254,7 +254,7 @@ void Cell::paintOverChildren(juce::Graphics &g)
     {
         auto const color = this->findColour(emphasized_ ? ColorID::ForegroundHigh
                                                         : ColorID::ForegroundLow);
-        auto const line_thickness = 1.6f;
+        auto const line_thickness = 1.4f;
         auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
         g.setColour(color);
