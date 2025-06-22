@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -162,6 +163,14 @@ void draw_note_border(juce::Graphics &g, juce::Rectangle<float> bounds,
     }
 }
 
+[[nodiscard]]
+auto generate_octave_display(int octave) -> juce::String
+{
+    auto const sign = octave > 0 ? "+" : (octave < 0 ? "-" : "");
+    auto const digits = std::abs(octave) < 1 ? "" : std::to_string(std::abs(octave));
+    return sign + digits;
+}
+
 void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
 {
     auto path = juce::Path{};
@@ -303,16 +312,13 @@ void Note::paint(juce::Graphics &g)
     draw_note_border(g, pitch_bounds, note_);
 
     // Paint Octave Text
+    g.setColour(this->findColour(ColorID::BackgroundLow));
+
+    g.setFont(fonts::monospaced().bold.withHeight(
+        std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
     auto const octave =
         ::xen::utility::get_octave(note_.pitch, tuning_.intervals.size());
-    auto const octave_display =
-        juce::String::repeatedString((octave > 0 ? "▲ " : "▼ "), std::abs(octave))
-            .dropLastCharacters(1);
-
-    g.setColour(this->findColour(ColorID::BackgroundLow));
-    g.setFont(
-        fonts::symbols().withHeight(std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
-    g.drawText(octave_display,
+    g.drawText(generate_octave_display(octave),
                pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
                juce::Justification::centred, false);
 }
