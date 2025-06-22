@@ -1,5 +1,7 @@
 #include <xen/gui/xen_slider.hpp>
 
+#include <xen/gui/fonts.hpp>
+
 namespace xen::gui
 {
 
@@ -20,7 +22,8 @@ XenSlider::XenSlider(Metadata const &data, juce::Slider::SliderStyle style)
     this->addAndMakeVisible(slider);
 
     label.setText(data.display_name, juce::dontSendNotification);
-    label.attachToComponent(&slider, false);
+    label.setFont(fonts::monospaced().bold.withHeight((float)label.getHeight() * 0.7f));
+    label.setJustificationType(juce::Justification::centred);
 
     slider.setComponentID(data.id);
     slider.setRange(data.min, data.max);
@@ -45,10 +48,14 @@ void XenSlider::resized()
     auto fb = juce::FlexBox{};
 
     fb.flexDirection = juce::FlexBox::Direction::column;
-    fb.items.add(juce::FlexItem{label}.withHeight(40.0f));
-    fb.items.add(juce::FlexItem{slider}.withHeight(60.f));
+    fb.items.add(juce::FlexItem{label}.withFlex(1.f));
+    fb.items.add(juce::FlexItem{slider}.withFlex(2.f));
 
     fb.performLayout(this->getLocalBounds());
+
+    label.setFont(fonts::monospaced().bold.withHeight((float)label.getHeight() * 0.7f));
+    // slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false,
+    //                        slider.getTextBoxWidth() / 2, slider.getTextBoxHeight());
 }
 
 void XenSlider::mouseUp(const juce::MouseEvent &e)

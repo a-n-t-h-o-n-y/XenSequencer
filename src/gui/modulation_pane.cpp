@@ -348,7 +348,7 @@ void ModulationParameters::resized()
     fb.flexDirection = juce::FlexBox::Direction::column;
     for (auto const &slider_ptr : sliders_)
     {
-        fb.items.add(juce::FlexItem{*slider_ptr}.withFlex(1.f));
+        fb.items.add(juce::FlexItem{*slider_ptr}.withFlex(1.f).withMaxHeight(100.f));
     }
 
     fb.performLayout(this->getLocalBounds());
