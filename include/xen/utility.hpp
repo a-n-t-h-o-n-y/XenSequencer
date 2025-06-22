@@ -29,14 +29,6 @@ namespace xen::utility
 [[nodiscard]] auto keyboard_tolower(char ch) -> char;
 
 /**
- * False type for else conditions in constexpr if statements.
- */
-template <typename T>
-struct always_false : std::false_type
-{
-};
-
-/**
  * Checks if a tuple contains a single element that satisfies a given predicate.
  *
  * @param predicate The predicate function to apply.

@@ -57,7 +57,7 @@ template <typename T = std::size_t>
         }
         else
         {
-            static_assert(xen::utility::always_false<T>::value, "Unsupported size_t.");
+            static_assert([] { return false; }(), "Unsupported unsigned.");
         }
 
         // This verifies the entire string was parsed.
@@ -102,11 +102,11 @@ template <typename T = float>
         }
         else
         {
-            static_assert(xen::utility::always_false<T>::value, "Unsupported float.");
+            static_assert([] { return false; }(), "Unsupported float.");
         }
 
-        // This verifies the entire string was parsed.
-        if (pos != x.size())
+        // This verifies the entire string was parsed and is not inf, -inf or NaN.
+        if (pos != x.size() || !std::isfinite(result))
         {
             return std::nullopt;
         }
@@ -262,7 +262,7 @@ template <typename T>
     }
     else
     {
-        static_assert(xen::utility::always_false<T>::value, "Unsupported type.");
+        static_assert([] { return false; }(), "Unsupported type.");
     }
 }
 

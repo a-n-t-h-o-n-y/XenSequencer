@@ -224,7 +224,7 @@ auto type_name() -> std::string
     }
     else
     {
-        static_assert(utility::always_false<T>::value, "Unsupported type.");
+        static_assert([] { return false; }(), "Unsupported type.");
     }
 }
 
