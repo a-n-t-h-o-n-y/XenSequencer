@@ -349,8 +349,10 @@ auto create_command_tree() -> XenCommandTree
                  [](PS &ps, int pitch, float velocity, float delay, float gate) {
                      increment_state(
                          ps.timeline,
-                         [](sequence::Cell const &, auto... args) -> sequence::Cell {
-                             return sequence::modify::note(args...);
+                         [](sequence::Cell const &c, auto... args) -> sequence::Cell {
+                             auto n = sequence::modify::note(args...);
+                             n.weight = c.weight;
+                             return n;
                          },
                          pitch, velocity, delay, gate);
                      ps.timeline.set_commit_flag();
@@ -361,8 +363,10 @@ auto create_command_tree() -> XenCommandTree
     head.add(cmd(signature("rest"),
                  "Create a new Rest, overwritting the current selection.", [](PS &ps) {
                      increment_state(ps.timeline,
-                                     [](sequence::Cell const &) -> sequence::Cell {
-                                         return sequence::modify::rest();
+                                     [](sequence::Cell const &c) -> sequence::Cell {
+                                         auto r = sequence::modify::rest();
+                                         r.weight = c.weight;
+                                         return r;
                                      });
                      ps.timeline.set_commit_flag();
                      return minfo("Rest Created");
