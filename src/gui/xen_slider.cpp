@@ -1,6 +1,7 @@
 #include <xen/gui/xen_slider.hpp>
 
 #include <xen/gui/fonts.hpp>
+#include <xen/gui/themes.hpp>
 
 namespace xen::gui
 {
@@ -43,6 +44,17 @@ XenSlider::XenSlider(Metadata const &data, juce::Slider::SliderStyle style)
     slider.addMouseListener(this, false);
 }
 
+void XenSlider::paint(juce::Graphics &g)
+{
+    auto const bounds = this->getLocalBounds().toFloat().reduced(
+        horizontal_margin + border_thickness, vertical_margin + border_thickness);
+    auto const min_dim = std::min(bounds.getWidth(), bounds.getHeight());
+    auto const corner_radius = juce::jlimit(2.f, 12.f, min_dim * 0.1f);
+
+    g.setColour(this->findColour(ColorID::BackgroundLow));
+    g.drawRoundedRectangle(bounds, corner_radius, border_thickness);
+}
+
 void XenSlider::resized()
 {
     auto fb = juce::FlexBox{};
@@ -51,11 +63,11 @@ void XenSlider::resized()
     fb.items.add(juce::FlexItem{label}.withFlex(1.f));
     fb.items.add(juce::FlexItem{slider}.withFlex(2.f));
 
-    fb.performLayout(this->getLocalBounds());
+    fb.performLayout(this->getLocalBounds().toFloat().reduced(
+        horizontal_margin + border_thickness + 3.f,
+        vertical_margin + border_thickness + 3.f));
 
     label.setFont(fonts::monospaced().bold.withHeight((float)label.getHeight() * 0.7f));
-    // slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false,
-    //                        slider.getTextBoxWidth() / 2, slider.getTextBoxHeight());
 }
 
 void XenSlider::mouseUp(const juce::MouseEvent &e)

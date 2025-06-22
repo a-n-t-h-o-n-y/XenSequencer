@@ -45,6 +45,8 @@ class ModulationParameters : public juce::Component
                          std::vector<XenSlider::Metadata> const &slider_data);
 
   public:
+    void paint(juce::Graphics &g) override;
+
     void resized() override;
 
   public:

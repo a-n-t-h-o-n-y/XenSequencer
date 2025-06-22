@@ -11,6 +11,8 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/themes.hpp>
+
 namespace
 {
 
@@ -339,6 +341,11 @@ auto ModulationParameters::empty() -> bool
 auto ModulationParameters::get_type() -> std::string const &
 {
     return type_;
+}
+
+void ModulationParameters::paint(juce::Graphics &g)
+{
+    g.fillAll(this->findColour(ColorID::BackgroundHigh));
 }
 
 void ModulationParameters::resized()
