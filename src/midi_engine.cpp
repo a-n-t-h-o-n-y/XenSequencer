@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -175,8 +176,11 @@ namespace xen
 {
 
 auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
-                      SampleCount length) -> juce::MidiBuffer
+                      SampleCount length, DAWState const &daw) -> juce::MidiBuffer
 {
+    // Not perfect, but it is for UI display so its fine.
+    auto const buffer_start_time = std::chrono::steady_clock::now();
+
     // Make corrections for modified rendered_midi_ entries.
     auto out_buffer = juce::MidiBuffer{};
     for (auto &as : active_sequences_)
@@ -237,6 +241,13 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     {
         auto const message = metadata.getMessage();
         auto const sample = offset + (SampleIndex)metadata.samplePosition;
+        auto const pressed_time = [&] {
+            auto const duration =
+                std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                    std::chrono::duration<double>((double)metadata.samplePosition /
+                                                  (double)daw.sample_rate));
+            return buffer_start_time + duration;
+        }();
 
         if (message.isNoteOn())
         {
@@ -245,6 +256,7 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
             {
                 active_sequences_.push_back({
                     .begin = sample,
+                    .begin_at = pressed_time,
                     .end = (SampleIndex)-1,
                     .midi_channel = allocate_channel(active_sequences_, sample),
                     .last_note_on = -1,
@@ -338,13 +350,15 @@ void MidiEngine::update(SequencerState const &sequencer, DAWState const &daw)
     }
 }
 
-auto MidiEngine::get_note_start_samples() const -> std::array<SampleIndex, 16>
+auto MidiEngine::get_trigger_note_start_times() const
+    -> std::array<std::chrono::steady_clock::time_point, 16>
 {
-    auto result = std::array<SampleIndex, 16>{};
-    result.fill((SampleIndex)-1);
+    using time_point = std::chrono::steady_clock::time_point;
+    auto result = std::array<time_point, 16>{};
+    result.fill(time_point{});
     for (auto const &as : active_sequences_)
     {
-        result[as.rendered_midi_index] = as.begin;
+        result[as.rendered_midi_index] = as.begin_at;
     }
     return result;
 }

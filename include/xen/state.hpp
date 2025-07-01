@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -169,7 +170,7 @@ struct PluginState
 struct AudioThreadStateForGUI
 {
     DAWState daw;
-    std::array<SampleIndex, 16> note_start_times;
+    std::array<std::chrono::steady_clock::time_point, 16> note_start_times;
 };
 
 } // namespace xen

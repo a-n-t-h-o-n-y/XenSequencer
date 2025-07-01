@@ -380,38 +380,40 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 
 void MeasureView::timerCallback()
 {
+    auto const now = std::chrono::steady_clock::now();
     auto const audio_thread_state = audio_thread_state_.read();
-    auto note_start_sample =
+    auto const trigger_start_time =
         audio_thread_state.note_start_times[selected_state_.measure];
-    if (note_start_sample != last_key_down_sample_)
-    {
-        last_key_down_ = std::chrono::steady_clock::now();
-        last_key_down_sample_ = note_start_sample;
-    }
 
-    if (note_start_sample != (SampleIndex)-1)
-    {
-        auto &measure = sequencer_state_.sequence_bank[selected_state_.measure];
-        auto const samples_in_measure = sequence::samples_count(
-            measure, audio_thread_state.daw.sample_rate, audio_thread_state.daw.bpm);
-        if (samples_in_measure == 0)
-        {
-            this->set_playhead(std::nullopt);
-            return;
-        }
-        auto const sample_count =
-            (SampleIndex)(std::chrono::duration_cast<std::chrono::duration<double>>(
-                              std::chrono::steady_clock::now() - last_key_down_)
-                              .count() *
-                          audio_thread_state.daw.sample_rate);
-        auto const percent =
-            (float)(sample_count % samples_in_measure) / (float)samples_in_measure;
-        this->set_playhead(percent);
-    }
-    else
+    if (trigger_start_time == std::chrono::steady_clock::time_point{} ||
+        trigger_start_time > now)
     {
         this->set_playhead(std::nullopt);
+        return;
     }
+
+    auto const samples_in_measure = [&] {
+        auto &measure = sequencer_state_.sequence_bank[selected_state_.measure];
+        return sequence::samples_count(measure, audio_thread_state.daw.sample_rate,
+                                       audio_thread_state.daw.bpm);
+    }();
+
+    if (samples_in_measure == 0)
+    {
+        this->set_playhead(std::nullopt);
+        return;
+    }
+
+    auto const measure_duration =
+        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>((double)samples_in_measure /
+                                          (double)audio_thread_state.daw.sample_rate));
+
+    auto const percent =
+        (double)((now - trigger_start_time).count() % measure_duration.count()) /
+        (double)measure_duration.count();
+
+    this->set_playhead(percent);
 }
 
 // -------------------------------------------------------------------------------------

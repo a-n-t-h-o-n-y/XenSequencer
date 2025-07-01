@@ -85,7 +85,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // Calculate MIDI buffer slice
     auto next_slice = audio_thread_state_.midi_engine.step(
         midi_buffer, audio_thread_state_.accumulated_sample_count,
-        (SampleCount)buffer.getNumSamples());
+        (SampleCount)buffer.getNumSamples(), audio_thread_state_.daw);
 
     midi_buffer.swapWith(next_slice);
 
@@ -93,7 +93,8 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,
-        .note_start_times = audio_thread_state_.midi_engine.get_note_start_samples(),
+        .note_start_times =
+            audio_thread_state_.midi_engine.get_trigger_note_start_times(),
     });
 }
 

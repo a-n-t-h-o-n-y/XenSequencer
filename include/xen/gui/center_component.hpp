@@ -179,8 +179,8 @@ class MeasureView : public juce::Component, juce::Timer
 
     // Owned by XenProcessor
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
-    std::chrono::time_point<std::chrono::steady_clock> last_key_down_;
-    SampleIndex last_key_down_sample_ = (SampleIndex)-1;
+    // std::chrono::time_point<std::chrono::steady_clock> last_key_down_;
+    // SampleIndex last_key_down_sample_ = (SampleIndex)-1;
 
     SequencerState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
     SelectedState selected_state_{};

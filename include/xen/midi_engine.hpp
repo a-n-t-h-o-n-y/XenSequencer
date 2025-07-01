@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <vector>
 
@@ -20,6 +21,7 @@ class MidiEngine
     struct ActiveSequence
     {
         SampleIndex begin;
+        std::chrono::steady_clock::time_point begin_at; // Time the key was pressed.
         SampleIndex end; // -1 if currently unterminated (no note off read).
         int midi_channel;
         int last_note_on; // -1 if no sequence note currently 'on'.
@@ -37,10 +39,12 @@ class MidiEngine
      * @param midi_input The incoming midi triggers.
      * @param offset The sample index offset to begin processing from.
      * @param length The number of samples to process.
+     * @param daw The state of the DAW.
      * @return The midi buffer to be sent to the DAW.
      */
     [[nodiscard]] auto step(juce::MidiBuffer const &midi_input, SampleIndex offset,
-                            SampleCount length) -> juce::MidiBuffer;
+                            SampleCount length, DAWState const &daw)
+        -> juce::MidiBuffer;
 
     /**
      * Render the current SequencerState to MIDI and save in rendered_midi_.
@@ -55,10 +59,11 @@ class MidiEngine
     /**
      * For use by GUI thread, stored in processor by processBlock
      *
-     * @details These are the accumulated sample start time offsets for each user input
-     * note. A value of (SampleIndex)-1 means the note is off.
+     * @details These are the times that each of the 16 trigger notes were depressed, if
+     * they are currently on. A default constructed time_point means the note is off.
      */
-    [[nodiscard]] auto get_note_start_samples() const -> std::array<SampleIndex, 16>;
+    [[nodiscard]] auto get_trigger_note_start_times() const
+        -> std::array<std::chrono::steady_clock::time_point, 16>;
 
   private:
     // Only contains unterminated sequences between steps.
