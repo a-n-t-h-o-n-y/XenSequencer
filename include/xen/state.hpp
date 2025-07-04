@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -25,6 +24,7 @@ class LookAndFeel;
 #include <signals_light/signal.hpp>
 
 #include <xen/chord.hpp>
+#include <xen/clock.hpp>
 #include <xen/command_history.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
@@ -170,7 +170,7 @@ struct PluginState
 struct AudioThreadStateForGUI
 {
     DAWState daw;
-    std::array<std::chrono::steady_clock::time_point, 16> note_start_times;
+    std::array<Clock::time_point, 16> note_start_times;
 };
 
 } // namespace xen

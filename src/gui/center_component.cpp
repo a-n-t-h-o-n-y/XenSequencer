@@ -1,6 +1,7 @@
 #include <xen/gui/center_component.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -12,17 +13,22 @@
 #include <variant>
 #include <vector>
 
+#include <juce_core/juce_core.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+
 #include <sequence/measure.hpp>
 #include <sequence/tuning.hpp>
 #include <sequence/utility.hpp>
 
 #include <signals_light/signal.hpp>
 
+#include <xen/clock.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/bg_sequence.hpp>
+#include <xen/gui/cell.hpp>
 #include <xen/gui/fonts.hpp>
 #include <xen/gui/library_view.hpp>
-#include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/themes.hpp>
 #include <xen/scale.hpp>
@@ -37,9 +43,11 @@ namespace
  * Initiates the UI cell building process for the top level cell. It's weight is ignored
  * because it is alone.
  */
-[[nodiscard]] auto make_top_level_cell(
-    sequence::Cell const &cell, std::optional<xen::Scale> const &scale,
-    sequence::Tuning const &tuning, xen::TranslateDirection scale_translate_direction)
+[[nodiscard]]
+auto make_top_level_cell(sequence::Cell const &cell,
+                         std::optional<xen::Scale> const &scale,
+                         sequence::Tuning const &tuning,
+                         xen::TranslateDirection scale_translate_direction)
     -> std::unique_ptr<xen::gui::Cell>
 {
     auto const builder = xen::gui::BuildAndAllocateCell{
@@ -50,7 +58,8 @@ namespace
     return std::visit(builder, cell.element);
 }
 
-[[nodiscard]] auto gather_all_pitches(sequence::Cell const &cell) -> std::set<int>
+[[nodiscard]]
+auto gather_all_pitches(sequence::Cell const &cell) -> std::set<int>
 {
     return std::visit(
         sequence::utility::overload{
@@ -68,6 +77,84 @@ namespace
             },
         },
         cell.element);
+}
+
+/**
+ * Returns list of background colors for each pitch in tuning, starting with pitch 0.
+ */
+[[nodiscard]]
+auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
+                                juce::Colour light, std::size_t pitch_count,
+                                xen::TranslateDirection scale_translate_direction)
+    -> std::vector<juce::Colour>
+{
+    auto colors = std::vector<juce::Colour>{};
+    if (scale.has_value())
+    {
+        auto const pitches = xen::generate_valid_pitches(*scale);
+        juce::Colour current_color = light;
+        int previous_pitch = 0;
+
+        for (auto i = 0; i < (int)pitch_count; ++i)
+        {
+            auto const mapped_pitch =
+                map_pitch_to_scale(i, pitches, pitch_count, scale_translate_direction);
+
+            if (mapped_pitch != previous_pitch)
+            {
+                current_color = current_color == light ? light.darker(0.2f) : light;
+            }
+            colors.push_back(current_color);
+            previous_pitch = mapped_pitch;
+        }
+    }
+    else
+    {
+        for (std::size_t i = 0; i < pitch_count; ++i)
+        {
+            colors.push_back((i % 2 == 0) ? light : light.darker(0.2f));
+        }
+    }
+    return colors;
+}
+
+void draw_staff(juce::Graphics &g, juce::Rectangle<int> bounds,
+                juce::Colour lighter_color, juce::Colour line_color,
+                std::optional<xen::Scale> const &scale, std::size_t tuning_length,
+                xen::TranslateDirection scale_translate_direction)
+{
+    auto const colors = generate_staff_line_colors(scale, lighter_color, tuning_length,
+                                                   scale_translate_direction);
+    assert(tuning_length == colors.size());
+
+    auto const total_height = bounds.getHeight();
+    auto const int_height = (int)(total_height / tuning_length);
+    auto const remainder = (int)(total_height % tuning_length);
+
+    // Rectangles - Drawn bottom to top - starting with pitch zero.
+    auto y = bounds.getY();
+    for (auto i = std::size_t{0}; i < tuning_length; ++i)
+    {
+        auto const extra = (static_cast<int>(i) < remainder) ? 1 : 0;
+        auto const h = int_height + extra;
+
+        auto const color_index = tuning_length - 1 - i;
+        g.setColour(colors[color_index]);
+        g.fillRect(bounds.getX(), y, bounds.getWidth(), h);
+
+        y += h;
+
+        // Line
+        if (i + 1 < tuning_length)
+        {
+            auto const next_index = tuning_length - 1 - (i + 1);
+            if (colors[color_index] != colors[next_index])
+            {
+                g.setColour(line_color);
+                g.fillRect(bounds.getX(), y - 1, bounds.getWidth(), 1); // 1px separator
+            }
+        }
+    }
 }
 
 } // namespace
@@ -361,8 +448,12 @@ void MeasureView::resized()
 
 void MeasureView::paint(juce::Graphics &g)
 {
-    g.setColour(this->findColour(ColorID::BackgroundHigh));
-    g.fillAll();
+    draw_staff(g, this->getLocalBounds().reduced(2, 4),
+               this->findColour(ColorID::BackgroundLow),
+               this->findColour(ColorID::ForegroundInverse), sequencer_state_.scale,
+               sequencer_state_.tuning.intervals.size(),
+               sequencer_state_.scale_translate_direction);
+    // TODO paint background active sequences
 }
 
 void MeasureView::paintOverChildren(juce::Graphics &g)
@@ -380,13 +471,12 @@ void MeasureView::paintOverChildren(juce::Graphics &g)
 
 void MeasureView::timerCallback()
 {
-    auto const now = std::chrono::steady_clock::now();
+    auto const now = Clock::now();
     auto const audio_thread_state = audio_thread_state_.read();
     auto const trigger_start_time =
         audio_thread_state.note_start_times[selected_state_.measure];
 
-    if (trigger_start_time == std::chrono::steady_clock::time_point{} ||
-        trigger_start_time > now)
+    if (trigger_start_time == Clock::time_point{} || trigger_start_time > now)
     {
         this->set_playhead(std::nullopt);
         return;
@@ -405,9 +495,8 @@ void MeasureView::timerCallback()
     }
 
     auto const measure_duration =
-        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-            std::chrono::duration<double>((double)samples_in_measure /
-                                          (double)audio_thread_state.daw.sample_rate));
+        std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(
+            (double)samples_in_measure / (double)audio_thread_state.daw.sample_rate));
 
     auto const percent =
         (double)((now - trigger_start_time).count() % measure_duration.count()) /

@@ -1,4 +1,4 @@
-#include <xen/gui/sequence.hpp>
+#include <xen/gui/cell.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -28,58 +28,20 @@ namespace
 
 using namespace xen;
 
-auto const corner_radius = 10.f;
-
-/**
- * Returns list of background colors for each pitch in tuning, starting with pitch 0.
- */
-[[nodiscard]] auto generate_staff_line_colors(
-    std::optional<Scale> const &scale, juce::Colour light, std::size_t pitch_count,
-    TranslateDirection scale_translate_direction) -> std::vector<juce::Colour>
-{
-    auto colors = std::vector<juce::Colour>{};
-    if (scale.has_value())
-    {
-        auto const pitches = generate_valid_pitches(*scale);
-        juce::Colour current_color = light;
-        int previous_pitch = 0;
-
-        for (auto i = 0; i < (int)pitch_count; ++i)
-        {
-            auto const mapped_pitch =
-                map_pitch_to_scale(i, pitches, pitch_count, scale_translate_direction);
-
-            if (mapped_pitch != previous_pitch)
-            {
-                current_color = current_color == light ? light.darker(0.2f) : light;
-            }
-            colors.push_back(current_color);
-            previous_pitch = mapped_pitch;
-        }
-    }
-    else
-    {
-        for (std::size_t i = 0; i < pitch_count; ++i)
-        {
-            colors.push_back((i % 2 == 0) ? light : light.darker(0.2f));
-        }
-    }
-    return colors;
-}
+auto const CORNER_RADIUS = 10.f;
 
 /**
  * Computes the Rectangle bounds for a given note pitch and tuning length.
  *
- * @param bounds  The bounds of the component in which the note will be displayed.
+ * @param bounds The bounds of the component in which the note will be displayed.
  * @param note The note.
  * @return The Rectangle that represents the position and size of the note.
  * @exception std::invalid_argument If tuning_length is zero, to prevent
  * division by zero.
  */
-[[nodiscard]] auto compute_note_bounds(juce::Rectangle<float> const &bounds,
-                                       sequence::Note note,
-                                       sequence::Tuning const &tuning)
-    -> juce::Rectangle<float>
+[[nodiscard]]
+auto compute_note_bounds(juce::Rectangle<int> const &bounds, sequence::Note note,
+                         sequence::Tuning const &tuning) -> juce::Rectangle<int>
 {
     auto const pitch_count = tuning.intervals.size();
     if (pitch_count == 0)
@@ -88,62 +50,33 @@ auto const corner_radius = 10.f;
     }
 
     auto const normalized = utility::normalize_pitch(note.pitch, pitch_count);
+    assert(normalized < pitch_count);
 
-    assert(normalized < tuning.intervals.size());
+    auto const total_height = bounds.getHeight();
+    auto const int_height = total_height / static_cast<int>(pitch_count);
+    auto const remainder = total_height % static_cast<int>(pitch_count);
 
-    auto const height = bounds.getHeight() / (float)tuning.intervals.size();
-    auto const y =
-        bounds.getHeight() + bounds.getY() - ((float)normalized + 1.f) * height;
+    auto const row = static_cast<int>(pitch_count - 1 - normalized);
+    auto const y = bounds.getY() + row * int_height + std::min(row, remainder);
+    auto const h = int_height + (row < remainder ? 1 : 0);
 
-    // Calculate the note x and width
-    auto const left_x = bounds.getX() + (bounds.getWidth() - 1.f) * note.delay;
-    auto note_width = (bounds.getWidth() - (left_x - bounds.getX())) * note.gate;
-    note_width = std::max(note_width, 4.f);
+    auto const x =
+        bounds.getX() + static_cast<int>((bounds.getWidth() - 1) * note.delay);
+    auto const remaining = bounds.getWidth() - (x - bounds.getX());
+    auto const w = std::max(static_cast<int>(remaining * note.gate), 4);
 
-    return juce::Rectangle<float>{
-        left_x,
-        y,
-        note_width,
-        height,
-    };
+    return juce::Rectangle<int>{x, y, w, h};
 }
 
-void draw_staff(juce::Graphics &g, juce::Rectangle<float> bounds,
-                juce::Colour lighter_color, juce::Colour line_color,
-                std::optional<Scale> const &scale, sequence::Tuning const &tuning,
-                TranslateDirection scale_translate_direction)
-{
-    auto const colors = generate_staff_line_colors(
-        scale, lighter_color, tuning.intervals.size(), scale_translate_direction);
-
-    assert(tuning.intervals.size() == colors.size());
-
-    auto const height = bounds.getHeight() / (float)tuning.intervals.size();
-
-    // Rectangles - Drawn bottom to top - starting with pitch zero.
-    for (auto i = std::size_t{0}; i < colors.size(); ++i)
-    {
-        auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
-        g.setColour(colors[i]);
-        g.fillRect(bounds.getX(), y, bounds.getWidth(), height);
-    }
-    // Lines - Drawn on top
-    for (auto i = std::size_t{0}; i + 1 < colors.size(); ++i)
-    {
-        auto const color = (colors[i] == colors[i + 1]) ? colors[i] : line_color;
-        auto const y = bounds.getY() + (float)(colors.size() - i - 1) * height;
-        g.setColour(color);
-        g.fillRect(bounds.getX(), y - 0.4f, bounds.getWidth(), 0.8f);
-    }
-}
-
-void draw_note_border(juce::Graphics &g, juce::Rectangle<float> bounds,
+void draw_note_border(juce::Graphics &g, juce::Rectangle<int> bounds,
                       sequence::Note const &note)
 {
-    auto const thickness = 0.8f;
+    auto const thickness = 1;
 
     // Top
-    g.fillRect(bounds.withHeight(thickness));
+    g.fillRect(bounds.withHeight(thickness).withY(bounds.getY() - 1));
+    // ^^ painted one pixel above to match with staff line painting, otherwise top has 2
+    // pixel thick line.
 
     // Bottom
     g.fillRect(bounds.withHeight(thickness).withY(bounds.getY() + bounds.getHeight() -
@@ -171,18 +104,31 @@ auto generate_octave_display(int octave) -> juce::String
     return sign + digits;
 }
 
-void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
+/**
+ * Paints a rounded rectangle around the cell, mostly just here for the rounded corners.
+ */
+void paint_cell_border(juce::Graphics &g, juce::Rectangle<int> bounds,
+                       juce::Colour color)
 {
-    auto path = juce::Path{};
-    path.addRoundedRectangle(bounds, corner_radius);
-    g.reduceClipRegion(path);
+    // inverted rounded rectangle
+    auto const hole_bounds = bounds.reduced(2, 4);
+    auto clip_path = juce::Path{};
+    clip_path.addRectangle(bounds);
+    clip_path.addRoundedRectangle(hole_bounds, CORNER_RADIUS);
+    clip_path.setUsingNonZeroWinding(false); // use even-odd fill rule for inversion
+
+    g.saveState();
+    g.reduceClipRegion(clip_path);
+    g.fillAll(color);
+    g.restoreState();
 }
 
 /**
  * Generates background color for Note display.
  */
-[[nodiscard]] auto generate_note_color(juce::Colour const &base_color,
-                                       sequence::Note const &note) -> juce::Colour
+[[nodiscard]]
+auto generate_note_color(juce::Colour const &base_color, sequence::Note const &note)
+    -> juce::Colour
 {
     if (utility::compare_within_tolerance(note.velocity, 0.f, 0.0001f))
     {
@@ -205,7 +151,8 @@ void reduce_region(juce::Graphics &g, juce::Rectangle<float> bounds)
  * @param seq The sequence to create cells from.
  * @param build_and_allocate_cell The function to create a Cell from a sequence::Cell.
  */
-[[nodiscard]] auto create_cells_components(
+[[nodiscard]]
+auto create_cells_components(
     sequence::Sequence const &seq,
     xen::gui::BuildAndAllocateCell const &build_and_allocate_cell)
     -> std::vector<std::unique_ptr<xen::gui::Cell>>
@@ -254,11 +201,11 @@ void Cell::paintOverChildren(juce::Graphics &g)
     {
         auto const color = this->findColour(emphasized_ ? ColorID::ForegroundHigh
                                                         : ColorID::ForegroundLow);
-        auto const line_thickness = 1.4f;
+        auto const line_thickness = 1.2f;
         auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
 
         g.setColour(color);
-        g.drawRoundedRectangle(bounds, corner_radius, line_thickness);
+        g.drawRoundedRectangle(bounds, CORNER_RADIUS, line_thickness);
     }
 }
 
@@ -273,12 +220,8 @@ Rest::Rest(sequence::Rest, std::optional<Scale> const &scale,
 
 void Rest::paint(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
-
-    reduce_region(g, bounds);
-    draw_staff(g, bounds, this->findColour(ColorID::BackgroundLow),
-               this->findColour(ColorID::ForegroundInverse), scale_, tuning_,
-               scale_translate_direction_);
+    paint_cell_border(g, this->getLocalBounds(),
+                      this->findColour(ColorID::BackgroundHigh));
 }
 
 // -------------------------------------------------------------------------------------
@@ -292,13 +235,7 @@ Note::Note(sequence::Note note, std::optional<Scale> const &scale,
 
 void Note::paint(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
-    reduce_region(g, bounds);
-
-    // Draw Staff
-    draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
-               this->findColour(ColorID::ForegroundInverse), scale_, tuning_,
-               scale_translate_direction_);
+    auto const bounds = this->getLocalBounds().reduced(2, 4);
 
     // Draw Note
     auto const note_color =
@@ -307,20 +244,25 @@ void Note::paint(juce::Graphics &g)
     auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
     g.fillRect(pitch_bounds);
 
-    // Draw Border
+    // Note Border
     g.setColour(this->findColour(ColorID::BackgroundHigh));
     draw_note_border(g, pitch_bounds, note_);
 
-    // Paint Octave Text
+    // Octave Text
     g.setColour(this->findColour(ColorID::BackgroundLow));
 
-    g.setFont(fonts::monospaced().bold.withHeight(
-        std::max(pitch_bounds.getHeight() - 2.f, 1.f)));
+    g.setFont(
+        fonts::monospaced().bold.withHeight(std::max(pitch_bounds.getHeight() - 2, 1)));
     auto const octave =
         ::xen::utility::get_octave(note_.pitch, tuning_.intervals.size());
-    g.drawText(generate_octave_display(octave),
-               pitch_bounds.translated(0.f, 1.f + pitch_bounds.getHeight() / 25.f),
-               juce::Justification::centred, false);
+    g.drawText(
+        generate_octave_display(octave),
+        pitch_bounds.translated(0.f, 1.f + (float)pitch_bounds.getHeight() / 25.f),
+        juce::Justification::centred, false);
+
+    // Cell Border
+    paint_cell_border(g, this->getLocalBounds(),
+                      this->findColour(ColorID::BackgroundHigh));
 }
 
 // -------------------------------------------------------------------------------------

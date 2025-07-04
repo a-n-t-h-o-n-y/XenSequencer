@@ -128,7 +128,9 @@ target_sources(XenSequencerLib
         src/xen_command_tree.cpp
 
         src/gui/accordion.cpp
+        src/gui/bg_sequence.cpp
         src/gui/bottom_bar.cpp
+        src/gui/cell.cpp
         src/gui/center_component.cpp
         src/gui/command_bar.cpp
         src/gui/directory_list_box.cpp
@@ -137,7 +139,6 @@ target_sources(XenSequencerLib
         src/gui/modulation_pane.cpp
         src/gui/plugin_window.cpp
         src/gui/sequence_bank.cpp
-        src/gui/sequence.cpp
         src/gui/status_bar.cpp
         src/gui/themes.cpp
         src/gui/tile.cpp
@@ -148,6 +149,7 @@ target_sources(XenSequencerLib
         include/xen/actions.hpp
         include/xen/double_buffer.hpp
         include/xen/chord.hpp
+        include/xen/clock.hpp
         include/xen/copy_paste.hpp
         include/xen/command.hpp
         include/xen/command_history.hpp
@@ -174,7 +176,9 @@ target_sources(XenSequencerLib
         include/xen/xen_command_tree.hpp
 
         include/xen/gui/accordion.hpp
+        include/xen/gui/bg_sequence.hpp
         include/xen/gui/bottom_bar.hpp
+        include/xen/gui/cell.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp
         include/xen/gui/themes.hpp
@@ -184,7 +188,6 @@ target_sources(XenSequencerLib
         include/xen/gui/message_log.hpp
         include/xen/gui/modulation_pane.hpp
         include/xen/gui/plugin_window.hpp
-        include/xen/gui/sequence.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/tile.hpp

@@ -16,10 +16,10 @@
 
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/cell.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/message_log.hpp>
 #include <xen/gui/modulation_pane.hpp>
-#include <xen/gui/sequence.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/tuning_reference.hpp>
 #include <xen/scale.hpp>
@@ -179,8 +179,6 @@ class MeasureView : public juce::Component, juce::Timer
 
     // Owned by XenProcessor
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
-    // std::chrono::time_point<std::chrono::steady_clock> last_key_down_;
-    // SampleIndex last_key_down_sample_ = (SampleIndex)-1;
 
     SequencerState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
     SelectedState selected_state_{};

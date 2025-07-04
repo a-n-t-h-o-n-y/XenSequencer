@@ -14,6 +14,7 @@
 
 #include <sequence/measure.hpp>
 
+#include <xen/clock.hpp>
 #include <xen/midi.hpp>
 #include <xen/scale.hpp>
 #include <xen/state.hpp>
@@ -179,7 +180,7 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
                       SampleCount length, DAWState const &daw) -> juce::MidiBuffer
 {
     // Not perfect, but it is for UI display so its fine.
-    auto const buffer_start_time = std::chrono::steady_clock::now();
+    auto const buffer_start_time = Clock::now();
 
     // Make corrections for modified rendered_midi_ entries.
     auto out_buffer = juce::MidiBuffer{};
@@ -242,10 +243,9 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         auto const message = metadata.getMessage();
         auto const sample = offset + (SampleIndex)metadata.samplePosition;
         auto const pressed_time = [&] {
-            auto const duration =
-                std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                    std::chrono::duration<double>((double)metadata.samplePosition /
-                                                  (double)daw.sample_rate));
+            auto const duration = std::chrono::duration_cast<Clock::duration>(
+                std::chrono::duration<double>((double)metadata.samplePosition /
+                                              (double)daw.sample_rate));
             return buffer_start_time + duration;
         }();
 
@@ -351,11 +351,10 @@ void MidiEngine::update(SequencerState const &sequencer, DAWState const &daw)
 }
 
 auto MidiEngine::get_trigger_note_start_times() const
-    -> std::array<std::chrono::steady_clock::time_point, 16>
+    -> std::array<Clock::time_point, 16>
 {
-    using time_point = std::chrono::steady_clock::time_point;
-    auto result = std::array<time_point, 16>{};
-    result.fill(time_point{});
+    auto result = std::array<Clock::time_point, 16>{};
+    result.fill(Clock::time_point{});
     for (auto const &as : active_sequences_)
     {
         result[as.rendered_midi_index] = as.begin_at;

@@ -91,8 +91,8 @@ void AccordionTop::resized()
 
 void AccordionTop::paintOverChildren(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().toFloat();
-    auto const thickness = 1.f;
+    auto const bounds = this->getLocalBounds();
+    auto const thickness = 1;
 
     g.setColour(this->findColour(ColorID::ForegroundLow));
     g.fillRect(bounds.getX(), bounds.getY(), thickness, bounds.getHeight());

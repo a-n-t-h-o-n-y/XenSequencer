@@ -1,8 +1,11 @@
 #include <xen/gui/tuning_reference.hpp>
 
+#include <cassert>
 #include <cmath>
+#include <iterator>
 #include <optional>
 #include <set>
+#include <stdexcept>
 
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -15,6 +18,12 @@
 
 namespace
 {
+
+[[nodiscard]]
+auto largest_element(std::set<float> const &s) -> float
+{
+    return s.empty() ? throw std::runtime_error("set is empty") : *std::prev(s.end());
+}
 
 /**
  * Returns a list of just intonation ratios spread logarithmically. These act as
@@ -85,65 +94,60 @@ TuningReference::TuningReference(sequence::Tuning const &tuning,
       reference_ratios_{init_reference_ratios()},
       tuning_ratios_{init_tuning_ratios(tuning)}
 {
-    // noramlise and map to scale pitches
 }
 
 void TuningReference::paint(juce::Graphics &g)
 {
+    auto const mark_length = 10;
+    auto const thickness = 2;
+
     g.fillAll(this->findColour(ColorID::BackgroundHigh));
 
-    auto const [bounds, physical_octave_length] = [this] {
-        auto const b = this->getLocalBounds().reduced(0, 4).toFloat();
-        auto const vertical_offset =
-            b.getHeight() / ((float)tuning_.intervals.size() * 2.f);
-        return std::pair{b.reduced(0.f, vertical_offset), b.getHeight()};
-    }();
+    auto const bounds = this->getLocalBounds().reduced(0, 4);
 
-    auto const mid_x = bounds.getX() + (bounds.getWidth() / 2.f);
+    // The space between the last interval and the octave of the reference tuning, split
+    // between the top and bottom of the display
+    auto const gap_to_octave =
+        (1.f - largest_element(reference_ratios_)) * bounds.getHeight();
 
-    { // Draw Vertical Line
-        g.setColour(this->findColour(ColorID::ForegroundHigh));
-        auto const thickness = 1.f;
-        g.fillRect(mid_x - thickness / 2.f, bounds.getY(), thickness,
-                   bounds.getHeight());
-    }
+    auto const mid_x = bounds.getX() + (int)std::round((float)bounds.getWidth() / 2.f);
+
+    auto a = bounds.getY() + bounds.getHeight() - (gap_to_octave / 2);
 
     { // Paint Reference Marks
-        auto const mark_length = 10.f;
-        auto const thickness = 1.5f;
-
         g.setColour(this->findColour(ColorID::ForegroundHigh));
         for (auto const ratio : reference_ratios_)
         {
-            auto y =
-                bounds.getY() + bounds.getHeight() - (ratio * physical_octave_length);
-            if (y <= 0.f)
-            {
-                y += bounds.getHeight() + bounds.getY();
-            }
-            g.fillRect(mid_x, y - thickness / 2.f, mark_length, thickness);
+            auto y = (int)std::round(a - (ratio * bounds.getHeight()));
+            assert(y >= bounds.getY());
+            g.fillRect(mid_x, y - (int)(thickness / 2.f), mark_length, thickness);
         }
     }
 
     { // Paint Tuning Marks
-        auto const mark_length = 10.f;
         auto i = 0;
         for (auto ratio : tuning_ratios_)
         {
             auto const color_id =
                 pitches_.contains(i) ? ColorID::ForegroundHigh : ColorID::ForegroundLow;
-            auto const thickness = 1.5f;
             g.setColour(this->findColour(color_id));
-            auto y =
-                bounds.getY() + bounds.getHeight() - (ratio * physical_octave_length);
-            if (y <= 0.f)
+
+            auto y = (int)std::round(a - (ratio * bounds.getHeight()));
+
+            while (y < bounds.getY())
             {
-                y += bounds.getHeight() + bounds.getY();
+                y += bounds.getY() + bounds.getHeight();
             }
-            g.fillRect(mid_x - mark_length, y - thickness / 2.f, mark_length,
-                       thickness);
+            g.fillRect(mid_x - mark_length, y - (int)std::round(thickness / 2.f),
+                       mark_length, thickness);
             ++i;
         }
+    }
+
+    { // Paint Vertical Line
+        g.setColour(this->findColour(ColorID::ForegroundHigh));
+        g.fillRect(mid_x - (int)std::round((float)thickness / 2.f), bounds.getY(),
+                   thickness, bounds.getHeight());
     }
 }
 

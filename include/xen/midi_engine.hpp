@@ -1,12 +1,12 @@
 #pragma once
 
 #include <array>
-#include <chrono>
 #include <cstddef>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
+#include <xen/clock.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -21,8 +21,8 @@ class MidiEngine
     struct ActiveSequence
     {
         SampleIndex begin;
-        std::chrono::steady_clock::time_point begin_at; // Time the key was pressed.
-        SampleIndex end; // -1 if currently unterminated (no note off read).
+        Clock::time_point begin_at; // Time the key was pressed.
+        SampleIndex end;            // -1 if currently unterminated (no note off read).
         int midi_channel;
         int last_note_on; // -1 if no sequence note currently 'on'.
         int last_pitch_wheel;
@@ -63,7 +63,7 @@ class MidiEngine
      * they are currently on. A default constructed time_point means the note is off.
      */
     [[nodiscard]] auto get_trigger_note_start_times() const
-        -> std::array<std::chrono::steady_clock::time_point, 16>;
+        -> std::array<Clock::time_point, 16>;
 
   private:
     // Only contains unterminated sequences between steps.
