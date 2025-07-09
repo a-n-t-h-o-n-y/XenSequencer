@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <memory>
@@ -14,8 +15,10 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/clock.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/gui/accordion.hpp>
+#include <xen/gui/bg_sequence.hpp>
 #include <xen/gui/cell.hpp>
 #include <xen/gui/library_view.hpp>
 #include <xen/gui/message_log.hpp>
@@ -143,6 +146,13 @@ class PitchColumn : public juce::Component
 class MeasureView : public juce::Component, juce::Timer
 {
   public:
+    struct BGCurrentState
+    {
+        IR windowed_ir;
+        float trigger_x_percent;
+    };
+
+  public:
     MeasureView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
     ~MeasureView() override;
@@ -182,6 +192,20 @@ class MeasureView : public juce::Component, juce::Timer
 
     SequencerState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
     SelectedState selected_state_{};
+
+    // BG Rendering
+    std::array<std::optional<BGCurrentState>, 16> bg_current_;
+
+    struct BGPreviousState
+    {
+        sequence::Tuning tuning;
+        std::size_t bank_measure_selected;
+        std::array<Clock::time_point, 16> note_start_times;
+        std::array<IRWindow, 16> windows;
+    } bg_previous_;
+
+    // stored_windows_ is only used to determine if changes occured, not for IR.
+    std::array<IRWindow, 16> stored_windows_;
 };
 
 // -------------------------------------------------------------------------------------
@@ -199,6 +223,8 @@ class SequenceView : public juce::Component
 
   public:
     void resized() override;
+
+    void paintOverChildren(juce::Graphics &g) override;
 
   public:
     MeasureInfo measure_info;

@@ -212,7 +212,6 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
                                         note_event->getVelocity()),
                                     0);
                 as.last_note_on = note_event->getNoteNumber();
-                note_event->getPitchWheelValue();
             }
             // Note A -> Note B
             else if (as.last_note_on != note_event->getNoteNumber())

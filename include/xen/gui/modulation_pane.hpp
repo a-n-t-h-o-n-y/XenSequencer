@@ -13,7 +13,7 @@
 
 #include <signals_light/signal.hpp>
 
-#include <xen/gui/sequence_bank.hpp> // TODO temp
+#include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/xen_slider.hpp>
 
 namespace xen::gui

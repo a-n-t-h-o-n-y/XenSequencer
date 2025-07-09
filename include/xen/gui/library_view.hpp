@@ -113,7 +113,7 @@ class LibraryView : public juce::Component
 
     LabeledLibraryComponent<TuningsList> tunings;
     TuningsList &tunings_list = tunings.component;
-    Divider divider_3; // TODO rename to 2
+    Divider divider_2;
 
     LabeledLibraryComponent<ScalesList> scales;
     ScalesList &scales_list = scales.component;

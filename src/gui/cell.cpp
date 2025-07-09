@@ -30,57 +30,10 @@ using namespace xen;
 
 auto const CORNER_RADIUS = 10.f;
 
-/**
- * Computes the Rectangle bounds for a given note pitch and tuning length.
- *
- * @param bounds The bounds of the component in which the note will be displayed.
- * @param note The note.
- * @return The Rectangle that represents the position and size of the note.
- * @exception std::invalid_argument If tuning_length is zero, to prevent
- * division by zero.
- */
-[[nodiscard]]
-auto compute_note_bounds(juce::Rectangle<int> const &bounds, sequence::Note note,
-                         sequence::Tuning const &tuning) -> juce::Rectangle<int>
-{
-    auto const pitch_count = tuning.intervals.size();
-    if (pitch_count == 0)
-    {
-        throw std::invalid_argument("Tuning length must not be zero.");
-    }
-
-    auto const normalized = utility::normalize_pitch(note.pitch, pitch_count);
-    assert(normalized < pitch_count);
-
-    auto const total_height = bounds.getHeight();
-    auto const int_height = total_height / static_cast<int>(pitch_count);
-    auto const remainder = total_height % static_cast<int>(pitch_count);
-
-    auto const row = static_cast<int>(pitch_count - 1 - normalized);
-    auto const y = bounds.getY() + row * int_height + std::min(row, remainder);
-    auto const h = int_height + (row < remainder ? 1 : 0);
-
-    auto const x =
-        bounds.getX() + static_cast<int>((bounds.getWidth() - 1) * note.delay);
-    auto const remaining = bounds.getWidth() - (x - bounds.getX());
-    auto const w = std::max(static_cast<int>(remaining * note.gate), 4);
-
-    return juce::Rectangle<int>{x, y, w, h};
-}
-
 void draw_note_border(juce::Graphics &g, juce::Rectangle<int> bounds,
                       sequence::Note const &note)
 {
     auto const thickness = 1;
-
-    // Top
-    g.fillRect(bounds.withHeight(thickness).withY(bounds.getY() - 1));
-    // ^^ painted one pixel above to match with staff line painting, otherwise top has 2
-    // pixel thick line.
-
-    // Bottom
-    g.fillRect(bounds.withHeight(thickness).withY(bounds.getY() + bounds.getHeight() -
-                                                  thickness));
 
     // Left
     if (std::not_equal_to{}(note.delay, 0.f))
@@ -111,7 +64,7 @@ void paint_cell_border(juce::Graphics &g, juce::Rectangle<int> bounds,
                        juce::Colour color)
 {
     // inverted rounded rectangle
-    auto const hole_bounds = bounds.reduced(2, 4);
+    auto const hole_bounds = bounds.reduced(2, 7);
     auto clip_path = juce::Path{};
     clip_path.addRectangle(bounds);
     clip_path.addRoundedRectangle(hole_bounds, CORNER_RADIUS);
@@ -201,11 +154,11 @@ void Cell::paintOverChildren(juce::Graphics &g)
     {
         auto const color = this->findColour(emphasized_ ? ColorID::ForegroundHigh
                                                         : ColorID::ForegroundLow);
-        auto const line_thickness = 1.2f;
-        auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
-
         g.setColour(color);
-        g.drawRoundedRectangle(bounds, CORNER_RADIUS, line_thickness);
+
+        auto const bounds = this->getLocalBounds().reduced(2, 7);
+        g.fillRect(bounds.withHeight(1).withY(bounds.getY() - 4));
+        g.fillRect(bounds.withHeight(1).withY(bounds.getBottom() + 3));
     }
 }
 
@@ -235,13 +188,15 @@ Note::Note(sequence::Note note, std::optional<Scale> const &scale,
 
 void Note::paint(juce::Graphics &g)
 {
-    auto const bounds = this->getLocalBounds().reduced(2, 4);
+    auto const bounds = this->getLocalBounds().reduced(2, 7);
 
     // Draw Note
     auto const note_color =
         generate_note_color(this->findColour(ColorID::ForegroundMedium), note_);
     g.setColour(note_color);
-    auto const pitch_bounds = compute_note_bounds(bounds, note_, tuning_);
+
+    auto pitch_bounds = compute_note_bounds(bounds, note_, tuning_.intervals.size());
+
     g.fillRect(pitch_bounds);
 
     // Note Border
@@ -250,7 +205,6 @@ void Note::paint(juce::Graphics &g)
 
     // Octave Text
     g.setColour(this->findColour(ColorID::BackgroundLow));
-
     g.setFont(
         fonts::monospaced().bold.withHeight(std::max(pitch_bounds.getHeight() - 2, 1)));
     auto const octave =
@@ -347,6 +301,34 @@ auto BuildAndAllocateCell::operator()(sequence::Sequence s) const
     -> std::unique_ptr<Cell>
 {
     return std::make_unique<Sequence>(s, scale_, tuning_, scale_translate_direction_);
+}
+
+auto compute_note_bounds(juce::Rectangle<int> const &bounds, sequence::Note note,
+                         std::size_t pitch_count) -> juce::Rectangle<int>
+{
+    if (pitch_count == 0)
+    {
+        throw std::invalid_argument("Tuning length must not be zero.");
+    }
+
+    auto const normalized = xen::utility::normalize_pitch(note.pitch, pitch_count);
+    assert(normalized < pitch_count);
+
+    auto const total_height = bounds.getHeight();
+    auto const int_height = total_height / static_cast<int>(pitch_count);
+    auto const remainder = total_height % static_cast<int>(pitch_count);
+
+    auto const row = static_cast<int>(pitch_count - 1 - normalized);
+    auto const y = bounds.getY() + row * int_height + std::min(row, remainder);
+    auto const h = int_height + (row < remainder ? 1 : 0);
+
+    auto const x =
+        bounds.getX() + static_cast<int>((bounds.getWidth() - 1) * note.delay);
+    auto const remaining = bounds.getWidth() - (x - bounds.getX());
+    auto const w = std::max(static_cast<int>(remaining * note.gate), 4);
+
+    // Leave room for staff lines (1 pixel at top)
+    return juce::Rectangle<int>{x, y + 1, w, h - 1};
 }
 
 } // namespace xen::gui

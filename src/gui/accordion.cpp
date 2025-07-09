@@ -95,9 +95,7 @@ void AccordionTop::paintOverChildren(juce::Graphics &g)
     auto const thickness = 1;
 
     g.setColour(this->findColour(ColorID::ForegroundLow));
-    g.fillRect(bounds.getX(), bounds.getY(), thickness, bounds.getHeight());
-    g.fillRect(bounds.getX() + bounds.getWidth() - thickness, bounds.getY(), thickness,
-               bounds.getHeight());
+    g.fillRect(bounds.withWidth(thickness));
 }
 
 } // namespace xen::gui

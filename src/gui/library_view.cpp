@@ -142,7 +142,7 @@ LibraryView::LibraryView(juce::File const &sequence_library_dir,
     this->addAndMakeVisible(divider_1);
 
     this->addAndMakeVisible(tunings);
-    this->addAndMakeVisible(divider_3);
+    this->addAndMakeVisible(divider_2);
 
     this->addAndMakeVisible(scales);
 }
@@ -156,7 +156,7 @@ void LibraryView::resized()
     fb.items.add(juce::FlexItem{divider_1}.withWidth(1.f));
 
     fb.items.add(juce::FlexItem{tunings}.withFlex(1.f));
-    fb.items.add(juce::FlexItem{divider_3}.withWidth(1.f));
+    fb.items.add(juce::FlexItem{divider_2}.withWidth(1.f));
 
     fb.items.add(juce::FlexItem{scales}.withFlex(1.f));
 

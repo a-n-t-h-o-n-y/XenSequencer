@@ -1,7 +1,10 @@
 #include <xen/gui/bg_sequence.hpp>
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <iterator>
 #include <numeric>
 #include <utility>
@@ -11,29 +14,28 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <sequence/measure.hpp>
 #include <sequence/utility.hpp>
+
+#include <xen/gui/cell.hpp>
+#include <xen/utility.hpp>
 
 namespace xen::gui
 {
 
 auto generate_ir(sequence::Cell const &head_cell, std::size_t tuning_length) -> IR
 {
-    using Rectangles = std::vector<juce::Rectangle<float>>;
-
     auto const impl = [tuning_length](auto const &self, sequence::Cell const &cell,
-                                      float bounds_left,
-                                      float bounds_right) -> Rectangles {
+                                      float bounds_left, float bounds_right) -> IR {
         return std::visit(
             sequence::utility::overload{
-                [](sequence::Rest const &) -> Rectangles { return {}; },
-                [&](sequence::Note const &n) -> Rectangles {
-                    auto const rect_height = 1.f / (float)tuning_length;
+                [](sequence::Rest const &) -> IR { return {}; },
+                [&](sequence::Note const &n) -> IR {
                     auto const x = bounds_left;
-                    auto const y = (n.pitch % (int)tuning_length + 1) * rect_height;
                     auto const width = bounds_right - bounds_left;
-                    return {juce::Rectangle<float>{x, y, width, rect_height}};
+                    return {NoteIR{n, x, width}};
                 },
-                [&](sequence::Sequence const &seq) -> Rectangles {
+                [&](sequence::Sequence const &seq) -> IR {
                     auto const total_weight = std::accumulate(
                         std::cbegin(seq.cells), std::cend(seq.cells), 0.f,
                         [](float sum, auto const &c) { return sum + c.weight; });
@@ -41,18 +43,18 @@ auto generate_ir(sequence::Cell const &head_cell, std::size_t tuning_length) -> 
                     {
                         return {};
                     }
-                    auto result = Rectangles{};
+                    auto result = IR{};
                     auto const width = bounds_right - bounds_left;
                     auto local_left = bounds_left;
-                    auto local_right = bounds_right;
+                    auto local_right = local_left;
                     for (auto const &c : seq.cells)
                     {
                         local_right += (c.weight / total_weight) * width;
-                        auto rects = self(self, c, local_left, local_right);
+                        auto irs = self(self, c, local_left, local_right);
                         local_left = local_right;
                         result.insert(std::end(result),
-                                      std::make_move_iterator(std::begin(rects)),
-                                      std::make_move_iterator(std::end(rects)));
+                                      std::make_move_iterator(std::begin(irs)),
+                                      std::make_move_iterator(std::end(irs)));
                     }
                     return result;
                 },
@@ -60,94 +62,123 @@ auto generate_ir(sequence::Cell const &head_cell, std::size_t tuning_length) -> 
             cell.element);
     };
 
-    return {
-        .rectangles = impl(impl, head_cell, 0.f, 1.f),
-    };
+    return impl(impl, head_cell, 0.f, 1.f);
 }
 
-auto generate_window(Clock::time_point fg_start, Clock::duration fg_duration,
-                     Clock::time_point bg_start, Clock::duration bg_duration,
-                     Clock::time_point now) -> Window
+auto generate_window(Clock::duration fg_duration, Clock::time_point bg_start,
+                     Clock::duration bg_duration, Clock::time_point now) -> IRWindow
 {
-    auto const bg_elapsed = now - bg_start;
+    auto const iteration = (now - bg_start).count() / fg_duration.count();
 
     return {
-        .offset =
-            (float)(bg_elapsed % bg_duration).count() / (float)bg_duration.count(),
-        .length =
-            (float)(fg_duration - (bg_elapsed > fg_duration ? Clock::duration{0}
-                                                            : bg_start - fg_start))
-                .count() /
-            (float)bg_duration.count(),
+        .offset = std::fmod(
+            iteration * (fg_duration.count() / (float)bg_duration.count()), 1.f),
+        .length = fg_duration.count() / (float)bg_duration.count(),
     };
 }
 
-auto apply_window(IR const &ir, Window const &window) -> IR
+auto apply_window(IR const &ir, IRWindow const &window, float trigger_offset) -> IR
 {
     auto result = IR{};
-    auto const start_global = window.offset;
-    auto const end_global = window.offset + window.length;
 
-    // Determine which integer shifts of the base [0..1] period to consider
-    auto const first_index = (int)std::floor(start_global);
-    auto const last_index = (int)std::ceil(end_global);
-
-    for (auto i = first_index; i < last_index; ++i)
+    auto loop_count = 0.f;
+    while (loop_count < window.length)
     {
-        for (auto const &rect : ir.rectangles)
+        for (auto note_ir : ir)
         {
-            auto const rect_start = rect.getX() + i;
-            auto const rect_end = rect_start + rect.getWidth();
+            auto const begin = std::clamp(loop_count + note_ir.x, window.offset,
+                                          window.offset + window.length);
+            auto const end = std::clamp(loop_count + note_ir.x + note_ir.width,
+                                        window.offset, window.offset + window.length);
 
-            // Compute overlap of [rect_start, rect_end] with [start_global, end_global]
-            auto const overlap_start = std::max(rect_start, start_global);
-            auto const overlap_end = std::min(rect_end, end_global);
-            if (overlap_end > overlap_start)
+            if (begin < end)
             {
-                // Map overlap into [0..1] of the window
-                auto const new_x = (overlap_start - start_global) / window.length;
-                auto const new_width = (overlap_end - overlap_start) / window.length;
+                // Normalize, Shift, and Wrap
+                auto const left = std::fmod(
+                    (begin - window.offset + trigger_offset) / window.length, 1.f);
+                auto const right = [&window, &end, &trigger_offset] {
+                    auto x = (end - window.offset + trigger_offset) / window.length;
+                    // right is one past the end, and fmod will make 1 (valid) into a 0.
+                    return x > 1.f ? std::fmod(x, 1.f) : x;
+                }();
 
-                auto const new_rect = juce::Rectangle<float>{
-                    new_x, rect.getY(), new_width, rect.getHeight()};
-                result.rectangles.push_back(new_rect);
+                if (left < right)
+                {
+                    note_ir.x = left;
+                    note_ir.width = right - left;
+                    result.push_back(note_ir);
+                }
+                else
+                { // Split into two at boundary (wrap).
+                    note_ir.x = left;
+                    note_ir.width = 1.f - left;
+                    result.push_back(note_ir);
+                    note_ir.x = 0.f;
+                    note_ir.width = right;
+                    result.push_back(note_ir);
+                }
             }
         }
+        loop_count += 1.f;
     }
 
     return result;
 }
 
-auto get_bg_offset_from_fg(Clock::time_point fg_start, Clock::duration fg_duration,
-                           Clock::time_point bg_start, Clock::time_point now) -> float
+auto get_bg_trigger_offset(Clock::time_point fg_start, Clock::time_point bg_start,
+                           Clock::duration bg_duration) -> float
 {
-    if (now - bg_start > fg_duration - (bg_start - fg_start))
+    auto const delta = (bg_start - fg_start).count();
+    auto const offset = (float)delta / (float)bg_duration.count();
+    return offset >= 0.0f ? offset : offset - (std::ceil(offset) * 2) + 1.f;
+}
+
+void paint_bg_active_sequence(IR const &ir, juce::Graphics &g,
+                              juce::Rectangle<int> const &bounds,
+                              std::size_t pitch_count, juce::Colour color)
+{
+    g.setColour(color);
+
+    for (auto const &note_ir : ir)
     {
-        return 0.f;
-    }
-    else
-    {
-        return (float)(now - fg_start).count() / (float)fg_duration.count();
+        auto const cell_bounds = juce::Rectangle<int>{
+            bounds.getX() + (int)std::floor(note_ir.x * (float)bounds.getWidth()),
+            bounds.getY(),
+            (int)std::floor(note_ir.width * (float)bounds.getWidth()),
+            bounds.getHeight(),
+        };
+
+        auto note_bounds = compute_note_bounds(cell_bounds, note_ir.note, pitch_count);
+
+        auto const height_percent = 0.75f;
+        auto const corner_percent = 0.2f;
+        auto const original_height = note_bounds.getHeight();
+        auto const new_height = (int)std::round(height_percent * original_height);
+        auto const corner = corner_percent * original_height;
+
+        auto const y_offset = (int)std::round((original_height - new_height) * 0.5f);
+        note_bounds.setHeight(new_height);
+        note_bounds.setY(note_bounds.getY() + y_offset);
+
+        g.fillRoundedRectangle(note_bounds.toFloat(), corner);
     }
 }
 
-void paint_bg_active_sequence(IR const &ir, float bg_offset, juce::Graphics &g)
+void paint_trigger_line(juce::Graphics &g, float percent_location, juce::Colour color)
 {
-    auto const bounds = g.getClipBounds().toFloat();
+    auto const bounds = g.getClipBounds().reduced(2, 7);
+    auto const x =
+        bounds.getX() + (int)std::floor(bounds.getWidth() * percent_location);
+    g.setColour(color);
+    g.drawRect(x, bounds.getY(), 1, bounds.getHeight(), 1);
+}
 
-    g.setColour(juce::Colours::lightblue.withAlpha(0.6f));
-
-    for (auto const &rect : ir.rectangles)
-    {
-        auto const translated = rect.translated(-bg_offset, 0.0f);
-        auto const pixel_rect = juce::Rectangle<float>{
-            bounds.getX() + translated.getX() * bounds.getWidth(),
-            bounds.getY() + translated.getY() * bounds.getHeight(),
-            translated.getWidth() * bounds.getWidth(),
-            translated.getHeight() * bounds.getHeight()};
-
-        g.fillRect(pixel_rect);
-    }
+auto calculate_duration(sequence::Measure const &m, DAWState const &daw)
+    -> Clock::duration
+{
+    auto const sample_count = sequence::samples_count(m, daw.sample_rate, daw.bpm);
+    return std::chrono::duration_cast<Clock::duration>(
+        std::chrono::duration<double>((double)sample_count / (double)daw.sample_rate));
 }
 
 } // namespace xen::gui

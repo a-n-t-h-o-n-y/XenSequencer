@@ -1,7 +1,9 @@
 #include <xen/gui/center_component.hpp>
 
+#include <array>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -38,6 +40,103 @@
 
 namespace
 {
+
+using xen::Clock;
+
+// Used to check if updates occured, not to generate IR.
+void update_windows(std::array<xen::gui::IRWindow, 16> &windows, std::size_t fg_index,
+                    std::array<Clock::time_point, 16> const &trigger_starts,
+                    xen::SequenceBank const &sequences, Clock::time_point now,
+                    xen::DAWState const &daw)
+{
+    auto const fg_duration = xen::gui::calculate_duration(sequences[fg_index], daw);
+    auto i = std::size_t{0};
+    for (auto &window : windows)
+    {
+        if (trigger_starts[i] == Clock::time_point{} || trigger_starts[i] > now)
+        {
+            window = xen::gui::IRWindow{0.f, 0.f};
+        }
+        else
+        {
+            auto const bg_duration = xen::gui::calculate_duration(sequences[i], daw);
+            window = xen::gui::generate_window(fg_duration, trigger_starts[i],
+                                               bg_duration, now);
+        }
+        ++i;
+    }
+}
+
+std::array<juce::Colour, 16> const bg_colors = [] {
+    using juce::Colour;
+    return std::array{
+        Colour{0x503d95c2}, Colour{0x50BD40BF}, Colour{0x503CC375}, Colour{0x50C1A63E},
+        Colour{0x50448CB4}, Colour{0x50BD40BF}, Colour{0x503CC375}, Colour{0x50C1A63E},
+        Colour{0x504B83A5}, Colour{0x50BD40BF}, Colour{0x503CC375}, Colour{0x50C1A63E},
+        Colour{0x50527B97}, Colour{0x50BD40BF}, Colour{0x503CC375}, Colour{0x50C1A63E},
+    };
+}();
+
+[[nodiscard]]
+auto generate_bg_state(sequence::Cell const &cell, Clock::time_point fg_start,
+                       Clock::duration fg_duration, Clock::time_point bg_start,
+                       Clock::duration bg_duration, Clock::time_point now,
+                       std::size_t pitch_count) -> xen::gui::MeasureView::BGCurrentState
+{
+    using namespace xen::gui;
+    auto const trigger_offset = get_bg_trigger_offset(fg_start, bg_start, bg_duration);
+    auto const ir = generate_ir(cell, pitch_count);
+    auto const window = generate_window(fg_duration, bg_start, bg_duration, now);
+    auto const windowed_ir = apply_window(ir, window, trigger_offset);
+    return {
+        .windowed_ir = std::move(windowed_ir),
+        .trigger_x_percent = std::fmod(trigger_offset / window.length, 1.f),
+    };
+}
+
+void update_all_bg_state(
+    std::array<std::optional<xen::gui::MeasureView::BGCurrentState>, 16> &bg_current,
+    xen::SequenceBank const &sequences,
+    std::array<Clock::time_point, 16> const &trigger_starts, std::size_t pitch_count,
+    std::size_t fg_index, xen::DAWState const &daw, Clock::time_point now)
+{
+    auto const fg_start = trigger_starts[fg_index];
+    if (fg_start == Clock::time_point{})
+    {
+        for (auto &bg : bg_current)
+        {
+            bg = std::nullopt;
+        }
+        return; // Display no bg if fg is not active
+    }
+    auto const fg_duration = xen::gui::calculate_duration(sequences[fg_index], daw);
+    for (auto i = std::size_t{0}; i < trigger_starts.size(); ++i)
+    {
+        auto const bg_start = trigger_starts[i];
+        if (i == fg_index || bg_start == Clock::time_point{})
+        {
+            bg_current[i] = std::nullopt;
+            continue;
+        }
+        auto const bg_duration = xen::gui::calculate_duration(sequences[i], daw);
+        bg_current[i] = generate_bg_state(sequences[i].cell, fg_start, fg_duration,
+                                          bg_start, bg_duration, now, pitch_count);
+    }
+}
+
+[[nodiscard]]
+auto get_playhead_location(Clock::time_point trigger_start, Clock::time_point now,
+                           Clock::duration measure_duration) -> std::optional<float>
+{
+    if (trigger_start == Clock::time_point{} || trigger_start > now ||
+        measure_duration.count() == 0)
+    {
+        return std::nullopt;
+    }
+
+    return (float)((now - trigger_start).count() % measure_duration.count()) /
+           (float)measure_duration.count();
+}
 
 /**
  * Initiates the UI cell building process for the top level cell. It's weight is ignored
@@ -119,8 +218,8 @@ auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
 }
 
 void draw_staff(juce::Graphics &g, juce::Rectangle<int> bounds,
-                juce::Colour lighter_color, juce::Colour line_color,
-                std::optional<xen::Scale> const &scale, std::size_t tuning_length,
+                juce::Colour lighter_color, std::optional<xen::Scale> const &scale,
+                std::size_t tuning_length,
                 xen::TranslateDirection scale_translate_direction)
 {
     auto const colors = generate_staff_line_colors(scale, lighter_color, tuning_length,
@@ -128,10 +227,10 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<int> bounds,
     assert(tuning_length == colors.size());
 
     auto const total_height = bounds.getHeight();
-    auto const int_height = (int)(total_height / tuning_length);
-    auto const remainder = (int)(total_height % tuning_length);
+    auto const int_height = total_height / (int)tuning_length;
+    auto const remainder = total_height % (int)tuning_length;
 
-    // Rectangles - Drawn bottom to top - starting with pitch zero.
+    // Rectangles
     auto y = bounds.getY();
     for (auto i = std::size_t{0}; i < tuning_length; ++i)
     {
@@ -140,20 +239,16 @@ void draw_staff(juce::Graphics &g, juce::Rectangle<int> bounds,
 
         auto const color_index = tuning_length - 1 - i;
         g.setColour(colors[color_index]);
-        g.fillRect(bounds.getX(), y, bounds.getWidth(), h);
+        if (i == 0)
+        {
+            g.fillRect(bounds.getX(), y, bounds.getWidth(), h);
+        }
+        else // leave space for dividing line
+        {
+            g.fillRect(bounds.getX(), y + 1, bounds.getWidth(), h - 1);
+        }
 
         y += h;
-
-        // Line
-        if (i + 1 < tuning_length)
-        {
-            auto const next_index = tuning_length - 1 - (i + 1);
-            if (colors[color_index] != colors[next_index])
-            {
-                g.setColour(line_color);
-                g.fillRect(bounds.getX(), y - 1, bounds.getWidth(), 1); // 1px separator
-            }
-        }
     }
 }
 
@@ -448,19 +543,31 @@ void MeasureView::resized()
 
 void MeasureView::paint(juce::Graphics &g)
 {
-    draw_staff(g, this->getLocalBounds().reduced(2, 4),
-               this->findColour(ColorID::BackgroundLow),
-               this->findColour(ColorID::ForegroundInverse), sequencer_state_.scale,
-               sequencer_state_.tuning.intervals.size(),
+    auto const bounds = this->getLocalBounds().reduced(2, 7);
+    auto const pitch_count = sequencer_state_.tuning.intervals.size();
+
+    draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
+               sequencer_state_.scale, pitch_count,
                sequencer_state_.scale_translate_direction);
-    // TODO paint background active sequences
+
+    auto fg_index = selected_state_.measure;
+    for (auto i = std::size_t{0}; i < bg_current_.size(); ++i)
+    {
+        if (bg_current_[i].has_value() && i != fg_index)
+        {
+            auto const color = bg_colors[i];
+            paint_bg_active_sequence(bg_current_[i]->windowed_ir, g, bounds,
+                                     pitch_count, color);
+            paint_trigger_line(g, bg_current_[i]->trigger_x_percent, color);
+        }
+    }
 }
 
 void MeasureView::paintOverChildren(juce::Graphics &g)
 {
     if (playhead_.has_value())
     {
-        auto const bounds = this->getLocalBounds().reduced(2, 4).toFloat();
+        auto const bounds = this->getLocalBounds().reduced(2, 7).toFloat();
         auto const x = bounds.getX() + playhead_.value() * bounds.getWidth();
 
         g.setColour(this->findColour(ColorID::ForegroundMedium));
@@ -473,36 +580,34 @@ void MeasureView::timerCallback()
 {
     auto const now = Clock::now();
     auto const audio_thread_state = audio_thread_state_.read();
-    auto const trigger_start_time =
-        audio_thread_state.note_start_times[selected_state_.measure];
+    auto const &trigger_starts = audio_thread_state.note_start_times;
+    auto const &daw = audio_thread_state.daw;
+    auto const &sequences = sequencer_state_.sequence_bank;
+    auto const fg_index = selected_state_.measure;
+    auto const fg_trigger_start = trigger_starts[fg_index];
+    auto const measure_duration = calculate_duration(sequences[fg_index], daw);
 
-    if (trigger_start_time == Clock::time_point{} || trigger_start_time > now)
+    this->set_playhead(get_playhead_location(fg_trigger_start, now, measure_duration));
+
+    update_windows(stored_windows_, fg_index, trigger_starts, sequences, now, daw);
+
+    auto const state_changed =
+        bg_previous_.tuning != sequencer_state_.tuning ||
+        bg_previous_.bank_measure_selected != selected_state_.measure ||
+        bg_previous_.note_start_times != trigger_starts ||
+        bg_previous_.windows != stored_windows_;
+
+    if (state_changed)
     {
-        this->set_playhead(std::nullopt);
-        return;
+        auto const pitch_count = sequencer_state_.tuning.intervals.size();
+        update_all_bg_state(bg_current_, sequences, trigger_starts, pitch_count,
+                            fg_index, daw, now);
+        this->repaint();
+        bg_previous_.tuning = sequencer_state_.tuning;
+        bg_previous_.bank_measure_selected = selected_state_.measure;
+        bg_previous_.note_start_times = trigger_starts;
+        bg_previous_.windows = stored_windows_;
     }
-
-    auto const samples_in_measure = [&] {
-        auto &measure = sequencer_state_.sequence_bank[selected_state_.measure];
-        return sequence::samples_count(measure, audio_thread_state.daw.sample_rate,
-                                       audio_thread_state.daw.bpm);
-    }();
-
-    if (samples_in_measure == 0)
-    {
-        this->set_playhead(std::nullopt);
-        return;
-    }
-
-    auto const measure_duration =
-        std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(
-            (double)samples_in_measure / (double)audio_thread_state.daw.sample_rate));
-
-    auto const percent =
-        (double)((now - trigger_start_time).count() % measure_duration.count()) /
-        (double)measure_duration.count();
-
-    this->set_playhead(percent);
 }
 
 // -------------------------------------------------------------------------------------
@@ -583,6 +688,17 @@ void SequenceView::resized()
     flex_box.items.add(juce::FlexItem{horizontal_flex}.withFlex(1));
 
     flex_box.performLayout(this->getLocalBounds());
+}
+
+void SequenceView::paintOverChildren(juce::Graphics &g)
+{
+    // Left and Right border lines
+    auto const bounds = this->getLocalBounds();
+    auto const thickness = 1;
+
+    g.setColour(this->findColour(ColorID::ForegroundLow));
+    g.fillRect(bounds.withWidth(thickness));
+    g.fillRect(bounds.withX(bounds.getRight() - thickness).withWidth(thickness));
 }
 
 // -------------------------------------------------------------------------------------
