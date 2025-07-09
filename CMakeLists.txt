@@ -4,6 +4,8 @@ project(XenSequencer VERSION 0.3.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# DEPENDENCIES -------------------------------------------------------------------------
+
 add_subdirectory(external/signals-light)
 add_subdirectory(external/MicrotonalStepSequencer)
 add_subdirectory(external/JUCE SYSTEM)
@@ -14,18 +16,7 @@ if (NOT TARGET Catch2)
     add_subdirectory(external/Catch2 SYSTEM)
 endif()
 
-# XenSequencer Code - separate library so can be linked to tests and tools.
-add_library(XenSequencerLib STATIC)
-
-target_include_directories(XenSequencerLib
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-target_compile_options(XenSequencerLib INTERFACE
-  $<$<CXX_COMPILER_ID:MSVC>:/W1>
-  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
-)
+# BINARY DATA --------------------------------------------------------------------------
 
 # Add key config files as a binary resource
 juce_add_binary_data(EmbedKeys
@@ -86,26 +77,50 @@ juce_add_binary_data(EmbedFonts
         data/font/RobotoMono-Thin.ttf
 )
 
+# PLUGIN -------------------------------------------------------------------------------
 
-target_link_libraries(XenSequencerLib
-    PUBLIC
-        sequencer
-        signals-light
-        juce::juce_audio_utils
-        yaml-cpp
-        nlohmann_json::nlohmann_json
-        EmbedKeys
-        EmbedScales
-        EmbedChords
-        EmbedDemos
-        EmbedFonts
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags
+# `juce_add_plugin` adds a static library target with the name passed as the first
+# argument. This target is a normal CMake target, but has a lot of extra properties set
+# up by default. As well as this shared code static library, this function adds targets
+# for each of the formats specified by the FORMATS arguments. This function accepts many
+# optional arguments. Check the readme at `docs/CMake API.md` in the JUCE repo for the
+# full list.
+
+juce_add_plugin(XenSequencer
+    PRODUCT_NAME "XenSequencer"             # The name of the final executable
+    COMPANY_NAME "A"                        # Specify the name of the plugin's author
+    IS_SYNTH TRUE                           # Is this a synth or an effect?
+    NEEDS_MIDI_INPUT TRUE                   # Does the plugin need midi input?
+    NEEDS_MIDI_OUTPUT TRUE                  # Does the plugin need midi output?
+    IS_MIDI_EFFECT FALSE                    # Is this plugin a MIDI effect?
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE        # Does the editor need keyboard focus?
+    PLUGIN_MANUFACTURER_CODE Juce           # A four-character manufacturer id with at least one upper-case character
+    PLUGIN_CODE Dem0                        # A unique four-character plugin id with exactly one upper-case character
+                                            # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
+    FORMATS VST3 Standalone                 # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
 )
 
-target_sources(XenSequencerLib
+# `target_compile_definitions` adds some preprocessor definitions to our target. In a
+# Projucer project, these might be passed in the 'Preprocessor Definitions' field. JUCE
+# modules also make use of compile definitions to switch certain features on/off, so if
+# there's a particular feature you need that's not on by default, check the module
+# header for the correct flag to set here. These definitions will be visible both to
+# your code, and also the JUCE module code, so for new definitions, pick unique names
+# that are unlikely to collide! This is a standard CMake command.
+
+target_compile_definitions(XenSequencer
     PUBLIC
+        # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
+        JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
+        JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_MODAL_LOOPS_PERMITTED=1
+    # PRIVATE
+        # $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>
+)
+
+target_sources(XenSequencer
+    PRIVATE
         src/actions.cpp
         src/chord.cpp
         src/command.cpp
@@ -126,6 +141,9 @@ target_sources(XenSequencerLib
         src/parse_args.cpp
         src/guide_text.cpp
         src/xen_command_tree.cpp
+        src/xen_editor.cpp
+        src/xen_processor.cpp
+        src/main.cpp
 
         src/gui/accordion.cpp
         src/gui/bg_sequence.cpp
@@ -174,6 +192,8 @@ target_sources(XenSequencerLib
         include/xen/user_directory.hpp
         include/xen/utility.hpp
         include/xen/xen_command_tree.hpp
+        include/xen/xen_editor.hpp
+        include/xen/xen_processor.hpp
 
         include/xen/gui/accordion.hpp
         include/xen/gui/bg_sequence.hpp
@@ -199,78 +219,24 @@ target_sources(XenSequencerLib
 )
 
 
-add_executable(XenTests
-    # test/command.test.cpp
-    # test/utility.test.cpp
-    # test/midi.test.cpp
-    test/command2.test.cpp
-)
-target_link_libraries(XenTests
+target_include_directories(XenSequencer
     PUBLIC
-        XenSequencerLib
-        Catch2::Catch2WithMain
-)
-
-# `juce_add_plugin` adds a static library target with the name passed as the first argument
-# (AudioPluginExample here). This target is a normal CMake target, but has a lot of extra properties set
-# up by default. As well as this shared code static library, this function adds targets for each of
-# the formats specified by the FORMATS arguments. This function accepts many optional arguments.
-# Check the readme at `docs/CMake API.md` in the JUCE repo for the full list.
-
-juce_add_plugin(XenSequencer
-    PRODUCT_NAME "XenSequencer"             # The name of the final executable
-    COMPANY_NAME "A"                        # Specify the name of the plugin's author
-    IS_SYNTH TRUE                           # Is this a synth or an effect?
-    NEEDS_MIDI_INPUT TRUE                   # Does the plugin need midi input?
-    NEEDS_MIDI_OUTPUT TRUE                  # Does the plugin need midi output?
-    IS_MIDI_EFFECT FALSE                    # Is this plugin a MIDI effect?
-    EDITOR_WANTS_KEYBOARD_FOCUS TRUE        # Does the editor need keyboard focus?
-    PLUGIN_MANUFACTURER_CODE Juce           # A four-character manufacturer id with at least one upper-case character
-    PLUGIN_CODE Dem0                        # A unique four-character plugin id with exactly one upper-case character
-                                            # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
-    FORMATS VST3 Standalone                 # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
-)
-
-# `juce_generate_juce_header` will create a JuceHeader.h for a given target, which will be generated
-# into your build tree. This should be included with `#include <JuceHeader.h>`. The include path for
-# this header will be automatically added to the target. The main function of the JuceHeader is to
-# include all your JUCE module headers; if you're happy to include module headers directly, you
-# probably don't need to call this.
-
-# juce_generate_juce_header(AudioPluginExample)
-
-# `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
-# project, these might be passed in the 'Preprocessor Definitions' field. JUCE modules also make use
-# of compile definitions to switch certain features on/off, so if there's a particular feature you
-# need that's not on by default, check the module header for the correct flag to set here. These
-# definitions will be visible both to your code, and also the JUCE module code, so for new
-# definitions, pick unique names that are unlikely to collide! This is a standard CMake command.
-
-
-target_compile_definitions(XenSequencerLib
-    PUBLIC
-        # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
-        JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
-        JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
-        JUCE_VST3_CAN_REPLACE_VST2=0
-        JUCE_MODAL_LOOPS_PERMITTED=1
-    # PRIVATE
-        # $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>
-)
-
-target_sources(XenSequencer
-    PRIVATE
-        src/xen_editor.cpp
-        src/xen_processor.cpp
-        src/main.cpp
-
-        include/xen/xen_editor.hpp
-        include/xen/xen_processor.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(XenSequencer
     PUBLIC
-        XenSequencerLib
+        sequencer
+        signals-light
+        juce::juce_audio_utils
+        yaml-cpp
+        nlohmann_json::nlohmann_json
+        EmbedKeys
+        EmbedScales
+        EmbedChords
+        EmbedDemos
+        EmbedFonts
+        juce::juce_recommended_lto_flags
         juce::juce_audio_utils
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
@@ -280,6 +246,23 @@ target_compile_options(XenSequencer INTERFACE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
+
+# TESTS --------------------------------------------------------------------------------
+
+add_executable(XenTests
+    # test/command.test.cpp
+    # test/utility.test.cpp
+    # test/midi.test.cpp
+    test/command2.test.cpp
+)
+
+target_link_libraries(XenTests
+    PUBLIC
+        XenSequencer
+        Catch2::Catch2WithMain
+)
+
+# TOOLS --------------------------------------------------------------------------------
 
 add_subdirectory(tools/cmd_reference)
 add_subdirectory(tools/keypress)
