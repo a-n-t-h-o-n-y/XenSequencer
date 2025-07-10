@@ -295,3 +295,9 @@ void XenProcessor::changeProgramName(int, const juce::String &)
 }
 
 } // namespace xen
+
+// Definition is needed by JUCE
+juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
+{
+    return new xen::XenProcessor{};
+}

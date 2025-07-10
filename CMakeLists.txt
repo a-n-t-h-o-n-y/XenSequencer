@@ -143,7 +143,6 @@ target_sources(XenSequencer
         src/xen_command_tree.cpp
         src/xen_editor.cpp
         src/xen_processor.cpp
-        src/main.cpp
 
         src/gui/accordion.cpp
         src/gui/bg_sequence.cpp
