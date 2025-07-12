@@ -135,7 +135,7 @@ auto get_bg_trigger_offset(Clock::time_point fg_start, Clock::time_point bg_star
 
 void paint_bg_active_sequence(IR const &ir, juce::Graphics &g,
                               juce::Rectangle<int> const &bounds,
-                              std::size_t pitch_count, juce::Colour color)
+                              std::size_t tuning_length, juce::Colour color)
 {
     g.setColour(color);
 
@@ -148,7 +148,7 @@ void paint_bg_active_sequence(IR const &ir, juce::Graphics &g,
             bounds.getHeight(),
         };
 
-        auto note_bounds = compute_note_bounds(cell_bounds, note_ir.note, pitch_count);
+        auto note_bounds = compute_note_bounds(cell_bounds, note_ir.note, tuning_length);
 
         auto const height_percent = 0.75f;
         auto const corner_percent = 0.2f;

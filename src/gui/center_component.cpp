@@ -81,11 +81,11 @@ std::array<juce::Colour, 16> const bg_colors = [] {
 auto generate_bg_state(sequence::Cell const &cell, Clock::time_point fg_start,
                        Clock::duration fg_duration, Clock::time_point bg_start,
                        Clock::duration bg_duration, Clock::time_point now,
-                       std::size_t pitch_count) -> xen::gui::MeasureView::BGCurrentState
+                       std::size_t tuning_length) -> xen::gui::MeasureView::BGCurrentState
 {
     using namespace xen::gui;
     auto const trigger_offset = get_bg_trigger_offset(fg_start, bg_start, bg_duration);
-    auto const ir = generate_ir(cell, pitch_count);
+    auto const ir = generate_ir(cell, tuning_length);
     auto const window = generate_window(fg_duration, bg_start, bg_duration, now);
     auto const windowed_ir = apply_window(ir, window, trigger_offset);
     return {
@@ -97,7 +97,7 @@ auto generate_bg_state(sequence::Cell const &cell, Clock::time_point fg_start,
 void update_all_bg_state(
     std::array<std::optional<xen::gui::MeasureView::BGCurrentState>, 16> &bg_current,
     xen::SequenceBank const &sequences,
-    std::array<Clock::time_point, 16> const &trigger_starts, std::size_t pitch_count,
+    std::array<Clock::time_point, 16> const &trigger_starts, std::size_t tuning_length,
     std::size_t fg_index, xen::DAWState const &daw, Clock::time_point now)
 {
     auto const fg_start = trigger_starts[fg_index];
@@ -120,7 +120,7 @@ void update_all_bg_state(
         }
         auto const bg_duration = xen::gui::calculate_duration(sequences[i], daw);
         bg_current[i] = generate_bg_state(sequences[i].cell, fg_start, fg_duration,
-                                          bg_start, bg_duration, now, pitch_count);
+                                          bg_start, bg_duration, now, tuning_length);
     }
 }
 
@@ -183,7 +183,7 @@ auto gather_all_pitches(sequence::Cell const &cell) -> std::set<int>
  */
 [[nodiscard]]
 auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
-                                juce::Colour light, std::size_t pitch_count,
+                                juce::Colour light, std::size_t tuning_length,
                                 xen::TranslateDirection scale_translate_direction)
     -> std::vector<juce::Colour>
 {
@@ -194,10 +194,10 @@ auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
         juce::Colour current_color = light;
         int previous_pitch = 0;
 
-        for (auto i = 0; i < (int)pitch_count; ++i)
+        for (auto i = 0; i < (int)tuning_length; ++i)
         {
             auto const mapped_pitch =
-                map_pitch_to_scale(i, pitches, pitch_count, scale_translate_direction);
+                map_pitch_to_scale(i, pitches, tuning_length, scale_translate_direction);
 
             if (mapped_pitch != previous_pitch)
             {
@@ -209,7 +209,7 @@ auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
     }
     else
     {
-        for (std::size_t i = 0; i < pitch_count; ++i)
+        for (std::size_t i = 0; i < tuning_length; ++i)
         {
             colors.push_back((i % 2 == 0) ? light : light.darker(0.2f));
         }
@@ -544,10 +544,10 @@ void MeasureView::resized()
 void MeasureView::paint(juce::Graphics &g)
 {
     auto const bounds = this->getLocalBounds().reduced(2, 7);
-    auto const pitch_count = sequencer_state_.tuning.intervals.size();
+    auto const tuning_length = sequencer_state_.tuning.intervals.size();
 
     draw_staff(g, bounds, this->findColour(ColorID::ForegroundLow),
-               sequencer_state_.scale, pitch_count,
+               sequencer_state_.scale, tuning_length,
                sequencer_state_.scale_translate_direction);
 
     auto fg_index = selected_state_.measure;
@@ -557,7 +557,7 @@ void MeasureView::paint(juce::Graphics &g)
         {
             auto const color = bg_colors[i];
             paint_bg_active_sequence(bg_current_[i]->windowed_ir, g, bounds,
-                                     pitch_count, color);
+                                     tuning_length, color);
             paint_trigger_line(g, bg_current_[i]->trigger_x_percent, color);
         }
     }
@@ -599,8 +599,8 @@ void MeasureView::timerCallback()
 
     if (state_changed)
     {
-        auto const pitch_count = sequencer_state_.tuning.intervals.size();
-        update_all_bg_state(bg_current_, sequences, trigger_starts, pitch_count,
+        auto const tuning_length = sequencer_state_.tuning.intervals.size();
+        update_all_bg_state(bg_current_, sequences, trigger_starts, tuning_length,
                             fg_index, daw, now);
         this->repaint();
         bg_previous_.tuning = sequencer_state_.tuning;

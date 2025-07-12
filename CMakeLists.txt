@@ -151,6 +151,7 @@ target_sources(XenSequencer
         src/gui/center_component.cpp
         src/gui/command_bar.cpp
         src/gui/directory_list_box.cpp
+        # src/gui/graph.cpp
         src/gui/library_view.cpp
         src/gui/message_log.cpp
         src/gui/modulation_pane.cpp
@@ -200,6 +201,7 @@ target_sources(XenSequencer
         include/xen/gui/cell.hpp
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp
+        # include/xen/gui/graph.hpp
         include/xen/gui/themes.hpp
         include/xen/gui/directory_list_box.hpp
         include/xen/gui/homogenous_row.hpp

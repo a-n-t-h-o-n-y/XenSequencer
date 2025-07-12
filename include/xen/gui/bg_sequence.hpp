@@ -81,7 +81,7 @@ auto get_bg_trigger_offset(Clock::time_point fg_start, Clock::time_point bg_star
 
 void paint_bg_active_sequence(IR const &ir, juce::Graphics &g,
                               juce::Rectangle<int> const &bounds,
-                              std::size_t pitch_count, juce::Colour color);
+                              std::size_t tuning_length, juce::Colour color);
 
 void paint_trigger_line(juce::Graphics &g, float percent_location, juce::Colour color);
 

@@ -143,13 +143,13 @@ class BuildAndAllocateCell
  * @details this takes into consideration the pitch (and tuning length), delay and gate.
  * @param bounds The bounds of the component in which the note will be displayed.
  * @param note The note.
- * @param pitch_count The number of pitches in the tuning.
+ * @param tuning_length The number of pitches in the tuning.
  * @return The Rectangle that represents the position and size of the note.
  * @exception std::invalid_argument If tuning_length is zero, to prevent division by
  * zero.
  */
 [[nodiscard]]
 auto compute_note_bounds(juce::Rectangle<int> const &bounds, sequence::Note note,
-                         std::size_t pitch_count) -> juce::Rectangle<int>;
+                         std::size_t tuning_length) -> juce::Rectangle<int>;
 
 } // namespace xen::gui

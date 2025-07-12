@@ -304,21 +304,21 @@ auto BuildAndAllocateCell::operator()(sequence::Sequence s) const
 }
 
 auto compute_note_bounds(juce::Rectangle<int> const &bounds, sequence::Note note,
-                         std::size_t pitch_count) -> juce::Rectangle<int>
+                         std::size_t tuning_length) -> juce::Rectangle<int>
 {
-    if (pitch_count == 0)
+    if (tuning_length == 0)
     {
         throw std::invalid_argument("Tuning length must not be zero.");
     }
 
-    auto const normalized = xen::utility::normalize_pitch(note.pitch, pitch_count);
-    assert(normalized < pitch_count);
+    auto const normalized = xen::utility::normalize_pitch(note.pitch, tuning_length);
+    assert(normalized < tuning_length);
 
     auto const total_height = bounds.getHeight();
-    auto const int_height = total_height / static_cast<int>(pitch_count);
-    auto const remainder = total_height % static_cast<int>(pitch_count);
+    auto const int_height = total_height / static_cast<int>(tuning_length);
+    auto const remainder = total_height % static_cast<int>(tuning_length);
 
-    auto const row = static_cast<int>(pitch_count - 1 - normalized);
+    auto const row = static_cast<int>(tuning_length - 1 - normalized);
     auto const y = bounds.getY() + row * int_height + std::min(row, remainder);
     auto const h = int_height + (row < remainder ? 1 : 0);
 
