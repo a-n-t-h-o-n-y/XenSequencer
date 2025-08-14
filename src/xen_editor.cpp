@@ -46,10 +46,10 @@ namespace xen::gui
 
 XenEditor::XenEditor(XenProcessor &p, int width, int height)
     : AudioProcessorEditor{p},
-      plugin_window{p.plugin_state.current_sequence_directory,
-                    p.plugin_state.current_tuning_directory,
-                    p.plugin_state.command_history, p.audio_thread_state_for_gui},
-      processor_{p}, tooltip_window_{this}
+    //   plugin_window{p.plugin_state.current_sequence_directory,
+    //                 p.plugin_state.current_tuning_directory,
+    //                 p.plugin_state.command_history, p.audio_thread_state_for_gui},
+      processor_{p}, tooltip_window_{this}, react_ui{processor_.plugin_state}
 {
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
 
@@ -57,106 +57,108 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     this->setSize(width, height);
     this->setResizeLimits(400, 300, 0x3fffffff, 0x3fffffff);
 
-    this->addAndMakeVisible(&plugin_window);
+    // this->addAndMakeVisible(plugin_window);
 
-    { // Initialize LookAndFeel after plugin_window is added as child.
-        if (p.plugin_state.laf == nullptr)
-        {
-            auto const theme = [&] {
-                auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
-                return p.plugin_state.shared.theme;
-            }();
-            p.plugin_state.laf = gui::make_laf(theme);
-        }
-        this->setLookAndFeel(p.plugin_state.laf.get());
-    }
+    this->addAndMakeVisible(react_ui);
+
+    // { // Initialize LookAndFeel after plugin_window is added as child.
+    //     if (p.plugin_state.laf == nullptr)
+    //     {
+    //         auto const theme = [&] {
+    //             auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
+    //             return p.plugin_state.shared.theme;
+    //         }();
+    //         p.plugin_state.laf = gui::make_laf(theme);
+    //     }
+    //     this->setLookAndFeel(p.plugin_state.laf.get());
+    // }
 
     // CommandBar Execute Request
-    plugin_window.bottom_bar.command_bar.on_command.connect(
-        [this](std::string const &command_string) {
-            this->execute_command_string(command_string);
-        });
+    // plugin_window.bottom_bar.command_bar.on_command.connect(
+    //     [this](std::string const &command_string) {
+    //         this->execute_command_string(command_string);
+    //     });
 
     // CommandBar Guide Text Request
-    plugin_window.bottom_bar.command_bar.on_guide_text_request.connect(
-        [this](std::string const &partial_command) -> std::string {
-            return generate_guide_text(processor_.command_tree, partial_command);
-        });
+    // plugin_window.bottom_bar.command_bar.on_guide_text_request.connect(
+    //     [this](std::string const &partial_command) -> std::string {
+    //         return generate_guide_text(processor_.command_tree, partial_command);
+    //     });
 
     // CommandBar ID Completion Request
-    plugin_window.bottom_bar.command_bar.on_complete_id_request.connect(
-        [this](std::string const &partial_command) -> std::string {
-            return complete_id(processor_.command_tree, partial_command);
-        });
+    // plugin_window.bottom_bar.command_bar.on_complete_id_request.connect(
+    //     [this](std::string const &partial_command) -> std::string {
+    //         return complete_id(processor_.command_tree, partial_command);
+    //     });
 
     // Sequence File Selected
-    plugin_window.center_component.library_view.sequences_list.on_file_selected.connect(
-        [this](juce::File const &file) {
-            auto const filename = file.getFileNameWithoutExtension().toStdString();
-            this->execute_command_string("load sequenceBank " + double_quote(filename) +
-                                         ";show SequenceView;focus SequenceView");
-        });
+    // plugin_window.center_component.library_view.sequences_list.on_file_selected.connect(
+    //     [this](juce::File const &file) {
+    //         auto const filename = file.getFileNameWithoutExtension().toStdString();
+    //         this->execute_command_string("load sequenceBank " + double_quote(filename) +
+    //                                      ";show SequenceView;focus SequenceView");
+    //     });
 
     // Tuning File Selected
-    plugin_window.center_component.library_view.tunings_list.on_file_selected.connect(
-        [this](juce::File const &file) {
-            auto const filename = file.getFileNameWithoutExtension().toStdString();
-            this->execute_command_string("load tuning " + double_quote(filename) +
-                                         ";show SequenceView;focus SequenceView");
-        });
+    // plugin_window.center_component.library_view.tunings_list.on_file_selected.connect(
+    //     [this](juce::File const &file) {
+    //         auto const filename = file.getFileNameWithoutExtension().toStdString();
+    //         this->execute_command_string("load tuning " + double_quote(filename) +
+    //                                      ";show SequenceView;focus SequenceView");
+    //     });
 
     // Scale Selected
-    plugin_window.center_component.library_view.scales_list.on_scale_selected.connect(
-        [this](std::string const &scale_name) {
-            this->execute_command_string("set scale " + double_quote(scale_name) +
-                                         ";show SequenceView;focus SequenceView");
-        });
+    // plugin_window.center_component.library_view.scales_list.on_scale_selected.connect(
+    //     [this](std::string const &scale_name) {
+    //         this->execute_command_string("set scale " + double_quote(scale_name) +
+    //                                      ";show SequenceView;focus SequenceView");
+    //     });
 
     // SequenceView Command Requests
-    plugin_window.center_component.sequence_view.on_command.connect(
-        [this](std::string const &command_string) {
-            this->execute_command_string(command_string);
-        });
+    // plugin_window.center_component.sequence_view.on_command.connect(
+    //     [this](std::string const &command_string) {
+    //         this->execute_command_string(command_string);
+    //     });
 
     // Library/Sequencer Flip Request
-    plugin_window.bottom_bar.library_sequencer_toggle.on_command.connect(
-        [this](std::string const &command_string) {
-            this->execute_command_string(command_string);
-        });
+    // plugin_window.bottom_bar.library_sequencer_toggle.on_command.connect(
+    //     [this](std::string const &command_string) {
+    //         this->execute_command_string(command_string);
+    //     });
 
     // Sequence Change Request
-    plugin_window.center_component.sequence_view.sequence_bank.on_index_selected
-        .connect([this](std::size_t index) {
-            this->execute_command_string("select sequence " + std::to_string(index));
-        });
+    // plugin_window.center_component.sequence_view.sequence_bank.on_index_selected
+    //     .connect([this](std::size_t index) {
+    //         this->execute_command_string("select sequence " + std::to_string(index));
+    //     });
 
-    { // Theme Changed
-        auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
-            p.plugin_state.laf = gui::make_laf(theme);
-            this->setLookAndFeel(p.plugin_state.laf.get());
-        }};
-        slot.track(lifetime_);
-        auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
-        p.plugin_state.shared.on_theme_update.connect(slot);
-    }
+    // { // Theme Changed
+    //     auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
+    //         p.plugin_state.laf = gui::make_laf(theme);
+    //         this->setLookAndFeel(p.plugin_state.laf.get());
+    //     }};
+    //     slot.track(lifetime_);
+    //     auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
+    //     p.plugin_state.shared.on_theme_update.connect(slot);
+    // }
 
-    { // Focus Change Request
-        auto slot = sl::Slot<void(std::string const &)>{
-            [this](std::string const &component_id) {
-                plugin_window.set_focus(component_id);
-            }};
-        slot.track(lifetime_);
-        p.plugin_state.on_focus_request.connect(slot);
-    }
+    // { // Focus Change Request
+    //     auto slot = sl::Slot<void(std::string const &)>{
+    //         [this](std::string const &component_id) {
+    //             plugin_window.set_focus(component_id);
+    //         }};
+    //     slot.track(lifetime_);
+    //     p.plugin_state.on_focus_request.connect(slot);
+    // }
 
-    { // Show Component Request
-        auto slot = sl::Slot<void(std::string const &)>{
-            [this](std::string const &component_id) {
-                plugin_window.show_component(component_id);
-            }};
-        slot.track(lifetime_);
-        p.plugin_state.on_show_request.connect(slot);
-    }
+    // { // Show Component Request
+    //     auto slot = sl::Slot<void(std::string const &)>{
+    //         [this](std::string const &component_id) {
+    //             plugin_window.show_component(component_id);
+    //         }};
+    //     slot.track(lifetime_);
+    //     p.plugin_state.on_show_request.connect(slot);
+    // }
 
     { // Load Keys File Request
         auto slot = sl::Slot<void()>{[this] {
@@ -169,16 +171,16 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     }
 
     // Sequence Library Directory Change
-    plugin_window.center_component.library_view.sequences_list.on_directory_change
-        .connect([&](juce::File const &directory) {
-            p.plugin_state.current_sequence_directory = directory;
-        });
+    // plugin_window.center_component.library_view.sequences_list.on_directory_change
+    //     .connect([&](juce::File const &directory) {
+    //         p.plugin_state.current_sequence_directory = directory;
+    //     });
 
     // Tuning Library Directory Change
-    plugin_window.center_component.library_view.tunings_list.on_directory_change
-        .connect([&](juce::File const &directory) {
-            p.plugin_state.current_tuning_directory = directory;
-        });
+    // plugin_window.center_component.library_view.tunings_list.on_directory_change
+    //     .connect([&](juce::File const &directory) {
+    //         p.plugin_state.current_tuning_directory = directory;
+    //     });
 
     // Initialize GUI
     this->update();
@@ -189,10 +191,10 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     }
     catch (std::exception const &e)
     {
-        auto const message = std::string{"Check `user_keys.yml`: "} + e.what();
-        plugin_window.bottom_bar.status_bar.set_status(MessageLevel::Error, message);
-        plugin_window.center_component.message_log.add_message(message,
-                                                               MessageLevel::Error);
+        // auto const message = std::string{"Check `user_keys.yml`: "} + e.what();
+        // plugin_window.bottom_bar.status_bar.set_status(MessageLevel::Error, message);
+        // plugin_window.center_component.message_log.add_message(message,
+        //                                                        MessageLevel::Error);
     }
 
     this->execute_command_string("welcome");
@@ -206,7 +208,7 @@ auto XenEditor::createKeyboardFocusTraverser()
 
 void XenEditor::update()
 {
-    plugin_window.update(processor_.plugin_state);
+    // plugin_window.update(processor_.plugin_state);
 }
 
 void XenEditor::update_key_listeners(juce::File const &default_keys,
@@ -220,7 +222,8 @@ void XenEditor::update_key_listeners(juce::File const &default_keys,
 
 void XenEditor::resized()
 {
-    plugin_window.setBounds(this->getLocalBounds());
+    // plugin_window.setBounds(this->getLocalBounds());
+    react_ui.setBounds(this->getLocalBounds());
     processor_.editor_width = this->getWidth();
     processor_.editor_height = this->getHeight();
 }
@@ -232,8 +235,8 @@ void XenEditor::execute_command_string(std::string const &command_string)
     {
         this->update();
     }
-    plugin_window.bottom_bar.status_bar.set_status(level, message);
-    plugin_window.center_component.message_log.add_message(message, level);
+    // plugin_window.bottom_bar.status_bar.set_status(level, message);
+    // plugin_window.center_component.message_log.add_message(message, level);
 }
 
 void XenEditor::set_key_listeners(
@@ -260,20 +263,20 @@ void XenEditor::set_key_listeners(
 
     try
     {
-        remove_listener(plugin_window.center_component.sequence_view);
-        add_listener(plugin_window.center_component.sequence_view);
+        // remove_listener(plugin_window.center_component.sequence_view);
+        // add_listener(plugin_window.center_component.sequence_view);
 
-        remove_listener(plugin_window.center_component.library_view.sequences_list);
-        add_listener(plugin_window.center_component.library_view.sequences_list);
+        // remove_listener(plugin_window.center_component.library_view.sequences_list);
+        // add_listener(plugin_window.center_component.library_view.sequences_list);
 
-        remove_listener(plugin_window.center_component.library_view.tunings_list);
-        add_listener(plugin_window.center_component.library_view.tunings_list);
+        // remove_listener(plugin_window.center_component.library_view.tunings_list);
+        // add_listener(plugin_window.center_component.library_view.tunings_list);
 
-        remove_listener(plugin_window.center_component.library_view.scales_list);
-        add_listener(plugin_window.center_component.library_view.scales_list);
+        // remove_listener(plugin_window.center_component.library_view.scales_list);
+        // add_listener(plugin_window.center_component.library_view.scales_list);
 
-        remove_listener(plugin_window.center_component.message_log);
-        add_listener(plugin_window.center_component.message_log);
+        // remove_listener(plugin_window.center_component.message_log);
+        // add_listener(plugin_window.center_component.message_log);
     }
     catch (std::exception const &e)
     {

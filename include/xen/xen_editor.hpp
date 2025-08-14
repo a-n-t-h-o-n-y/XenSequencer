@@ -8,6 +8,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/plugin_window.hpp>
+#include <xen/gui/react_web_view.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_processor.hpp>
@@ -18,7 +19,7 @@ namespace xen::gui
 class XenEditor : public juce::AudioProcessorEditor
 {
   public:
-    PluginWindow plugin_window;
+    // PluginWindow plugin_window;
 
   public:
     explicit XenEditor(XenProcessor &, int width, int height);
@@ -74,6 +75,9 @@ class XenEditor : public juce::AudioProcessorEditor
     sl::Lifetime lifetime_;
 
     juce::TooltipWindow tooltip_window_;
+
+  public:
+    ReactWebView react_ui;
 };
 
 } // namespace xen::gui

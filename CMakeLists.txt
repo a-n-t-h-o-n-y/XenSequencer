@@ -77,6 +77,15 @@ juce_add_binary_data(EmbedFonts
         data/font/RobotoMono-Thin.ttf
 )
 
+# Add ReactUI as a binary resource
+juce_add_binary_data(EmbedReactUI 
+    HEADER_NAME "embed_reactui.hpp"
+    NAMESPACE embed_reactui
+    SOURCES
+        react-ui/dist/index.html
+)
+
+
 # PLUGIN -------------------------------------------------------------------------------
 
 # `juce_add_plugin` adds a static library target with the name passed as the first
@@ -98,6 +107,8 @@ juce_add_plugin(XenSequencer
     PLUGIN_CODE Dem0                        # A unique four-character plugin id with exactly one upper-case character
                                             # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
     FORMATS VST3 Standalone                 # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
+    NEEDS_WEB_BROWSER TRUE
+    NEEDS_CURL TRUE
 )
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a
@@ -107,14 +118,11 @@ juce_add_plugin(XenSequencer
 # header for the correct flag to set here. These definitions will be visible both to
 # your code, and also the JUCE module code, so for new definitions, pick unique names
 # that are unlikely to collide! This is a standard CMake command.
-
 target_compile_definitions(XenSequencer
     PUBLIC
-        # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
-        JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
-        JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     # PRIVATE
         # $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>
 )
@@ -156,6 +164,7 @@ target_sources(XenSequencer
         src/gui/message_log.cpp
         src/gui/modulation_pane.cpp
         src/gui/plugin_window.cpp
+        src/gui/react_web_view.cpp
         src/gui/sequence_bank.cpp
         src/gui/status_bar.cpp
         src/gui/themes.cpp
@@ -209,6 +218,7 @@ target_sources(XenSequencer
         include/xen/gui/message_log.hpp
         include/xen/gui/modulation_pane.hpp
         include/xen/gui/plugin_window.hpp
+        include/xen/gui/react_web_view.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp
         include/xen/gui/tile.hpp
@@ -237,6 +247,7 @@ target_link_libraries(XenSequencer
         EmbedChords
         EmbedDemos
         EmbedFonts
+        EmbedReactUI
         juce::juce_recommended_lto_flags
         juce::juce_audio_utils
         juce::juce_recommended_config_flags
