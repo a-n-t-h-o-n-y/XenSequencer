@@ -8,7 +8,6 @@
 #  [d] : Delay
 #  [g] : Gate
 #  [c] : Scale
-#  [m] : ScaleMode
 
 # Shift is shift key
 # Cmd is Ctrl or Command depending on OS
@@ -29,7 +28,6 @@ SequenceView:
   "d": "inputMode delay"
   "g": "inputMode gate"
   "c": "inputMode scale"
-  "m": "inputMode scaleMode"
 
   # UI Display
   "Shift + :": "show commandbar;focus commandbar"
@@ -114,16 +112,15 @@ SequenceView:
   "[g] + Cmd + ArrowUp": "shift Gate +0.01"
 
   # ShiftScale
-  "[c] + j": "shift scale -1"
-  "[c] + ArrowDown": "shift scale -1"
-  "[c] + k": "shift scale +1"
-  "[c] + ArrowUp": "shift scale +1"
+  "[c] + j": "shift entireScale -1"
+  "[c] + ArrowDown": "shift entireScale -1"
+  "[c] + k": "shift entireScale +1"
+  "[c] + ArrowUp": "shift entireScale +1"
 
-  # ShiftScaleMode
-  "[m] + j": "shift scaleMode -1"
-  "[m] + ArrowDown": "shift scaleMode -1"
-  "[m] + k": "shift scaleMode +1"
-  "[m] + ArrowUp": "shift scaleMode +1"
+  "[c] + Shift + j": "shift scale -1"
+  "[c] + Shift + ArrowDown": "shift scale -1"
+  "[c] + Shift + k": "shift scale +1"
+  "[c] + Shift + ArrowUp": "shift scale +1"
 
   # TimeSignature
   "Shift + plus": "double sequence timeSignature"

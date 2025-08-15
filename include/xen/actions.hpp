@@ -107,6 +107,8 @@ void save_sequence_bank(SequenceBank const &bank,
                                      int shift_amount, std::size_t scale_count)
     -> std::optional<std::size_t>;
 
+void flip_translate_direction(TranslateDirection &td);
+
 [[nodiscard]] auto step(sequence::Cell cell, sequence::Pattern const &pattern,
                         int pitch_distance, float velocity_distance) -> sequence::Cell;
 

@@ -282,6 +282,12 @@ auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
     }
 }
 
+void flip_translate_direction(TranslateDirection &td)
+{
+    td = (td == TranslateDirection::Up) ? TranslateDirection::Down
+                                        : TranslateDirection::Up;
+}
+
 auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_distance,
           float velocity_distance) -> sequence::Cell
 {

@@ -974,7 +974,7 @@ auto create_command_tree() -> XenCommandTree
                            }
                            else
                            {
-                               seq.scale = std::nullopt;
+                               seq.scale = std::nullopt; // Chromatic
                            }
                            ps.timeline.stage({std::move(seq), std::move(aux)});
                            ps.timeline.set_commit_flag();
@@ -994,6 +994,73 @@ auto create_command_tree() -> XenCommandTree
                            }
                            return minfo("Scale Mode Shifted");
                        }));
+
+        // shift translateDirection
+        shift->add(cmd(signature("translateDirection"),
+                       "Flip the scale translate direction to the opposite of its "
+                       "current state.",
+                       [](PS &ps) {
+                           auto state = ps.timeline.get_state();
+                           action::flip_translate_direction(
+                               state.sequencer.scale_translate_direction);
+                           ps.timeline.stage(std::move(state));
+                           ps.timeline.set_commit_flag();
+                           return minfo("Translate Direction Shifted");
+                       }));
+
+        // shift entireScale
+        // shift translateDirection -> mode -> scale
+        shift->add(cmd(
+            signature("entireScale", arg<int>("direction", 1)),
+            "Shift the entire scale structure (translateDirection, mode, "
+            "scale) in that order, moving onto the next as each reaches the "
+            "end. direction parameter must be -1 or 1.",
+            [](PS &ps, int direction) {
+                if (direction != 1 && direction != -1)
+                {
+                    return merror("Invalid direction, must be 1 or -1");
+                }
+                auto [seq, aux] = ps.timeline.get_state();
+                auto &td = seq.scale_translate_direction;
+                if (seq.scale.has_value())
+                {
+                    action::flip_translate_direction(td);
+                    if (td == TranslateDirection::Up)
+                    {
+                        seq.scale = action::shift_scale_mode(*(seq.scale), direction);
+                        if ((seq.scale->mode == 1 && direction == 1) ||
+                            (seq.scale->mode == seq.scale->intervals.size() &&
+                             direction == -1))
+                        {
+                            auto const index = action::shift_scale_index(
+                                ps.scale_shift_index, direction, ps.scales.size());
+                            ps.scale_shift_index = index;
+                            if (index.has_value() && *index < ps.scales.size())
+                            {
+                                seq.scale = ps.scales[*index];
+                                if (direction == -1)
+                                {
+                                    seq.scale->mode = seq.scale->intervals.size();
+                                }
+                            }
+                            else
+                            {
+                                seq.scale = std::nullopt; // Chromatic
+                            }
+                        }
+                    }
+                }
+                else if (!ps.scales.empty()) // Current is chromatic
+                {
+                    auto const index = direction == 1 ? 0 : ps.scales.size() - 1;
+                    seq.scale = ps.scales[index];
+                    td = TranslateDirection::Up;
+                }
+
+                ps.timeline.stage({std::move(seq), std::move(aux)});
+                ps.timeline.set_commit_flag();
+                return minfo("Entire Scale Shifted");
+            }));
 
         head.add(std::move(shift));
     }
@@ -1244,7 +1311,7 @@ auto create_command_tree() -> XenCommandTree
             state.base_frequency = 440.f;
 
             state.scale = std::nullopt;
-            ps.scale_shift_index = std::nullopt;
+            ps.scale_shift_index = std::nullopt; // Chromatic
 
             // A3 is the zero pitch
             auto const A3 = 57;

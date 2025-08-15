@@ -217,9 +217,8 @@ auto const key_map = [] {
                                     std::string const &command) -> KeyConfig
 {
     static const auto mode_map = std::unordered_map<char, InputMode>{
-        {'p', InputMode::Pitch}, {'v', InputMode::Velocity},
-        {'d', InputMode::Delay}, {'g', InputMode::Gate},
-        {'c', InputMode::Scale}, {'m', InputMode::ScaleMode},
+        {'p', InputMode::Pitch}, {'v', InputMode::Velocity}, {'d', InputMode::Delay},
+        {'g', InputMode::Gate},  {'c', InputMode::Scale},
     };
 
     // Convert to lowercase for case-insensitivity

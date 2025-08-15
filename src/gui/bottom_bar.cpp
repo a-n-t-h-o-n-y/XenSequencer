@@ -31,8 +31,6 @@ namespace
         return 'G';
     case xen::InputMode::Scale:
         return 'S';
-    case xen::InputMode::ScaleMode:
-        return 'M';
     default:
         assert(false);
         return ' ';
