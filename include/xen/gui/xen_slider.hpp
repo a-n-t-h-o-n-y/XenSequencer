@@ -17,15 +17,23 @@ namespace xen::gui
 // a textbox and setEditable with proper params.
 
 /**
- * A Slider with a Label on top.
+ * A Slider with a an on_release signal that is emitted when the user releases the
+ * mouse after dragging the slider, in addition to an on_change signal that is
+ * emitted whenever the slider value changes.
  */
 class XenSlider : public juce::Component
 {
+  private:
+    struct InternalSlider : juce::Slider
+    {
+        auto snapValue(double attemptedValue, DragMode drag_mode) -> double override;
+    } slider; // TODO change to slider_ ?
+
   public:
     struct Metadata
     {
-        std::string id;
-        std::string display_name;
+        // std::string id;
+        // std::string display_name;
         float initial;
         float min;
         float max;
@@ -33,9 +41,6 @@ class XenSlider : public juce::Component
     };
 
   public:
-    juce::Slider slider;
-    juce::Label label;
-
     sl::Signal<void()> on_release;
     sl::Signal<void(float)> on_change;
 
@@ -44,15 +49,21 @@ class XenSlider : public juce::Component
               juce::Slider::SliderStyle style = juce::Slider::LinearHorizontal);
 
   public:
-    void paint(juce::Graphics &g) override;
+    // void paint(juce::Graphics &g) override;
+
+    [[nodiscard]]
+    auto get_value() const -> float
+    {
+        return (float)slider.getValue();
+    }
 
     void resized() override;
 
     void mouseUp(juce::MouseEvent const &e) override;
 
-    float vertical_margin = 2.f;
-    float horizontal_margin = 2.f;
-    float border_thickness = 3.f;
+    // float vertical_margin = 2.f;
+    // float horizontal_margin = 2.f;
+    // float border_thickness = 3.f;
 };
 
 } // namespace xen::gui

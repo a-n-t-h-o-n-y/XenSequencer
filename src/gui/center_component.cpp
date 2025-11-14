@@ -81,7 +81,8 @@ std::array<juce::Colour, 16> const bg_colors = [] {
 auto generate_bg_state(sequence::Cell const &cell, Clock::time_point fg_start,
                        Clock::duration fg_duration, Clock::time_point bg_start,
                        Clock::duration bg_duration, Clock::time_point now,
-                       std::size_t tuning_length) -> xen::gui::MeasureView::BGCurrentState
+                       std::size_t tuning_length)
+    -> xen::gui::MeasureView::BGCurrentState
 {
     using namespace xen::gui;
     auto const trigger_offset = get_bg_trigger_offset(fg_start, bg_start, bg_duration);
@@ -196,8 +197,8 @@ auto generate_staff_line_colors(std::optional<xen::Scale> const &scale,
 
         for (auto i = 0; i < (int)tuning_length; ++i)
         {
-            auto const mapped_pitch =
-                map_pitch_to_scale(i, pitches, tuning_length, scale_translate_direction);
+            auto const mapped_pitch = map_pitch_to_scale(i, pitches, tuning_length,
+                                                         scale_translate_direction);
 
             if (mapped_pitch != previous_pitch)
             {

@@ -23,8 +23,9 @@ auto sine(float frequency, float amplitude, float phase) -> Modulator
     {
         throw std::invalid_argument{"Frequency must be non-negative."};
     }
-    return [frequency, amplitude, phase](float t) -> float {
-        auto const two_pi = 2.f * std::numbers::pi_v<float>;
+    auto constexpr two_pi = 2.f * std::numbers::pi_v<float>;
+
+    return [frequency, amplitude, phase, two_pi](float t) -> float {
         return amplitude * std::sin(two_pi * frequency * (t + phase));
     };
 }
@@ -36,10 +37,10 @@ auto triangle(float frequency, float amplitude, float phase) -> Modulator
         throw std::invalid_argument{"Frequency must be non-negative."};
     }
 
-    return [frequency, amplitude, phase](float t) -> float {
-        auto const wrapped_t = std::fmod(t + phase, 1.0f);
-        auto const x = std::fmod(wrapped_t * frequency, 1.0f); // map to [0, 1)
-        auto const tri = 4.f * std::abs(x - 0.5f) - 1.f; // triangle wave in [-1, 1]
+    auto const normalized_phase = std::fmod(std::fmod(phase, 1.f) + 1.f, 1.f);
+    return [frequency, amplitude, normalized_phase](float t) -> float {
+        auto const x = std::fmod(t * frequency + normalized_phase, 1.f);
+        auto const tri = 4.f * std::abs(x - 0.5f) - 1.f;
         return amplitude * tri;
     };
 }
@@ -51,9 +52,9 @@ auto sawtooth_up(float frequency, float amplitude, float phase) -> Modulator
         throw std::invalid_argument{"Frequency must be non-negative."};
     }
 
-    return [frequency, amplitude, phase](float t) -> float {
-        auto const wrapped_t = std::fmod(t + phase, 1.0f);
-        auto const x = std::fmod(wrapped_t * frequency, 1.0f); // map to [0, 1)
+    auto const normalized_phase = std::fmod(std::fmod(phase, 1.f) + 1.f, 1.f);
+    return [frequency, amplitude, normalized_phase](float t) -> float {
+        auto const x = std::fmod(t * frequency + normalized_phase, 1.f);
         auto const saw = 2.f * x - 1.f; // sawtooth wave in [-1, 1]
         return amplitude * saw;
     };
@@ -66,9 +67,9 @@ auto sawtooth_down(float frequency, float amplitude, float phase) -> Modulator
         throw std::invalid_argument{"Frequency must be non-negative."};
     }
 
-    return [frequency, amplitude, phase](float t) -> float {
-        auto const wrapped_t = std::fmod(t + phase, 1.0f);
-        auto const x = std::fmod(wrapped_t * frequency, 1.0f); // map to [0, 1)
+    auto const normalized_phase = std::fmod(std::fmod(phase, 1.f) + 1.f, 1.f);
+    return [frequency, amplitude, normalized_phase](float t) -> float {
+        auto const x = std::fmod(t * frequency + normalized_phase, 1.f);
         auto const saw = 1.f - 2.f * x; // inverted sawtooth wave in [-1, 1]
         return amplitude * saw;
     };
@@ -86,10 +87,10 @@ auto square(float frequency, float amplitude, float phase, float pulse_width)
         throw std::invalid_argument{"Pulse width must be in the range [0, 1]"};
     }
 
-    return [frequency, amplitude, phase, pulse_width](float t) -> float {
-        auto const wrapped_t = std::fmod(t + phase, 1.0f);
-        auto const x = std::fmod(wrapped_t * frequency, 1.0f); // map to [0, 1)
-        auto const square = (x < pulse_width) ? 1.f : -1.f;    // square wave in [-1, 1]
+    auto const normalized_phase = std::fmod(std::fmod(phase, 1.f) + 1.f, 1.f);
+    return [frequency, amplitude, normalized_phase, pulse_width](float t) -> float {
+        auto const x = std::fmod(t * frequency + normalized_phase, 1.f);
+        auto const square = (x < pulse_width) ? 1.f : -1.f; // square wave in [-1, 1]
         return amplitude * square;
     };
 }
