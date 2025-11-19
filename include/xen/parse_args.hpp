@@ -135,13 +135,6 @@ template <typename T = float>
 [[nodiscard]] auto parse_time_signature(std::string const &x)
     -> sequence::TimeSignature;
 
-/**
- * Parses a JSON string into a Modulator.
- * @throws std::invalid_argument if the string is not in the correct format.
- */
-[[nodiscard]]
-auto parse_modulator(std::string const &mod_json) -> Modulator;
-
 // Forward Declation for parse_variant
 template <typename T>
 [[nodiscard]] auto parse(std::string const &x) -> T;
@@ -254,7 +247,9 @@ template <typename T>
     }
     else if constexpr (std::is_same_v<T, Modulator>)
     {
-        return parse_modulator(x);
+        auto mod = Modulator{};
+        from_json(nlohmann::json::parse(x), mod);
+        return mod;
     }
     else if constexpr (utility::is_variant_v<T>)
     {

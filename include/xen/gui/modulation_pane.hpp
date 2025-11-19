@@ -13,88 +13,13 @@
 
 #include <signals_light/signal.hpp>
 
+#include <xen/gui/modulation_slider.hpp>
 #include <xen/gui/sequence_bank.hpp>
 #include <xen/gui/xen_slider.hpp>
 #include <xen/modulator.hpp>
 
 namespace xen::gui
 {
-
-// class ModulationButtons : public juce::Component
-// {
-//   public:
-//     sl::Signal<void(std::size_t)> on_index_selected;
-
-//   public:
-//     ModulationButtons();
-
-//   public:
-//     void resized() override;
-
-//   private:
-//     std::array<SequenceSquare, 16> buttons_;
-// };
-
-// class ModulationParameters : public juce::Component
-// {
-//   public:
-//     sl::Signal<void()> on_change;
-//     sl::Signal<void()> on_commit;
-
-//   public:
-//     ModulationParameters(std::string const &mod_type,
-//                          std::vector<XenSlider::Metadata> const &slider_data);
-
-//   public:
-//     void paint(juce::Graphics &g) override;
-
-//     void resized() override;
-
-//   public:
-//     [[nodiscard]]
-//     auto get_json() -> nlohmann::json;
-
-//     /**
-//      * Return true if the mod_type is empty.
-//      */
-//     [[nodiscard]]
-//     auto empty() -> bool;
-
-//     [[nodiscard]]
-//     auto get_type() -> std::string const &;
-
-//   private:
-//     std::string type_;
-//     std::vector<std::unique_ptr<XenSlider>> sliders_;
-// };
-
-// class ModulationPane_Previous : public juce::Component
-// {
-//   public:
-//     sl::Signal<void(std::string const &)> on_change; // Emits command string
-
-//   public:
-//     ModulationPane_Previous();
-
-//   public:
-//     void resized() override;
-
-//   private:
-//     juce::ComboBox target_command_dropdown_;
-//     juce::ComboBox modulator_dropdown_;
-//     std::array<std::unique_ptr<ModulationParameters>, 16> parameter_uis_;
-//     std::size_t current_selection_{0};
-//     ModulationButtons buttons_;
-
-//   private:
-//     [[nodiscard]]
-//     auto generate_json() -> std::string;
-
-//     [[nodiscard]]
-//     auto generate_command_string(bool commit) -> std::string;
-// };
-
-// ====================================
 
 /// A combo box that has various LFO type waveforms in it.
 class WaveformSelect : public juce::Component
@@ -121,7 +46,7 @@ class WaveformBox : public juce::Component
     // TODO what is the best value for this? test it, it depends on the sise of the boks
     // TODO move this to fn implementation or source file, only if samples array is no
     // longer used.
-    static constexpr int RESOLUTION = 200;
+    static constexpr int RESOLUTION = 500;
 
   public:
     struct Waveform
@@ -190,6 +115,8 @@ class WaveformBox : public juce::Component
 
     juce::Colour grid_color_{juce::Colours::grey};
     float lerp_{0.f}; // 0 = all A, 1 = all B
+    static constexpr float MIN_FREQ = 0.1f;
+    static constexpr float MAX_FREQ = 10.f;
 
     static constexpr std::size_t WAVE_A_INDEX = 0;
     static constexpr std::size_t WAVE_B_INDEX = 1;
@@ -215,49 +142,32 @@ class WaveformBox : public juce::Component
 
     bool is_dragging_ = false;
 
-    std::array<float, 25> frequency_grid_values_ = {
-        0.f, 0.25f, 0.5f, 0.75f, 1.f / 3.f,       2.f / 3.f,
+    // array of pair<frequency, pixel thickness>
+    std::array<std::pair<float, float>, 12> frequency_grid_values_ = {{
+        {MIN_FREQ, 0.f},
+        {0.25f, 1.5f},
+        {0.5f, 1.5f},
+        {0.75f, 1.5f},
+        {1.f / 3.f, 1.f},
+        {2.f / 3.f, 1.f},
+        {1.f, 2.f},
+        {1.5f, 1.5f},
+        {2.f, 1.5f},
+        {4.f, 1.5f},
+        {8.f, 1.5f},
+        {MAX_FREQ, 0.f},
+    }};
 
-        1.f, 1.25f, 1.5f, 1.75f, 1.f + 1.f / 3.f, 1.f + 2.f / 3.f,
-
-        2.f, 2.25f, 2.5f, 2.75f, 2.f + 1.f / 3.f, 2.f + 2.f / 3.f,
-
-        3.f, 3.25f, 3.5f, 3.75f, 3.f + 1.f / 3.f, 3.f + 2.f / 3.f,
-
-        4.f,
-    };
-
-    std::array<float, 7> offset_grid_values_ = {
-        -0.5f, -0.25f, 0.f, 0.25f, 1.f / 3.f, -1.f / 3.f, 0.5f,
-    };
-};
-
-class WaveformDestination : public juce::Component
-{
-  public:
-    sl::Signal<void(float)> on_change;
-    sl::Signal<void()> on_commit;
-
-  public:
-    WaveformDestination(juce::String name);
-
-  public:
-    void reset(); // TODO
-
-    [[nodiscard]]
-    auto get_value() const -> std::optional<float>
-    {
-        // TODO implement optional
-        return std::optional{value_.get_value()};
-    }
-
-  public:
-    void resized() override;
-
-  private:
-    juce::Label label_;
-    XenSlider value_;
-    bool is_active_;
+    // array of pair<frequency, pixel thickness>
+    std::array<std::pair<float, float>, 7> offset_grid_values_ = {{
+        {-0.5f, 0.f},
+        {-0.25f, 1.5f},
+        {0.f, 2.f},
+        {0.25f, 1.5f},
+        {1.f / 3.f, 1.f},
+        {-1.f / 3.f, 1.f},
+        {0.5f, 0.f},
+    }};
 };
 
 class WaveformDestinations : public juce::Component
@@ -269,12 +179,42 @@ class WaveformDestinations : public juce::Component
     void resized() override;
 
   public:
-    WaveformDestination velocity{"Velocity"};
-    WaveformDestination weight{"Weight"};
-    WaveformDestination delay{"Delay"};
-    WaveformDestination gate{"Gate"};
-    // TODO pitch
-    // TODO Reset button
+    LFOModulationSlider velocity{
+        "Velocity",
+        {.bias_min = 0.f,
+         .bias_max = 1.f,
+         .initial_bias = 0.5f,
+         .initial_amplitude = 0.f},
+    };
+    LFOModulationSlider weight{
+        "Weight",
+        {.bias_min = 0.05f,
+         .bias_max = 2.f,
+         .initial_bias = 1.025f, // TODO can this calculation be done automatically as a
+                                 // default if this is an optional null?
+         .initial_amplitude = 0.f},
+    };
+    LFOModulationSlider delay{
+        "Delay",
+        {.bias_min = 0.f,
+         .bias_max = 1.f,
+         .initial_bias = 0.5f,
+         .initial_amplitude = 0.f},
+    };
+    LFOModulationSlider gate{
+        "Gate",
+        {.bias_min = 0.f,
+         .bias_max = 1.f,
+         .initial_bias = 0.5f,
+         .initial_amplitude = 0.f},
+    };
+    LFOModulationSlider pitch{
+        "Pitch",
+        {.bias_min = -4.f * 12.f,
+         .bias_max = 4.f * 12.f,
+         .initial_bias = 0.f,
+         .initial_amplitude = 0.f},
+    };
 };
 
 class ModulationPane : public juce::Component
@@ -299,32 +239,29 @@ class ModulationPane : public juce::Component
 
   private:
     /**
-     * Builds a JSON string to represent the current state of the modulators.
-     * @details This can be passed to `set velocity`, `set weight` commands etc...
-     * @param amplitude - How much to scale the final output by.
-     * @param bias - How much to add to the final output after amplitude.
-     */
-    [[nodiscard]]
-    auto generate_json(float amplitude = 1.f, float bias = 0.f) -> std::string;
-
-    /**
      * Builds a full command string to modify a single destination (velocity, weight...)
      * @details For something like WaveformBox on_change you can call this multiple
      * times, it already has a semi-colon for concat, then commit the results if needed
      * with a separate `commit` command.
      */
     [[nodiscard]]
-    auto generate_command_string(std::string const &destination, float amplitude)
+    auto generate_command_string(std::string const &destination, float user_scale,
+                                 float user_bias, float min, float max) const
         -> std::string;
 
     /// Emit on_change cmd string for each of the destinations that is active.
     void emit_all_active_destination_cmds();
+
+    /**
+     * This is the Modulator sent to each destination.
+     * @param bias The combination of the destination and user input biases.
+     * @param scale The combination of the destination and user input scales.
+     * @param min The minimum to clamp to.
+     * @param max The maximum to clamp to.
+     */
+    [[nodiscard]]
+    auto build_destination_modulator(float bias, float scale, float min,
+                                     float max) const -> Modulator;
 };
-
-// TODO add waves to the combos, then figure on change of combos or lerp, redraw the
-// waveform display. To draw the waveform display you have frequency and offset within
-// the waveform display component.
-
-// TODO then hook up any change to emit the proper command string with json
 
 } // namespace xen::gui

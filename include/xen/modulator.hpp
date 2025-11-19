@@ -1,16 +1,41 @@
 #pragma once
-
-#include <functional>
-#include <utility>
+#include <memory>
+#include <variant>
 #include <vector>
 
-// NOTE: If you add or update a modulator, go to parse_args.cpp and update the
-// parse_modulator function.
+#include <nlohmann/json.hpp>
+
+// NOTE: If you add or update a modulator, remember to modify `evaluate`, `to_json` and
+// `from_json` functions below.
+
+namespace xen::modulator
+{
+
+struct Constant;
+struct Sine;
+struct Triangle;
+struct SawtoothUp;
+struct SawtoothDown;
+struct Square;
+struct Scale;
+struct Bias;
+struct AbsoluteValue;
+struct Clamp;
+struct Power;
+struct Chain;
+struct Blend;
+
+} // namespace xen::modulator
 
 namespace xen
 {
 
-using Modulator = std::function<float(float)>;
+using Modulator =
+    std::variant<modulator::Constant, modulator::Sine, modulator::Triangle,
+                 modulator::SawtoothUp, modulator::SawtoothDown, modulator::Square,
+                 modulator::Scale, modulator::Bias, modulator::AbsoluteValue,
+                 modulator::Clamp, modulator::Power, modulator::Chain,
+                 modulator::Blend>;
 
 } // namespace xen
 
@@ -19,101 +44,120 @@ namespace xen::modulator
 
 // GENERATORS --------------------------------------------------------------------------
 
-[[nodiscard]]
-auto constant(float value) -> Modulator;
+struct Constant
+{
+    float value;
+};
 
-/**
- * Create a Modulator object to generate sine values.
- *
- * @param frequency The frequency of the sine wave in cycles per unit input; for
- * example, a frequency of 5 produces 5 cycles over the input range [0, 1].
- * @param amplitude The amplitude of the sine wave. Defaults to 1. Output will be up to
- * this value and down to the negative of it.
- * @param phase The offset to apply to the `t` input; phase.
- * @return A Modulator object that generates sine values.
- * @throws std::invalid_argument if frequency is not positive.
- */
-[[nodiscard]]
-auto sine(float frequency, float amplitude = 1.f, float phase = 0.f) -> Modulator;
+struct Sine
+{
+    float frequency;
+    float amplitude = 1.f;
+    float phase = 0.f;
+};
 
-[[nodiscard]]
-auto triangle(float frequency, float amplitude = 1.f, float phase = 0.f) -> Modulator;
+struct Triangle
+{
+    float frequency;
+    float amplitude = 1.f;
+    float phase = 0.f;
+};
 
-[[nodiscard]]
-auto sawtooth_up(float frequency, float amplitude = 1.f, float phase = 0.f)
-    -> Modulator;
+struct SawtoothUp
+{
+    float frequency;
+    float amplitude = 1.f;
+    float phase = 0.f;
+};
 
-[[nodiscard]]
-auto sawtooth_down(float frequency, float amplitude = 1.f, float phase = 0.f)
-    -> Modulator;
+struct SawtoothDown
+{
+    float frequency;
+    float amplitude = 1.f;
+    float phase = 0.f;
+};
 
-[[nodiscard]]
-auto square(float frequency, float amplitude = 1.f, float phase = 0.f,
-            float pulse_width = 0.5f) -> Modulator;
-
-[[nodiscard]]
-auto noise(float amplitude = 1.f) -> Modulator;
+struct Square
+{
+    float frequency;
+    float amplitude = 1.f;
+    float phase = 0.f;
+    float pulse_width = 0.5f;
+};
 
 // MODIFIERS ---------------------------------------------------------------------------
 
-/**
- * Scale the input by a constant amount.
- *
- * @param factor Scale factor to apply (output = input * factor).
- */
-[[nodiscard]]
-auto scale(float factor) -> Modulator;
+struct Scale
+{
+    float factor;
+};
 
-/**
- * Offset the input by a contant amount.
- *
- * @param amount Amount to offset the input by (output = input + amount).
- */
-[[nodiscard]]
-auto bias(float amount) -> Modulator;
+struct Bias
+{
+    float amount;
+};
 
-/**
- * Returns the absolute value of the input.
- */
-[[nodiscard]]
-auto absolute_value() -> Modulator;
+struct AbsoluteValue
+{
+};
 
-/**
- * Clamps the input to the range [min, max].
- */
-[[nodiscard]]
-auto clamp(float min, float max) -> Modulator;
+struct Clamp
+{
+    float min;
+    float max;
+};
 
-/**
- * Inverts the input by multiplying by -1.
- */
-[[nodiscard]]
-auto invert() -> Modulator;
-
-[[nodiscard]]
-auto power(float amount) -> Modulator;
+struct Power
+{
+    float exponent;
+};
 
 // META / ROUTING ----------------------------------------------------------------------
 
-/**
- * Process each modulator in series in the order given.
- *
- * @details The input to this Modulator is passed to the first modulator in the vector,
- * and its results are passed to the next, etc... and the last is returned by this
- * Modulator.
- * @param mods The Modulators to process in series. If this is empty, the input is
- * passed directly to the output.
- */
-[[nodiscard]]
-auto chain(std::vector<Modulator> mods) -> Modulator;
+struct Chain
+{
+    std::vector<Modulator> children;
+};
 
-/**
- * Runs the input through each Modulator, then sums the results into a single result.
- *
- * @param mods The Modulators to process in parallel. If this is empty, the result will
- * always be zero.
- */
-[[nodiscard]]
-auto blend(std::vector<Modulator> mods) -> Modulator;
+struct Blend
+{
+    std::vector<Modulator> children;
+};
 
 } // namespace xen::modulator
+
+// OPERATIONS --------------------------------------------------------------------------
+
+namespace xen
+{
+
+/**
+ * Evaluate a modulator at time t.
+ *
+ * @param mod The modulator to evaluate.
+ * @param t The time/input value.
+ * @return The modulated output value.
+ */
+[[nodiscard]]
+auto evaluate(Modulator const &mod, float t) -> float;
+
+/**
+ * Serialize a modulator to JSON.
+ *
+ * @param mod The modulator to serialize.
+ * @return JSON representation of the modulator.
+ */
+[[nodiscard]]
+auto to_json(Modulator const &mod) -> nlohmann::json;
+
+/**
+ * Deserialize a modulator from JSON.
+ *
+ * @param j The JSON to deserialize.
+ * @param out The output variable.
+ * @return The deserialized modulator.
+ * @throws nlohmann::json::exception if JSON is invalid.
+ */
+void from_json(nlohmann::json const &j, Modulator &out);
+
+} // namespace xen

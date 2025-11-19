@@ -39,26 +39,58 @@ auto const WAVEFORMS = std::map<int, WaveformMetadata>{
     std::pair{4, WaveformMetadata{"Square", "square"}},
 };
 
+/**
+ * @brief Convert normalized horizontal position to log-spaced frequency.
+ * @param t Normalized position in [0, 1].
+ * @param min_freq Minimum frequency (> 0).
+ * @param max_freq Maximum frequency (> min_freq).
+ * @return Frequency corresponding to t.
+ * @invariant min_freq > 0
+ * @invariant max_freq > min_freq
+ * @invariant 0 <= t <= 1
+ */
+[[nodiscard]]
+auto norm_to_freq(float t, float min_freq, float max_freq) -> float
+{
+    return min_freq * std::pow(max_freq / min_freq, t);
+}
+
+/**
+ * @brief Convert a frequency to normalized log-space position.
+ * @param freq Frequency value in range [min_freq, max_freq].
+ * @param min_freq Minimum frequency (> 0).
+ * @param max_freq Maximum frequency (> min_freq).
+ * @return Normalized position t in [0, 1].
+ * @invariant min_freq > 0
+ * @invariant max_freq > min_freq
+ * @invariant min_freq <= freq <= max_freq
+ */
+[[nodiscard]]
+auto freq_to_norm(float freq, float min_freq, float max_freq) -> float
+{
+    return std::log(freq / min_freq) / std::log(max_freq / min_freq);
+}
+
 // TODO update this if you add to WAVEFORMS
 [[nodiscard]]
-auto make_modulator(std::string const &waveform_cmd_name, float frequency, float offset)
-    -> xen::Modulator
+auto make_wave_modulator(std::string const &waveform_cmd_name, float frequency,
+                         float offset) -> xen::Modulator
 {
     if (waveform_cmd_name == "sine")
     {
-        return xen::modulator::sine(frequency, 1.f, offset);
+        return xen::modulator::Sine(frequency, 1.f, offset);
     }
     else if (waveform_cmd_name == "triangle")
     {
-        return xen::modulator::triangle(frequency, 1.f, offset);
+        return xen::modulator::Triangle(frequency, 1.f, offset);
     }
     else if (waveform_cmd_name == "sawtooth_up")
     {
-        return xen::modulator::sawtooth_up(frequency, 1.f, offset);
+        return xen::modulator::SawtoothUp(frequency, 1.f, offset);
     }
     else if (waveform_cmd_name == "square")
     {
-        return xen::modulator::square(frequency, 1.f, offset, 0.5f);
+        return xen::modulator::Square(frequency, 1.f, offset, 0.5f);
     }
     else
     {
@@ -91,30 +123,32 @@ auto is_within_target(juce::Point<float> subject, juce::Point<float> target,
 }
 
 [[nodiscard]]
-auto get_handle_position(float frequency, float offset,
+auto get_handle_position(float frequency, float min_freq, float max_freq, float offset,
                          juce::Rectangle<float> const &bounds) -> juce::Point<float>
 {
+    auto const t = freq_to_norm(frequency, min_freq, max_freq);
     return {
-        frequency * bounds.getWidth() / 4.f + bounds.getX(),
-        (0.5f - offset) * bounds.getHeight() + bounds.getY(),
+        bounds.getX() + t * bounds.getWidth(),
+        bounds.getY() + (0.5f - offset) * bounds.getHeight(),
     };
 }
 
 /// Find and return the closes value in \p values to \p target
 template <std::size_t N>
 [[nodiscard]]
-auto closest_value(std::array<float, N> const &values, float target) -> float
+auto closest_value(std::array<std::pair<float, float>, N> const &values, float target)
+    -> float
 {
-    auto closest = values.front();
+    auto closest = values.front().first;
     auto min_diff = std::numeric_limits<float>::max();
 
     for (auto const &v : values)
     {
-        auto const diff = std::abs(v - target);
+        auto const diff = std::abs(v.first - target);
         if (diff < min_diff)
         {
             min_diff = diff;
-            closest = v;
+            closest = v.first;
         }
     }
 
@@ -123,531 +157,39 @@ auto closest_value(std::array<float, N> const &values, float target) -> float
 
 template <std::size_t N, std::size_t M>
 void draw_grid(juce::Graphics &g, juce::Rectangle<float> bounds, juce::Colour color,
-               std::array<float, N> const &frequency_grid_values,
-               std::array<float, M> const &offset_grid_values)
+               std::array<std::pair<float, float>, N> const &frequency_grid_values,
+               std::array<std::pair<float, float>, M> const &offset_grid_values,
+               float min_freq, float max_freq)
 {
     g.setColour(color);
-    g.setOpacity(0.3f);
+    g.setOpacity(0.25f);
 
     const auto w = bounds.getWidth();
     const auto h = bounds.getHeight();
-    const float line_thickness = 0.5f;
 
     // vertical
     for (auto const frequency : frequency_grid_values)
     {
-        g.fillRect(bounds.getX() + w * frequency / 4.f, bounds.getY(), line_thickness,
-                   h);
+        const float line_thickness = frequency.second;
+        auto const t = freq_to_norm(frequency.first, min_freq, max_freq);
+        auto const x = bounds.getX() + w * t - (line_thickness / 2.f);
+        g.fillRect(x, bounds.getY(), line_thickness, h);
     }
 
     // horizontal
     for (auto const offset : offset_grid_values)
     {
-        g.fillRect(bounds.getX(), bounds.getY() + h * (0.5f - offset), w,
-                   line_thickness);
+        const float line_thickness = offset.second;
+        auto const y =
+            bounds.getY() + h * (0.5f - offset.first) - (line_thickness / 2.f);
+        g.fillRect(bounds.getX(), y, w, line_thickness);
     }
 }
-
-// {display name, command prefix}
-// auto COMMANDS = std::vector<std::pair<std::string, std::string>>{
-//     {"None", ""},
-//     {"Weight", "set weights "},
-//     {"Velocity", "set velocity "},
-//     {"Delay", "set delay "},
-//     {"Gate", "set gate "},
-// };
-
-// TODO when min/max are set invalid/backwards, it throws, and the user can easily do
-// this either you catch and ignore in this case or emit a warning, or you force the
-// sliders to update, but that might be difficult in a generic way and annoying as a
-// user if you are trying to set them separately, then you'd have to do it in a specific
-// order.
-
-// {display name, type/id, parameters}
-// auto MODULATORS =
-//     std::vector<std::tuple<std::string, std::string,
-//     std::vector<XenSlider::Metadata>>>{
-//         {
-//             "None",
-//             "",
-//             {},
-//         },
-//         {
-//             "Constant",
-//             "constant",
-//             {{
-//                 .id = "value",
-//                 .display_name = "Value",
-//                 .initial = 1.f,
-//                 .min = 0.01f,
-//                 .max = 10.f,
-//             }},
-//         },
-//         {
-//             "Sine",
-//             "sine",
-//             {{
-//                  .id = "frequency",
-//                  .display_name = "Frequency",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 10.f,
-//                  .midpoint = 1.f,
-//              },
-//              {
-//                  .id = "amplitude",
-//                  .display_name = "Amplitude",
-//                  .initial = 1.f,
-//                  .min = 0.01f,
-//                  .max = 5.f,
-//              },
-//              {
-//                  .id = "phase",
-//                  .display_name = "Phase",
-//                  .initial = 0.f,
-//                  .min = 0.f,
-//                  .max = 1.f,
-//              }},
-//         },
-//         {
-//             "Triangle",
-//             "triangle",
-//             {{
-//                  .id = "frequency",
-//                  .display_name = "Frequency",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 10.f,
-//                  .midpoint = 1.f,
-//              },
-//              {
-//                  .id = "amplitude",
-//                  .display_name = "Amplitude",
-//                  .initial = 1.f,
-//                  .min = 0.01f,
-//                  .max = 5.f,
-//              },
-//              {
-//                  .id = "phase",
-//                  .display_name = "Phase",
-//                  .initial = 0.f,
-//                  .min = 0.f,
-//                  .max = 1.f,
-//              }},
-//         },
-//         {
-//             "Sawtooth Up",
-//             "sawtooth_up",
-//             {{
-//                  .id = "frequency",
-//                  .display_name = "Frequency",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 10.f,
-//                  .midpoint = 1.f,
-//              },
-//              {
-//                  .id = "amplitude",
-//                  .display_name = "Amplitude",
-//                  .initial = 1.f,
-//                  .min = 0.01f,
-//                  .max = 5.f,
-//              },
-//              {
-//                  .id = "phase",
-//                  .display_name = "Phase",
-//                  .initial = 0.f,
-//                  .min = 0.f,
-//                  .max = 1.f,
-//              }},
-//         },
-//         {
-//             "Sawtooth Down",
-//             "sawtooth_down",
-//             {{
-//                  .id = "frequency",
-//                  .display_name = "Frequency",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 10.f,
-//                  .midpoint = 1.f,
-//              },
-//              {
-//                  .id = "amplitude",
-//                  .display_name = "Amplitude",
-//                  .initial = 1.f,
-//                  .min = 0.01f,
-//                  .max = 5.f,
-//              },
-//              {
-//                  .id = "phase",
-//                  .display_name = "Phase",
-//                  .initial = 0.f,
-//                  .min = 0.f,
-//                  .max = 1.f,
-//              }},
-//         },
-//         {
-//             "Square",
-//             "square",
-//             {{
-//                  .id = "frequency",
-//                  .display_name = "Frequency",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 10.f,
-//                  .midpoint = 1.f,
-//              },
-//              {
-//                  .id = "amplitude",
-//                  .display_name = "Amplitude",
-//                  .initial = 1.f,
-//                  .min = 0.01f,
-//                  .max = 5.f,
-//              },
-//              {
-//                  .id = "phase",
-//                  .display_name = "Phase",
-//                  .initial = 0.f,
-//                  .min = 0.f,
-//                  .max = 1.f,
-//              },
-//              {
-//                  .id = "pulse_width",
-//                  .display_name = "Pulse Width",
-//                  .initial = 0.5f,
-//                  .min = 0.01f,
-//                  .max = 1.f,
-//              }},
-//         },
-//         {
-//             "Noise",
-//             "noise",
-//             {{
-//                 .id = "amplitude",
-//                 .display_name = "Amplitude",
-//                 .initial = 1.f,
-//                 .min = 0.01f,
-//                 .max = 5.f,
-//             }},
-//         },
-//         {
-//             "Scale",
-//             "scale",
-//             {{
-//                 .id = "factor",
-//                 .display_name = "Factor",
-//                 .initial = 1.f,
-//                 .min = 0.01f,
-//                 .max = 10.f,
-//             }},
-//         },
-//         {
-//             "Bias",
-//             "bias",
-//             {{
-//                 .id = "amount",
-//                 .display_name = "Amount",
-//                 .initial = 0.f,
-//                 .min = -5.f,
-//                 .max = 5.f,
-//             }},
-//         },
-//         {"Absolute Value", "absolute_value", {}},
-//         {
-//             "Clamp",
-//             "clamp",
-//             {{
-//                  .id = "min",
-//                  .display_name = "Min",
-//                  .initial = 0.f,
-//                  .min = -10.f,
-//                  .max = 10.f,
-//              },
-//              {
-//                  .id = "max",
-//                  .display_name = "Max",
-//                  .initial = 1.f,
-//                  .min = -10.f,
-//                  .max = 10.f,
-//              }},
-//         },
-//         {"Invert", "invert", {}},
-//         {
-//             "Power",
-//             "power",
-//             {{
-//                 .id = "amount",
-//                 .display_name = "Amount",
-//                 .initial = 2.f,
-//                 .min = 0.01f,
-//                 .max = 10.f,
-//             }},
-//         },
-//     };
 
 } // namespace
 
 namespace xen::gui
 {
-
-// ModulationButtons::ModulationButtons()
-// {
-//     for (auto i = std::size_t{0}; i < buttons_.size(); ++i)
-//     {
-//         auto &btn = buttons_[i];
-
-//         btn.setButtonText(std::to_string(i));
-//         btn.onClick = [this, i] { this->on_index_selected.emit(i); };
-//         this->addAndMakeVisible(btn);
-//     }
-// }
-
-// void ModulationButtons::resized()
-// {
-//     using Track = juce::Grid::TrackInfo;
-//     using Fr = juce::Grid::Fr;
-
-//     auto const make_tracks = [](std::size_t count) -> juce::Array<Track> {
-//         auto tracks = juce::Array<Track>{};
-//         tracks.ensureStorageAllocated((int)count);
-//         for (auto i = std::size_t{0}; i < count; ++i)
-//         {
-//             tracks.add(Track(Fr(1)));
-//         }
-//         return tracks;
-//     };
-
-//     auto const width = 2;
-//     auto const height = std::size_t{8};
-
-//     auto grid = juce::Grid{};
-//     grid.templateColumns = make_tracks(width);
-//     grid.templateRows = make_tracks(height);
-
-//     for (auto row = std::size_t{0}; row < height; ++row)
-//     {
-//         grid.items.add(juce::GridItem(buttons_[row]));
-//         grid.items.add(juce::GridItem(buttons_[row + 8]));
-//     }
-
-//     grid.performLayout(this->getLocalBounds().reduced(4, 4));
-// }
-
-// -------------------------------------------------------------------------------------
-
-// ModulationParameters::ModulationParameters(
-//     std::string const &mod_type, std::vector<XenSlider::Metadata> const &slider_data)
-//     : type_{mod_type}
-// {
-//     for (auto const &data : slider_data)
-//     {
-//         auto &slider_ptr = sliders_.emplace_back(
-//             std::make_unique<XenSlider>(data, juce::Slider::LinearHorizontal));
-
-//         this->addAndMakeVisible(*slider_ptr);
-
-//         slider_ptr->on_change.connect([this](float) { this->on_change(); });
-//         slider_ptr->on_release.connect([this] { this->on_commit(); });
-//     }
-// }
-
-// auto ModulationParameters::get_json() -> nlohmann::json
-// {
-//     auto j = nlohmann::json{};
-//     j["type"] = type_;
-//     for (auto const &slider_ptr : sliders_)
-//     {
-//         j[slider_ptr->slider.getComponentID().toStdString()] =
-//             slider_ptr->slider.getValue();
-//     }
-//     return j;
-// }
-
-// auto ModulationParameters::empty() -> bool
-// {
-//     return type_.empty();
-// }
-
-// auto ModulationParameters::get_type() -> std::string const &
-// {
-//     return type_;
-// }
-
-// void ModulationParameters::paint(juce::Graphics &g)
-// {
-//     g.fillAll(this->findColour(ColorID::BackgroundHigh));
-// }
-
-// void ModulationParameters::resized()
-// {
-//     auto fb = juce::FlexBox{};
-
-//     fb.flexDirection = juce::FlexBox::Direction::column;
-//     for (auto const &slider_ptr : sliders_)
-//     {
-//         fb.items.add(juce::FlexItem{*slider_ptr}.withFlex(1.f).withMaxHeight(100.f));
-//     }
-
-//     fb.performLayout(this->getLocalBounds());
-// }
-
-// -------------------------------------------------------------------------------------
-
-// ModulationPane::ModulationPane()
-// {
-//     std::generate(std::begin(parameter_uis_), std::end(parameter_uis_), [] {
-//         return std::make_unique<ModulationParameters>("",
-//         std::get<2>(MODULATORS[0]));
-//     });
-
-//     this->addAndMakeVisible(target_command_dropdown_);
-//     this->addAndMakeVisible(modulator_dropdown_);
-//     this->addAndMakeVisible(buttons_);
-//     this->addAndMakeVisible(*parameter_uis_[current_selection_]);
-
-//     for (auto i = std::size_t{0}; i < MODULATORS.size(); ++i)
-//     {
-//         auto const &name = std::get<0>(MODULATORS[i]);
-//         modulator_dropdown_.addItem(name, (int)i + 1);
-//     }
-//     modulator_dropdown_.setSelectedId(1, juce::dontSendNotification);
-
-//     modulator_dropdown_.onChange = [this] {
-//         auto &ui_ptr = parameter_uis_[current_selection_];
-//         auto const mod_index = (std::size_t)modulator_dropdown_.getSelectedId() - 1;
-//         ui_ptr = std::make_unique<ModulationParameters>(
-//             std::get<1>(MODULATORS[mod_index]), std::get<2>(MODULATORS[mod_index]));
-//         ui_ptr->on_change.connect([this] {
-//             auto const cmd_str = this->generate_command_string(false);
-//             if (!cmd_str.empty())
-//             {
-//                 this->on_change(cmd_str);
-//             }
-//         });
-//         ui_ptr->on_commit.connect([this] {
-//             auto const cmd_str = this->generate_command_string(true);
-//             if (!cmd_str.empty())
-//             {
-//                 this->on_change(cmd_str);
-//             }
-//         });
-//         this->addAndMakeVisible(*ui_ptr);
-//         this->resized();
-
-//         auto const cmd_str = this->generate_command_string(true);
-//         if (!cmd_str.empty())
-//         {
-//             this->on_change(cmd_str);
-//         }
-//     };
-
-//     for (auto i = std::size_t{0}; i < COMMANDS.size(); ++i)
-//     {
-//         auto const &name = COMMANDS[i].first;
-//         target_command_dropdown_.addItem(name, (int)i + 1);
-//     }
-//     target_command_dropdown_.setSelectedId(1, juce::dontSendNotification);
-
-//     target_command_dropdown_.onChange = [this] {
-//         auto const cmd_str = this->generate_command_string(true);
-//         if (!cmd_str.empty())
-//         {
-//             this->on_change(cmd_str);
-//         }
-//     };
-
-//     buttons_.on_index_selected.connect([this](std::size_t index) {
-//         this->removeChildComponent(parameter_uis_[current_selection_].get());
-//         current_selection_ = index;
-//         auto &current_ui = parameter_uis_[current_selection_];
-//         this->addAndMakeVisible(*current_ui);
-//         auto const mod_type = current_ui->get_type();
-//         auto at = std::find_if(
-//             std::begin(MODULATORS), std::end(MODULATORS),
-//             [&mod_type](auto const &tup) { return std::get<1>(tup) == mod_type; });
-//         if (at != std::end(MODULATORS))
-//         {
-//             modulator_dropdown_.setSelectedId(
-//                 1 + (int)std::distance(std::begin(MODULATORS), at),
-//                 juce::dontSendNotification);
-//         }
-//         this->resized();
-//     });
-// }
-
-// void ModulationPane::resized()
-// {
-//     auto left_fb = juce::FlexBox{};
-//     left_fb.flexDirection = juce::FlexBox::Direction::column;
-//     left_fb.items.add(juce::FlexItem{modulator_dropdown_}.withHeight(23.f));
-//     auto &current_ui = parameter_uis_[current_selection_];
-//     left_fb.items.add(juce::FlexItem{*current_ui}.withFlex(1.f));
-
-//     auto right_fb = juce::FlexBox{};
-//     right_fb.flexDirection = juce::FlexBox::Direction::column;
-//     right_fb.items.add(juce::FlexItem{target_command_dropdown_}.withHeight(23.f));
-//     right_fb.items.add(juce::FlexItem{buttons_}.withFlex(1.f));
-
-//     auto outer_fb = juce::FlexBox{};
-//     outer_fb.flexDirection = juce::FlexBox::Direction::row;
-//     outer_fb.items.add(juce::FlexItem{left_fb}.withFlex(1));
-//     outer_fb.items.add(juce::FlexItem{right_fb}.withFlex(1));
-
-//     outer_fb.performLayout(this->getLocalBounds());
-// }
-
-// auto ModulationPane::generate_json() -> std::string
-// {
-//     auto j = nlohmann::json{};
-//     j["type"] = "blend";
-//     j["children"] = std::array{
-//         nlohmann::json{{"type", "chain"},
-//                        {"children",
-//                         [this] {
-//                             auto result = std::vector<nlohmann::json>{};
-//                             for (auto i = std::size_t{0}; i < 8; ++i)
-//                             {
-//                                 if (!parameter_uis_[i]->empty())
-//                                 {
-//                                     result.push_back(parameter_uis_[i]->get_json());
-//                                 }
-//                             }
-//                             return result;
-//                         }()}},
-//         nlohmann::json{{"type", "chain"},
-//                        {"children",
-//                         [this] {
-//                             auto result = std::vector<nlohmann::json>{};
-//                             for (auto i = std::size_t{8}; i < 16; ++i)
-//                             {
-//                                 if (!parameter_uis_[i]->empty())
-//                                 {
-//                                     result.push_back(parameter_uis_[i]->get_json());
-//                                 }
-//                             }
-//                             return result;
-//                         }()}},
-//     };
-
-//     return j.dump();
-// }
-
-// auto ModulationPane::generate_command_string(bool commit) -> std::string
-// {
-//     if (target_command_dropdown_.getSelectedId() == 1 ||
-//         modulator_dropdown_.getSelectedId() == 1)
-//     {
-//         return "";
-//     }
-//     else
-//     {
-//         auto const cmd_index =
-//             (std::size_t)target_command_dropdown_.getSelectedId() - 1;
-//         return COMMANDS[cmd_index].second + this->generate_json() +
-//                (commit ? " true" : " false");
-//     }
-// }
 
 WaveformSelect::WaveformSelect(int initial_selection)
 {
@@ -689,7 +231,10 @@ auto WaveformBox::generate_samples(xen::Modulator const &modulator)
     {
         // TODO RESOLUTION -1 gives [0, 1] but do you really want [0, 1) instead?
         float t = static_cast<float>(i) / static_cast<float>(RESOLUTION - 1);
-        samples[i] = modulator(t);
+        // TODO make an evaluate fn that can fill a buffer itself instead of making tons
+        // of std::visit calls, either pass in a static buffer or .. how do you tell it
+        // what t values?
+        samples[i] = evaluate(modulator, t);
     }
     return samples;
 }
@@ -736,7 +281,8 @@ void WaveformBox::set_waveform_a(std::string const &waveform_cmd_name)
 {
     auto &wave = waveforms_[WAVE_A_INDEX];
     wave.cmd_name = waveform_cmd_name;
-    auto const modulator = make_modulator(wave.cmd_name, wave.frequency, wave.offset);
+    auto const modulator =
+        make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset);
     wave.samples = generate_samples(modulator);
     this->set_lerp(lerp_); // recalculates lerp and repaints
     this->on_commit();
@@ -746,7 +292,8 @@ void WaveformBox::set_waveform_b(std::string const &waveform_cmd_name)
 {
     auto &wave = waveforms_[WAVE_B_INDEX];
     wave.cmd_name = waveform_cmd_name;
-    auto const modulator = make_modulator(wave.cmd_name, wave.frequency, wave.offset);
+    auto const modulator =
+        make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset);
     wave.samples = generate_samples(modulator);
     this->set_lerp(lerp_); // recalculates lerp and repaints
     this->on_commit();
@@ -768,24 +315,24 @@ void WaveformBox::paint(juce::Graphics &g)
     // Fill background
     g.fillAll(juce::Colours::black);
 
-    // Draw grid
-    draw_grid(g, bounds, grid_color_, frequency_grid_values_, offset_grid_values_);
-
     // Draw border
     g.setColour(grid_color_);
-    g.setOpacity(0.5f);
     auto const border_width = 1.f;
     g.drawRect(bounds, border_width);
 
     bounds = bounds.reduced(border_width); // paint within border space
+
+    // Draw grid
+    draw_grid(g, bounds, grid_color_, frequency_grid_values_, offset_grid_values_,
+              MIN_FREQ, MAX_FREQ);
 
     auto const &wave_a = this->waveform_a();
     auto const &wave_b = this->waveform_b();
 
     { // Waveform A
         auto const path = generate_waveform_path(wave_a.samples);
-        g.setColour(wave_a.color.withAlpha(0.625f * std::pow(1.f - lerp_, 0.385f)));
-        auto const stroke_width = 1.f;
+        g.setColour(wave_a.color.withAlpha(0.4f * std::pow(1.f - lerp_, 0.385f)));
+        auto const stroke_width = 3.f;
         auto const inner = bounds.reduced(stroke_width * 0.5f);
         g.strokePath(path, juce::PathStrokeType(stroke_width),
                      juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
@@ -794,8 +341,8 @@ void WaveformBox::paint(juce::Graphics &g)
 
     { // Waveform B
         auto const path = generate_waveform_path(wave_b.samples);
-        g.setColour(wave_b.color.withAlpha(0.625f * std::pow(lerp_, 0.385f)));
-        auto const stroke_width = 1.f;
+        g.setColour(wave_b.color.withAlpha(0.4f * std::pow(lerp_, 0.385f)));
+        auto const stroke_width = 3.f;
         auto const inner = bounds.reduced(stroke_width * 0.5f);
         g.strokePath(path, juce::PathStrokeType(stroke_width),
                      juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
@@ -829,20 +376,24 @@ void WaveformBox::paint(juce::Graphics &g)
     }
 
     { // Mouse Handle - Waveform A
-        auto const handle =
-            get_handle_position(wave_a.frequency, wave_a.offset, bounds);
+        auto const handle = get_handle_position(wave_a.frequency, MIN_FREQ, MAX_FREQ,
+                                                wave_a.offset, bounds);
 
         g.setColour(wave_a.color);
-        g.fillEllipse(handle.x - HANDLE_RADIUS, handle.y - HANDLE_RADIUS,
-                      HANDLE_RADIUS * 2.f, HANDLE_RADIUS * 2.f);
+        auto const x = handle.x - HANDLE_RADIUS;
+        auto const y = handle.y - HANDLE_RADIUS;
+        auto const wh = HANDLE_RADIUS * 2.f;
+        g.fillEllipse(x, y, wh, wh);
     }
 
     { // Mouse Handle - Waveform A
-        auto const handle =
-            get_handle_position(wave_b.frequency, wave_b.offset, bounds);
+        auto const handle = get_handle_position(wave_b.frequency, MIN_FREQ, MAX_FREQ,
+                                                wave_b.offset, bounds);
         g.setColour(wave_b.color);
-        g.fillEllipse(handle.x - HANDLE_RADIUS, handle.y - HANDLE_RADIUS,
-                      HANDLE_RADIUS * 2.f, HANDLE_RADIUS * 2.f);
+        auto const x = handle.x - HANDLE_RADIUS;
+        auto const y = handle.y - HANDLE_RADIUS;
+        auto const wh = HANDLE_RADIUS * 2.f;
+        g.fillEllipse(x, y, wh, wh);
     }
 }
 
@@ -856,16 +407,16 @@ void WaveformBox::mouseDown(juce::MouseEvent const &e)
             this->getLocalBounds().toFloat().reduced(1.f); // TODO magic number 1
 
         auto const &non_selected = waveforms_[1 - selected_waveform_];
-        auto non_selected_pos =
-            get_handle_position(non_selected.frequency, non_selected.offset, bounds);
+        auto non_selected_pos = get_handle_position(
+            non_selected.frequency, MIN_FREQ, MAX_FREQ, non_selected.offset, bounds);
 
         // If non-selected is under the mouse
-        if (is_within_target(e.position, non_selected_pos, HANDLE_RADIUS))
+        if (is_within_target(e.position, non_selected_pos, HANDLE_RADIUS * 3.f))
         {
             auto const &selected = waveforms_[selected_waveform_];
-            auto selected_pos =
-                get_handle_position(selected.frequency, selected.offset, bounds);
-            if (not is_within_target(e.position, selected_pos, HANDLE_RADIUS))
+            auto selected_pos = get_handle_position(selected.frequency, MIN_FREQ,
+                                                    MAX_FREQ, selected.offset, bounds);
+            if (not is_within_target(e.position, selected_pos, HANDLE_RADIUS * 3.f))
             {
                 // change selection
                 selected_waveform_ = 1 - selected_waveform_;
@@ -885,16 +436,18 @@ void WaveformBox::mouseDrag(juce::MouseEvent const &e)
         auto const bounds = this->getLocalBounds().toFloat();
         if (not e.mods.isShiftDown())
         {
-            wave.frequency = 4 * (e.position.x - bounds.getX()) / bounds.getWidth();
-            wave.frequency = std::clamp(wave.frequency, 0.0001f, 4.f);
+            wave.frequency = norm_to_freq(
+                (e.position.x - bounds.getX()) / bounds.getWidth(), MIN_FREQ, MAX_FREQ);
+            // TODO clamp necessary? make frequency const if not
+            wave.frequency = std::clamp(wave.frequency, MIN_FREQ, MAX_FREQ);
         }
-        if (not e.mods.isCtrlDown())
+        if (not e.mods.isCommandDown())
         {
             wave.offset = 0.5f - ((e.position.y - bounds.getY()) / bounds.getHeight());
             wave.offset = std::clamp(wave.offset, -0.5f, +0.5f);
         }
         wave.samples = generate_samples(
-            make_modulator(wave.cmd_name, wave.frequency, wave.offset));
+            make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset));
         this->set_lerp(lerp_); // recalculates lerp and repaints
     }
 }
@@ -908,8 +461,10 @@ void WaveformBox::mouseUp(juce::MouseEvent const &e)
             // Snap to Grid
             auto const bounds = this->getLocalBounds().toFloat();
 
-            auto frequency = 4 * (e.position.x - bounds.getX()) / bounds.getWidth();
-            frequency = std::clamp(frequency, 0.0001f, 4.f);
+            auto frequency = norm_to_freq(
+                (e.position.x - bounds.getX()) / bounds.getWidth(), MIN_FREQ, MAX_FREQ);
+            // TODO clamp necessary? make frequency const if not
+            frequency = std::clamp(frequency, MIN_FREQ, MAX_FREQ);
 
             auto offset = 0.5f - ((e.position.y - bounds.getY()) / bounds.getHeight());
             offset = std::clamp(offset, -0.5f, +0.5f);
@@ -920,39 +475,12 @@ void WaveformBox::mouseUp(juce::MouseEvent const &e)
             wave.offset = closest_value(offset_grid_values_, offset);
 
             wave.samples = generate_samples(
-                make_modulator(wave.cmd_name, wave.frequency, wave.offset));
+                make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset));
 
             this->set_lerp(lerp_); // recalculates lerp and repaints
         }
         this->on_commit();
     }
-}
-
-// ================
-
-WaveformDestination::WaveformDestination(juce::String name)
-    : label_{"", std::move(name)}, value_{{.initial = 0.f, .min = -1.f, .max = 1.f}}
-{
-    this->addAndMakeVisible(label_);
-    this->addAndMakeVisible(value_);
-
-    label_.setJustificationType(juce::Justification::centredLeft);
-    label_.setColour(juce::Label::textColourId, juce::Colours::white);
-
-    value_.on_change.connect([this](float x) { this->on_change(x); });
-    value_.on_release.connect([this] { this->on_commit(); });
-}
-
-void WaveformDestination::resized()
-{
-    auto bounds = this->getLocalBounds().reduced(4);
-
-    auto fb = juce::FlexBox{};
-    fb.flexDirection = juce::FlexBox::Direction::row;
-    fb.items.add(juce::FlexItem{label_}.withWidth(80.f));
-    fb.items.add(juce::FlexItem{value_}.withFlex(1.f).withMargin(
-        juce::FlexItem::Margin{0.f, 6.f, 0.f, 6.f}));
-    fb.performLayout(bounds);
 }
 
 // ================
@@ -963,6 +491,7 @@ WaveformDestinations::WaveformDestinations()
     this->addAndMakeVisible(weight);
     this->addAndMakeVisible(delay);
     this->addAndMakeVisible(gate);
+    this->addAndMakeVisible(pitch);
 }
 
 void WaveformDestinations::resized()
@@ -975,7 +504,7 @@ void WaveformDestinations::resized()
     fb.items.add(juce::FlexItem{weight}.withHeight(23.f));
     fb.items.add(juce::FlexItem{delay}.withHeight(23.f));
     fb.items.add(juce::FlexItem{gate}.withHeight(23.f));
-    // TODO pitch
+    fb.items.add(juce::FlexItem{pitch}.withHeight(23.f));
 
     fb.performLayout(bounds);
 }
@@ -1015,32 +544,36 @@ ModulationPane::ModulationPane()
         [this] { this->emit_all_active_destination_cmds(); });
     waveform_box_.on_commit.connect([this] { this->on_change("commit"); });
 
-    destinations_.velocity.on_change.connect([this](float amp) {
-        this->on_change(this->generate_command_string("velocity", amp));
+    // TODO can this be cleaned up by moving it to Destinations class?
+    destinations_.velocity.on_change.connect([this](float bias, float amp) {
+        auto const [min, max] = destinations_.velocity.get_bias_range();
+        this->on_change(this->generate_command_string("velocity", amp, bias, min, max));
     });
     destinations_.velocity.on_commit.connect([this] { this->on_change("commit"); });
 
-    destinations_.weight.on_change.connect([this](float amp) {
-        this->on_change(this->generate_command_string("weights", amp));
+    destinations_.weight.on_change.connect([this](float bias, float amp) {
+        auto const [min, max] = destinations_.weight.get_bias_range();
+        this->on_change(this->generate_command_string("weights", amp, bias, min, max));
     });
     destinations_.weight.on_commit.connect([this] { this->on_change("commit"); });
 
-    destinations_.delay.on_change.connect([this](float amp) {
-        this->on_change(this->generate_command_string("delay", amp));
+    destinations_.delay.on_change.connect([this](float bias, float amp) {
+        auto const [min, max] = destinations_.delay.get_bias_range();
+        this->on_change(this->generate_command_string("delay", amp, bias, min, max));
     });
     destinations_.delay.on_commit.connect([this] { this->on_change("commit"); });
 
-    destinations_.gate.on_change.connect([this](float amp) {
-        this->on_change(this->generate_command_string("gate", amp));
+    destinations_.gate.on_change.connect([this](float bias, float amp) {
+        auto const [min, max] = destinations_.gate.get_bias_range();
+        this->on_change(this->generate_command_string("gate", amp, bias, min, max));
     });
     destinations_.gate.on_commit.connect([this] { this->on_change("commit"); });
 
-    // TODO pitch
-
-    // TODO temp
-    // this->on_change.connect([](std::string const &cmd) {
-    //     std::cerr << cmd << '\n' << std::endl;
-    // });
+    destinations_.pitch.on_change.connect([this](float bias, float amp) {
+        auto const [min, max] = destinations_.pitch.get_bias_range();
+        this->on_change(this->generate_command_string("pitch", amp, bias, min, max));
+    });
+    destinations_.pitch.on_commit.connect([this] { this->on_change("commit"); });
 }
 
 void ModulationPane::resized()
@@ -1069,112 +602,101 @@ void ModulationPane::resized()
         bounds.withY(bounds.getY() + width / 2 + 40.f).withHeight(100.f));
 }
 
-// TODO add user controlled bias into this, probably as its own modulator, then add a
-// clamp modulator to whatever is required, probably provided as a parameter as well.
-auto ModulationPane::generate_json(float amplitude, float bias) -> std::string
-{
-    auto const &wave_a = waveform_box_.waveform_a();
-    auto const &wave_b = waveform_box_.waveform_b();
-    return nlohmann::json{
-        {"type", "chain"},
-        {"children",
-         std::array{
-             nlohmann::json{
-                 {"type", "blend"},
-                 {"children",
-                  std::array{
-                      // Waveform A
-                      nlohmann::json{
-                          {"type", "chain"},
-                          {"children",
-                           std::array{
-                               nlohmann::json{
-                                   {"type", wave_a.cmd_name},
-                                   {"frequency", wave_a.frequency},
-                                   {"phase", wave_a.offset},
-                               },
-                               nlohmann::json{
-                                   {"type", "scale"},
-                                   {"factor", 1.f - waveform_box_.lerp()},
-                               },
-                           }},
-                      },
-                      // Waveform B
-                      nlohmann::json{
-                          {"type", "chain"},
-                          {"children",
-                           std::array{
-                               nlohmann::json{
-                                   {"type", wave_b.cmd_name},
-                                   {"frequency", wave_b.frequency},
-                                   {"phase", wave_b.offset},
-                               },
-                               nlohmann::json{
-                                   {"type", "scale"},
-                                   {"factor", waveform_box_.lerp()},
-                               },
-                           }},
-                      },
-                  }},
-             },
-             nlohmann::json{
-                 {"type", "scale"},
-                 {"factor", amplitude},
-             },
-             nlohmann::json{
-                 {"type", "bias"},
-                 {"amount", bias},
-             },
-         }},
-    }
-        .dump();
-}
-
+// TODO reverse scale bias params to match others
 auto ModulationPane::generate_command_string(std::string const &destination,
-                                             float amplitude) -> std::string
+                                             float user_scale, float user_bias,
+                                             float min, float max) const -> std::string
 {
-    static auto const SCALE_BIAS_MAP = [] {
-        struct ScaleBias
-        {
-            float scale, bias;
-        };
-        return std::map<std::string_view, ScaleBias>{
-            {"velocity", {0.5f, 0.5f}},
-            {"weights", {0.49f, 0.51f}},
-            {"delay", {0.5f, 0.5f}},
-            {"gate", {0.5f, 0.5f}},
-        };
-    }();
+    // TODO do you need this function? can it be something simpler?
+    // probably dealing with storing a modulator in the waveform thing, then accessing
+    // that, modifying it with scale, bias and clamp for the particular destination, and
+    // then putting it in the command string
+    auto const mod = build_destination_modulator(user_bias, user_scale, min, max);
 
-    auto const sb = SCALE_BIAS_MAP.at(destination);
-    return "set " + destination + ' ' +
-           this->generate_json(amplitude * sb.scale, sb.bias) + ';';
+    return "set " + destination + ' ' + to_json(mod).dump() + ';';
 }
 
 void ModulationPane::emit_all_active_destination_cmds()
 {
+    // TODO can this be put in Destinations as well? Lots of repeated code.
     auto cmd_str = std::string{};
-    if (auto const amp = destinations_.velocity.get_value(); amp)
+    if (auto const values = destinations_.velocity.get_values(); values)
     {
-        cmd_str += this->generate_command_string("velocity", *amp);
+        auto const &[bias, amp] = *values;
+        auto const [min, max] = destinations_.velocity.get_bias_range();
+        cmd_str += this->generate_command_string("velocity", amp, bias, min, max);
     }
-    if (auto const amp = destinations_.weight.get_value(); amp)
+    if (auto const values = destinations_.weight.get_values(); values)
     {
-        cmd_str += this->generate_command_string("weights", *amp);
+        auto const &[bias, amp] = *values;
+        auto const [min, max] = destinations_.weight.get_bias_range();
+        cmd_str += this->generate_command_string("weights", amp, bias, min, max);
     }
-    if (auto const amp = destinations_.delay.get_value(); amp)
+    if (auto const values = destinations_.delay.get_values(); values)
     {
-        cmd_str += this->generate_command_string("delay", *amp);
+        auto const &[bias, amp] = *values;
+        auto const [min, max] = destinations_.delay.get_bias_range();
+        cmd_str += this->generate_command_string("delay", amp, bias, min, max);
     }
-    if (auto const amp = destinations_.gate.get_value(); amp)
+    if (auto const values = destinations_.gate.get_values(); values)
     {
-        cmd_str += this->generate_command_string("gate", *amp);
+        auto const &[bias, amp] = *values;
+        auto const [min, max] = destinations_.gate.get_bias_range();
+        cmd_str += this->generate_command_string("gate", amp, bias, min, max);
     }
-    // TODO pitch
+    if (auto const values = destinations_.pitch.get_values(); values)
+    {
+        auto const &[bias, amp] = *values;
+        auto const [min, max] = destinations_.pitch.get_bias_range();
+        cmd_str += this->generate_command_string("pitch", amp, bias, min, max);
+    }
     if (not cmd_str.empty())
     {
         this->on_change(cmd_str);
     }
+}
+
+auto ModulationPane::build_destination_modulator(float bias, float scale, float min,
+                                                 float max) const -> Modulator
+{
+    auto const &wave_a = waveform_box_.waveform_a();
+    auto const &wave_b = waveform_box_.waveform_b();
+    using namespace xen::modulator;
+
+    return Chain{
+        .children = {
+            Blend{.children =
+                      {
+                          Chain{.children =
+                                    {
+                                        make_wave_modulator(wave_a.cmd_name,
+                                                            wave_a.frequency,
+                                                            wave_a.offset),
+                                        Scale{
+                                            .factor = 1.f - waveform_box_.lerp(),
+                                        },
+                                    }},
+                          Chain{.children =
+                                    {
+                                        make_wave_modulator(wave_b.cmd_name,
+                                                            wave_b.frequency,
+                                                            wave_b.offset),
+                                        Scale{
+                                            .factor = waveform_box_.lerp(),
+                                        },
+                                    }},
+                      }},
+            Scale{
+                .factor = scale,
+            },
+            Bias{
+                .amount = bias,
+            },
+            Clamp{
+                .min = min,
+                .max = max,
+            },
+        }};
 }
 
 } // namespace xen::gui

@@ -155,6 +155,7 @@ target_sources(XenSequencer
         src/gui/library_view.cpp
         src/gui/message_log.cpp
         src/gui/modulation_pane.cpp
+        src/gui/modulation_slider.cpp
         src/gui/plugin_window.cpp
         src/gui/sequence_bank.cpp
         src/gui/status_bar.cpp
@@ -208,6 +209,7 @@ target_sources(XenSequencer
         include/xen/gui/library_view.hpp
         include/xen/gui/message_log.hpp
         include/xen/gui/modulation_pane.hpp
+        include/xen/gui/modulation_slider.hpp
         include/xen/gui/plugin_window.hpp
         include/xen/gui/sequence_bank.hpp
         include/xen/gui/status_bar.hpp

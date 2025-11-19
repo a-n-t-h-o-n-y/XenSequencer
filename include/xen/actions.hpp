@@ -116,6 +116,10 @@ void flip_translate_direction(TranslateDirection &td);
                        std::vector<int> const &intervals) -> sequence::Cell;
 
 [[nodiscard]]
+auto set_pitches(sequence::Cell cell, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::Cell;
+
+[[nodiscard]]
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell;
 
 [[nodiscard]]

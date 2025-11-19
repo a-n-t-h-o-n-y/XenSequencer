@@ -475,14 +475,26 @@ auto create_command_tree() -> XenCommandTree
         auto set = cmd_group("set");
 
         // set pitch
-        set->add(cmd(signature("pitch", arg<Pattern>(""), arg<int>("pitch", 0)),
-                     "Set the pitch of all selected Notes.",
-                     [](PS &ps, Pattern const &pattern, int pitch) {
-                         increment_state(ps.timeline, &sequence::modify::set_pitch,
-                                         pattern, pitch);
-                         ps.timeline.set_commit_flag();
-                         return minfo("Note Set");
-                     }));
+        set->add(cmd(
+            signature("pitch", arg<Pattern>(""),
+                      arg<std::variant<int, Modulator>>("pitch", 0)),
+            "Set the pitch of all selected Notes.",
+            [](PS &ps, Pattern const &pattern, std::variant<int, Modulator> pitch) {
+                std::visit(sequence::utility::overload{
+                               [&](int p) {
+                                   increment_state(ps.timeline,
+                                                   &sequence::modify::set_pitch,
+                                                   pattern, p);
+                                   ps.timeline.set_commit_flag();
+                               },
+                               [&](Modulator const &mod) {
+                                   increment_state(ps.timeline, &action::set_pitches,
+                                                   pattern, mod);
+                               },
+                           },
+                           pitch);
+                return minfo("Note Set");
+            }));
 
         // set octave
         set->add(cmd(signature("octave", arg<Pattern>(""), arg<int>("octave", 0)),

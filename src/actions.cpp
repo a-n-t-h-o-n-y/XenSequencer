@@ -334,6 +334,27 @@ auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
     return cell;
 }
 
+auto set_pitches(sequence::Cell cell, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::Cell
+{
+    if (std::holds_alternative<sequence::Sequence>(cell.element))
+    {
+        auto &seq = std::get<sequence::Sequence>(cell.element);
+
+        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &c = seq.cells[i];
+                c = sequence::modify::set_pitch(
+                    c, pattern,
+                    (int)std::floor(evaluate(mod, (float)i / (float)seq.cells.size())));
+            }
+        }
+    }
+    return cell;
+}
+
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
 {
     if (weight <= 0.f)
@@ -357,7 +378,7 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
             if (sequence::pattern_contains(pattern, i))
             {
                 auto &c = seq.cells[i];
-                c.weight = mod((float)i / (float)seq.cells.size());
+                c.weight = evaluate(mod, (float)i / (float)seq.cells.size());
             }
         }
     }
@@ -399,7 +420,7 @@ auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
             {
                 auto &c = seq.cells[i];
                 c = sequence::modify::set_velocity(
-                    c, pattern, mod((float)i / (float)seq.cells.size()));
+                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
             }
         }
     }
@@ -419,7 +440,7 @@ auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
             {
                 auto &c = seq.cells[i];
                 c = sequence::modify::set_delay(
-                    c, pattern, mod((float)i / (float)seq.cells.size()));
+                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
             }
         }
     }
@@ -438,8 +459,8 @@ auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
             if (sequence::pattern_contains(pattern, i))
             {
                 auto &c = seq.cells[i];
-                c = sequence::modify::set_gate(c, pattern,
-                                               mod((float)i / (float)seq.cells.size()));
+                c = sequence::modify::set_gate(
+                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
             }
         }
     }
