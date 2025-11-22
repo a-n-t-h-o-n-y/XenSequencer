@@ -46,8 +46,6 @@ class BiasAmplitudeSlider : public juce::Component
     {
         float bias_min;
         float bias_max;
-        float initial_bias;
-        float initial_amplitude;
     };
 
   public:

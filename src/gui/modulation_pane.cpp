@@ -24,21 +24,6 @@ namespace
 
 using namespace xen::gui;
 
-struct WaveformMetadata
-{
-    std::string display_name;
-    std::string command_name;
-};
-
-// TODO complete this list
-// <ID, Metadata> - ID is used in combobox
-auto const WAVEFORMS = std::map<int, WaveformMetadata>{
-    std::pair{1, WaveformMetadata{"Sine", "sine"}},
-    std::pair{2, WaveformMetadata{"Triangle", "triangle"}},
-    std::pair{3, WaveformMetadata{"Sawtooth", "sawtooth_up"}},
-    std::pair{4, WaveformMetadata{"Square", "square"}},
-};
-
 /**
  * @brief Convert normalized horizontal position to log-spaced frequency.
  * @param t Normalized position in [0, 1].
@@ -69,47 +54,6 @@ auto norm_to_freq(float t, float min_freq, float max_freq) -> float
 auto freq_to_norm(float freq, float min_freq, float max_freq) -> float
 {
     return std::log(freq / min_freq) / std::log(max_freq / min_freq);
-}
-
-// TODO update this if you add to WAVEFORMS
-[[nodiscard]]
-auto make_wave_modulator(std::string const &waveform_cmd_name, float frequency,
-                         float offset) -> xen::Modulator
-{
-    if (waveform_cmd_name == "sine")
-    {
-        return xen::modulator::Sine(frequency, 1.f, offset);
-    }
-    else if (waveform_cmd_name == "triangle")
-    {
-        return xen::modulator::Triangle(frequency, 1.f, offset);
-    }
-    else if (waveform_cmd_name == "sawtooth_up")
-    {
-        return xen::modulator::SawtoothUp(frequency, 1.f, offset);
-    }
-    else if (waveform_cmd_name == "square")
-    {
-        return xen::modulator::Square(frequency, 1.f, offset, 0.5f);
-    }
-    else
-    {
-        throw std::invalid_argument("Unknown waveform command name: " +
-                                    waveform_cmd_name);
-    }
-}
-
-template <std::size_t N>
-[[nodiscard]]
-auto lerp_samples(std::array<float, N> const &a, std::array<float, N> const &b, float t)
-    -> std::array<float, N>
-{
-    auto result = std::array<float, N>{};
-    for (std::size_t i = 0; i < N; ++i)
-    {
-        result[i] = a[i] * (1.f - t) + b[i] * t;
-    }
-    return result;
 }
 
 /// Returns true if \p subject is within \p radius of \p target.
@@ -186,71 +130,23 @@ void draw_grid(juce::Graphics &g, juce::Rectangle<float> bounds, juce::Colour co
     }
 }
 
-} // namespace
-
-namespace xen::gui
+[[nodiscard]]
+auto generate_waveform_path(xen::Modulator const &modulator) -> juce::Path
 {
+    // TODO what is the best value for this? test it, it depends on the size of the box.
+    constexpr auto RESOLUTION = 500;
 
-WaveformSelect::WaveformSelect(int initial_selection)
-{
-    this->addAndMakeVisible(combo_box_);
-    combo_box_.setEditableText(false);
-    combo_box_.setJustificationType(juce::Justification::centredLeft);
-    combo_box_.onChange = [this] {
-        auto const selected_id = combo_box_.getSelectedId();
-        auto at = WAVEFORMS.find(selected_id);
-        if (at != WAVEFORMS.end())
-        {
-            this->on_change.emit(at->second.command_name);
-        }
-    };
+    // TODO make a variant evaluate_buffer() that takes a modulator, a buffer and a step
+    // sise and fills the buffer.
 
-    for (auto const &wf : WAVEFORMS)
-    {
-        combo_box_.addItem(wf.second.display_name, wf.first);
-    }
-    combo_box_.setSelectedId(initial_selection, juce::dontSendNotification);
-}
-
-void WaveformSelect::resized()
-{
-    combo_box_.setBounds(this->getLocalBounds());
-}
-
-// ================
-
-// TODO make a free function, RESOLUTION can be a template parameter you provide.
-// but honestly you are probably going to remove this and go straight from modulator to
-// juce path in the paint function.
-auto WaveformBox::generate_samples(xen::Modulator const &modulator)
-    -> std::array<float, RESOLUTION>
-{
-    auto samples = std::array<float, RESOLUTION>{};
-
-    for (std::size_t i = 0; i < RESOLUTION; ++i)
-    {
-        // TODO RESOLUTION -1 gives [0, 1] but do you really want [0, 1) instead?
-        float t = static_cast<float>(i) / static_cast<float>(RESOLUTION - 1);
-        // TODO make an evaluate fn that can fill a buffer itself instead of making tons
-        // of std::visit calls, either pass in a static buffer or .. how do you tell it
-        // what t values?
-        samples[i] = evaluate(modulator, t);
-    }
-    return samples;
-}
-
-// TODO this can be free fn with template on N, any others that can do this?
-auto WaveformBox::generate_waveform_path(std::array<float, RESOLUTION> const &samples)
-    -> juce::Path
-{
-    // samples are assumed to be in range x: [0, 1], y: [-1, 1]
+    // Samples are assumed to be in range x: [0, 1], y: [-1, 1]
     // We need to map y to [0, 1] for drawing
     auto path = juce::Path{};
 
     for (std::size_t i = 0; i < RESOLUTION; ++i)
     {
         float x = static_cast<float>(i) / static_cast<float>(RESOLUTION - 1);
-        float y = 0.5f - (samples[i] / 2.f); // Normalize to [0, 1]
+        float y = 0.5f - (xen::evaluate(modulator, x) / 2.f); // Normalize to [0, 1]
 
         if (i == 0)
         {
@@ -265,45 +161,120 @@ auto WaveformBox::generate_waveform_path(std::array<float, RESOLUTION> const &sa
     return path;
 }
 
+[[nodiscard]]
+auto build_lerp_modulator(xen::Modulator const &wave_a, xen::Modulator const &wave_b,
+                          float lerp) -> xen::Modulator
+{
+    using namespace xen::modulator;
+    return Blend{.children = {
+                     Chain{.children =
+                               {
+                                   wave_a,
+                                   Scale{.factor = 1.f - lerp},
+                               }},
+                     Chain{.children =
+                               {
+                                   wave_b,
+                                   Scale{.factor = lerp},
+                               }},
+                 }};
+}
+
+} // namespace
+
+namespace xen::gui
+{
+
+WaveshapeSelect::WaveshapeSelect(int initial_selection)
+{
+    this->addAndMakeVisible(combo_box_);
+    combo_box_.setEditableText(false);
+    combo_box_.setJustificationType(juce::Justification::centredLeft);
+    combo_box_.onChange = [this] {
+        if (auto const selected_id = combo_box_.getSelectedId(); selected_id != 0)
+        {
+            this->on_change.emit(WAVESHAPES.at(selected_id).make_modulator);
+        }
+    };
+
+    for (auto const &wf : WAVESHAPES)
+    {
+        combo_box_.addItem(wf.second.display_name, wf.first);
+    }
+    combo_box_.setSelectedId(initial_selection, juce::dontSendNotification);
+}
+
+auto WaveshapeSelect::get_selected_fn() const -> MakeModulatorFn
+{
+    auto const id = this->get_selected_id();
+    return WAVESHAPES.at(id).make_modulator;
+}
+
+auto WaveshapeSelect::get_selected_id() const -> int
+{
+    return combo_box_.getSelectedId();
+}
+
+void WaveshapeSelect::set_selected_id(int id)
+{
+    combo_box_.setSelectedId(id, juce::sendNotification);
+}
+
+void WaveshapeSelect::resized()
+{
+    combo_box_.setBounds(this->getLocalBounds());
+}
+
 // ================
 
-auto WaveformBox::waveform_a() const -> Waveform const &
+WaveformBox::WaveformBox(WaveshapeSelect::MakeModulatorFn const &waveshape_a,
+                         WaveshapeSelect::MakeModulatorFn const &waveshape_b)
+                         :
+    wave_a{
+        .frequency = 1.f,
+        .offset = 0.f,
+        .make_modulator_fn = waveshape_a,
+        .modulator = {},
+        .path = {},
+        .color = juce::Colour{0xFF61BAC0},
+    },
+    wave_b{
+        .frequency = 1.f,
+        .offset = 0.25f,
+        .make_modulator_fn = waveshape_b,
+        .modulator = {},
+        .path = {},
+        .color = juce::Colour{0xFF9D83C5},
+    }
 {
-    return waveforms_[WAVE_A_INDEX];
+    this->update_calculated_state(wave_a);
+    this->update_calculated_state(wave_b);
 }
 
-auto WaveformBox::waveform_b() const -> Waveform const &
+void WaveformBox::set_waveshape_a(WaveshapeSelect::MakeModulatorFn const &mk_mod_fn)
 {
-    return waveforms_[WAVE_B_INDEX];
-}
-
-void WaveformBox::set_waveform_a(std::string const &waveform_cmd_name)
-{
-    auto &wave = waveforms_[WAVE_A_INDEX];
-    wave.cmd_name = waveform_cmd_name;
-    auto const modulator =
-        make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset);
-    wave.samples = generate_samples(modulator);
-    this->set_lerp(lerp_); // recalculates lerp and repaints
+    wave_a.make_modulator_fn = mk_mod_fn;
+    this->update_calculated_state(wave_a);
+    this->repaint();
+    this->on_change();
     this->on_commit();
 }
 
-void WaveformBox::set_waveform_b(std::string const &waveform_cmd_name)
+void WaveformBox::set_waveshape_b(WaveshapeSelect::MakeModulatorFn const &mk_mod_fn)
 {
-    auto &wave = waveforms_[WAVE_B_INDEX];
-    wave.cmd_name = waveform_cmd_name;
-    auto const modulator =
-        make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset);
-    wave.samples = generate_samples(modulator);
-    this->set_lerp(lerp_); // recalculates lerp and repaints
+    wave_b.make_modulator_fn = mk_mod_fn;
+    this->update_calculated_state(wave_b);
+    this->repaint();
+    this->on_change();
     this->on_commit();
 }
 
 void WaveformBox::set_lerp(float lerp)
 {
     lerp_ = lerp;
-    waveform_lerp_samples_ =
-        lerp_samples(this->waveform_a().samples, this->waveform_b().samples, lerp_);
+    lerp_modulator = build_lerp_modulator(wave_a.modulator, wave_b.modulator, lerp_);
+    lerp_path = generate_waveform_path(lerp_modulator);
+
     this->repaint();
     this->on_change();
 }
@@ -323,34 +294,25 @@ void WaveformBox::paint(juce::Graphics &g)
     bounds = bounds.reduced(border_width); // paint within border space
 
     // Draw grid
-    draw_grid(g, bounds, grid_color_, frequency_grid_values_, offset_grid_values_,
+    draw_grid(g, bounds, grid_color_, FREQUENCY_GRID_VALUES, OFFSET_GRID_VALUES,
               MIN_FREQ, MAX_FREQ);
 
-    auto const &wave_a = this->waveform_a();
-    auto const &wave_b = this->waveform_b();
+    auto const stroke_width = 3.f;
+    auto const inner = bounds.reduced(stroke_width * 0.5f);
 
-    { // Waveform A
-        auto const path = generate_waveform_path(wave_a.samples);
-        g.setColour(wave_a.color.withAlpha(0.4f * std::pow(1.f - lerp_, 0.385f)));
-        auto const stroke_width = 3.f;
-        auto const inner = bounds.reduced(stroke_width * 0.5f);
-        g.strokePath(path, juce::PathStrokeType(stroke_width),
-                     juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
-                         .translated(inner.getX(), inner.getY()));
-    }
+    // Waveform A
+    g.setColour(wave_a.color.withAlpha(0.4f * std::pow(1.f - lerp_, 0.385f)));
+    g.strokePath(wave_a.path, juce::PathStrokeType(stroke_width),
+                 juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
+                     .translated(inner.getX(), inner.getY()));
 
-    { // Waveform B
-        auto const path = generate_waveform_path(wave_b.samples);
-        g.setColour(wave_b.color.withAlpha(0.4f * std::pow(lerp_, 0.385f)));
-        auto const stroke_width = 3.f;
-        auto const inner = bounds.reduced(stroke_width * 0.5f);
-        g.strokePath(path, juce::PathStrokeType(stroke_width),
-                     juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
-                         .translated(inner.getX(), inner.getY()));
-    }
+    // Waveform B
+    g.setColour(wave_b.color.withAlpha(0.4f * std::pow(lerp_, 0.385f)));
+    g.strokePath(wave_b.path, juce::PathStrokeType(stroke_width),
+                 juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
+                     .translated(inner.getX(), inner.getY()));
 
-    { // Third - Linear Interpolation
-        auto const path = generate_waveform_path(waveform_lerp_samples_);
+    { // Linear Interpolation
         auto gradient = juce::ColourGradient{
             wave_a.color, bounds.getX(),     bounds.getCentreY(),
             wave_b.color, bounds.getRight(), bounds.getCentreY(),
@@ -367,10 +329,7 @@ void WaveformBox::paint(juce::Graphics &g)
         gradient.addColour(1.f, wave_b.color);
 
         g.setGradientFill(gradient);
-
-        auto const stroke_width = 3.f;
-        auto const inner = bounds.reduced(stroke_width * 0.5f);
-        g.strokePath(path, juce::PathStrokeType(stroke_width),
+        g.strokePath(lerp_path, juce::PathStrokeType(stroke_width),
                      juce::AffineTransform::scale(inner.getWidth(), inner.getHeight())
                          .translated(inner.getX(), inner.getY()));
     }
@@ -406,20 +365,20 @@ void WaveformBox::mouseDown(juce::MouseEvent const &e)
         auto bounds =
             this->getLocalBounds().toFloat().reduced(1.f); // TODO magic number 1
 
-        auto const &non_selected = waveforms_[1 - selected_waveform_];
+        auto const &non_selected = wave_a_selected_ ? wave_b : wave_a;
         auto non_selected_pos = get_handle_position(
             non_selected.frequency, MIN_FREQ, MAX_FREQ, non_selected.offset, bounds);
 
         // If non-selected is under the mouse
         if (is_within_target(e.position, non_selected_pos, HANDLE_RADIUS * 3.f))
         {
-            auto const &selected = waveforms_[selected_waveform_];
+            auto const &selected = wave_a_selected_ ? wave_a : wave_b;
             auto selected_pos = get_handle_position(selected.frequency, MIN_FREQ,
                                                     MAX_FREQ, selected.offset, bounds);
             if (not is_within_target(e.position, selected_pos, HANDLE_RADIUS * 3.f))
             {
                 // change selection
-                selected_waveform_ = 1 - selected_waveform_;
+                wave_a_selected_ = !wave_a_selected_;
             }
         }
     }
@@ -432,23 +391,22 @@ void WaveformBox::mouseDrag(juce::MouseEvent const &e)
     if (e.mods.isLeftButtonDown())
     {
         is_dragging_ = true;
-        auto &wave = waveforms_[selected_waveform_];
+        auto &wave = wave_a_selected_ ? wave_a : wave_b;
         auto const bounds = this->getLocalBounds().toFloat();
         if (not e.mods.isShiftDown())
         {
             wave.frequency = norm_to_freq(
                 (e.position.x - bounds.getX()) / bounds.getWidth(), MIN_FREQ, MAX_FREQ);
-            // TODO clamp necessary? make frequency const if not
-            wave.frequency = std::clamp(wave.frequency, MIN_FREQ, MAX_FREQ);
+            wave.frequency = std::clamp(wave.frequency, MIN_FREQ, 4.f * MAX_FREQ);
         }
         if (not e.mods.isCommandDown())
         {
             wave.offset = 0.5f - ((e.position.y - bounds.getY()) / bounds.getHeight());
             wave.offset = std::clamp(wave.offset, -0.5f, +0.5f);
         }
-        wave.samples = generate_samples(
-            make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset));
-        this->set_lerp(lerp_); // recalculates lerp and repaints
+        this->update_calculated_state(wave);
+        this->repaint();
+        this->on_change();
     }
 }
 
@@ -463,24 +421,32 @@ void WaveformBox::mouseUp(juce::MouseEvent const &e)
 
             auto frequency = norm_to_freq(
                 (e.position.x - bounds.getX()) / bounds.getWidth(), MIN_FREQ, MAX_FREQ);
-            // TODO clamp necessary? make frequency const if not
-            frequency = std::clamp(frequency, MIN_FREQ, MAX_FREQ);
+            frequency = std::clamp(frequency, MIN_FREQ, 4.f * MAX_FREQ);
 
             auto offset = 0.5f - ((e.position.y - bounds.getY()) / bounds.getHeight());
             offset = std::clamp(offset, -0.5f, +0.5f);
 
-            auto &wave = waveforms_[selected_waveform_];
+            auto &wave = wave_a_selected_ ? wave_a : wave_b;
 
-            wave.frequency = closest_value(frequency_grid_values_, frequency);
-            wave.offset = closest_value(offset_grid_values_, offset);
+            wave.frequency = closest_value(FREQUENCY_GRID_VALUES, frequency);
+            wave.offset = closest_value(OFFSET_GRID_VALUES, offset);
 
-            wave.samples = generate_samples(
-                make_wave_modulator(wave.cmd_name, wave.frequency, wave.offset));
-
-            this->set_lerp(lerp_); // recalculates lerp and repaints
+            this->update_calculated_state(wave);
+            this->repaint();
+            this->on_change();
         }
         this->on_commit();
     }
+}
+
+void WaveformBox::update_calculated_state(Waveform &waveform)
+{
+    waveform.modulator =
+        waveform.make_modulator_fn(waveform.frequency, waveform.offset);
+    waveform.path = generate_waveform_path(waveform.modulator);
+
+    lerp_modulator = build_lerp_modulator(wave_a.modulator, wave_b.modulator, lerp_);
+    lerp_path = generate_waveform_path(lerp_modulator);
 }
 
 // ================
@@ -512,33 +478,30 @@ void WaveformDestinations::resized()
 // ================
 
 ModulationPane::ModulationPane()
-    : waveform_a_selector_{1},
-      waveform_lerp_slider_{{.initial = 0.f, .min = 0.f, .max = 1.f},
-                            juce::Slider::LinearHorizontal},
-      waveform_b_selector_{2}
+    : waveform_box_{waveshape_a_selector_.get_selected_fn(),
+                    waveshape_b_selector_.get_selected_fn()}
 {
     this->addAndMakeVisible(waveform_box_);
-    this->addAndMakeVisible(waveform_a_selector_);
-    this->addAndMakeVisible(waveform_lerp_slider_);
-    this->addAndMakeVisible(waveform_b_selector_);
+    this->addAndMakeVisible(waveshape_a_selector_);
+    this->addAndMakeVisible(waveshape_lerp_slider_);
+    this->addAndMakeVisible(waveshape_b_selector_);
     this->addAndMakeVisible(destinations_);
 
-    waveform_a_selector_.on_change.connect([this](std::string const &cmd_name) {
-        waveform_box_.set_waveform_a(cmd_name);
-    });
-    waveform_b_selector_.on_change.connect([this](std::string const &cmd_name) {
-        waveform_box_.set_waveform_b(cmd_name);
-    });
+    waveshape_a_selector_.on_change.connect(
+        [this](WaveshapeSelect::MakeModulatorFn const &mk_fn) {
+            waveform_box_.set_waveshape_a(mk_fn);
+        });
+    waveshape_b_selector_.on_change.connect(
+        [this](WaveshapeSelect::MakeModulatorFn const &mk_fn) {
+            waveform_box_.set_waveshape_b(mk_fn);
+        });
 
     // TODO you should probably hold state in this parent class and handle cmd
     // generation etc.. all here and orchestrate on change and on commit from here.
     // depending on signal connection order isn't great.
-    waveform_lerp_slider_.on_change.connect(
+    waveshape_lerp_slider_.on_change.connect(
         [this](float value) { waveform_box_.set_lerp(value); });
-    waveform_lerp_slider_.on_release.connect([this] { waveform_box_.on_commit(); });
-
-    waveform_box_.set_waveform_a(WAVEFORMS.at(1).command_name);
-    waveform_box_.set_waveform_b(WAVEFORMS.at(2).command_name);
+    waveshape_lerp_slider_.on_release.connect([this] { waveform_box_.on_commit(); });
 
     waveform_box_.on_change.connect(
         [this] { this->emit_all_active_destination_cmds(); });
@@ -547,31 +510,31 @@ ModulationPane::ModulationPane()
     // TODO can this be cleaned up by moving it to Destinations class?
     destinations_.velocity.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.velocity.get_bias_range();
-        this->on_change(this->generate_command_string("velocity", amp, bias, min, max));
+        this->on_change(this->generate_command_string("velocity", bias, amp, min, max));
     });
     destinations_.velocity.on_commit.connect([this] { this->on_change("commit"); });
 
     destinations_.weight.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.weight.get_bias_range();
-        this->on_change(this->generate_command_string("weights", amp, bias, min, max));
+        this->on_change(this->generate_command_string("weights", bias, amp, min, max));
     });
     destinations_.weight.on_commit.connect([this] { this->on_change("commit"); });
 
     destinations_.delay.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.delay.get_bias_range();
-        this->on_change(this->generate_command_string("delay", amp, bias, min, max));
+        this->on_change(this->generate_command_string("delay", bias, amp, min, max));
     });
     destinations_.delay.on_commit.connect([this] { this->on_change("commit"); });
 
     destinations_.gate.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.gate.get_bias_range();
-        this->on_change(this->generate_command_string("gate", amp, bias, min, max));
+        this->on_change(this->generate_command_string("gate", bias, amp, min, max));
     });
     destinations_.gate.on_commit.connect([this] { this->on_change("commit"); });
 
     destinations_.pitch.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.pitch.get_bias_range();
-        this->on_change(this->generate_command_string("pitch", amp, bias, min, max));
+        this->on_change(this->generate_command_string("pitch", bias, amp, min, max));
     });
     destinations_.pitch.on_commit.connect([this] { this->on_change("commit"); });
 }
@@ -586,10 +549,10 @@ void ModulationPane::resized()
     auto top_fb = juce::FlexBox{};
 
     top_fb.flexDirection = juce::FlexBox::Direction::row;
-    top_fb.items.add(juce::FlexItem{waveform_a_selector_}.withWidth(combo_width));
-    top_fb.items.add(juce::FlexItem{waveform_lerp_slider_}.withFlex(1.f).withMargin(
+    top_fb.items.add(juce::FlexItem{waveshape_a_selector_}.withWidth(combo_width));
+    top_fb.items.add(juce::FlexItem{waveshape_lerp_slider_}.withFlex(1.f).withMargin(
         juce::FlexItem::Margin{0.f, 6.f, 0.f, 6.f}));
-    top_fb.items.add(juce::FlexItem{waveform_b_selector_}.withWidth(combo_width));
+    top_fb.items.add(juce::FlexItem{waveshape_b_selector_}.withWidth(combo_width));
 
     top_fb.performLayout(bounds.withHeight(23.f));
 
@@ -602,17 +565,11 @@ void ModulationPane::resized()
         bounds.withY(bounds.getY() + width / 2 + 40.f).withHeight(100.f));
 }
 
-// TODO reverse scale bias params to match others
-auto ModulationPane::generate_command_string(std::string const &destination,
-                                             float user_scale, float user_bias,
-                                             float min, float max) const -> std::string
+auto ModulationPane::generate_command_string(std::string const &destination, float bias,
+                                             float scale, float min, float max) const
+    -> std::string
 {
-    // TODO do you need this function? can it be something simpler?
-    // probably dealing with storing a modulator in the waveform thing, then accessing
-    // that, modifying it with scale, bias and clamp for the particular destination, and
-    // then putting it in the command string
-    auto const mod = build_destination_modulator(user_bias, user_scale, min, max);
-
+    auto const mod = build_destination_modulator(bias, scale, min, max);
     return "set " + destination + ' ' + to_json(mod).dump() + ';';
 }
 
@@ -624,31 +581,31 @@ void ModulationPane::emit_all_active_destination_cmds()
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.velocity.get_bias_range();
-        cmd_str += this->generate_command_string("velocity", amp, bias, min, max);
+        cmd_str += this->generate_command_string("velocity", bias, amp, min, max);
     }
     if (auto const values = destinations_.weight.get_values(); values)
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.weight.get_bias_range();
-        cmd_str += this->generate_command_string("weights", amp, bias, min, max);
+        cmd_str += this->generate_command_string("weights", bias, amp, min, max);
     }
     if (auto const values = destinations_.delay.get_values(); values)
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.delay.get_bias_range();
-        cmd_str += this->generate_command_string("delay", amp, bias, min, max);
+        cmd_str += this->generate_command_string("delay", bias, amp, min, max);
     }
     if (auto const values = destinations_.gate.get_values(); values)
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.gate.get_bias_range();
-        cmd_str += this->generate_command_string("gate", amp, bias, min, max);
+        cmd_str += this->generate_command_string("gate", bias, amp, min, max);
     }
     if (auto const values = destinations_.pitch.get_values(); values)
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.pitch.get_bias_range();
-        cmd_str += this->generate_command_string("pitch", amp, bias, min, max);
+        cmd_str += this->generate_command_string("pitch", bias, amp, min, max);
     }
     if (not cmd_str.empty())
     {
@@ -659,44 +616,21 @@ void ModulationPane::emit_all_active_destination_cmds()
 auto ModulationPane::build_destination_modulator(float bias, float scale, float min,
                                                  float max) const -> Modulator
 {
-    auto const &wave_a = waveform_box_.waveform_a();
-    auto const &wave_b = waveform_box_.waveform_b();
     using namespace xen::modulator;
 
-    return Chain{
-        .children = {
-            Blend{.children =
-                      {
-                          Chain{.children =
-                                    {
-                                        make_wave_modulator(wave_a.cmd_name,
-                                                            wave_a.frequency,
-                                                            wave_a.offset),
-                                        Scale{
-                                            .factor = 1.f - waveform_box_.lerp(),
-                                        },
-                                    }},
-                          Chain{.children =
-                                    {
-                                        make_wave_modulator(wave_b.cmd_name,
-                                                            wave_b.frequency,
-                                                            wave_b.offset),
-                                        Scale{
-                                            .factor = waveform_box_.lerp(),
-                                        },
-                                    }},
-                      }},
-            Scale{
-                .factor = scale,
-            },
-            Bias{
-                .amount = bias,
-            },
-            Clamp{
-                .min = min,
-                .max = max,
-            },
-        }};
+    return Chain{.children = {
+                     waveform_box_.lerp_modulator,
+                     Scale{
+                         .factor = scale,
+                     },
+                     Bias{
+                         .amount = bias,
+                     },
+                     Clamp{
+                         .min = min,
+                         .max = max,
+                     },
+                 }};
 }
 
 } // namespace xen::gui

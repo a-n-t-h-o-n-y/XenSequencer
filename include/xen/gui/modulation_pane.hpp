@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -21,16 +23,90 @@
 namespace xen::gui
 {
 
-/// A combo box that has various LFO type waveforms in it.
-class WaveformSelect : public juce::Component
+/// A combo box that has various LFO type waveshapes in it.
+class WaveshapeSelect : public juce::Component
 {
   public:
-    /// Emits json recognized command name of waveform/modulator selected.
-    sl::Signal<void(std::string const &)> on_change;
+    /// Modulator fn(float frequency, float offset)
+    using MakeModulatorFn = std::function<Modulator(float, float)>;
+
+    struct WaveshapeMetadata
+    {
+        std::string display_name;
+        MakeModulatorFn make_modulator;
+    };
+
+    // TODO add to this list
+    // <ComboBox ID, Metadata>, ID cannot be zero.
+    inline static auto const WAVESHAPES = std::map<int, WaveshapeMetadata>{
+        {1,
+         {
+             .display_name = "Sine",
+             .make_modulator =
+                 [](float frequency, float offset) {
+                     return modulator::Sine{
+                         .frequency = frequency,
+                         .amplitude = 1.f,
+                         .phase = offset,
+                     };
+                 },
+         }},
+        {2,
+         {
+             .display_name = "Triangle",
+             .make_modulator =
+                 [](float frequency, float offset) {
+                     return modulator::Triangle{
+                         .frequency = frequency,
+                         .amplitude = 1.f,
+                         .phase = offset,
+                     };
+                 },
+         }},
+        {3,
+         {
+             .display_name = "Sawtooth",
+             .make_modulator =
+                 [](float frequency, float offset) {
+                     return modulator::SawtoothUp{
+                         .frequency = frequency,
+                         .amplitude = 1.f,
+                         .phase = offset,
+                     };
+                 },
+         }},
+        {4,
+         {
+             .display_name = "Square",
+             .make_modulator =
+                 [](float frequency, float offset) {
+                     return modulator::Square{
+                         .frequency = frequency,
+                         .amplitude = 1.f,
+                         .phase = offset,
+                         .pulse_width = 0.5f,
+                     };
+                 },
+         }},
+    };
 
   public:
-    /// initial_selection cannot be 0.
-    WaveformSelect(int initial_selection);
+    /// Emits the MakeModulatorFn of the newly selected waveform.
+    sl::Signal<void(MakeModulatorFn const &)> on_change;
+
+  public:
+    /// initial_selection_id must be an ID key from WAVESHAPES map.
+    WaveshapeSelect(int initial_selection_id);
+
+    [[nodiscard]]
+    auto get_selected_fn() const -> MakeModulatorFn;
+
+    [[nodiscard]]
+    auto get_selected_id() const -> int;
+
+    /// Sets the current selection to \p id which should only come from the
+    /// `get_selected_id` function. This will emit the `on_change` signal.
+    void set_selected_id(int id);
 
   public:
     void resized() override;
@@ -43,20 +119,55 @@ class WaveformSelect : public juce::Component
 class WaveformBox : public juce::Component
 {
   private:
-    // TODO what is the best value for this? test it, it depends on the sise of the boks
-    // TODO move this to fn implementation or source file, only if samples array is no
-    // longer used.
-    static constexpr int RESOLUTION = 500;
+    static constexpr float MIN_FREQ = 0.1f;
+    static constexpr float MAX_FREQ = 10.f;
+
+    static constexpr float HANDLE_RADIUS = 4.f;
+
+    // array of pair<frequency, pixel thickness>
+    static constexpr auto FREQUENCY_GRID_VALUES =
+        std::array<std::pair<float, float>, 12>{{
+            {MIN_FREQ, 0.f},
+            {0.25f, 1.5f},
+            {0.5f, 1.5f},
+            {0.75f, 1.5f},
+            {1.f / 3.f, 1.f},
+            {2.f / 3.f, 1.f},
+            {1.f, 2.f},
+            {1.5f, 1.5f},
+            {2.f, 1.5f},
+            {4.f, 1.5f},
+            {8.f, 1.5f},
+            {MAX_FREQ, 0.f},
+        }};
+
+    // array of pair<frequency, pixel thickness>
+    static constexpr auto OFFSET_GRID_VALUES = std::array<std::pair<float, float>, 7>{{
+        {-0.5f, 0.f},
+        {-0.25f, 1.5f},
+        {0.f, 2.f},
+        {0.25f, 1.5f},
+        {1.f / 3.f, 1.f},
+        {-1.f / 3.f, 1.f},
+        {0.5f, 0.f},
+    }};
 
   public:
     struct Waveform
     {
         float frequency; // [0, inf)
         float offset;
-        std::string cmd_name;
+        WaveshapeSelect::MakeModulatorFn make_modulator_fn;
+        Modulator modulator;
+        juce::Path path; // normalized 0..1
         juce::Colour color;
-        std::array<float, RESOLUTION> samples; // TODO remove once waves reimplemented
     };
+
+    Waveform wave_a;
+    Waveform wave_b;
+
+    Modulator lerp_modulator;
+    juce::Path lerp_path;
 
     /// Emits on frequency, offset, lerp or waveshape change.
     sl::Signal<void()> on_change;
@@ -65,17 +176,26 @@ class WaveformBox : public juce::Component
     sl::Signal<void()> on_commit;
 
   public:
+    WaveformBox(WaveshapeSelect::MakeModulatorFn const &waveshape_a,
+                WaveshapeSelect::MakeModulatorFn const &waveshape_b);
+
     // TODO remove this?
     void set_grid_color(juce::Colour c)
     {
         grid_color_ = c;
     }
 
-    /// Update and redraw waveform A and LERP wave.
-    void set_waveform_a(std::string const &waveform_cmd_name);
+    /**
+     * Change the waveshape for waveform A; redraw waveform A and LERP wave.
+     * \p mk_mod_fn A fn to generate a modulator that represents a waveshape.
+     */
+    void set_waveshape_a(WaveshapeSelect::MakeModulatorFn const &mk_mod_fn);
 
-    /// Update and redraw waveform B and LERP wave.
-    void set_waveform_b(std::string const &waveform_cmd_name);
+    /**
+     * Change the waveshape for waveform B; redraw waveform B and LERP wave.
+     * \p mk_mod_fn A fn to generate a modulator that represents a waveshape.
+     */
+    void set_waveshape_b(WaveshapeSelect::MakeModulatorFn const &mk_mod_fn);
 
     void set_lerp(float lerp);
 
@@ -85,12 +205,6 @@ class WaveformBox : public juce::Component
     {
         return lerp_;
     }
-
-    [[nodiscard]]
-    auto waveform_a() const -> Waveform const &;
-
-    [[nodiscard]]
-    auto waveform_b() const -> Waveform const &;
 
   public:
     void paint(juce::Graphics &g) override;
@@ -102,72 +216,17 @@ class WaveformBox : public juce::Component
     void mouseUp(juce::MouseEvent const &e) override;
 
   private:
-    [[nodiscard]]
-    auto generate_samples(xen::Modulator const &modulator)
-        -> std::array<float, RESOLUTION>;
-
-    [[nodiscard]]
-    auto generate_waveform_path(std::array<float, RESOLUTION> const &samples)
-        -> juce::Path;
+    /// Update modulator and path for the given wave assuming frequency, offset, or
+    /// make_modulator_fn has been updated already. This also update lerp_modulator and
+    /// lerp_path.
+    void update_calculated_state(Waveform &waveform);
 
   private:
-    std::array<float, RESOLUTION> waveform_lerp_samples_{};
-
     juce::Colour grid_color_{juce::Colours::grey};
     float lerp_{0.f}; // 0 = all A, 1 = all B
-    static constexpr float MIN_FREQ = 0.1f;
-    static constexpr float MAX_FREQ = 10.f;
 
-    static constexpr std::size_t WAVE_A_INDEX = 0;
-    static constexpr std::size_t WAVE_B_INDEX = 1;
-    static constexpr float HANDLE_RADIUS = 4.f;
-    std::array<Waveform, 2> waveforms_{{
-        {
-            .frequency = 1.f,
-            .offset = 0.f,
-            .cmd_name = "sine",
-            .color = juce::Colour{0xFF61BAC0},
-            .samples = {},
-        },
-        {
-            .frequency = 1.f,
-            .offset = 0.25f,
-            .cmd_name = "triangle",
-            .color = juce::Colour{0xFF9D83C5},
-            .samples = {},
-        },
-    }};
-
-    std::size_t selected_waveform_{WAVE_A_INDEX}; // current mouse selection
-
+    bool wave_a_selected_ = true; // false is wave b is selected
     bool is_dragging_ = false;
-
-    // array of pair<frequency, pixel thickness>
-    std::array<std::pair<float, float>, 12> frequency_grid_values_ = {{
-        {MIN_FREQ, 0.f},
-        {0.25f, 1.5f},
-        {0.5f, 1.5f},
-        {0.75f, 1.5f},
-        {1.f / 3.f, 1.f},
-        {2.f / 3.f, 1.f},
-        {1.f, 2.f},
-        {1.5f, 1.5f},
-        {2.f, 1.5f},
-        {4.f, 1.5f},
-        {8.f, 1.5f},
-        {MAX_FREQ, 0.f},
-    }};
-
-    // array of pair<frequency, pixel thickness>
-    std::array<std::pair<float, float>, 7> offset_grid_values_ = {{
-        {-0.5f, 0.f},
-        {-0.25f, 1.5f},
-        {0.f, 2.f},
-        {0.25f, 1.5f},
-        {1.f / 3.f, 1.f},
-        {-1.f / 3.f, 1.f},
-        {0.5f, 0.f},
-    }};
 };
 
 class WaveformDestinations : public juce::Component
@@ -181,39 +240,23 @@ class WaveformDestinations : public juce::Component
   public:
     LFOModulationSlider velocity{
         "Velocity",
-        {.bias_min = 0.f,
-         .bias_max = 1.f,
-         .initial_bias = 0.5f,
-         .initial_amplitude = 0.f},
+        {.bias_min = 0.f, .bias_max = 1.f},
     };
     LFOModulationSlider weight{
         "Weight",
-        {.bias_min = 0.05f,
-         .bias_max = 2.f,
-         .initial_bias = 1.025f, // TODO can this calculation be done automatically as a
-                                 // default if this is an optional null?
-         .initial_amplitude = 0.f},
+        {.bias_min = 0.05f, .bias_max = 2.f},
     };
     LFOModulationSlider delay{
         "Delay",
-        {.bias_min = 0.f,
-         .bias_max = 1.f,
-         .initial_bias = 0.5f,
-         .initial_amplitude = 0.f},
+        {.bias_min = 0.f, .bias_max = 1.f},
     };
     LFOModulationSlider gate{
         "Gate",
-        {.bias_min = 0.f,
-         .bias_max = 1.f,
-         .initial_bias = 0.5f,
-         .initial_amplitude = 0.f},
+        {.bias_min = 0.f, .bias_max = 1.f},
     };
     LFOModulationSlider pitch{
         "Pitch",
-        {.bias_min = -4.f * 12.f,
-         .bias_max = 4.f * 12.f,
-         .initial_bias = 0.f,
-         .initial_amplitude = 0.f},
+        {.bias_min = -4.f * 12.f, .bias_max = 4.f * 12.f},
     };
 };
 
@@ -229,9 +272,14 @@ class ModulationPane : public juce::Component
     void resized() override;
 
   private:
-    WaveformSelect waveform_a_selector_;
-    XenSlider waveform_lerp_slider_;
-    WaveformSelect waveform_b_selector_;
+    WaveshapeSelect waveshape_a_selector_{1};
+
+    XenSlider waveshape_lerp_slider_{
+        {.initial = 0.f, .min = 0.f, .max = 1.f},
+        juce::Slider::LinearHorizontal,
+    };
+
+    WaveshapeSelect waveshape_b_selector_{2};
 
     WaveformBox waveform_box_;
 
@@ -245,8 +293,8 @@ class ModulationPane : public juce::Component
      * with a separate `commit` command.
      */
     [[nodiscard]]
-    auto generate_command_string(std::string const &destination, float user_scale,
-                                 float user_bias, float min, float max) const
+    auto generate_command_string(std::string const &destination, float bias,
+                                 float scale, float min, float max) const
         -> std::string;
 
     /// Emit on_change cmd string for each of the destinations that is active.

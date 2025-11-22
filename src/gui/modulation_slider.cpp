@@ -52,22 +52,11 @@ void LEDButton::mouseDown(juce::MouseEvent const &e)
 
 BiasAmplitudeSlider::BiasAmplitudeSlider(Options const &options)
     : bias_min_{options.bias_min}, bias_max_{options.bias_max},
-      bias_{options.initial_bias}, amplitude_{options.initial_amplitude}
+      bias_{(options.bias_min + options.bias_max) / 2}, amplitude_{0.f}
 {
     if (bias_min_ >= bias_max_)
     {
         throw std::invalid_argument("bias_min must be less than bias_max.");
-    }
-
-    if (bias_ < bias_min_ || bias_ > bias_max_)
-    {
-        throw std::out_of_range("initial_bias out of range.");
-    }
-
-    auto const amp_abs = (bias_max_ - bias_min_) / 2.f;
-    if (amplitude_ < -amp_abs || amplitude_ > amp_abs)
-    {
-        throw std::out_of_range("initial_amplitude out of range.");
     }
 }
 
