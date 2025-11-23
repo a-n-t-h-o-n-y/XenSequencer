@@ -203,6 +203,7 @@ target_sources(XenSequencer
         include/xen/gui/command_bar.hpp
         include/xen/gui/fonts.hpp
         # include/xen/gui/graph.hpp
+        include/xen/gui/tab_group.hpp
         include/xen/gui/themes.hpp
         include/xen/gui/directory_list_box.hpp
         include/xen/gui/homogenous_row.hpp

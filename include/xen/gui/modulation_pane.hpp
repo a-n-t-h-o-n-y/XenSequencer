@@ -17,6 +17,7 @@
 
 #include <xen/gui/modulation_slider.hpp>
 #include <xen/gui/sequence_bank.hpp>
+#include <xen/gui/tab_group.hpp>
 #include <xen/gui/xen_slider.hpp>
 #include <xen/modulator.hpp>
 
@@ -260,13 +261,13 @@ class WaveformDestinations : public juce::Component
     };
 };
 
-class ModulationPane : public juce::Component
+class ModulationWindow : public juce::Component
 {
   public:
     sl::Signal<void(std::string const &)> on_change; // Emits command string
 
   public:
-    ModulationPane();
+    ModulationWindow();
 
   public:
     void resized() override;
@@ -310,6 +311,17 @@ class ModulationPane : public juce::Component
     [[nodiscard]]
     auto build_destination_modulator(float bias, float scale, float min,
                                      float max) const -> Modulator;
+};
+
+/// A tab group a four modulation windows
+class ModulationPane : public TabGroup<ModulationWindow, ModulationWindow,
+                                       ModulationWindow, ModulationWindow>
+{
+  public:
+    sl::Signal<void(std::string const &)> on_change; // Emits command string
+
+  public:
+    ModulationPane();
 };
 
 } // namespace xen::gui

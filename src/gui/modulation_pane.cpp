@@ -477,7 +477,7 @@ void WaveformDestinations::resized()
 
 // ================
 
-ModulationPane::ModulationPane()
+ModulationWindow::ModulationWindow()
     : waveform_box_{waveshape_a_selector_.get_selected_fn(),
                     waveshape_b_selector_.get_selected_fn()}
 {
@@ -539,7 +539,7 @@ ModulationPane::ModulationPane()
     destinations_.pitch.on_commit.connect([this] { this->on_change("commit"); });
 }
 
-void ModulationPane::resized()
+void ModulationWindow::resized()
 {
     auto bounds = this->getLocalBounds().reduced(10);
 
@@ -565,15 +565,15 @@ void ModulationPane::resized()
         bounds.withY(bounds.getY() + width / 2 + 40.f).withHeight(100.f));
 }
 
-auto ModulationPane::generate_command_string(std::string const &destination, float bias,
-                                             float scale, float min, float max) const
-    -> std::string
+auto ModulationWindow::generate_command_string(std::string const &destination,
+                                               float bias, float scale, float min,
+                                               float max) const -> std::string
 {
     auto const mod = build_destination_modulator(bias, scale, min, max);
     return "set " + destination + ' ' + to_json(mod).dump() + ';';
 }
 
-void ModulationPane::emit_all_active_destination_cmds()
+void ModulationWindow::emit_all_active_destination_cmds()
 {
     // TODO can this be put in Destinations as well? Lots of repeated code.
     auto cmd_str = std::string{};
@@ -613,8 +613,8 @@ void ModulationPane::emit_all_active_destination_cmds()
     }
 }
 
-auto ModulationPane::build_destination_modulator(float bias, float scale, float min,
-                                                 float max) const -> Modulator
+auto ModulationWindow::build_destination_modulator(float bias, float scale, float min,
+                                                   float max) const -> Modulator
 {
     using namespace xen::modulator;
 
@@ -631,6 +631,15 @@ auto ModulationPane::build_destination_modulator(float bias, float scale, float 
                          .max = max,
                      },
                  }};
+}
+
+ModulationPane::ModulationPane() : TabGroup{"1", "2", "3", "4"}
+{
+    auto &[one, two, three, four] = this->children;
+    one.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
+    two.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
+    three.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
+    four.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
 }
 
 } // namespace xen::gui
