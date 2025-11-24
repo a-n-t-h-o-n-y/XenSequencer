@@ -66,7 +66,7 @@ class WaveshapeSelect : public juce::Component
          }},
         {3,
          {
-             .display_name = "Sawtooth",
+             .display_name = "SawtoothUp",
              .make_modulator =
                  [](float frequency, float offset) {
                      return modulator::SawtoothUp{
@@ -77,6 +77,18 @@ class WaveshapeSelect : public juce::Component
                  },
          }},
         {4,
+         {
+             .display_name = "SawtoothDown",
+             .make_modulator =
+                 [](float frequency, float offset) {
+                     return modulator::SawtoothDown{
+                         .frequency = frequency,
+                         .amplitude = 1.f,
+                         .phase = offset,
+                     };
+                 },
+         }},
+        {5,
          {
              .display_name = "Square",
              .make_modulator =

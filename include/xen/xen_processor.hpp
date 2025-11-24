@@ -25,8 +25,8 @@ class XenProcessor : public juce::AudioProcessor
   public:
     PluginState plugin_state;
     XenCommandTree command_tree;
-    int editor_width{1200};
-    int editor_height{300};
+    int editor_width{1400};
+    int editor_height{350};
 
   public:
     // Used to send new SequencerState to the Audio Thread.

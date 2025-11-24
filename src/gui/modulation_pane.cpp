@@ -541,28 +541,20 @@ ModulationWindow::ModulationWindow()
 
 void ModulationWindow::resized()
 {
-    auto bounds = this->getLocalBounds().reduced(10);
+    auto waveshape_fb = juce::FlexBox{};
+    waveshape_fb.flexDirection = juce::FlexBox::Direction::row;
+    waveshape_fb.items.add(juce::FlexItem{waveshape_a_selector_}.withFlex(1.f));
+    waveshape_fb.items.add(juce::FlexItem{waveshape_lerp_slider_}.withFlex(2.f));
+    waveshape_fb.items.add(juce::FlexItem{waveshape_b_selector_}.withFlex(1.f));
 
-    // TODO make outer fb
+    auto fb = juce::FlexBox{};
+    fb.flexDirection = juce::FlexBox::Direction::column;
+    fb.items.add(juce::FlexItem{waveshape_fb}.withHeight(23.f));
+    fb.items.add(juce::FlexItem{waveform_box_}.withFlex(1.f).withMargin(
+        juce::FlexItem::Margin{3.f, 0.f, 3.f, 0.f}));
+    fb.items.add(juce::FlexItem{destinations_}.withHeight(100.f));
 
-    auto combo_width = bounds.getWidth() / 4.f;
-    auto top_fb = juce::FlexBox{};
-
-    top_fb.flexDirection = juce::FlexBox::Direction::row;
-    top_fb.items.add(juce::FlexItem{waveshape_a_selector_}.withWidth(combo_width));
-    top_fb.items.add(juce::FlexItem{waveshape_lerp_slider_}.withFlex(1.f).withMargin(
-        juce::FlexItem::Margin{0.f, 6.f, 0.f, 6.f}));
-    top_fb.items.add(juce::FlexItem{waveshape_b_selector_}.withWidth(combo_width));
-
-    top_fb.performLayout(bounds.withHeight(23.f));
-
-    // Waveform Display
-    auto width = bounds.getWidth();
-    waveform_box_.setBounds(bounds.withHeight(width / 2).withY(bounds.getY() + 30.f));
-
-    // Destinations
-    destinations_.setBounds(
-        bounds.withY(bounds.getY() + width / 2 + 40.f).withHeight(100.f));
+    fb.performLayout(this->getLocalBounds());
 }
 
 auto ModulationWindow::generate_command_string(std::string const &destination,
