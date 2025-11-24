@@ -659,6 +659,8 @@ void SequenceView::update(SequencerState const &state, AuxState const &aux)
 
     sequence_bank.update(aux.selected.measure);
 
+    modulation_pane.update(state.tuning.intervals.size());
+
     this->resized();
 }
 

@@ -287,14 +287,14 @@ void WaveformBox::paint(juce::Graphics &g)
     g.fillAll(juce::Colours::black);
 
     // Draw border
-    g.setColour(grid_color_);
+    g.setColour(GRID_COLOR);
     auto const border_width = 1.f;
     g.drawRect(bounds, border_width);
 
     bounds = bounds.reduced(border_width); // paint within border space
 
     // Draw grid
-    draw_grid(g, bounds, grid_color_, FREQUENCY_GRID_VALUES, OFFSET_GRID_VALUES,
+    draw_grid(g, bounds, GRID_COLOR, FREQUENCY_GRID_VALUES, OFFSET_GRID_VALUES,
               MIN_FREQ, MAX_FREQ);
 
     auto const stroke_width = 3.f;
@@ -534,7 +534,9 @@ ModulationWindow::ModulationWindow()
 
     destinations_.pitch.on_change.connect([this](float bias, float amp) {
         auto const [min, max] = destinations_.pitch.get_bias_range();
-        this->on_change(this->generate_command_string("pitch", bias, amp, min, max));
+        this->on_change(this->generate_command_string(
+            "pitch", bias * tuning_length_, amp * tuning_length_, min * tuning_length_,
+            max * tuning_length_));
     });
     destinations_.pitch.on_commit.connect([this] { this->on_change("commit"); });
 }
@@ -555,6 +557,11 @@ void ModulationWindow::resized()
     fb.items.add(juce::FlexItem{destinations_}.withHeight(100.f));
 
     fb.performLayout(this->getLocalBounds());
+}
+
+void ModulationWindow::update(std::size_t tuning_length)
+{
+    tuning_length_ = tuning_length;
 }
 
 auto ModulationWindow::generate_command_string(std::string const &destination,
@@ -597,7 +604,9 @@ void ModulationWindow::emit_all_active_destination_cmds()
     {
         auto const &[bias, amp] = *values;
         auto const [min, max] = destinations_.pitch.get_bias_range();
-        cmd_str += this->generate_command_string("pitch", bias, amp, min, max);
+        cmd_str += this->generate_command_string(
+            "pitch", bias * tuning_length_, amp * tuning_length_, min * tuning_length_,
+            max * tuning_length_);
     }
     if (not cmd_str.empty())
     {
@@ -632,6 +641,15 @@ ModulationPane::ModulationPane() : TabGroup{"1", "2", "3", "4"}
     two.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
     three.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
     four.on_change.connect([this](std::string const &cmd) { this->on_change(cmd); });
+}
+
+void ModulationPane::update(std::size_t tuning_length)
+{
+    auto &[one, two, three, four] = this->children;
+    one.update(tuning_length);
+    two.update(tuning_length);
+    three.update(tuning_length);
+    four.update(tuning_length);
 }
 
 } // namespace xen::gui

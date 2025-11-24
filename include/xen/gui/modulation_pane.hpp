@@ -132,10 +132,11 @@ class WaveshapeSelect : public juce::Component
 class WaveformBox : public juce::Component
 {
   private:
-    static constexpr float MIN_FREQ = 0.1f;
-    static constexpr float MAX_FREQ = 10.f;
+    inline static auto const GRID_COLOR = juce::Colour{juce::Colours::grey};
+    static constexpr auto MIN_FREQ = 0.1f;
+    static constexpr auto MAX_FREQ = 10.f;
 
-    static constexpr float HANDLE_RADIUS = 4.f;
+    static constexpr auto HANDLE_RADIUS = 4.f;
 
     // array of pair<frequency, pixel thickness>
     static constexpr auto FREQUENCY_GRID_VALUES =
@@ -192,12 +193,6 @@ class WaveformBox : public juce::Component
     WaveformBox(WaveshapeSelect::MakeModulatorFn const &waveshape_a,
                 WaveshapeSelect::MakeModulatorFn const &waveshape_b);
 
-    // TODO remove this?
-    void set_grid_color(juce::Colour c)
-    {
-        grid_color_ = c;
-    }
-
     /**
      * Change the waveshape for waveform A; redraw waveform A and LERP wave.
      * \p mk_mod_fn A fn to generate a modulator that represents a waveshape.
@@ -235,9 +230,7 @@ class WaveformBox : public juce::Component
     void update_calculated_state(Waveform &waveform);
 
   private:
-    juce::Colour grid_color_{juce::Colours::grey};
-    float lerp_{0.f}; // 0 = all A, 1 = all B
-
+    float lerp_{0.f};             // 0 = all A, 1 = all B
     bool wave_a_selected_ = true; // false is wave b is selected
     bool is_dragging_ = false;
 };
@@ -269,7 +262,7 @@ class WaveformDestinations : public juce::Component
     };
     LFOModulationSlider pitch{
         "Pitch",
-        {.bias_min = -4.f * 12.f, .bias_max = 4.f * 12.f},
+        {.bias_min = -4.f, .bias_max = 4.f},
     };
 };
 
@@ -280,6 +273,9 @@ class ModulationWindow : public juce::Component
 
   public:
     ModulationWindow();
+
+  public:
+    void update(std::size_t tuning_length);
 
   public:
     void resized() override;
@@ -323,6 +319,9 @@ class ModulationWindow : public juce::Component
     [[nodiscard]]
     auto build_destination_modulator(float bias, float scale, float min,
                                      float max) const -> Modulator;
+
+  private:
+    std::size_t tuning_length_ = 12;
 };
 
 /// A tab group a four modulation windows
@@ -334,6 +333,9 @@ class ModulationPane : public TabGroup<ModulationWindow, ModulationWindow,
 
   public:
     ModulationPane();
+
+  public:
+    void update(std::size_t tuning_length);
 };
 
 } // namespace xen::gui
