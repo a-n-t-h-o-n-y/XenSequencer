@@ -117,10 +117,10 @@ SequenceView:
   "[c] + k": "shift entireScale +1"
   "[c] + ArrowUp": "shift entireScale +1"
 
-  "[c] + Shift + j": "shift scale -1"
-  "[c] + Shift + ArrowDown": "shift scale -1"
-  "[c] + Shift + k": "shift scale +1"
-  "[c] + Shift + ArrowUp": "shift scale +1"
+  "[c] + Cmd + j": "shift scale -1"
+  "[c] + Cmd + ArrowDown": "shift scale -1"
+  "[c] + Cmd + k": "shift scale +1"
+  "[c] + Cmd + ArrowUp": "shift scale +1"
 
   # TimeSignature
   "Shift + plus": "double sequence timeSignature"
