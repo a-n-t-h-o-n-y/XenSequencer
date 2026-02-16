@@ -250,10 +250,19 @@ target_link_libraries(XenSequencer
 # TESTS --------------------------------------------------------------------------------
 
 add_executable(XenTests
-    # test/command.test.cpp
-    # test/utility.test.cpp
-    # test/midi.test.cpp
-    test/command2.test.cpp
+    test/unit/command_framework.test.cpp
+    test/unit/guide_text.test.cpp
+    test/unit/parse_args.test.cpp
+    test/unit/runtime_command_tree.test.cpp
+    test/unit/serialize.test.cpp
+    test/unit/string_manip.test.cpp
+    test/unit/timeline.test.cpp
+    test/unit/utility_math.test.cpp
+    test/unit/engine.test.cpp
+    test/integration/engine_commands.test.cpp
+    src/command_history.cpp
+    src/runtime_command_tree.cpp
+    src/gui/themes.cpp
 )
 
 target_link_libraries(XenTests
