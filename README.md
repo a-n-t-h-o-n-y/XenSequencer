@@ -20,7 +20,7 @@
 ```bash
 git clone https://github.com/a-n-t-h-o-n-y/XenSequencer.git
 cd XenSequencer
-git submodule update --init --recursive external/MicrotonalStepSequencer
+git submodule update --init --recursive
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . --target XenSequencer_VST3

@@ -14,30 +14,27 @@
 #include <sequence/measure.hpp>
 
 #include <xen/command.hpp>
-#include <xen/gui/themes.hpp>
-#include <xen/guide_text.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
+#include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
+#include <xen/xen_command_tree.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace xen
 {
 
 XenProcessor::XenProcessor()
+    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
+      command_tree{create_command_tree()}
 {
     initialize_demo_files();
-    runtime_state.shared.theme = gui::find_theme("apollo");
 
-    // Send initial state to Audio Thread.
-    if (auto initial = engine.take_pending_sequencer_update(); initial.has_value())
-    {
-        pending_state_update.set(std::move(*initial));
-    }
+    // Send initial state to Audio Thread
+    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
 
-    // Engine-owned startup content.
     this->execute_command_string("load scales");
     this->execute_command_string("load chords");
 }
@@ -119,7 +116,8 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_plugin(engine.state().timeline.get_state().sequencer);
+        auto const json_str =
+            serialize_plugin(plugin_state.timeline.get_state().sequencer);
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -136,11 +134,9 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     auto const json_str =
         std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
     auto state = deserialize_plugin(json_str);
-    engine.load_serialized_state(std::move(state));
-    if (auto pending = engine.take_pending_sequencer_update(); pending.has_value())
-    {
-        pending_state_update.set(std::move(*pending));
-    }
+    plugin_state.timeline.stage({std::move(state), {}});
+    plugin_state.timeline.commit();
+    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
     auto *const editor_base = this->getActiveEditor();
     if (editor_base != nullptr)
     {
@@ -155,78 +151,67 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 auto XenProcessor::execute_command_string(std::string const &command_string)
     -> std::pair<MessageLevel, std::string>
 {
-    auto commands = split(command_string, ';');
-    auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-    auto ran_non_empty = false;
-
-    for (auto &command : commands)
+    try
     {
-        command = minimize_spaces(command);
-        if (command.empty())
+        auto &ps = plugin_state;
+        try
         {
-            continue;
-        }
-
-        ran_non_empty = true;
-
-        if (to_lower(command) == "again")
-        {
-            if (previous_command_string_.empty())
+            auto commands = split(command_string, ';');
+            auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+            for (auto &command : commands)
             {
-                status = minfo("Nothing to repeat.");
+                command = minimize_spaces(command);
+                if (to_lower(command) == "again")
+                {
+                    command = previous_command_string_;
+                }
+                if (command.empty())
+                {
+                    continue;
+                }
+                status = command_tree.execute(ps, split_input(command));
             }
-            else
+            if (ps.timeline.get_commit_flag())
             {
-                status = this->execute_command_string(previous_command_string_);
+                // join() so that 'again' is replaced with the full command string
+                previous_command_string_ = join(commands, ';');
+                ps.timeline.commit();
             }
-            continue;
+            if (auto const id = ps.timeline.get_current_commit_id();
+                id != previous_commit_id_)
+            {
+                previous_commit_id_ = id;
+                pending_state_update.set(ps.timeline.get_state().sequencer);
+            }
+            return status;
         }
-
-        if (auto runtime_status = runtime_command_tree_.execute(runtime_state, command);
-            runtime_status.has_value())
+        catch (...)
         {
-            status = std::move(*runtime_status);
-            continue;
-        }
+            // FIXME: This roundabout way can set an invalid selection if a string of
+            // commands is executed that includes splitting and movement. But it isn't a
+            // huge deal and this behaviour is more desirable that without this patch.
 
-        status = engine.execute_command(command);
-        if (auto pending = engine.take_pending_sequencer_update(); pending.has_value())
-        {
-            pending_state_update.set(std::move(*pending));
-        }
-    }
-
-    if (ran_non_empty)
-    {
-        // Persist expanded command text so `again` repeats the previous action string.
-        auto expanded = join(commands, ';');
-        if (!expanded.empty())
-        {
-            previous_command_string_ = std::move(expanded);
+            // Roundabout way to revert partial changes but keep the selected state.
+            auto aux = ps.timeline.get_state().aux;
+            ps.timeline.reset_stage();
+            auto state = ps.timeline.get_state();
+            state.aux = std::move(aux);
+            ps.timeline.stage(std::move(state));
+            throw; // rethrow so you can return proper message without duplicating above
         }
     }
-
-    return status;
-}
-
-auto XenProcessor::guide_text(std::string const &partial_command) const -> std::string
-{
-    auto const runtime = runtime_command_tree_.guide_text(partial_command);
-    if (!runtime.empty())
+    catch (utility::ErrorNoMatch const &)
     {
-        return runtime;
+        return {MessageLevel::Error, "Command not found: " + command_string};
     }
-    return generate_guide_text(engine.command_tree(), partial_command);
-}
-
-auto XenProcessor::complete_id(std::string const &partial_command) const -> std::string
-{
-    auto const runtime = runtime_command_tree_.complete_id(partial_command);
-    if (!runtime.empty())
+    catch (std::exception const &e)
     {
-        return runtime;
+        return {MessageLevel::Error, e.what()};
     }
-    return xen::complete_id(engine.command_tree(), partial_command);
+    catch (...)
+    {
+        return {MessageLevel::Error, "Unknown error"};
+    }
 }
 
 void XenProcessor::prepareToPlay(double, int)

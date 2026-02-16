@@ -14,13 +14,13 @@
 
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
-#include <sequence/modify.hpp>
 #include <sequence/utility.hpp> //temp
 
 #include <xen/actions.hpp>
 #include <xen/chord.hpp>
 #include <xen/command.hpp>
 #include <xen/constants.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
 #include <xen/modulator.hpp>
@@ -34,7 +34,7 @@ namespace xen
 
 using sequence::Pattern;
 
-auto create_engine_command_tree() -> XenCommandTree
+auto create_command_tree() -> XenCommandTree
 {
     using PS = PluginState;
 
@@ -143,6 +143,22 @@ auto create_engine_command_tree() -> XenCommandTree
                 return minfo("Input Mode Set to " + single_quote(to_string(mode)));
             }));
 
+    // focus
+    head.add(cmd(signature("focus", arg<std::string>("component_id")),
+                 "Focus on a specific component.",
+                 [](PS &ps, std::string const &component_id) {
+                     ps.on_focus_request(component_id);
+                     return mdebug("Focused on " + component_id);
+                 }));
+
+    // show
+    head.add(cmd(signature("show", arg<std::string>("component_id")),
+                 "Update the GUI to display the specified component.",
+                 [](PS &ps, std::string const &component_id) {
+                     ps.on_show_request(component_id);
+                     return mdebug("Showing " + single_quote(component_id));
+                 }));
+
     {
         auto load = cmd_group("load");
 
@@ -205,6 +221,23 @@ auto create_engine_command_tree() -> XenCommandTree
                 ps.timeline.set_commit_flag();
 
                 return minfo("Tuning Loaded");
+            }));
+
+        // load keys
+        load->add(
+            cmd(signature("keys"), "Load keys.yml and user_keys.yml.", [](PS &ps) {
+                try
+                {
+                    auto const lock = std::lock_guard{
+                        ps.shared.on_load_keys_request_mtx,
+                    };
+                    ps.shared.on_load_keys_request();
+                    return minfo("Key Config Loaded");
+                }
+                catch (std::exception const &e)
+                {
+                    return merror("Failed to Load Keys: " + std::string{e.what()});
+                }
             }));
 
         // load scales
@@ -609,6 +642,35 @@ auto create_engine_command_tree() -> XenCommandTree
                          ps.timeline.set_commit_flag();
                          return minfo("Base Frequency Set");
                      }));
+
+        // set theme
+        set->add(cmd(
+            signature("theme", arg<std::string>("name")),
+            "Set the color theme of the app by name.", [](PS &ps, std::string name) {
+                name = to_lower(strip(name));
+                if (name == "dark")
+                {
+                    name = "apollo";
+                }
+                else if (name == "light")
+                {
+                    name = "coal";
+                }
+                try
+                {
+                    auto const theme = gui::find_theme(name);
+                    {
+                        auto const lock = std::lock_guard{ps.shared.theme_mtx};
+                        ps.shared.theme = theme;
+                        ps.shared.on_theme_update(ps.shared.theme);
+                    }
+                    return minfo("Theme Set");
+                }
+                catch (std::exception const &e)
+                {
+                    return merror("Failed to Load Theme: " + std::string{e.what()});
+                }
+            }));
 
         // set scale
         set->add(cmd(signature("scale", arg<std::string>("name")),

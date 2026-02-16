@@ -8,13 +8,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <xen/command.hpp>
+#include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
-#include <xen/engine.hpp>
+#include <xen/gui/themes.hpp>
 #include <xen/lock_free_optional.hpp>
 #include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
-#include <xen/runtime_command_tree.hpp>
-#include <xen/runtime_state.hpp>
+#include <xen/state.hpp>
+#include <xen/xen_command_tree.hpp>
 
 namespace xen
 {
@@ -22,8 +23,8 @@ namespace xen
 class XenProcessor : public juce::AudioProcessor
 {
   public:
-    Engine engine;
-    RuntimeState runtime_state;
+    PluginState plugin_state;
+    XenCommandTree command_tree;
     int editor_width{1400};
     int editor_height{350};
 
@@ -48,21 +49,14 @@ class XenProcessor : public juce::AudioProcessor
     void setStateInformation(void const *data, int sizeInBytes) override;
 
     /**
-     * Execute a string as a command using runtime command handling and engine commands.
+     * Execute a string as a command, using the command tree.
      *
-     * @details This will normalize the input string, execute runtime side effects when
-     * applicable, and execute engine commands otherwise.
+     * @details This will normalize the input string, execute it on plugin_state and
      * return the resulting status.
      * @param command_string The command string to execute
      */
     auto execute_command_string(std::string const &command_string)
         -> std::pair<MessageLevel, std::string>;
-
-    [[nodiscard]] auto guide_text(std::string const &partial_command) const
-        -> std::string;
-
-    [[nodiscard]] auto complete_id(std::string const &partial_command) const
-        -> std::string;
 
   public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -93,8 +87,8 @@ class XenProcessor : public juce::AudioProcessor
         MidiEngine midi_engine;
     } audio_thread_state_;
 
+    int previous_commit_id_{-1};
     std::string previous_command_string_{""};
-    RuntimeCommandTree runtime_command_tree_;
 
   public:
     DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;
