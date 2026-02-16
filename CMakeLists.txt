@@ -2,24 +2,25 @@ cmake_minimum_required(VERSION 3.25)
 project(XenSequencer VERSION 0.3.0)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # DEPENDENCIES -------------------------------------------------------------------------
 
 include(FetchContent)
 
-# NOTE: Versions are pinned by tag URLs and can be adjusted as needed.
 FetchContent_Declare(
     signals_light
-    URL https://github.com/a-n-t-h-o-n-y/signals-light/archive/refs/tags/v0.1.0.tar.gz
+    URL https://github.com/a-n-t-h-o-n-y/signals-light/archive/5b873d0aa515a2085138359e69746cd7d7a5362f.tar.gz
 )
 FetchContent_Declare(
     juce
-    URL https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.8.tar.gz
+    URL https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.12.tar.gz
 )
 FetchContent_Declare(
     yaml_cpp
-    URL https://github.com/jbeder/yaml-cpp/archive/refs/tags/0.8.0.tar.gz
+    URL https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.9.0.tar.gz
 )
 FetchContent_Declare(
     nlohmann_json
@@ -27,7 +28,7 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     catch2
-    URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.7.1.tar.gz
+    URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.13.0.tar.gz
 )
 
 FetchContent_MakeAvailable(signals_light juce yaml_cpp nlohmann_json catch2)
@@ -127,8 +128,10 @@ juce_add_plugin(XenSequencer
 # your code, and also the JUCE module code, so for new definitions, pick unique names
 # that are unlikely to collide! This is a standard CMake command.
 
-target_compile_definitions(XenSequencer
-    PUBLIC
+add_library(XenSequencerCore STATIC)
+
+target_compile_definitions(XenSequencerCore
+    PRIVATE
         # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
         JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
@@ -138,7 +141,7 @@ target_compile_definitions(XenSequencer
         # $<$<CONFIG:Debug>:_GLIBCXX_DEBUG>
 )
 
-target_sources(XenSequencer
+target_sources(XenSequencerCore
     PRIVATE
         src/actions.cpp
         src/chord.cpp
@@ -242,12 +245,12 @@ target_sources(XenSequencer
 )
 
 
-target_include_directories(XenSequencer
+target_include_directories(XenSequencerCore
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(XenSequencer
+target_link_libraries(XenSequencerCore
     PUBLIC
         sequencer
         signals-light
@@ -260,14 +263,27 @@ target_link_libraries(XenSequencer
         EmbedDemos
         EmbedFonts
         juce::juce_recommended_lto_flags
-        juce::juce_audio_utils
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags
 )
 
-target_compile_options(XenSequencer INTERFACE
+target_compile_options(XenSequencerCore PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/W1>
   $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+)
+
+target_compile_definitions(XenSequencer
+    PRIVATE
+        # Ensure JUCE plugin-client translation units get the same module config.
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_MODAL_LOOPS_PERMITTED=1
+)
+
+target_link_libraries(XenSequencer
+    PRIVATE
+        XenSequencerCore
 )
 
 # TESTS --------------------------------------------------------------------------------
@@ -281,11 +297,11 @@ add_executable(XenTests
 
 target_link_libraries(XenTests
     PUBLIC
-        XenSequencer
+        XenSequencerCore
         Catch2::Catch2WithMain
 )
 
 # TOOLS --------------------------------------------------------------------------------
 
-add_subdirectory(tools/cmd_reference)
+# add_subdirectory(tools/cmd_reference)
 add_subdirectory(tools/keypress)

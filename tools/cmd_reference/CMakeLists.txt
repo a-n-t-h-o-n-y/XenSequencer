@@ -4,5 +4,5 @@ add_executable(cmd_reference
 
 target_link_libraries(cmd_reference
     PUBLIC
-        XenSequencerLib
+        XenSequencerCore
 )
