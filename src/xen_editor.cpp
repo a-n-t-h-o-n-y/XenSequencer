@@ -46,9 +46,9 @@ namespace xen::gui
 
 XenEditor::XenEditor(XenProcessor &p, int width, int height)
     : AudioProcessorEditor{p},
-      plugin_window{p.plugin_state.current_sequence_directory,
-                    p.plugin_state.current_tuning_directory,
-                    p.plugin_state.command_history, p.audio_thread_state_for_gui},
+      plugin_window{p.engine.state().current_sequence_directory,
+                    p.engine.state().current_tuning_directory,
+                    p.runtime_state.command_history, p.audio_thread_state_for_gui},
       processor_{p}, tooltip_window_{this}
 {
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
@@ -60,15 +60,15 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     this->addAndMakeVisible(&plugin_window);
 
     { // Initialize LookAndFeel after plugin_window is added as child.
-        if (p.plugin_state.laf == nullptr)
+        if (p.runtime_state.laf == nullptr)
         {
             auto const theme = [&] {
-                auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
-                return p.plugin_state.shared.theme;
+                auto const lock = std::lock_guard{p.runtime_state.shared.theme_mtx};
+                return p.runtime_state.shared.theme;
             }();
-            p.plugin_state.laf = gui::make_laf(theme);
+            p.runtime_state.laf = gui::make_laf(theme);
         }
-        this->setLookAndFeel(p.plugin_state.laf.get());
+        this->setLookAndFeel(p.runtime_state.laf.get());
     }
 
     // CommandBar Execute Request
@@ -80,13 +80,13 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     // CommandBar Guide Text Request
     plugin_window.bottom_bar.command_bar.on_guide_text_request.connect(
         [this](std::string const &partial_command) -> std::string {
-            return generate_guide_text(processor_.command_tree, partial_command);
+            return processor_.guide_text(partial_command);
         });
 
     // CommandBar ID Completion Request
     plugin_window.bottom_bar.command_bar.on_complete_id_request.connect(
         [this](std::string const &partial_command) -> std::string {
-            return complete_id(processor_.command_tree, partial_command);
+            return processor_.complete_id(partial_command);
         });
 
     // Sequence File Selected
@@ -132,12 +132,12 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     { // Theme Changed
         auto slot = sl::Slot<void(gui::Theme const &)>{[&](gui::Theme const &theme) {
-            p.plugin_state.laf = gui::make_laf(theme);
-            this->setLookAndFeel(p.plugin_state.laf.get());
+            p.runtime_state.laf = gui::make_laf(theme);
+            this->setLookAndFeel(p.runtime_state.laf.get());
         }};
         slot.track(lifetime_);
-        auto const lock = std::lock_guard{p.plugin_state.shared.theme_mtx};
-        p.plugin_state.shared.on_theme_update.connect(slot);
+        auto const lock = std::lock_guard{p.runtime_state.shared.theme_mtx};
+        p.runtime_state.shared.on_theme_update.connect(slot);
     }
 
     { // Focus Change Request
@@ -146,7 +146,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
                 plugin_window.set_focus(component_id);
             }};
         slot.track(lifetime_);
-        p.plugin_state.on_focus_request.connect(slot);
+        p.runtime_state.on_focus_request.connect(slot);
     }
 
     { // Show Component Request
@@ -155,7 +155,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
                 plugin_window.show_component(component_id);
             }};
         slot.track(lifetime_);
-        p.plugin_state.on_show_request.connect(slot);
+        p.runtime_state.on_show_request.connect(slot);
     }
 
     { // Load Keys File Request
@@ -164,20 +164,20 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
         }};
         slot.track(lifetime_);
         auto const lock =
-            std::lock_guard{p.plugin_state.shared.on_load_keys_request_mtx};
-        p.plugin_state.shared.on_load_keys_request.connect(slot);
+            std::lock_guard{p.runtime_state.shared.on_load_keys_request_mtx};
+        p.runtime_state.shared.on_load_keys_request.connect(slot);
     }
 
     // Sequence Library Directory Change
     plugin_window.center_component.library_view.sequences_list.on_directory_change
         .connect([&](juce::File const &directory) {
-            p.plugin_state.current_sequence_directory = directory;
+            p.engine.state().current_sequence_directory = directory;
         });
 
     // Tuning Library Directory Change
     plugin_window.center_component.library_view.tunings_list.on_directory_change
         .connect([&](juce::File const &directory) {
-            p.plugin_state.current_tuning_directory = directory;
+            p.engine.state().current_tuning_directory = directory;
         });
 
     // Initialize GUI
@@ -206,7 +206,7 @@ auto XenEditor::createKeyboardFocusTraverser()
 
 void XenEditor::update()
 {
-    plugin_window.update(processor_.plugin_state);
+    plugin_window.update(processor_.engine.state());
 }
 
 void XenEditor::update_key_listeners(juce::File const &default_keys,
@@ -214,7 +214,7 @@ void XenEditor::update_key_listeners(juce::File const &default_keys,
 {
     auto previous_listeners = std::move(key_config_listeners_);
     key_config_listeners_ =
-        build_key_listeners(default_keys, user_keys, processor_.plugin_state.timeline);
+        build_key_listeners(default_keys, user_keys, processor_.engine.state().timeline);
     this->set_key_listeners(std::move(previous_listeners), key_config_listeners_);
 }
 

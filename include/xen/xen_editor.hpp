@@ -25,7 +25,7 @@ class XenEditor : public juce::AudioProcessorEditor
 
   public:
     /**
-     * Updates GUI components using the current processor_.plugin_state member.
+     * Updates GUI components using the current processor engine/runtime state.
      */
     void update();
 
@@ -51,7 +51,7 @@ class XenEditor : public juce::AudioProcessorEditor
      * Execute a command string in the plugin window.
      *
      * @details This will normalize the input string, execute it on
-     * processor_.plugin_state and send the resulting status to the status bar.
+     * the processor command path and send the resulting status to the status bar.
      * @param command_string The command string to execute
      */
     void execute_command_string(std::string const &command_string);

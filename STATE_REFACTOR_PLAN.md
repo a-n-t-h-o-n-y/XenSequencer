@@ -10,10 +10,10 @@ This file tracks recommended state-model improvements before and during the WebV
 ## Backlog
 
 ### 1) Split state by responsibility
-- Status: `[ ]`
+- Status: `[x]`
 - Goal: Separate durable engine state, session/editor state, and UI/runtime wiring.
-- Current issue: `PluginState` mixes data, UI signals, and runtime objects.
-- Key refs: `include/xen/state.hpp:154`
+- Result: engine state now lives in `include/xen/engine_state.hpp`; runtime/editor state in `include/xen/runtime_state.hpp`; command routing split into engine/runtime trees.
+- Key refs: `include/xen/engine_state.hpp`, `include/xen/runtime_state.hpp`, `src/engine.cpp`, `src/runtime_command_tree.cpp`
 
 ### 2) Define canonical bridge snapshot type
 - Status: `[ ]`
@@ -40,10 +40,10 @@ This file tracks recommended state-model improvements before and during the WebV
 - Key refs: `src/xen_processor.cpp:151`, `src/xen_processor.cpp:190`
 
 ### 6) Decouple UI effects from component IDs
-- Status: `[ ]`
+- Status: `[-]`
 - Goal: Replace string component-ID side effects (`focus/show`) with typed UI intents/events.
-- Current issue: command layer leaks JUCE-specific UI identifiers.
-- Key refs: `src/xen_command_tree.cpp:147`, `src/xen_command_tree.cpp:155`
+- Current issue: runtime commands still use string IDs, but they are now isolated to `RuntimeCommandTree` and removed from engine commands.
+- Key refs: `src/runtime_command_tree.cpp`, `src/xen_command_tree.cpp`
 
 ### 7) Formalize persistence boundaries
 - Status: `[ ]`
@@ -52,11 +52,12 @@ This file tracks recommended state-model improvements before and during the WebV
 - Key refs: `src/xen_processor.cpp:132`
 
 ### 8) Clean up global/header coupling in state layer
-- Status: `[ ]`
+- Status: `[-]`
 - Goal: Remove self-include and move shared mutable runtime globals behind explicit context.
-- Current issue: `state.hpp` self-include and inline static shared state.
-- Key refs: `include/xen/state.hpp:32`, `include/xen/state.hpp:163`
+- Current issue: `state.hpp` is now a compatibility shim; runtime shared static still exists and should move behind explicit ownership.
+- Key refs: `include/xen/state.hpp`, `include/xen/runtime_state.hpp`
 
 ## Notes
 - This plan intentionally prioritizes state contract clarity over UI implementation details.
 - We can add milestones and sequence these items once implementation starts.
+- Pass 2 implemented the engine/runtime split and new command-path separation, and updated CMake target boundaries (`XenSequencerEngine` + `XenSequencerRuntime`).
