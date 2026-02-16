@@ -6,15 +6,34 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # DEPENDENCIES -------------------------------------------------------------------------
 
-add_subdirectory(external/signals-light)
+include(FetchContent)
+
+# NOTE: Versions are pinned by tag URLs and can be adjusted as needed.
+FetchContent_Declare(
+    signals_light
+    URL https://github.com/a-n-t-h-o-n-y/signals-light/archive/refs/tags/v0.1.0.tar.gz
+)
+FetchContent_Declare(
+    juce
+    URL https://github.com/juce-framework/JUCE/archive/refs/tags/8.0.8.tar.gz
+)
+FetchContent_Declare(
+    yaml_cpp
+    URL https://github.com/jbeder/yaml-cpp/archive/refs/tags/0.8.0.tar.gz
+)
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz
+)
+FetchContent_Declare(
+    catch2
+    URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.7.1.tar.gz
+)
+
+FetchContent_MakeAvailable(signals_light juce yaml_cpp nlohmann_json catch2)
+
 add_subdirectory(external/MicrotonalStepSequencer)
-add_subdirectory(external/JUCE SYSTEM)
-add_subdirectory(external/JUCE/extras/AudioPluginHost SYSTEM)
-add_subdirectory(external/yaml-cpp SYSTEM)
-add_subdirectory(external/json SYSTEM)
-if (NOT TARGET Catch2)
-    add_subdirectory(external/Catch2 SYSTEM)
-endif()
+add_subdirectory(${juce_SOURCE_DIR}/extras/AudioPluginHost SYSTEM)
 
 # BINARY DATA --------------------------------------------------------------------------
 
