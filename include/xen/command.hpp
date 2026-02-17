@@ -42,7 +42,7 @@ struct CommandInvocation
     std::string canonical_segment{};
 
     /**
-     * Parsed command tokens and optional pattern prefix for command tree dispatch.
+     * Parsed command tokens and optional pattern prefix for catalog binding.
      */
     SplitInput input{};
 };

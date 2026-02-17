@@ -1,30 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <xen/command.hpp>
-#include <xen/constants.hpp>
 #include <xen/guide_text.hpp>
-#include <xen/message_level.hpp>
-#include <xen/state.hpp>
-#include <xen/xen_command_tree.hpp>
 
 using namespace xen;
-
-namespace
-{
-
-auto make_plugin_state() -> PluginState
-{
-    return PluginState{
-        .timeline = XenTimeline{
-            TimelineState{
-                .sequencer = {},
-                .aux = {},
-            },
-        },
-    };
-}
-
-} // namespace
 
 TEST_CASE("split_input parses quoted arguments with default pattern", "[core][command]")
 {
@@ -103,55 +82,14 @@ TEST_CASE("parse_command_chain marks only exact 'again' invocation as replay",
     CHECK_FALSE(is_again_invocation(chain[1]));
 }
 
-TEST_CASE("command tree executes case-insensitive command ids", "[core][command]")
+TEST_CASE("guide text and id completion use command catalog", "[core][command]")
 {
-    auto tree = create_command_tree();
-    auto ps = make_plugin_state();
+    CHECK(generate_guide_text("") == "");
+    CHECK(generate_guide_text("   ") == "");
+    CHECK(generate_guide_text("set ba") == "seFrequency");
+    CHECK(complete_id("set ba") == "seFrequency");
 
-    auto const [level, message] = tree.execute(ps, split_input("SeT KeY -12"));
-    CHECK(level == MessageLevel::Info);
-    CHECK(message == "Key Set to -12.");
-    CHECK(ps.timeline.get_state().sequencer.key == -12);
-}
-
-TEST_CASE("command tree parses quoted nested command args", "[core][command]")
-{
-    auto tree = create_command_tree();
-    auto ps = make_plugin_state();
-
-    auto const [level, message] =
-        tree.execute(ps, split_input("set sequence name \"my lead\" 3"));
-
-    CHECK(level == MessageLevel::Info);
-    CHECK(message == "Sequence Name Set");
-    CHECK(ps.timeline.get_state().sequencer.sequence_names[3] == "my lead");
-}
-
-TEST_CASE("command tree reports missing command tokens", "[core][command]")
-{
-    auto tree = create_command_tree();
-    auto ps = make_plugin_state();
-
-    auto const [empty_level, empty_message] = tree.execute(ps, split_input("   "));
-    CHECK(empty_level == MessageLevel::Error);
-    CHECK(empty_message == "No command given.");
-
-    auto const [missing_level, missing_message] =
-        tree.execute(ps, split_input("set notACommand"));
-    CHECK(missing_level == MessageLevel::Error);
-    CHECK(missing_message == "Command not found: notACommand");
-}
-
-TEST_CASE("guide text and id completion use command tree structure", "[core][command]")
-{
-    auto tree = create_command_tree();
-
-    CHECK(generate_guide_text(tree, "") == "");
-    CHECK(generate_guide_text(tree, "   ") == "");
-    CHECK(generate_guide_text(tree, "set ba") == "seFrequency");
-    CHECK(complete_id(tree, "set ba") == "seFrequency");
-
-    CHECK(generate_guide_text(tree, "set baseFrequency") == "[Float: freq=440]");
-    CHECK(generate_guide_text(tree, "set baseFrequency ") == "[Float: freq=440]");
-    CHECK(complete_id(tree, "set baseFrequency ") == "");
+    CHECK(generate_guide_text("set baseFrequency") == "[Float: freq=440]");
+    CHECK(generate_guide_text("set baseFrequency ") == "[Float: freq=440]");
+    CHECK(complete_id("set baseFrequency ") == "");
 }

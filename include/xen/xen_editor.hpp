@@ -23,6 +23,7 @@ class XenEditor : public juce::AudioProcessorEditor, private juce::Timer
 
   public:
     explicit XenEditor(XenProcessor &, int width, int height);
+    ~XenEditor() override;
 
   public:
     /**

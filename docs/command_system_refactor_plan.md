@@ -14,7 +14,7 @@ Purpose: make command execution more explicit, deterministic, and idiomatic by s
 
 - [x] Command execution is centralized in processor (`src/xen_processor.cpp`).
 - [x] State model is split between engine and editor session (`include/xen/state.hpp`).
-- [x] Command definitions are centralized (`src/xen_command_tree.cpp`).
+- [x] Command definitions/metadata are centralized in the command catalog (`src/command_catalog_metadata.cpp`).
 
 ## Phase 0: Specification First
 

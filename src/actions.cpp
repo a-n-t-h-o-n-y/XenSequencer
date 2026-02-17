@@ -30,14 +30,14 @@ namespace xen::action
 // These can throw exceptions with error messages and those will be displayed as errors
 // in the status bar.
 
-auto move_left(SequencerState const &state, ExecutionContext context, std::size_t amount)
+auto move_left(EngineState const &state, ExecutionContext context, std::size_t amount)
     -> ExecutionContext
 {
     context.selected = move_left(state.sequence_bank, context.selected, amount);
     return context;
 }
 
-auto move_right(SequencerState const &state, ExecutionContext context,
+auto move_right(EngineState const &state, ExecutionContext context,
                 std::size_t amount) -> ExecutionContext
 {
     context.selected = move_right(state.sequence_bank, context.selected, amount);
@@ -50,19 +50,19 @@ auto move_up(ExecutionContext context, std::size_t amount) -> ExecutionContext
     return context;
 }
 
-auto move_down(SequencerState const &state, ExecutionContext context,
+auto move_down(EngineState const &state, ExecutionContext context,
                std::size_t amount) -> ExecutionContext
 {
     context.selected = xen::move_down(state.sequence_bank, context.selected, amount);
     return context;
 }
 
-void copy(SequencerState const &state, ExecutionContext const &context)
+void copy(EngineState const &state, ExecutionContext const &context)
 {
     write_copy_buffer(get_selected_cell_const(state.sequence_bank, context.selected));
 }
 
-auto cut(SequencerState state, ExecutionContext const &context) -> SequencerState
+auto cut(EngineState state, ExecutionContext const &context) -> EngineState
 {
     ::xen::action::copy(state, context);
     auto &selected = get_selected_cell(state.sequence_bank, context.selected);
@@ -70,7 +70,7 @@ auto cut(SequencerState state, ExecutionContext const &context) -> SequencerStat
     return state;
 }
 
-auto paste(SequencerState state, ExecutionContext const &context) -> SequencerState
+auto paste(EngineState state, ExecutionContext const &context) -> EngineState
 {
     auto const cell = read_copy_buffer();
 
@@ -125,8 +125,8 @@ auto lift(TimelineState state) -> TimelineState
     return state;
 }
 
-auto shift_octave(SequencerState state, ExecutionContext const &context,
-                  sequence::Pattern const &pattern, int amount) -> SequencerState
+auto shift_octave(EngineState state, ExecutionContext const &context,
+                  sequence::Pattern const &pattern, int amount) -> EngineState
 {
     auto &cell = get_selected_cell(state.sequence_bank, context.selected);
     auto const tuning_length = state.tuning.intervals.size();
@@ -134,8 +134,8 @@ auto shift_octave(SequencerState state, ExecutionContext const &context,
     return state;
 }
 
-auto set_note_octave(SequencerState state, ExecutionContext const &context,
-                     sequence::Pattern const &pattern, int octave) -> SequencerState
+auto set_note_octave(EngineState state, ExecutionContext const &context,
+                     sequence::Pattern const &pattern, int octave) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
     auto &cell = get_selected_cell(state.sequence_bank, context.selected);
@@ -143,7 +143,7 @@ auto set_note_octave(SequencerState state, ExecutionContext const &context,
     return state;
 }
 
-auto delete_cell(TrackedState ts) -> TrackedState
+auto delete_cell(TimelineState ts) -> TimelineState
 {
     // Delete selected cell.
     // If the selected cell is the top level then replace it with a Rest.
@@ -210,7 +210,7 @@ auto load_sequence_bank(juce::File const &filepath)
     return deserialize_sequence_bank(filepath.loadFileAsString().toStdString());
 }
 
-auto set_base_frequency(SequencerState state, float freq) -> SequencerState
+auto set_base_frequency(EngineState state, float freq) -> EngineState
 {
     state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
     return state;

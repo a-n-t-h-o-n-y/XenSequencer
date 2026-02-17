@@ -5,18 +5,18 @@
 #include <regex>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include <xen/command.hpp>
+#include <xen/command_catalog.hpp>
 #include <xen/constants.hpp>
-#include <xen/xen_command_tree.hpp>
 
-[[nodiscard]] auto make_command_reference_table(xen::CommandBase &head) -> std::string
+[[nodiscard]] auto make_command_reference_table(
+    std::vector<xen::Documentation> const &docs) -> std::string
 {
-    auto cmds = head.generate_docs();
     auto result = std::string{"name | signature | description\n"
                               "---- | --------- | -----------\n"};
 
-    for (auto &doc : cmds)
+    for (auto const &doc : docs)
     {
         auto sig = std::string{"`"};
         if (doc.signature.pattern_arg)
@@ -58,9 +58,9 @@ int main(int argc, char const *argv[])
                                      output_path.string()};
         }
 
-        auto tree = xen::create_command_tree();
+        auto const docs = xen::catalog_docs();
         auto const doc_str = "# Command Reference (v" + std::string{xen::VERSION} +
-                             ")\n\n" + make_command_reference_table(tree);
+                             ")\n\n" + make_command_reference_table(docs);
 
         auto output_stream = std::ofstream{output_path};
         output_stream << doc_str;

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,7 +18,6 @@
 #include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
-#include <xen/xen_command_tree.hpp>
 
 namespace xen
 {
@@ -25,8 +25,11 @@ namespace xen
 class XenProcessor : public juce::AudioProcessor
 {
   public:
+    using UiCommandHandler =
+        std::function<std::pair<MessageLevel, std::string>(std::string const &)>;
+
+  public:
     PluginState plugin_state;
-    XenCommandTree command_tree{create_command_tree()};
     int editor_width{1400};
     int editor_height{350};
 
@@ -65,6 +68,12 @@ class XenProcessor : public juce::AudioProcessor
     auto execute_command_string(std::string const &command_string)
         -> std::pair<MessageLevel, std::string>;
 
+    void set_focus_command_handler(UiCommandHandler handler);
+
+    void set_show_command_handler(UiCommandHandler handler);
+
+    void clear_ui_command_handlers();
+
   public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -89,7 +98,7 @@ class XenProcessor : public juce::AudioProcessor
     struct AudioThreadState
     {
         DAWState daw;
-        SequencerState sequencer{};
+        EngineState sequencer{};
         SampleCount accumulated_sample_count{0};
         MidiEngine midi_engine;
     } audio_thread_state_;
@@ -98,6 +107,8 @@ class XenProcessor : public juce::AudioProcessor
     std::vector<CommandAction> previous_action_chain_{};
     std::uint64_t audio_last_engine_version_{0};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
+    UiCommandHandler focus_command_handler_{};
+    UiCommandHandler show_command_handler_{};
 
   private:
     void notify_ui_state_changed() noexcept;

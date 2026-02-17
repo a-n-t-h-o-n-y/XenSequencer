@@ -7,12 +7,12 @@
 
 #include <xen/actions.hpp>
 #include <xen/command_action.hpp>
+#include <xen/command_catalog.hpp>
 #include <xen/command.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
-#include <xen/xen_command_tree.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/tuning.hpp>
 
@@ -33,43 +33,28 @@ auto make_plugin_state() -> PluginState
     };
 }
 
-auto check_context_equal(ExecutionContext const &lhs, ExecutionContext const &rhs)
-    -> void
+auto to_command_actions(std::vector<CommandInvocation> const &invocations)
+    -> std::vector<CommandAction>
 {
-    CHECK(lhs.selected == rhs.selected);
-    CHECK(lhs.input_mode == rhs.input_mode);
-    CHECK(lhs.arp_state.selected == rhs.arp_state.selected);
-    CHECK(lhs.arp_state.previous_commit_id == rhs.arp_state.previous_commit_id);
-    CHECK(lhs.arp_state.previous_chord_name == rhs.arp_state.previous_chord_name);
-    CHECK(lhs.arp_state.previous_inversion == rhs.arp_state.previous_inversion);
-}
-
-auto execute_legacy_command(PluginState &ps, XenCommandTree const &tree,
-                            ExecutionContext context,
-                            std::string const &command)
-    -> CommandActionResult
-{
-    auto const invocations = parse_command_chain(command);
-    if (invocations.size() != 1)
+    auto const result = bind_chain(invocations);
+    if (std::holds_alternative<CatalogBindError>(result))
     {
-        throw std::runtime_error("Legacy helper expects a single command.");
+        auto const &error = std::get<CatalogBindError>(result);
+        if (error.kind == CatalogBindErrorKind::UnknownCommand)
+        {
+            throw utility::ErrorNoMatch{};
+        }
+        throw std::invalid_argument(error.message);
     }
 
-    auto staged_state = ps.timeline.get_state();
-    staged_state.aux = context;
-    ps.timeline.stage(std::move(staged_state));
-
-    auto const engine_before = ps.timeline.get_state().sequencer;
-    ps.commit_intent = CommitIntent::Auto;
-
-    auto const status = tree.execute(ps, invocations.front().input);
-    auto const state_after = ps.timeline.get_state();
-    return CommandActionResult{
-        .status = status,
-        .context = state_after.aux,
-        .engine_mutated = state_after.sequencer != engine_before,
-        .commit_intent = ps.commit_intent,
-    };
+    auto actions = std::vector<CommandAction>{};
+    auto const &bound_commands = std::get<std::vector<BoundCommand>>(result);
+    actions.reserve(bound_commands.size());
+    for (auto const &bound : bound_commands)
+    {
+        actions.push_back(bound.action);
+    }
+    return actions;
 }
 
 } // namespace
@@ -94,7 +79,10 @@ TEST_CASE("Unknown command invocation fails typed-action conversion",
     auto const invocations = parse_command_chain("notACommand 123");
     REQUIRE(invocations.size() == 1);
 
-    CHECK_FALSE(try_to_command_action(invocations.front()).has_value());
+    auto const bind_result = bind_invocation(invocations.front());
+    REQUIRE(std::holds_alternative<CatalogBindError>(bind_result));
+    CHECK(std::get<CatalogBindError>(bind_result).kind ==
+          CatalogBindErrorKind::UnknownCommand);
     CHECK_THROWS_AS(to_command_actions(invocations), utility::ErrorNoMatch);
 }
 
@@ -411,48 +399,6 @@ TEST_CASE("Typed select sequence and input mode update context-only state",
     CHECK(mode_result.context.input_mode == InputMode::Gate);
 }
 
-TEST_CASE("Typed note/rest actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-    auto typed_ps = make_plugin_state();
-    auto invoke_ps = make_plugin_state();
-
-    auto seed = [](PluginState &ps) {
-        auto state = ps.timeline.get_state();
-        auto &selected = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
-        selected.weight = 0.37f;
-        ps.timeline.stage(std::move(state));
-    };
-    seed(typed_ps);
-    seed(invoke_ps);
-
-    auto const context = ExecutionContext{typed_ps.timeline.get_state().aux};
-
-    auto const typed_note = execute_command_action(
-        typed_ps, context, CommandAction{CreateNoteAction{
-            .pitch = 12, .velocity = 0.5f, .delay = 0.25f, .gate = 0.75f}});
-    auto const invoke_note =
-        execute_legacy_command(invoke_ps, tree, context, "note 12 0.5 0.25 0.75");
-
-    CHECK(typed_note.status == invoke_note.status);
-    CHECK(typed_note.engine_mutated == invoke_note.engine_mutated);
-    check_context_equal(typed_note.context, invoke_note.context);
-    CHECK(typed_ps.timeline.get_state().sequencer ==
-          invoke_ps.timeline.get_state().sequencer);
-
-    auto const typed_rest = execute_command_action(
-        typed_ps, typed_note.context, CommandAction{CreateRestAction{}});
-    auto const invoke_rest =
-        execute_legacy_command(invoke_ps, tree, invoke_note.context, "rest");
-
-    CHECK(typed_rest.status == invoke_rest.status);
-    CHECK(typed_rest.engine_mutated == invoke_rest.engine_mutated);
-    check_context_equal(typed_rest.context, invoke_rest.context);
-    CHECK(typed_ps.timeline.get_state().sequencer ==
-          invoke_ps.timeline.get_state().sequencer);
-}
-
 TEST_CASE("Typed baseFrequency action clamps value", "[core][command][action]")
 {
     auto ps = make_plugin_state();
@@ -472,162 +418,6 @@ TEST_CASE("Typed baseFrequency action clamps value", "[core][command][action]")
     CHECK(result.engine_mutated);
     CHECK(ps.timeline.get_state().sequencer.base_frequency ==
           Catch::Approx(20'000.f));
-}
-
-TEST_CASE("Typed commit undo redo actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-    auto typed_ps = make_plugin_state();
-    auto invoke_ps = make_plugin_state();
-
-    auto seed_history = [](PluginState &ps) {
-        auto state = ps.timeline.get_state();
-        state.sequencer.key = 1;
-        ps.timeline.stage(std::move(state));
-        ps.timeline.commit();
-
-        state = ps.timeline.get_state();
-        state.sequencer.key = 2;
-        ps.timeline.stage(std::move(state));
-        ps.timeline.commit();
-    };
-    seed_history(typed_ps);
-    seed_history(invoke_ps);
-
-    auto context = ExecutionContext{};
-    context.selected.measure = 7;
-    context.input_mode = InputMode::Gate;
-
-    auto const typed_undo_action = to_command_actions(parse_command_chain("undo"))[0];
-
-    auto typed_undo =
-        execute_command_action(typed_ps, context, typed_undo_action);
-    auto invoke_undo =
-        execute_legacy_command(invoke_ps, tree, context, "undo");
-    CHECK(typed_undo.status == invoke_undo.status);
-    CHECK(typed_undo.engine_mutated == invoke_undo.engine_mutated);
-    check_context_equal(typed_undo.context, invoke_undo.context);
-    CHECK(typed_ps.timeline.get_state().sequencer ==
-          invoke_ps.timeline.get_state().sequencer);
-
-    auto const typed_redo_action = to_command_actions(parse_command_chain("redo"))[0];
-    auto typed_redo = execute_command_action(typed_ps, typed_undo.context,
-                                             typed_redo_action);
-    auto invoke_redo =
-        execute_legacy_command(invoke_ps, tree, invoke_undo.context, "redo");
-    CHECK(typed_redo.status == invoke_redo.status);
-    CHECK(typed_redo.engine_mutated == invoke_redo.engine_mutated);
-    check_context_equal(typed_redo.context, invoke_redo.context);
-    CHECK(typed_ps.timeline.get_state().sequencer ==
-          invoke_ps.timeline.get_state().sequencer);
-
-    auto commit_typed_ps = make_plugin_state();
-    auto commit_invoke_ps = make_plugin_state();
-    auto const typed_commit_action = to_command_actions(parse_command_chain("commit"))[0];
-    auto const typed_commit =
-        execute_command_action(commit_typed_ps, ExecutionContext{}, typed_commit_action);
-    auto const invoke_commit =
-        execute_legacy_command(commit_invoke_ps, tree, ExecutionContext{}, "commit");
-    CHECK(typed_commit.status == invoke_commit.status);
-    CHECK(typed_commit.commit_intent == CommitIntent::Force);
-    CHECK(invoke_commit.commit_intent == CommitIntent::Force);
-    CHECK_FALSE(typed_commit.engine_mutated);
-    CHECK_FALSE(invoke_commit.engine_mutated);
-}
-
-TEST_CASE("Typed scale actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-    auto typed_ps = make_plugin_state();
-    auto invoke_ps = make_plugin_state();
-    auto const scale = Scale{
-        .name = "major",
-        .tuning_length = 12,
-        .intervals = {2, 2, 1, 2, 2, 2, 1},
-        .mode = 1,
-    };
-    typed_ps.library.scales = {scale};
-    invoke_ps.library.scales = {scale};
-
-    auto context = ExecutionContext{};
-
-    auto run_parity = [&](std::string const &command) {
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-
-        context = typed_result.context;
-    };
-
-    run_parity("set scale major");
-    run_parity("set mode 2");
-    run_parity("set translateDirection down");
-    run_parity("set scale does_not_exist");
-}
-
-TEST_CASE("Typed shift actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-    auto typed_ps = make_plugin_state();
-    auto invoke_ps = make_plugin_state();
-    auto const major = Scale{
-        .name = "major",
-        .tuning_length = 12,
-        .intervals = {2, 2, 1, 2, 2, 2, 1},
-        .mode = 1,
-    };
-    auto const minor = Scale{
-        .name = "minor",
-        .tuning_length = 12,
-        .intervals = {2, 1, 2, 2, 1, 2, 2},
-        .mode = 1,
-    };
-    typed_ps.library.scales = {major, minor};
-    invoke_ps.library.scales = {major, minor};
-
-    auto context = ExecutionContext{};
-    context.selected.measure = 0;
-    context.selected.cell = {0};
-
-    auto run_parity = [&](std::string const &command) {
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-        CHECK(typed_ps.library.scale_shift_index ==
-              invoke_ps.library.scale_shift_index);
-
-        context = typed_result.context;
-    };
-
-    run_parity("shift selectedSequence 3");
-    run_parity("shift selectedSequence -1");
-    run_parity("shift scale");
-    run_parity("shift scale");
-    run_parity("shift scaleMode -1");
-    run_parity("shift translateDirection");
-    run_parity("shift entireScale -1");
-    run_parity("shift entireScale 0");
 }
 
 TEST_CASE(
@@ -725,87 +515,6 @@ TEST_CASE("Command adapter preserves edit/set/shift/step/drums defaults",
     CHECK(std::get<DrumsAction>(actions[15]).offset == 1);
 }
 
-TEST_CASE("Typed edit/set/shift/step/drums actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-
-    auto seeded_state = []() {
-        auto ps = make_plugin_state();
-        auto state = ps.timeline.get_state();
-        state.aux.selected.measure = 0;
-        state.aux.selected.cell = {0};
-        state.sequencer.sequence_bank[0].cell = {
-            .element = sequence::Sequence{
-                .cells = {
-                    sequence::Cell{
-                        .element = sequence::Note{5, 0.5f, 0.2f, 0.8f},
-                        .weight = 0.7f,
-                    },
-                    sequence::Cell{
-                        .element = sequence::Rest{},
-                        .weight = 0.4f,
-                    },
-                },
-            },
-            .weight = 1.f,
-        };
-        ps.timeline.stage(std::move(state));
-        return ps;
-    };
-
-    auto const mod_json =
-        to_json(Modulator{modulator::Constant{0.35f}}).dump();
-
-    auto run_parity = [&](std::string const &command) {
-        auto typed_ps = seeded_state();
-        auto invoke_ps = seeded_state();
-        auto const context = ExecutionContext{typed_ps.timeline.get_state().aux};
-
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        CHECK(typed_result.commit_intent == invoke_result.commit_intent);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-        CHECK(typed_ps.library.scale_shift_index ==
-              invoke_ps.library.scale_shift_index);
-    };
-
-    run_parity("delete");
-    run_parity("split 3");
-    run_parity("lift");
-    run_parity("+0 flip");
-    run_parity("+0 fill note 2 0.6 0.1 0.8");
-    run_parity("+0 fill rest");
-    run_parity("set pitch 11");
-    run_parity("set pitch " + mod_json);
-    run_parity("set octave 2");
-    run_parity("set velocity 0.3");
-    run_parity("set velocity " + mod_json);
-    run_parity("set delay 0.2");
-    run_parity("set delay " + mod_json);
-    run_parity("set gate 0.7");
-    run_parity("set gate " + mod_json);
-    run_parity("set weight 0.9");
-    run_parity("+0 set weights 0.4");
-    run_parity("+0 set weights " + mod_json);
-    run_parity("+0 shift pitch -1");
-    run_parity("+0 shift octave 1");
-    run_parity("+0 shift velocity 0.2");
-    run_parity("+0 shift delay -0.1");
-    run_parity("+0 shift gate 0.15");
-    run_parity("+0 step 2 0.1");
-    run_parity("drums 20 3");
-}
-
 TEST_CASE(
     "Command adapter maps clipboard and sequence time-signature commands to typed actions",
     "[core][command][action]")
@@ -850,82 +559,6 @@ TEST_CASE(
     CHECK(std::get<HalveSequenceTimeSignatureAction>(actions[2]).index == -1);
 }
 
-TEST_CASE(
-    "Typed duplicate and sequence time-signature actions match invoke-command behavior",
-    "[core][command][action]")
-{
-    auto tree = create_command_tree();
-
-    auto seeded_state = []() {
-        auto ps = make_plugin_state();
-        auto state = ps.timeline.get_state();
-        state.aux.selected.measure = 2;
-        state.aux.selected.cell = {0};
-        state.sequencer.sequence_bank[2].cell = {
-            .element = sequence::Sequence{
-                .cells = {
-                    sequence::Cell{
-                        .element = sequence::Note{7, 0.6f, 0.1f, 0.9f},
-                        .weight = 0.8f,
-                    },
-                    sequence::Cell{
-                        .element = sequence::Rest{},
-                        .weight = 0.5f,
-                    },
-                },
-            },
-            .weight = 1.f,
-        };
-        ps.timeline.stage(std::move(state));
-        return ps;
-    };
-
-    auto run_parity = [&](std::string const &command) {
-        auto typed_ps = seeded_state();
-        auto invoke_ps = seeded_state();
-        auto const context = ExecutionContext{typed_ps.timeline.get_state().aux};
-
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        CHECK(typed_result.commit_intent == invoke_result.commit_intent);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-    };
-
-    SECTION("duplicate")
-    {
-        run_parity("duplicate");
-    }
-    SECTION("set sequence timeSignature explicit")
-    {
-        run_parity("set sequence timeSignature 7/8 2");
-    }
-    SECTION("set sequence timeSignature default")
-    {
-        run_parity("set sequence timeSignature");
-    }
-    SECTION("set sequence timeSignature invalid")
-    {
-        run_parity("set sequence timeSignature 0/4");
-    }
-    SECTION("double sequence timeSignature")
-    {
-        run_parity("double sequence timeSignature 2");
-    }
-    SECTION("halve sequence timeSignature")
-    {
-        run_parity("halve sequence timeSignature 2");
-    }
-}
-
 TEST_CASE("Command adapter maps misc and arp commands to typed actions",
           "[core][command][action]")
 {
@@ -968,75 +601,6 @@ TEST_CASE("Command adapter preserves arp defaults", "[core][command][action]")
     CHECK(std::get<ArpAction>(actions[2]).inversion == -1);
 }
 
-TEST_CASE("Typed misc and arp actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-
-    auto seeded_state = []() {
-        auto ps = make_plugin_state();
-        auto state = ps.timeline.get_state();
-        state.aux.selected.measure = 0;
-        state.aux.selected.cell.clear();
-        state.sequencer.sequence_bank[0].cell = {
-            .element = sequence::Sequence{
-                .cells = {
-                    sequence::Cell{
-                        .element = sequence::Note{0, 0.6f, 0.1f, 0.8f},
-                        .weight = 0.5f,
-                    },
-                    sequence::Cell{
-                        .element = sequence::Note{2, 0.6f, 0.1f, 0.8f},
-                        .weight = 0.5f,
-                    },
-                    sequence::Cell{
-                        .element = sequence::Note{4, 0.6f, 0.1f, 0.8f},
-                        .weight = 0.5f,
-                    },
-                },
-            },
-            .weight = 1.f,
-        };
-        ps.library.chords = {
-            Chord{.name = "major", .intervals = {0, 4, 7}},
-            Chord{.name = "minor", .intervals = {0, 3, 7}},
-        };
-        ps.timeline.stage(std::move(state));
-        return ps;
-    };
-
-    auto run_parity = [&](std::string const &command) {
-        auto typed_ps = seeded_state();
-        auto invoke_ps = seeded_state();
-        auto const context = ExecutionContext{typed_ps.timeline.get_state().aux};
-
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        CHECK(typed_result.commit_intent == invoke_result.commit_intent);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-        CHECK(typed_ps.library.scale_shift_index ==
-              invoke_ps.library.scale_shift_index);
-    };
-
-    run_parity("welcome");
-    run_parity("version");
-    run_parity("reset");
-    run_parity("focus statusBar");
-    run_parity("show chordsPane");
-    run_parity("set theme neon");
-    run_parity("+0 arp major 1");
-    run_parity("+0 arp cycle");
-}
-
 TEST_CASE("Command adapter maps load/save/libraryDirectory commands to typed actions",
           "[core][command][action]")
 {
@@ -1057,83 +621,6 @@ TEST_CASE("Command adapter maps load/save/libraryDirectory commands to typed act
     CHECK(std::get<LoadSequenceBankAction>(actions[0]).filename == "demo");
     CHECK(std::get<LoadTuningAction>(actions[1]).filename == "edo12");
     CHECK(std::get<SaveSequenceBankAction>(actions[5]).filename == "backup");
-}
-
-TEST_CASE("Typed load/save/libraryDirectory actions match invoke-command behavior",
-          "[core][command][action]")
-{
-    auto tree = create_command_tree();
-
-    auto const temp_root = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                               .getChildFile("xen_command_action_io_" +
-                                             juce::Uuid{}.toString());
-    temp_root.createDirectory();
-    auto const seq_dir = temp_root.getChildFile("sequences");
-    auto const tuning_dir = temp_root.getChildFile("tunings");
-    seq_dir.createDirectory();
-    tuning_dir.createDirectory();
-
-    auto fixture_bank = SequenceBank{};
-    fixture_bank[0].cell = {
-        .element = sequence::Note{11, 0.8f, 0.1f, 0.9f},
-        .weight = 1.f,
-    };
-    auto fixture_names = std::array<std::string, 16>{};
-    fixture_names[0] = "fixture";
-    action::save_sequence_bank(fixture_bank, fixture_names,
-                               seq_dir.getChildFile("fixture.xss"));
-
-    auto const tuning_file = tuning_dir.getChildFile("fixture.scl");
-    tuning_file.replaceWithText(
-        "! fixture.scl\n"
-        "fixture\n"
-        "3\n"
-        "!\n"
-        "100.000000\n"
-        "200.000000\n"
-        "2/1\n");
-
-    auto seeded_state = [&]() {
-        auto ps = make_plugin_state();
-        ps.config.current_sequence_directory = seq_dir;
-        ps.config.current_tuning_directory = tuning_dir;
-
-        auto state = ps.timeline.get_state();
-        state.sequencer.sequence_bank[0].cell = {
-            .element = sequence::Rest{},
-            .weight = 1.f,
-        };
-        state.sequencer.sequence_names[0] = "seed";
-        ps.timeline.stage(std::move(state));
-        return ps;
-    };
-
-    auto run_parity = [&](std::string const &command) {
-        auto typed_ps = seeded_state();
-        auto invoke_ps = seeded_state();
-        auto const context = ExecutionContext{typed_ps.timeline.get_state().aux};
-
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        CHECK(typed_result.commit_intent == invoke_result.commit_intent);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-    };
-
-    run_parity("save sequenceBank saved");
-    run_parity("load sequenceBank fixture");
-    run_parity("load tuning fixture");
-    run_parity("load keys");
-    run_parity("libraryDirectory");
-
-    temp_root.deleteRecursively();
 }
 
 TEST_CASE(
@@ -1198,52 +685,163 @@ TEST_CASE("Command adapter preserves randomize and transform defaults",
     CHECK(std::get<SwingAction>(actions[7]).amount == Catch::Approx(0.1f));
 }
 
-TEST_CASE("Typed randomize and transform actions match invoke-command behavior",
+TEST_CASE("Typed randomize and transform actions execute deterministically",
           "[core][command][action]")
 {
-    auto tree = create_command_tree();
-    auto typed_ps = make_plugin_state();
-    auto invoke_ps = make_plugin_state();
-
-    auto seed = [](PluginState &ps) {
-        auto state = ps.timeline.get_state();
-        auto &selected = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
-        selected.element = sequence::Note{5, 0.5f, 0.2f, 0.8f};
-        selected.weight = 0.7f;
-        ps.timeline.stage(std::move(state));
-    };
-    seed(typed_ps);
-    seed(invoke_ps);
+    auto ps = make_plugin_state();
+    auto state = ps.timeline.get_state();
+    auto &selected = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+    selected.element = sequence::Note{5, 0.5f, 0.2f, 0.8f};
+    selected.weight = 0.7f;
+    ps.timeline.stage(std::move(state));
 
     auto context = ExecutionContext{};
-    auto run_parity = [&](std::string const &command) {
-        auto const typed_action = to_command_actions(parse_command_chain(command))[0];
-
-        auto const typed_result =
-            execute_command_action(typed_ps, context, typed_action);
-        auto const invoke_result =
-            execute_legacy_command(invoke_ps, tree, context, command);
-
-        CHECK(typed_result.status == invoke_result.status);
-        CHECK(typed_result.engine_mutated == invoke_result.engine_mutated);
-        check_context_equal(typed_result.context, invoke_result.context);
-        CHECK(typed_ps.timeline.get_state().sequencer ==
-              invoke_ps.timeline.get_state().sequencer);
-
-        context = typed_result.context;
+    auto run_action = [&](std::string const &command) -> CommandActionResult {
+        auto const actions = to_command_actions(parse_command_chain(command));
+        REQUIRE(actions.size() == 1);
+        auto const result = execute_command_action(ps, context, actions.front());
+        context = result.context;
+        return result;
     };
 
-    run_parity("+0 randomize pitch 4 4");
-    run_parity("+0 randomize velocity 0.3 0.3");
-    run_parity("+0 randomize delay 0.4 0.4");
-    run_parity("+0 randomize gate 0.5 0.5");
-    run_parity("+0 stretch 2");
-    run_parity("+1 compress");
-    run_parity("compress");
-    run_parity("shuffle");
-    run_parity("rotate -1");
-    run_parity("reverse");
-    run_parity("+0 mirror 10");
-    run_parity("+0 quantize");
-    run_parity("swing 0.25");
+    CHECK(run_action("+0 randomize pitch 4 4").status.first == MessageLevel::Info);
+    CHECK(run_action("+0 randomize velocity 0.3 0.3").status.first ==
+          MessageLevel::Info);
+    CHECK(run_action("+0 randomize delay 0.4 0.4").status.first ==
+          MessageLevel::Info);
+    CHECK(run_action("+0 randomize gate 0.5 0.5").status.first ==
+          MessageLevel::Info);
+    CHECK(run_action("+0 stretch 2").status.first == MessageLevel::Info);
+    CHECK(run_action("+1 compress").status.first == MessageLevel::Info);
+    CHECK(run_action("shuffle").status.first == MessageLevel::Info);
+    CHECK(run_action("rotate -1").status.first == MessageLevel::Info);
+    CHECK(run_action("reverse").status.first == MessageLevel::Info);
+    CHECK(run_action("+0 mirror 10").status.first == MessageLevel::Info);
+    CHECK(run_action("+0 quantize").status.first == MessageLevel::Info);
+    CHECK(run_action("swing 0.25").status.first == MessageLevel::Info);
+}
+
+TEST_CASE("Typed note and rest actions update selected cell",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    auto state = ps.timeline.get_state();
+    state.aux.selected.measure = 0;
+    state.aux.selected.cell = {0};
+    state.sequencer.sequence_bank[0].cell = {
+        .element = sequence::Sequence{
+            .cells = {
+                sequence::Cell{
+                    .element = sequence::Rest{},
+                    .weight = 0.37f,
+                },
+            },
+        },
+        .weight = 1.f,
+    };
+    ps.timeline.stage(std::move(state));
+
+    auto context = ExecutionContext{ps.timeline.get_state().aux};
+    auto const note_target = context.selected;
+
+    auto note_action = to_command_actions(parse_command_chain("note 12 0.5 0.25 0.75"))[0];
+    auto note_result = execute_command_action(ps, context, note_action);
+    CHECK(note_result.status.first == MessageLevel::Info);
+    CHECK(note_result.status.second == "Note Created");
+    CHECK(note_result.engine_mutated);
+
+    auto const state_after_note = ps.timeline.get_state();
+    auto const &note_cell =
+        get_selected_cell_const(state_after_note.sequencer.sequence_bank, note_target);
+    REQUIRE(std::holds_alternative<sequence::Note>(note_cell.element));
+    auto const &note = std::get<sequence::Note>(note_cell.element);
+    CHECK(note.pitch == 12);
+    CHECK(note.velocity == Catch::Approx(0.5f));
+    CHECK(note.delay == Catch::Approx(0.25f));
+    CHECK(note.gate == Catch::Approx(0.75f));
+    CHECK(note_cell.weight == Catch::Approx(0.37f));
+
+    auto rest_action = to_command_actions(parse_command_chain("rest"))[0];
+    auto rest_result = execute_command_action(ps, note_result.context, rest_action);
+    CHECK(rest_result.status.first == MessageLevel::Info);
+    CHECK(rest_result.status.second == "Rest Created");
+    CHECK(rest_result.engine_mutated);
+
+    auto const state_after_rest = ps.timeline.get_state();
+    auto const &rest_cell = get_selected_cell_const(
+        state_after_rest.sequencer.sequence_bank, note_result.context.selected);
+    REQUIRE(std::holds_alternative<sequence::Rest>(rest_cell.element));
+    CHECK(rest_cell.weight == Catch::Approx(0.37f));
+}
+
+TEST_CASE("Typed undo and redo actions restore committed history",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+
+    auto state = ps.timeline.get_state();
+    state.sequencer.key = 1;
+    ps.timeline.stage(std::move(state));
+    ps.timeline.commit();
+
+    state = ps.timeline.get_state();
+    state.sequencer.key = 2;
+    ps.timeline.stage(std::move(state));
+    ps.timeline.commit();
+
+    auto context = ExecutionContext{};
+    context.selected.measure = 7;
+    context.input_mode = InputMode::Gate;
+
+    auto undo_action = to_command_actions(parse_command_chain("undo"))[0];
+    auto undo_result = execute_command_action(ps, context, undo_action);
+    CHECK(undo_result.status.first == MessageLevel::Info);
+    CHECK(undo_result.status.second == "Undone");
+    CHECK(undo_result.engine_mutated);
+    CHECK(ps.timeline.get_state().sequencer.key == 1);
+
+    auto redo_action = to_command_actions(parse_command_chain("redo"))[0];
+    auto redo_result = execute_command_action(ps, undo_result.context, redo_action);
+    CHECK(redo_result.status.first == MessageLevel::Info);
+    CHECK(redo_result.status.second == "Redone");
+    CHECK(redo_result.engine_mutated);
+    CHECK(ps.timeline.get_state().sequencer.key == 2);
+}
+
+TEST_CASE("Typed scale and deprecated/library commands execute via catalog",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    ps.library.scales = {
+        Scale{.name = "major",
+              .tuning_length = 12,
+              .intervals = {2, 2, 1, 2, 2, 2, 1},
+              .mode = 1},
+        Scale{.name = "minor",
+              .tuning_length = 12,
+              .intervals = {2, 1, 2, 2, 1, 2, 2},
+              .mode = 1},
+    };
+
+    auto context = ExecutionContext{};
+    auto run_action = [&](std::string const &command) -> CommandActionResult {
+        auto const actions = to_command_actions(parse_command_chain(command));
+        REQUIRE(actions.size() == 1);
+        auto const result = execute_command_action(ps, context, actions.front());
+        context = result.context;
+        return result;
+    };
+
+    CHECK(run_action("set scale major").status.first == MessageLevel::Info);
+    CHECK(run_action("set mode 2").status.first == MessageLevel::Info);
+    CHECK(run_action("shift scale").status.first == MessageLevel::Info);
+    CHECK(run_action("shift scaleMode -1").status.first == MessageLevel::Info);
+    CHECK(run_action("set translateDirection down").status.first ==
+          MessageLevel::Info);
+    CHECK(run_action("shift translateDirection").status.first ==
+          MessageLevel::Info);
+    CHECK(run_action("shift entireScale -1").status.first == MessageLevel::Info);
+    CHECK(run_action("load keys").status.first == MessageLevel::Warning);
+    CHECK(run_action("set theme neon").status.first == MessageLevel::Warning);
+    CHECK(run_action("libraryDirectory").status.first == MessageLevel::Info);
 }

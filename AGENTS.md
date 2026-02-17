@@ -6,3 +6,7 @@
 - Prefer clean breaks when migrating systems.
 - If a migration requires an environment change, fail fast with a clear error rather than silently falling back.
 - Treat fallback code as technical debt unless it is explicitly requested for a time-boxed transition.
+
+## Build Commands
+
+- Do not pass explicit `-j` options to ninja/cmake build commands.

@@ -7,7 +7,7 @@ Purpose: clean up internals before implementing the JUCE 8 WebView bridge, with 
 - [x] Remove exceptions from audio thread path (`processBlock` must never throw).
   - Current issue: `src/xen_processor.cpp:55`
 - [x] Replace unsafe cross-thread state handoff for non-trivial types.
-  - Current risk: `LockFreeOptional<SequencerState>` with string/vector payloads.
+  - Current risk: `LockFreeOptional<EngineState>` with string/vector payloads.
   - Files: `include/xen/lock_free_optional.hpp:31`, `src/xen_processor.cpp:73`
 - [x] Remove direct UI work from processor callbacks.
   - Current issue: UI alert in state save, direct editor update in state load.
@@ -28,9 +28,9 @@ Purpose: clean up internals before implementing the JUCE 8 WebView bridge, with 
 
 - [ ] Introduce typed engine actions and reducer/service (`apply(action)`).
 - [ ] Keep command-string parser as adapter only (string -> typed action).
-- [x] Move UI-only commands out of engine command tree.
+- [x] Move UI-only commands out of legacy command-tree execution.
   - Current UI commands in core: `focus`, `show`, `theme`
-  - File: `src/xen_command_tree.cpp:150`, `src/xen_command_tree.cpp:158`, `src/xen_command_tree.cpp:648`
+  - Catalog/parsing references: `src/command_catalog_metadata.cpp:39`, `src/command_catalog_parse.cpp:168`
 
 ## Priority 3: Bridge-Ready State Sync Boundary
 

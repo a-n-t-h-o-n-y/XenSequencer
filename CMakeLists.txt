@@ -146,6 +146,12 @@ set(XEN_CORE_SOURCES
     src/chord.cpp
     src/command.cpp
     src/command_action.cpp
+    src/command_catalog.cpp
+    src/command_catalog_bind.cpp
+    src/command_catalog_complete.cpp
+    src/command_catalog_docs.cpp
+    src/command_catalog_metadata.cpp
+    src/command_catalog_parse.cpp
     src/command_history.cpp
     src/copy_paste.cpp
     src/guide_text.cpp
@@ -161,7 +167,6 @@ set(XEN_CORE_SOURCES
     src/string_manip.cpp
     src/user_directory.cpp
     src/utility.cpp
-    src/xen_command_tree.cpp
 )
 
 set(XEN_UI_SOURCES
@@ -280,7 +285,8 @@ if (XEN_BUILD_TESTS)
 
     set(XEN_TEST_SOURCES
         test/core/command_action.test.cpp
-        test/core/command_tree.test.cpp
+        test/core/command_catalog.test.cpp
+        test/core/command_parse.test.cpp
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
         test/processor/processor_commands.test.cpp

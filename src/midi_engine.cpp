@@ -335,7 +335,7 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     return out_buffer;
 }
 
-void MidiEngine::update(SequencerState const &sequencer, DAWState const &daw)
+void MidiEngine::update(EngineState const &sequencer, DAWState const &daw)
 {
     for (auto i = std::size_t{0}; i < sequencer.sequence_bank.size(); ++i)
     {

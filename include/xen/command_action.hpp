@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -663,18 +662,6 @@ struct CommandActionResult
     bool engine_mutated{false};
     CommitIntent commit_intent{CommitIntent::Auto};
 };
-
-/**
- * Try to convert one parsed command invocation into a typed command action.
- */
-[[nodiscard]] auto try_to_command_action(CommandInvocation const &invocation)
-    -> std::optional<CommandAction>;
-
-/**
- * Convert parsed command invocations into typed command actions.
- */
-[[nodiscard]] auto to_command_actions(
-    std::vector<CommandInvocation> const &invocations) -> std::vector<CommandAction>;
 
 /**
  * Check whether an action is a chain-level replay action.

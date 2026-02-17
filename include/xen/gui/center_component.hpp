@@ -100,7 +100,7 @@ class MeasureInfo : public juce::Component
     explicit MeasureInfo();
 
   public:
-    void update(SequencerState const &state, AuxState const &aux);
+    void update(EngineState const &state, EditorSessionState const &aux);
 
   public:
     void resized() override;
@@ -162,7 +162,7 @@ class MeasureView : public juce::Component, juce::Timer
 
     [[nodiscard]] auto get_cell() const -> Cell const &;
 
-    void update(SequencerState const &state, AuxState const &aux);
+    void update(EngineState const &state, EditorSessionState const &aux);
 
     /**
      * \p percent must be in range [0, 1).
@@ -190,7 +190,7 @@ class MeasureView : public juce::Component, juce::Timer
     // Owned by XenProcessor
     DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state_;
 
-    SequencerState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
+    EngineState sequencer_state_ = {.tuning_name = "repaint"}; // Force init paint.
     SelectedState selected_state_{};
 
     // BG Rendering
@@ -219,7 +219,7 @@ class SequenceView : public juce::Component
     SequenceView(DoubleBuffer<AudioThreadStateForGUI> const &audio_thread_state);
 
   public:
-    void update(SequencerState const &state, AuxState const &aux);
+    void update(EngineState const &state, EditorSessionState const &aux);
 
   public:
     void resized() override;
@@ -258,7 +258,7 @@ class CenterComponent : public juce::Component
 
     void show_message_log();
 
-    void update(SequencerState const &state, AuxState const &aux,
+    void update(EngineState const &state, EditorSessionState const &aux,
                 std::vector<Scale> const &scales);
 
   public:
@@ -268,7 +268,7 @@ class CenterComponent : public juce::Component
     [[nodiscard]] auto current_component() -> juce::Component &;
 
   private:
-    SequencerState state_;
+    EngineState state_;
 };
 
 } // namespace xen::gui

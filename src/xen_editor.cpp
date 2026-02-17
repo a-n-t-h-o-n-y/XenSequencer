@@ -50,6 +50,36 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
                     p.plugin_state.command_history, p.audio_thread_state_for_gui},
       processor_{p}, tooltip_window_{this}
 {
+    processor_.set_focus_command_handler([this](std::string const &component_id) {
+        try
+        {
+            plugin_window.set_focus(component_id);
+            return std::pair<MessageLevel, std::string>{
+                MessageLevel::Info,
+                "Focused " + single_quote(component_id) + ".",
+            };
+        }
+        catch (std::exception const &e)
+        {
+            return std::pair<MessageLevel, std::string>{MessageLevel::Error, e.what()};
+        }
+    });
+
+    processor_.set_show_command_handler([this](std::string const &component_id) {
+        try
+        {
+            plugin_window.show_component(component_id);
+            return std::pair<MessageLevel, std::string>{
+                MessageLevel::Info,
+                "Showing " + single_quote(component_id) + ".",
+            };
+        }
+        catch (std::exception const &e)
+        {
+            return std::pair<MessageLevel, std::string>{MessageLevel::Error, e.what()};
+        }
+    });
+
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
 
     this->setResizable(true, true);
@@ -69,14 +99,14 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     // CommandBar Guide Text Request
     plugin_window.bottom_bar.command_bar.on_guide_text_request.connect(
-        [this](std::string const &partial_command) -> std::string {
-            return generate_guide_text(processor_.command_tree, partial_command);
+        [](std::string const &partial_command) -> std::string {
+            return generate_guide_text(partial_command);
         });
 
     // CommandBar ID Completion Request
     plugin_window.bottom_bar.command_bar.on_complete_id_request.connect(
-        [this](std::string const &partial_command) -> std::string {
-            return complete_id(processor_.command_tree, partial_command);
+        [](std::string const &partial_command) -> std::string {
+            return complete_id(partial_command);
         });
 
     // Sequence File Selected
@@ -167,6 +197,11 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     last_snapshot_version_ = processor_.get_ui_snapshot_version();
     this->startTimerHz(30);
+}
+
+XenEditor::~XenEditor()
+{
+    processor_.clear_ui_command_handlers();
 }
 
 auto XenEditor::createKeyboardFocusTraverser()

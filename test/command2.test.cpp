@@ -10,9 +10,9 @@
 using namespace xen;
 
 auto ps = PluginState{
-    .timeline = XenTimeline{TrackedState{
-        .sequencer = SequencerState{},
-        .aux = AuxState{},
+    .timeline = XenTimeline{TimelineState{
+        .sequencer = EngineState{},
+        .aux = EditorSessionState{},
     }},
 };
 

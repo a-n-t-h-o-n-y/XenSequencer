@@ -71,15 +71,15 @@ namespace xen
  * @param state The plugin state to serialize.
  * @return std::string The JSON string.
  */
-[[nodiscard]] auto serialize_plugin(SequencerState const &state) -> std::string;
+[[nodiscard]] auto serialize_plugin(EngineState const &state) -> std::string;
 
 /**
  * Deserialize a JSON string to a plugin state and metadata.
  *
  * @param json_str The JSON string to deserialize.
- * @return SequencerState The deserialized plugin state.
+ * @return EngineState The deserialized plugin state.
  * @throw std::invalid_argument If the JSON string is invalid.
  */
-[[nodiscard]] auto deserialize_plugin(std::string const &json_str) -> SequencerState;
+[[nodiscard]] auto deserialize_plugin(std::string const &json_str) -> EngineState;
 
 } // namespace xen

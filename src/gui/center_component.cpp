@@ -377,7 +377,7 @@ MeasureInfo::MeasureInfo()
     });
 }
 
-void MeasureInfo::update(SequencerState const &state, AuxState const &aux)
+void MeasureInfo::update(EngineState const &state, EditorSessionState const &aux)
 {
     {
         auto const &measure = state.sequence_bank[aux.selected.measure];
@@ -502,7 +502,7 @@ auto MeasureView::get_cell() const -> Cell const &
     return *cell_ptr_;
 }
 
-void MeasureView::update(SequencerState const &state, AuxState const &aux)
+void MeasureView::update(EngineState const &state, EditorSessionState const &aux)
 {
     if (selected_state_ != aux.selected || sequencer_state_ != state)
     {
@@ -633,7 +633,7 @@ SequenceView::SequenceView(
         [this](std::string const &command) { this->on_command(command); });
 }
 
-void SequenceView::update(SequencerState const &state, AuxState const &aux)
+void SequenceView::update(EngineState const &state, EditorSessionState const &aux)
 {
     measure_info.update(state, aux);
 
@@ -741,7 +741,7 @@ void CenterComponent::show_message_log()
     this->resized();
 }
 
-void CenterComponent::update(SequencerState const &state, AuxState const &aux,
+void CenterComponent::update(EngineState const &state, EditorSessionState const &aux,
                              std::vector<Scale> const &scales)
 {
     state_ = state;

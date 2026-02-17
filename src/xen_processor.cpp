@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,6 +21,7 @@
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
+#include <xen/command_catalog.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace xen
@@ -57,6 +59,22 @@ auto XenProcessor::get_ui_snapshot_version() const noexcept -> std::uint64_t
 void XenProcessor::notify_ui_state_changed() noexcept
 {
     ui_snapshot_version_.fetch_add(1, std::memory_order_release);
+}
+
+void XenProcessor::set_focus_command_handler(UiCommandHandler handler)
+{
+    focus_command_handler_ = std::move(handler);
+}
+
+void XenProcessor::set_show_command_handler(UiCommandHandler handler)
+{
+    show_command_handler_ = std::move(handler);
+}
+
+void XenProcessor::clear_ui_command_handlers()
+{
+    focus_command_handler_ = {};
+    show_command_handler_ = {};
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -194,10 +212,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             auto const invocations = parse_command_chain(command_string);
             auto expansion_count = std::size_t{0};
 
-            auto const apply_action = [&](CommandAction const &action) {
-                executed_any_action = true;
-                executed_chain.push_back(action);
-                auto const action_result = execute_command_action(ps, context, action);
+            auto const apply_action_result = [&](CommandActionResult const &action_result) {
                 status = action_result.status;
 
                 if (action_result.commit_intent == CommitIntent::Force)
@@ -213,25 +228,84 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 context = action_result.context;
             };
 
-            for (auto const &invocation : invocations)
-            {
-                auto typed_action = try_to_command_action(invocation);
-                if (!typed_action.has_value())
+            auto const apply_action = [&](CommandAction const &action) {
+                executed_any_action = true;
+                executed_chain.push_back(action);
+
+                if (auto const *focus_action =
+                        std::get_if<DeprecatedFocusAction>(&action);
+                    focus_action != nullptr && focus_command_handler_)
                 {
-                    if (!invocation.input.words.empty())
+                    try
+                    {
+                        status = focus_command_handler_(focus_action->component_id);
+                    }
+                    catch (std::exception const &e)
+                    {
+                        status = {MessageLevel::Error, e.what()};
+                    }
+                    catch (...)
                     {
                         status = {MessageLevel::Error,
-                                  "Command not found: " +
-                                      invocation.input.words.front()};
+                                  "Unknown error while handling 'focus'."};
+                    }
+                    return;
+                }
+
+                if (auto const *show_action = std::get_if<DeprecatedShowAction>(&action);
+                    show_action != nullptr && show_command_handler_)
+                {
+                    try
+                    {
+                        status = show_command_handler_(show_action->component_id);
+                    }
+                    catch (std::exception const &e)
+                    {
+                        status = {MessageLevel::Error, e.what()};
+                    }
+                    catch (...)
+                    {
+                        status = {MessageLevel::Error,
+                                  "Unknown error while handling 'show'."};
+                    }
+                    return;
+                }
+
+                auto const action_result = execute_command_action(ps, context, action);
+                apply_action_result(action_result);
+            };
+
+            for (auto const &invocation : invocations)
+            {
+                auto const bound_result = bind_invocation(invocation);
+                if (std::holds_alternative<CatalogBindError>(bound_result))
+                {
+                    auto const &bind_error =
+                        std::get<CatalogBindError>(bound_result);
+                    if (bind_error.kind == CatalogBindErrorKind::UnknownCommand)
+                    {
+                        if (!bind_error.token.empty())
+                        {
+                            status = {MessageLevel::Error,
+                                      "Command not found: " +
+                                          bind_error.token};
+                        }
+                        else
+                        {
+                            status = {MessageLevel::Error, "Command not found"};
+                        }
                     }
                     else
                     {
-                        status = {MessageLevel::Error, "Command not found"};
+                        status = {MessageLevel::Error, bind_error.message};
                     }
                     break;
                 }
 
-                if (is_again_action(*typed_action))
+                auto const &typed_action =
+                    std::get<BoundCommand>(bound_result).action;
+
+                if (is_again_action(typed_action))
                 {
                     if (previous_action_chain_.empty())
                     {
@@ -260,7 +334,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 }
                 else
                 {
-                    apply_action(*typed_action);
+                    apply_action(typed_action);
                 }
 
                 if (status.first == MessageLevel::Error)

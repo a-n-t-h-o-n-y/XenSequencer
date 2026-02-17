@@ -190,7 +190,7 @@ static void from_json(nlohmann::json const &j, Scale &scale)
     scale.mode = j.at("mode").get<std::uint8_t>();
 }
 
-static void to_json(nlohmann::json &j, SequencerState const &state)
+static void to_json(nlohmann::json &j, EngineState const &state)
 {
     j = nlohmann::json{
         {"sequence_bank", state.sequence_bank},
@@ -204,7 +204,7 @@ static void to_json(nlohmann::json &j, SequencerState const &state)
     };
 }
 
-static void from_json(nlohmann::json const &j, SequencerState &state)
+static void from_json(nlohmann::json const &j, EngineState &state)
 {
     state.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
     state.sequence_names = j.at("sequence_names").get<std::array<std::string, 16>>();
@@ -270,16 +270,16 @@ auto deserialize_sequence_bank(std::string const &json_str)
     return {bank, sequence_names};
 }
 
-auto serialize_plugin(SequencerState const &state) -> std::string
+auto serialize_plugin(EngineState const &state) -> std::string
 {
     auto json = nlohmann::json{};
     to_json(json, state);
     return json.dump();
 }
 
-auto deserialize_plugin(std::string const &json_str) -> SequencerState
+auto deserialize_plugin(std::string const &json_str) -> EngineState
 {
-    return nlohmann::json::parse(json_str).get<SequencerState>();
+    return nlohmann::json::parse(json_str).get<EngineState>();
 }
 
 } // namespace xen

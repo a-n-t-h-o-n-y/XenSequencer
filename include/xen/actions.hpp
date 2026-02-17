@@ -56,25 +56,25 @@ template <typename Fn, typename... Args>
 namespace xen::action
 {
 
-[[nodiscard]] auto move_left(SequencerState const &state, ExecutionContext context,
+[[nodiscard]] auto move_left(EngineState const &state, ExecutionContext context,
                              std::size_t amount) -> ExecutionContext;
 
-[[nodiscard]] auto move_right(SequencerState const &state, ExecutionContext context,
+[[nodiscard]] auto move_right(EngineState const &state, ExecutionContext context,
                               std::size_t amount) -> ExecutionContext;
 
 [[nodiscard]] auto move_up(ExecutionContext context, std::size_t amount)
     -> ExecutionContext;
 
-[[nodiscard]] auto move_down(SequencerState const &state, ExecutionContext context,
+[[nodiscard]] auto move_down(EngineState const &state, ExecutionContext context,
                              std::size_t amount) -> ExecutionContext;
 
-void copy(SequencerState const &state, ExecutionContext const &context);
+void copy(EngineState const &state, ExecutionContext const &context);
 
-[[nodiscard]] auto cut(SequencerState state, ExecutionContext const &context)
-    -> SequencerState;
+[[nodiscard]] auto cut(EngineState state, ExecutionContext const &context)
+    -> EngineState;
 
-[[nodiscard]] auto paste(SequencerState state, ExecutionContext const &context)
-    -> SequencerState;
+[[nodiscard]] auto paste(EngineState state, ExecutionContext const &context)
+    -> EngineState;
 
 [[nodiscard]] auto duplicate(TimelineState state) -> TimelineState;
 
@@ -83,17 +83,17 @@ void copy(SequencerState const &state, ExecutionContext const &context);
 
 [[nodiscard]] auto lift(TimelineState state) -> TimelineState;
 
-[[nodiscard]] auto shift_octave(SequencerState state,
+[[nodiscard]] auto shift_octave(EngineState state,
                                 ExecutionContext const &context,
                                 sequence::Pattern const &pattern, int amount)
-    -> SequencerState;
+    -> EngineState;
 
-[[nodiscard]] auto set_note_octave(SequencerState state,
+[[nodiscard]] auto set_note_octave(EngineState state,
                                    ExecutionContext const &context,
                                    sequence::Pattern const &pattern, int octave)
-    -> SequencerState;
+    -> EngineState;
 
-[[nodiscard]] auto delete_cell(TrackedState state) -> TrackedState;
+[[nodiscard]] auto delete_cell(TimelineState state) -> TimelineState;
 
 void save_measure(juce::File const &filepath, sequence::Measure const &measure);
 
@@ -106,8 +106,8 @@ void save_sequence_bank(SequenceBank const &bank,
 [[nodiscard]] auto load_sequence_bank(juce::File const &filepath)
     -> std::pair<SequenceBank, std::array<std::string, 16>>;
 
-[[nodiscard]] auto set_base_frequency(SequencerState state, float freq)
-    -> SequencerState;
+[[nodiscard]] auto set_base_frequency(EngineState state, float freq)
+    -> EngineState;
 
 [[nodiscard]] auto set_selected_sequence(ExecutionContext context, int index)
     -> ExecutionContext;

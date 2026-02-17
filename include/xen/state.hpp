@@ -62,11 +62,6 @@ struct EngineState
 };
 
 /**
- * Backwards-compatible alias while the codebase transitions to EngineState naming.
- */
-using SequencerState = EngineState;
-
-/**
  * The state of the current selection in the sequencer.
  */
 struct SelectedState
@@ -116,22 +111,11 @@ struct EditorSessionState
  */
 using ExecutionContext = EditorSessionState;
 
-/**
- * Backwards-compatible alias while the codebase transitions to EditorSessionState
- * naming.
- */
-using AuxState = EditorSessionState;
-
 struct TimelineState
 {
     EngineState sequencer;
     EditorSessionState aux;
 };
-
-/**
- * Backwards-compatible alias while the codebase transitions to TimelineState naming.
- */
-using TrackedState = TimelineState;
 
 /**
  * The specific Timeline type for the Xen plugin.

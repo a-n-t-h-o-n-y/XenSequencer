@@ -47,14 +47,14 @@ class MidiEngine
         -> juce::MidiBuffer;
 
     /**
-     * Render the current SequencerState to MIDI and save in rendered_midi_.
+     * Render the current EngineState to MIDI and save in rendered_midi_.
      *
      * @details This only renders Measures where there has been a change since the
      * previous render, and stores updates in rendered_.
      * @param sequencer The current state of the sequencer.
      * @param daw The current state of the DAW.
      */
-    void update(SequencerState const &sequencer, DAWState const &daw);
+    void update(EngineState const &sequencer, DAWState const &daw);
 
     /**
      * For use by GUI thread, stored in processor by processBlock
