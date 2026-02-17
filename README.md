@@ -8,6 +8,7 @@
 - [User Guide](docs/user_guide.md)
 - [Command Reference](docs/command_reference.md)
 - [Keybindings Reference](docs/keybindings_reference.md)
+- [Core Testing Plan](docs/core_testing_plan.md)
 
 ## Building from Source
 
