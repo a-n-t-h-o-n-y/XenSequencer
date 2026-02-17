@@ -3,33 +3,20 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <juce_core/juce_core.h>
-namespace juce
-{
-class LookAndFeel;
-}
 
-#include <sequence/generate.hpp>
 #include <sequence/measure.hpp>
-#include <sequence/modify.hpp>
-#include <sequence/sequence.hpp>
 #include <sequence/tuning.hpp>
-
-#include <signals_light/signal.hpp>
 
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
 #include <xen/command_history.hpp>
-#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/scale.hpp>
-#include <xen/state.hpp>
 #include <xen/timeline.hpp>
 #include <xen/user_directory.hpp>
 
@@ -43,9 +30,9 @@ using SampleCount = std::uint64_t;
 using SequenceBank = std::array<sequence::Measure, 16>;
 
 /**
- * The state of the internal sequencer for the plugin.
+ * The state of the sequencing engine.
  */
-struct SequencerState
+struct EngineState
 {
     SequenceBank sequence_bank{};
     std::array<std::string, 16> sequence_names{};
@@ -67,12 +54,17 @@ struct SequencerState
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
-    auto operator==(SequencerState const &) const -> bool = default;
-    auto operator!=(SequencerState const &) const -> bool = default;
+    auto operator==(EngineState const &) const -> bool = default;
+    auto operator!=(EngineState const &) const -> bool = default;
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
 };
+
+/**
+ * Backwards-compatible alias while the codebase transitions to EngineState naming.
+ */
+using SequencerState = EngineState;
 
 /**
  * The state of the current selection in the sequencer.
@@ -95,7 +87,7 @@ struct SelectedState
 struct ArpState
 {
     // The state of the sequencer when the arpeggiator was first used in a chain.
-    SequencerState sequencer{};
+    EngineState sequencer{};
     SelectedState selected{};
 
     // The commit ID from just before the last arp call.
@@ -107,39 +99,67 @@ struct ArpState
 };
 
 /**
- * The state of the auxiliary controls in the plugin, for Timeline use.
+ * Editor-facing state (selection and editing mode).
  */
-struct AuxState
+struct EditorSessionState
 {
     SelectedState selected{};
     InputMode input_mode = InputMode::Pitch;
     ArpState arp_state{};
 };
 
-struct TrackedState
+/**
+ * Backwards-compatible alias while the codebase transitions to EditorSessionState
+ * naming.
+ */
+using AuxState = EditorSessionState;
+
+struct TimelineState
 {
-    SequencerState sequencer;
-    AuxState aux;
+    EngineState sequencer;
+    EditorSessionState aux;
 };
+
+/**
+ * Backwards-compatible alias while the codebase transitions to TimelineState naming.
+ */
+using TrackedState = TimelineState;
 
 /**
  * The specific Timeline type for the Xen plugin.
  */
-using XenTimeline = Timeline<TrackedState>;
+using XenTimeline = Timeline<TimelineState>;
 
-// -------------------------------------------------------------------------------------
+struct AppConfigState
+{
+    juce::File current_sequence_directory = get_sequences_directory();
+    juce::File current_tuning_directory = get_tunings_directory();
+};
+
+struct ContentLibraryState
+{
+    std::vector<Scale> scales{};
+    std::optional<std::size_t> scale_shift_index{std::nullopt}; // null is chromatic
+    std::vector<Chord> chords{};
+};
+
+struct PluginState
+{
+    AppConfigState config{};
+    ContentLibraryState library{};
+    CommandHistory command_history{};
+    XenTimeline timeline;
+};
 
 /**
- * State shared across plugin instances if the DAW does not sandbox.
+ * Snapshot passed from processor/core to UI readers.
  */
-struct SharedState
+struct EngineSnapshot
 {
-    sl::Signal<void()> on_load_keys_request{};
-    std::mutex on_load_keys_request_mtx{};
-
-    gui::Theme theme{gui::find_theme("apollo")}; // Needed for editor startup.
-    sl::Signal<void(gui::Theme const &)> on_theme_update{};
-    std::mutex theme_mtx{};
+    EngineState engine{};
+    EditorSessionState editor{};
+    int commit_id{-1};
+    std::uint64_t snapshot_version{0};
 };
 
 /**
@@ -149,22 +169,6 @@ struct DAWState
 {
     float bpm = 0.f;
     std::uint32_t sample_rate = 0;
-};
-
-struct PluginState
-{
-    juce::File current_sequence_directory = get_sequences_directory();
-    juce::File current_tuning_directory = get_tunings_directory();
-
-    sl::Signal<void(std::string const &)> on_focus_request{};
-    sl::Signal<void(std::string const &)> on_show_request{};
-    CommandHistory command_history{};
-    XenTimeline timeline;
-    inline static SharedState shared{};
-    std::unique_ptr<juce::LookAndFeel> laf{nullptr};
-    std::vector<Scale> scales{};
-    std::optional<std::size_t> scale_shift_index{std::nullopt}; // null is chromatic
-    std::vector<Chord> chords{};
 };
 
 struct AudioThreadStateForGUI

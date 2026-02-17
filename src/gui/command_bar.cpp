@@ -104,9 +104,7 @@ CommandBar::CommandBar(CommandHistory &cmd_history) : command_history_{cmd_histo
         return true;
     };
 
-    command_input_.focus_lost = [this] { 
-        this->on_command("show StatusBar"); 
-        };
+    command_input_.focus_lost = [this] { this->on_close_request(); };
 
     auto const font = fonts::monospaced().regular.withHeight(18.f);
     command_input_.setFont(font);
@@ -127,7 +125,7 @@ void CommandBar::focus()
 void CommandBar::close()
 {
     this->clear();
-    this->on_command("show StatusBar;focus SequenceView");
+    this->on_close_request();
 }
 
 auto CommandBar::extract_pattern_from_content() const -> sequence::Pattern

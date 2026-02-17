@@ -74,7 +74,7 @@ class Timeline
      * Return the unique commit ID for the most recent commit state. Does not change on
      * staged state.
      */
-    [[nodiscard]] auto get_current_commit_id() -> int
+    [[nodiscard]] auto get_current_commit_id() const -> int
     {
         return timeline_[at_].second;
     }
@@ -82,7 +82,7 @@ class Timeline
     /**
      * Return the unique commit ID for the next commit.
      */
-    [[nodiscard]] auto get_next_commit_id() -> int
+    [[nodiscard]] auto get_next_commit_id() const -> int
     {
         return id_origin_;
     }

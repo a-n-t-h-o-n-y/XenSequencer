@@ -95,12 +95,12 @@ void LibrarySequencerToggle::emit_show_command()
     auto const display = this->LetterSquare::get();
     if (display == "L")
     {
-        this->on_command("show LibraryView;focus SequencesList");
+        this->on_view_request("LibraryView");
     }
     else
     {
         assert(display == "S");
-        this->on_command("show SequenceView;focus SequenceView");
+        this->on_view_request("SequenceView");
     }
 }
 
@@ -112,6 +112,8 @@ BottomBar::BottomBar(CommandHistory &cmd_history) : command_bar{cmd_history}
     this->addAndMakeVisible(status_bar);
     this->addChildComponent(command_bar);
     this->addAndMakeVisible(library_sequencer_toggle);
+
+    command_bar.on_close_request.connect([this] { this->show_status_bar(); });
 }
 
 void BottomBar::show_status_bar()

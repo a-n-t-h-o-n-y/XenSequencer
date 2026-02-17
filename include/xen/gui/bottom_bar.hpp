@@ -63,7 +63,7 @@ class InputModeIndicator : public LetterSquare
 class LibrarySequencerToggle : public LetterSquare
 {
   public:
-    sl::Signal<void(std::string const &)> on_command;
+    sl::Signal<void(std::string const &)> on_view_request;
 
   public:
     LibrarySequencerToggle(char initial);
@@ -75,12 +75,12 @@ class LibrarySequencerToggle : public LetterSquare
 
   private:
     /**
-     * Emits the command to toggle the display.
+     * Emits the view identifier to toggle the display.
      *
      * @details This is called on left mouse click up. It will emit the command to
-     * toggle the display between the Library and Sequencer but will not update its own
-     * display, that will be done by the display_...() functions called by
-     * PluginWindow::show();
+     * toggle the display between the Library and Sequencer but will not update its
+     * own display. That is done by the display_...() functions called by
+     * PluginWindow::show_component().
      */
     void emit_show_command();
 };

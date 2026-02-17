@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -13,6 +12,7 @@
 #include <variant>
 
 #include <sequence/pattern.hpp>
+#include <sequence/modify.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/utility.hpp> //temp
 
@@ -20,7 +20,6 @@
 #include <xen/chord.hpp>
 #include <xen/command.hpp>
 #include <xen/constants.hpp>
-#include <xen/gui/themes.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
 #include <xen/modulator.hpp>
@@ -61,7 +60,7 @@ auto create_command_tree() -> XenCommandTree
         cmd(signature("reset"), "Reset XenSequencer to its initial state.", [](PS &ps) {
             ps.timeline.stage({SequencerState{}, AuxState{}});
             ps.timeline.set_commit_flag();
-            ps.scale_shift_index = std::nullopt; // Chromatic
+            ps.library.scale_shift_index = std::nullopt; // Chromatic
             return minfo("XenSequencer Reset");
         }));
 
@@ -145,18 +144,16 @@ auto create_command_tree() -> XenCommandTree
 
     // focus
     head.add(cmd(signature("focus", arg<std::string>("component_id")),
-                 "Focus on a specific component.",
-                 [](PS &ps, std::string const &component_id) {
-                     ps.on_focus_request(component_id);
-                     return mdebug("Focused on " + component_id);
+                 "Deprecated. UI focus is now handled by the UI adapter layer.",
+                 [](PS &, std::string const &) {
+                     return mwarning("Command 'focus' is deprecated and has no effect.");
                  }));
 
     // show
     head.add(cmd(signature("show", arg<std::string>("component_id")),
-                 "Update the GUI to display the specified component.",
-                 [](PS &ps, std::string const &component_id) {
-                     ps.on_show_request(component_id);
-                     return mdebug("Showing " + single_quote(component_id));
+                 "Deprecated. UI routing is now handled by the UI adapter layer.",
+                 [](PS &, std::string const &) {
+                     return mwarning("Command 'show' is deprecated and has no effect.");
                  }));
 
     {
@@ -169,7 +166,7 @@ auto create_command_tree() -> XenCommandTree
             "located in the library's currently set sequence directory. Do not include "
             "the .xss extension in the filename you provide.",
             [](PS &ps, std::string const &filename) {
-                auto const cd = ps.current_sequence_directory;
+                auto const cd = ps.config.current_sequence_directory;
                 if (!cd.isDirectory())
                 {
                     return merror("Invalid Current Sequence Directory");
@@ -199,7 +196,7 @@ auto create_command_tree() -> XenCommandTree
             "Load a tuning file (.scl) from the current `tunings` Library directory. "
             "Do not include the .scl extension in the filename you provide.",
             [](PS &ps, std::string const &filename) {
-                auto const cd = ps.current_tuning_directory;
+                auto const cd = ps.config.current_tuning_directory;
                 if (!cd.isDirectory())
                 {
                     return merror("Invalid Current Tuning Library Directory");
@@ -225,33 +222,23 @@ auto create_command_tree() -> XenCommandTree
 
         // load keys
         load->add(
-            cmd(signature("keys"), "Load keys.yml and user_keys.yml.", [](PS &ps) {
-                try
-                {
-                    auto const lock = std::lock_guard{
-                        ps.shared.on_load_keys_request_mtx,
-                    };
-                    ps.shared.on_load_keys_request();
-                    return minfo("Key Config Loaded");
-                }
-                catch (std::exception const &e)
-                {
-                    return merror("Failed to Load Keys: " + std::string{e.what()});
-                }
+            cmd(signature("keys"), "Deprecated command.", [](PS &) {
+                return mwarning(
+                    "Command 'load keys' is deprecated and has no effect.");
             }));
 
         // load scales
         load->add(cmd(
             signature("scales"), "Load scales.yml and user_scales.yml.", [](PS &ps) {
-                ps.scales = load_scales_from_files();
-                return minfo("Scales Loaded: " + std::to_string(ps.scales.size()));
+                ps.library.scales = load_scales_from_files();
+                return minfo("Scales Loaded: " + std::to_string(ps.library.scales.size()));
             }));
 
         // load chords
         load->add(cmd(
             signature("chords"), "Load chords.yml and user_chords.yml.", [](PS &ps) {
-                ps.chords = load_chords_from_files();
-                return minfo("Chords Loaded: " + std::to_string(ps.chords.size()));
+                ps.library.chords = load_chords_from_files();
+                return minfo("Chords Loaded: " + std::to_string(ps.library.chords.size()));
             }));
 
         head.add(std::move(load));
@@ -267,7 +254,7 @@ auto create_command_tree() -> XenCommandTree
             "the library's current sequence directory. Do not include the .xss "
             "extension in the filename you provide.",
             [](PS &ps, std::string const &filename) {
-                auto const cd = ps.current_sequence_directory;
+                auto const cd = ps.config.current_sequence_directory;
                 if (!cd.isDirectory())
                 {
                     return merror("Invalid Current Sequence Directory");
@@ -646,30 +633,9 @@ auto create_command_tree() -> XenCommandTree
         // set theme
         set->add(cmd(
             signature("theme", arg<std::string>("name")),
-            "Set the color theme of the app by name.", [](PS &ps, std::string name) {
-                name = to_lower(strip(name));
-                if (name == "dark")
-                {
-                    name = "apollo";
-                }
-                else if (name == "light")
-                {
-                    name = "coal";
-                }
-                try
-                {
-                    auto const theme = gui::find_theme(name);
-                    {
-                        auto const lock = std::lock_guard{ps.shared.theme_mtx};
-                        ps.shared.theme = theme;
-                        ps.shared.on_theme_update(ps.shared.theme);
-                    }
-                    return minfo("Theme Set");
-                }
-                catch (std::exception const &e)
-                {
-                    return merror("Failed to Load Theme: " + std::string{e.what()});
-                }
+            "Deprecated command.", [](PS &, std::string const &) {
+                return mwarning(
+                    "Command 'set theme' is deprecated and has no effect.");
             }));
 
         // set scale
@@ -686,8 +652,8 @@ auto create_command_tree() -> XenCommandTree
                          }
                          // Scale names are stored as all lower case.
                          auto const at = std::ranges::find(
-                             ps.scales, name, [](Scale const &s) { return s.name; });
-                         if (at != std::end(ps.scales))
+                             ps.library.scales, name, [](Scale const &s) { return s.name; });
+                         if (at != std::end(ps.library.scales))
                          {
                              auto state = ps.timeline.get_state();
                              state.sequencer.scale = *at;
@@ -967,11 +933,11 @@ auto create_command_tree() -> XenCommandTree
                        [](PS &ps, int amount) {
                            auto [seq, aux] = ps.timeline.get_state();
                            auto const index = action::shift_scale_index(
-                               ps.scale_shift_index, amount, ps.scales.size());
-                           ps.scale_shift_index = index;
-                           if (index.has_value() && *index < ps.scales.size())
+                               ps.library.scale_shift_index, amount, ps.library.scales.size());
+                           ps.library.scale_shift_index = index;
+                           if (index.has_value() && *index < ps.library.scales.size())
                            {
-                               seq.scale = ps.scales[*index];
+                               seq.scale = ps.library.scales[*index];
                            }
                            else
                            {
@@ -1034,11 +1000,11 @@ auto create_command_tree() -> XenCommandTree
                              direction == -1))
                         {
                             auto const index = action::shift_scale_index(
-                                ps.scale_shift_index, direction, ps.scales.size());
-                            ps.scale_shift_index = index;
-                            if (index.has_value() && *index < ps.scales.size())
+                                ps.library.scale_shift_index, direction, ps.library.scales.size());
+                            ps.library.scale_shift_index = index;
+                            if (index.has_value() && *index < ps.library.scales.size())
                             {
-                                seq.scale = ps.scales[*index];
+                                seq.scale = ps.library.scales[*index];
                                 if (direction == -1)
                                 {
                                     seq.scale->mode = seq.scale->intervals.size();
@@ -1051,10 +1017,10 @@ auto create_command_tree() -> XenCommandTree
                         }
                     }
                 }
-                else if (!ps.scales.empty()) // Current is chromatic
+                else if (!ps.library.scales.empty()) // Current is chromatic
                 {
-                    auto const index = direction == 1 ? 0 : ps.scales.size() - 1;
-                    seq.scale = ps.scales[index];
+                    auto const index = direction == 1 ? 0 : ps.library.scales.size() - 1;
+                    seq.scale = ps.library.scales[index];
                     td = TranslateDirection::Up;
                 }
 
@@ -1249,13 +1215,13 @@ auto create_command_tree() -> XenCommandTree
             if (chord_name == "cycle" && inversion != -1)
             {
                 chord_name =
-                    find_next_chord(ps.chords, aux.arp_state.previous_chord_name).name;
-                auto const chord = find_chord(ps.chords, chord_name);
+                    find_next_chord(ps.library.chords, aux.arp_state.previous_chord_name).name;
+                auto const chord = find_chord(ps.library.chords, chord_name);
                 inversion = std::min(inversion, (int)chord.intervals.size() - 1);
             }
             else if (chord_name != "cycle" && inversion == -1)
             {
-                auto const chord = find_chord(ps.chords, chord_name);
+                auto const chord = find_chord(ps.library.chords, chord_name);
                 inversion =
                     increment_inversion(chord, aux.arp_state.previous_inversion);
             }
@@ -1268,13 +1234,13 @@ auto create_command_tree() -> XenCommandTree
                 }
                 else
                 {
-                    auto const chord = find_chord(ps.chords, chord_name);
+                    auto const chord = find_chord(ps.library.chords, chord_name);
                     inversion =
                         increment_inversion(chord, aux.arp_state.previous_inversion);
                 }
                 if (inversion == 0)
                 {
-                    chord_name = find_next_chord(ps.chords, chord_name).name;
+                    chord_name = find_next_chord(ps.library.chords, chord_name).name;
                 }
             }
 
@@ -1287,7 +1253,7 @@ auto create_command_tree() -> XenCommandTree
             aux.selected = aux.arp_state.selected;
 
             auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
-            auto const chord = find_chord(ps.chords, chord_name);
+            auto const chord = find_chord(ps.library.chords, chord_name);
             auto const intervals =
                 invert_chord(chord, inversion, state.tuning.intervals.size());
             selected = action::arp(selected, pattern, intervals);
@@ -1312,7 +1278,7 @@ auto create_command_tree() -> XenCommandTree
             state.base_frequency = 440.f;
 
             state.scale = std::nullopt;
-            ps.scale_shift_index = std::nullopt; // Chromatic
+            ps.library.scale_shift_index = std::nullopt; // Chromatic
 
             // A3 is the zero pitch
             auto const A3 = 57;

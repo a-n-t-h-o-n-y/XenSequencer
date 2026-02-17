@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -12,7 +13,8 @@
 namespace xen
 {
 class CommandHistory;
-struct PluginState;
+struct EngineSnapshot;
+struct Scale;
 } // namespace xen
 
 namespace xen::gui
@@ -41,7 +43,7 @@ class PluginWindow : public juce::Component
      *
      * @param ps The current state of the plugin.
      */
-    void update(PluginState const &ps);
+    void update(EngineSnapshot const &snapshot, std::vector<Scale> const &scales);
 
     /**
      * Set the focus of the plugin window by ComponentID

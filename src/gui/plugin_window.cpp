@@ -38,11 +38,11 @@ PluginWindow::PluginWindow(
         });
 }
 
-void PluginWindow::update(PluginState const &ps)
+void PluginWindow::update(EngineSnapshot const &snapshot,
+                          std::vector<Scale> const &scales)
 {
-    auto const [state, aux] = ps.timeline.get_state();
-    center_component.update(state, aux, ps.scales);
-    bottom_bar.input_mode_indicator.set(aux.input_mode);
+    center_component.update(snapshot.engine, snapshot.editor, scales);
+    bottom_bar.input_mode_indicator.set(snapshot.editor.input_mode);
 }
 
 void PluginWindow::set_focus(std::string component_id)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -15,7 +16,7 @@
 namespace xen::gui
 {
 
-class XenEditor : public juce::AudioProcessorEditor
+class XenEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
   public:
     PluginWindow plugin_window;
@@ -42,6 +43,7 @@ class XenEditor : public juce::AudioProcessorEditor
 
   public:
     void resized() override;
+    void timerCallback() override;
 
     [[nodiscard]] auto createKeyboardFocusTraverser()
         -> std::unique_ptr<juce::ComponentTraverser> override;
@@ -70,8 +72,8 @@ class XenEditor : public juce::AudioProcessorEditor
     XenProcessor &processor_;
 
     std::map<std::string, KeyConfigListener> key_config_listeners_;
-
-    sl::Lifetime lifetime_;
+    std::unique_ptr<juce::LookAndFeel> laf_;
+    std::uint64_t last_snapshot_version_{0};
 
     juce::TooltipWindow tooltip_window_;
 };

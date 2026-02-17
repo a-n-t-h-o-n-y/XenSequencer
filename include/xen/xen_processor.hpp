@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -10,8 +11,7 @@
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
-#include <xen/gui/themes.hpp>
-#include <xen/lock_free_optional.hpp>
+#include <xen/engine_state_mailbox.hpp>
 #include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
@@ -29,13 +29,18 @@ class XenProcessor : public juce::AudioProcessor
     int editor_height{350};
 
   public:
-    // Used to send new SequencerState to the Audio Thread.
-    LockFreeOptional<SequencerState> pending_state_update;
+    // Used to send new EngineState snapshots to the Audio Thread.
+    EngineStateMailbox pending_engine_state_update;
 
   public:
     XenProcessor();
 
     ~XenProcessor() override = default;
+
+  public:
+    [[nodiscard]] auto get_engine_snapshot() const -> EngineSnapshot;
+    [[nodiscard]] auto get_ui_snapshot_version() const noexcept
+        -> std::uint64_t;
 
   public:
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
@@ -89,6 +94,11 @@ class XenProcessor : public juce::AudioProcessor
 
     int previous_commit_id_{-1};
     std::string previous_command_string_{""};
+    std::uint64_t audio_last_engine_version_{0};
+    std::atomic<std::uint64_t> ui_snapshot_version_{0};
+
+  private:
+    void notify_ui_state_changed() noexcept;
 
   public:
     DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;

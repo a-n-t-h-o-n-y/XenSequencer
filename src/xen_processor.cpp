@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <stdexcept>
 #include <string>
 #include <utility>
 
@@ -33,10 +32,32 @@ XenProcessor::XenProcessor()
     initialize_demo_files();
 
     // Send initial state to Audio Thread
-    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
+    pending_engine_state_update.publish(plugin_state.timeline.get_state().sequencer);
+    notify_ui_state_changed();
 
     this->execute_command_string("load scales");
     this->execute_command_string("load chords");
+}
+
+auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
+{
+    auto const tracked = plugin_state.timeline.get_state();
+    return EngineSnapshot{
+        .engine = tracked.sequencer,
+        .editor = tracked.aux,
+        .commit_id = plugin_state.timeline.get_current_commit_id(),
+        .snapshot_version = ui_snapshot_version_.load(std::memory_order_acquire),
+    };
+}
+
+auto XenProcessor::get_ui_snapshot_version() const noexcept -> std::uint64_t
+{
+    return ui_snapshot_version_.load(std::memory_order_acquire);
+}
+
+void XenProcessor::notify_ui_state_changed() noexcept
+{
+    ui_snapshot_version_.fetch_add(1, std::memory_order_release);
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -47,18 +68,27 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     bool update_needed = false;
 
     { // Update DAWState
-        auto const bpm = [this] {
-            auto *playhead = this->getPlayHead();
+        auto bpm = audio_thread_state_.daw.bpm > 0.f ? audio_thread_state_.daw.bpm
+                                                      : 120.f;
+        if (auto *playhead = this->getPlayHead(); playhead != nullptr)
+        {
             auto const position = playhead->getPosition();
-            if (!position.hasValue())
+            if (position.hasValue())
             {
-                throw std::runtime_error{"PlayHead position is not valid"};
+                if (auto const bpm_opt = position->getBpm(); bpm_opt)
+                {
+                    bpm = static_cast<float>(*bpm_opt);
+                }
             }
-            auto const bpm_opt = position->getBpm();
-            return bpm_opt ? static_cast<float>(*bpm_opt) : 120.f;
-        }();
+        }
 
-        auto const sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
+        auto sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
+        if (sample_rate == 0)
+        {
+            sample_rate = audio_thread_state_.daw.sample_rate > 0
+                              ? audio_thread_state_.daw.sample_rate
+                              : 44'100;
+        }
 
         update_needed = !utility::compare_within_tolerance(audio_thread_state_.daw.bpm,
                                                            bpm, 0.0001f) ||
@@ -66,13 +96,13 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
         audio_thread_state_.daw = DAWState{
             .bpm = bpm,
-            .sample_rate = static_cast<std::uint32_t>(this->getSampleRate()),
+            .sample_rate = sample_rate,
         };
     }
 
-    if (auto new_state = pending_state_update.get(); new_state.has_value())
+    if (pending_engine_state_update.try_consume_latest(
+            audio_thread_state_.sequencer, audio_last_engine_version_))
     {
-        audio_thread_state_.sequencer = std::move(new_state.value());
         update_needed = true;
     }
 
@@ -123,28 +153,28 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
     }
     catch (std::exception const &e)
     {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon, "State Save Error",
-            "Error in getStateInformation: " + juce::String{e.what()});
+        juce::Logger::writeToLog("XenSequencer getStateInformation error: " +
+                                 juce::String{e.what()});
+        dest_data.setSize(0);
     }
 }
 
 void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 {
-    auto const json_str =
-        std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-    auto state = deserialize_plugin(json_str);
-    plugin_state.timeline.stage({std::move(state), {}});
-    plugin_state.timeline.commit();
-    pending_state_update.set(plugin_state.timeline.get_state().sequencer);
-    auto *const editor_base = this->getActiveEditor();
-    if (editor_base != nullptr)
+    try
     {
-        auto *const editor = dynamic_cast<gui::XenEditor *>(editor_base);
-        if (editor != nullptr)
-        {
-            editor->update();
-        }
+        auto const json_str =
+            std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
+        auto state = deserialize_plugin(json_str);
+        plugin_state.timeline.stage({std::move(state), {}});
+        plugin_state.timeline.commit();
+        pending_engine_state_update.publish(plugin_state.timeline.get_state().sequencer);
+        notify_ui_state_changed();
+    }
+    catch (std::exception const &e)
+    {
+        juce::Logger::writeToLog("XenSequencer setStateInformation error: " +
+                                 juce::String{e.what()});
     }
 }
 
@@ -158,6 +188,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         {
             auto commands = split(command_string, ';');
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+            auto executed_any_command = false;
             for (auto &command : commands)
             {
                 command = minimize_spaces(command);
@@ -169,6 +200,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 {
                     continue;
                 }
+                executed_any_command = true;
                 status = command_tree.execute(ps, split_input(command));
             }
             if (ps.timeline.get_commit_flag())
@@ -181,7 +213,11 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 id != previous_commit_id_)
             {
                 previous_commit_id_ = id;
-                pending_state_update.set(ps.timeline.get_state().sequencer);
+                pending_engine_state_update.publish(ps.timeline.get_state().sequencer);
+            }
+            if (executed_any_command)
+            {
+                notify_ui_state_changed();
             }
             return status;
         }

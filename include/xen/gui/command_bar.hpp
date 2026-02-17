@@ -49,6 +49,7 @@ class CommandBar : public juce::Component
 {
   public:
     sl::Signal<void(std::string const &)> on_command;
+    sl::Signal<void()> on_close_request;
     sl::Signal<std::string(std::string const &)> on_guide_text_request;
     sl::Signal<std::string(std::string const &)> on_complete_id_request;
     sl::Signal<void(sequence::Pattern const &)> on_pattern_update;
