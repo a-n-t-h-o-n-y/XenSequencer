@@ -275,9 +275,16 @@ xen_apply_compile_settings(XenSequencer PUBLIC)
 # TESTS --------------------------------------------------------------------------------
 
 if (XEN_BUILD_TESTS)
+    enable_testing()
+
     set(XEN_TEST_SOURCES
-        # Intentionally empty while tests are being reworked.
-        # Add new test source files here.
+        test/core/command_tree.test.cpp
+        test/core/state_actions.test.cpp
+        test/core/timeline_commit.test.cpp
+        test/processor/processor_commands.test.cpp
+        test/processor/processor_state_roundtrip.test.cpp
+        test/sync/engine_state_mailbox.test.cpp
+        test/sync/engine_snapshot_contract.test.cpp
     )
 
     if (XEN_TEST_SOURCES)
@@ -285,9 +292,11 @@ if (XEN_BUILD_TESTS)
 
         target_link_libraries(XenTests
             PUBLIC
-                XenCore
+                XenSequencer
                 Catch2::Catch2WithMain
         )
+
+        add_test(NAME XenTests COMMAND $<TARGET_FILE:XenTests>)
     else()
         message(STATUS "XEN_BUILD_TESTS is ON, but no Xen test sources are configured.")
     endif()
