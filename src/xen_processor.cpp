@@ -187,46 +187,29 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         auto &ps = plugin_state;
         try
         {
-            auto normalize_chain =
-                [](std::vector<std::string> raw_commands) -> std::vector<std::string> {
-                auto normalized = std::vector<std::string>{};
-                normalized.reserve(raw_commands.size());
-                for (auto &command : raw_commands)
-                {
-                    command = minimize_spaces(command);
-                    if (!command.empty())
-                    {
-                        normalized.push_back(std::move(command));
-                    }
-                }
-                return normalized;
-            };
-
-            auto pending_commands =
-                normalize_chain(split_top_level(command_string, ';'));
-            auto commands = std::vector<std::string>{};
-            commands.reserve(pending_commands.size());
+            auto pending_chain = parse_command_chain(command_string);
+            auto command_chain = std::vector<CommandInvocation>{};
+            command_chain.reserve(pending_chain.size());
 
             auto expansion_count = std::size_t{0};
             auto command_index = std::size_t{0};
-            while (command_index < pending_commands.size())
+            while (command_index < pending_chain.size())
             {
-                auto const command = pending_commands[command_index];
-                if (to_lower(command) != "again")
+                auto const &invocation = pending_chain[command_index];
+                if (!is_again_invocation(invocation))
                 {
-                    commands.push_back(command);
+                    command_chain.push_back(invocation);
                     ++command_index;
                     continue;
                 }
 
-                if (previous_command_string_.empty())
+                if (previous_command_chain_.empty())
                 {
                     return {MessageLevel::Error, "No previous command to repeat."};
                 }
 
-                auto replay_commands =
-                    normalize_chain(split_top_level(previous_command_string_, ';'));
-                if (replay_commands.empty())
+                auto replay_chain = previous_command_chain_;
+                if (replay_chain.empty())
                 {
                     return {MessageLevel::Error, "No previous command to repeat."};
                 }
@@ -237,18 +220,18 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                             "Recursive 'again' expansion exceeded safe limit."};
                 }
 
-                pending_commands.erase(std::begin(pending_commands) +
-                                       (std::ptrdiff_t)command_index);
-                pending_commands.insert(std::begin(pending_commands) +
-                                            (std::ptrdiff_t)command_index,
-                                        std::begin(replay_commands),
-                                        std::end(replay_commands));
+                pending_chain.erase(std::begin(pending_chain) +
+                                    (std::ptrdiff_t)command_index);
+                pending_chain.insert(std::begin(pending_chain) +
+                                         (std::ptrdiff_t)command_index,
+                                     std::begin(replay_chain),
+                                     std::end(replay_chain));
             }
 
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
             auto executed_any_command = false;
             auto context = ExecutionContext{ps.timeline.get_state().aux};
-            for (auto const &command : commands)
+            for (auto const &invocation : command_chain)
             {
                 // Explicitly apply per-command execution context before invoking command
                 // handlers that still read timeline aux state.
@@ -257,7 +240,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 ps.timeline.stage(std::move(state_before_command));
 
                 executed_any_command = true;
-                status = command_tree.execute(ps, split_input(command));
+                status = command_tree.execute(ps, invocation.input);
                 context = ps.timeline.get_state().aux;
                 if (status.first == MessageLevel::Error)
                 {
@@ -274,7 +257,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
 
             if (executed_any_command)
             {
-                previous_command_string_ = join(commands, ';');
+                previous_command_chain_ = command_chain;
             }
 
             if (ps.timeline.get_commit_flag())

@@ -27,6 +27,35 @@ auto split_input(std::string input) -> SplitInput
     return split_input;
 }
 
+auto parse_command_chain(std::string const &raw_command_string)
+    -> std::vector<CommandInvocation>
+{
+    auto chain = std::vector<CommandInvocation>{};
+    auto segments = split_top_level(raw_command_string, ';');
+    chain.reserve(segments.size());
+
+    for (auto &segment : segments)
+    {
+        auto canonical_segment = minimize_spaces(segment);
+        if (canonical_segment.empty())
+        {
+            continue;
+        }
+
+        chain.push_back(CommandInvocation{
+            .canonical_segment = canonical_segment,
+            .input = split_input(canonical_segment),
+        });
+    }
+
+    return chain;
+}
+
+auto is_again_invocation(CommandInvocation const &invocation) -> bool
+{
+    return to_lower(invocation.canonical_segment) == "again";
+}
+
 // -------------------------------------------------------------------------------------
 
 CommandGroup::CommandGroup(std::string_view id) : id_{id}

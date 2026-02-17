@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -93,7 +94,7 @@ class XenProcessor : public juce::AudioProcessor
     } audio_thread_state_;
 
     int previous_commit_id_{-1};
-    std::string previous_command_string_{""};
+    std::vector<CommandInvocation> previous_command_chain_{};
     std::uint64_t audio_last_engine_version_{0};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
 

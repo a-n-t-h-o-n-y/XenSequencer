@@ -141,3 +141,18 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine.sequence_names[0] == "semi;colon");
 }
+
+TEST_CASE("Processor command-chain splitting ignores semicolons in structured args",
+          "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+
+    auto const [level, message] = processor.execute_command_string(
+        "set sequence name {\"label\":\"semi;colon\"} 1; version");
+
+    CHECK(level == MessageLevel::Info);
+    CHECK(message == "v0.3.0");
+
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.engine.sequence_names[1] == "{\"label\":\"semi;colon\"}");
+}

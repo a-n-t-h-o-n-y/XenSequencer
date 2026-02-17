@@ -39,7 +39,7 @@ This section is the proposed baseline for implementation. Any decisions marked i
 - `raw command string`: user-provided text (command bar, keybinding, or UI emission).
 - `command chain`: ordered list of command segments from a single raw command string.
 - `command segment`: one command unit in a chain (split by top-level semicolons).
-- `invocation`: parsed command id + typed args + optional target override.
+- `invocation`: parsed command id + typed args.
 - `execution context`: non-engine runtime context used by command execution (target selection, input mode, command-session metadata).
 
 ### Parsing And Normalization
@@ -48,7 +48,7 @@ This section is the proposed baseline for implementation. Any decisions marked i
 2. Semicolon splitting must ignore semicolons inside quoted strings and structured argument payloads.
 3. Normalize whitespace per command segment after chain splitting.
 4. Drop empty command segments.
-5. Convert each command segment into an invocation (id + args + optional target override).
+5. Convert each command segment into an invocation (id + args).
 6. Keep string parsing as adapter only; execution operates on invocation objects plus context.
 
 ### Chain Execution Model
@@ -116,10 +116,10 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Phase 2: Decouple Parser From Execution
 
-- [ ] Keep command string parser as adapter only (string -> invocation objects).
-- [ ] Ensure semicolon splitting is syntax-aware (quoted strings and structured args are preserved).
-- [ ] Make invocation objects explicit enough for future typed commands.
-- [ ] Keep command bar simple (emit raw text + optional out-of-band initial context only).
+- [x] Keep command string parser as adapter only (string -> invocation objects).
+- [x] Ensure semicolon splitting is syntax-aware (quoted strings and structured args are preserved).
+- [x] Make invocation objects explicit enough for future typed commands.
+- [x] Keep command bar simple (emit raw text + initial execution context from UI state).
 
 ## Phase 3: Convert Selection-Dependent Commands
 
@@ -149,7 +149,7 @@ This section is the proposed baseline for implementation. Any decisions marked i
 - [ ] Add tests for multi-command failure semantics and commit boundaries.
 - [ ] Add tests for `again` replay behavior with chained commands.
 - [ ] Add tests ensuring undo/redo preserves required editor-session continuity.
-- [ ] Add tests for parser correctness around semicolons inside quotes/structured args.
+- [x] Add tests for parser correctness around semicolons inside quotes/structured args.
 
 ## Migration Rules
 

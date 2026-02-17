@@ -32,6 +32,22 @@ struct SplitInput
 };
 
 /**
+ * Parsed command invocation used by the chain executor.
+ */
+struct CommandInvocation
+{
+    /**
+     * Canonical, whitespace-normalized command segment text.
+     */
+    std::string canonical_segment{};
+
+    /**
+     * Parsed command tokens and optional pattern prefix for command tree dispatch.
+     */
+    SplitInput input{};
+};
+
+/**
  * Split the input string into a Pattern and a vector of words.
  * @param input The input string to split.
  * @return SplitInput The split input.
@@ -39,6 +55,20 @@ struct SplitInput
  * having an invalid pattern or unterminated quotes.
  */
 [[nodiscard]] auto split_input(std::string input) -> SplitInput;
+
+/**
+ * Parse a raw command string into a canonical command chain.
+ *
+ * @details Splits on top-level semicolons, normalizes per-segment whitespace,
+ * drops empty segments, and parses each segment into a command invocation.
+ */
+[[nodiscard]] auto parse_command_chain(std::string const &raw_command_string)
+    -> std::vector<CommandInvocation>;
+
+/**
+ * Check whether an invocation is the chain-level replay command.
+ */
+[[nodiscard]] auto is_again_invocation(CommandInvocation const &invocation) -> bool;
 
 /**
  * Provides a textural description of a command for documentation purposes.

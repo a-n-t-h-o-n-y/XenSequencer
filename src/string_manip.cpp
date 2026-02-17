@@ -184,26 +184,41 @@ auto split_top_level(std::string const &input, char delimiter)
     auto result = std::vector<std::string>{};
     auto current = std::string{};
     bool in_quotes = false;
-    int json_depth = 0;
+    bool escaped = false;
+    int structured_depth = 0;
 
     for (char ch : input)
     {
-        if (ch == '"' && json_depth == 0)
+        if (escaped)
+        {
+            current += ch;
+            escaped = false;
+            continue;
+        }
+
+        if (ch == '\\' && in_quotes)
+        {
+            current += ch;
+            escaped = true;
+            continue;
+        }
+
+        if (ch == '"')
         {
             in_quotes = !in_quotes;
             current += ch;
         }
-        else if (ch == '{')
+        else if (ch == '{' && !in_quotes)
         {
-            ++json_depth;
+            ++structured_depth;
             current += ch;
         }
-        else if (ch == '}' && json_depth > 0)
+        else if (ch == '}' && !in_quotes && structured_depth > 0)
         {
-            --json_depth;
+            --structured_depth;
             current += ch;
         }
-        else if (ch == delimiter && !in_quotes && json_depth == 0)
+        else if (ch == delimiter && !in_quotes && structured_depth == 0)
         {
             result.push_back(current);
             current.clear();
@@ -223,25 +238,45 @@ auto split_quoted_string(std::string const &input) -> std::vector<std::string>
     auto result = std::vector<std::string>{};
     auto current_word = std::string{};
     bool in_quotes = false;
-    int json_depth = 0;
+    bool escaped = false;
+    int structured_depth = 0;
 
     for (char ch : input)
     {
-        if (ch == '"' && json_depth == 0)
+        if (escaped)
+        {
+            current_word += ch;
+            escaped = false;
+            continue;
+        }
+
+        if (ch == '\\' && in_quotes)
+        {
+            current_word += ch;
+            escaped = true;
+            continue;
+        }
+
+        if (ch == '"')
         {
             in_quotes = !in_quotes;
+            if (structured_depth > 0)
+            {
+                current_word += ch;
+            }
         }
-        else if (ch == '{')
+        else if (ch == '{' && !in_quotes)
         {
-            json_depth++;
+            ++structured_depth;
             current_word += ch;
         }
-        else if (ch == '}' && json_depth > 0)
+        else if (ch == '}' && !in_quotes && structured_depth > 0)
         {
-            json_depth--;
+            --structured_depth;
             current_word += ch;
         }
-        else if (std::isspace(ch) && !in_quotes && json_depth == 0)
+        else if (std::isspace(static_cast<unsigned char>(ch)) && !in_quotes &&
+                 structured_depth == 0)
         {
             if (!current_word.empty())
             {
