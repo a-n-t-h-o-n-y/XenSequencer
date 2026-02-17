@@ -109,10 +109,10 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Phase 1: Introduce Explicit Execution Context
 
-- [ ] Add a dedicated `ExecutionContext` type (target, input mode, optional command-session metadata).
-- [ ] Provide context construction from current editor state at command entry.
-- [ ] Thread context through executor loop for semicolon-separated chains.
-- [ ] Preserve current default behavior by mapping old ambient values to initial context.
+- [x] Add a dedicated `ExecutionContext` type (target, input mode, optional command-session metadata).
+- [x] Provide context construction from current editor state at command entry.
+- [x] Thread context through executor loop for semicolon-separated chains.
+- [x] Preserve current default behavior by mapping old ambient values to initial context.
 
 ## Phase 2: Decouple Parser From Execution
 

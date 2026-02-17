@@ -247,14 +247,29 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
 
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
             auto executed_any_command = false;
+            auto context = ExecutionContext{ps.timeline.get_state().aux};
             for (auto const &command : commands)
             {
+                // Explicitly apply per-command execution context before invoking command
+                // handlers that still read timeline aux state.
+                auto state_before_command = ps.timeline.get_state();
+                state_before_command.aux = context;
+                ps.timeline.stage(std::move(state_before_command));
+
                 executed_any_command = true;
                 status = command_tree.execute(ps, split_input(command));
+                context = ps.timeline.get_state().aux;
                 if (status.first == MessageLevel::Error)
                 {
                     break;
                 }
+            }
+
+            if (executed_any_command)
+            {
+                auto final_state = ps.timeline.get_state();
+                final_state.aux = context;
+                ps.timeline.stage(std::move(final_state));
             }
 
             if (executed_any_command)

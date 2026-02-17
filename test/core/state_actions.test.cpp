@@ -20,6 +20,36 @@ auto check_editor_stable(EngineSnapshot const &after, EngineSnapshot const &befo
 
 } // namespace
 
+TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]")
+{
+    auto editor = EditorSessionState{};
+    editor.selected.measure = 5;
+    editor.selected.cell = {1, 2, 3};
+    editor.input_mode = InputMode::Gate;
+    editor.arp_state.previous_chord_name = "major";
+    editor.arp_state.previous_inversion = 2;
+
+    auto const context = ExecutionContext{editor};
+    CHECK(context.selected == editor.selected);
+    CHECK(context.input_mode == editor.input_mode);
+    CHECK(context.arp_state.selected == editor.arp_state.selected);
+    CHECK(context.arp_state.previous_commit_id ==
+          editor.arp_state.previous_commit_id);
+    CHECK(context.arp_state.previous_chord_name ==
+          editor.arp_state.previous_chord_name);
+    CHECK(context.arp_state.previous_inversion == editor.arp_state.previous_inversion);
+
+    auto const applied = EditorSessionState{context};
+    CHECK(applied.selected == editor.selected);
+    CHECK(applied.input_mode == editor.input_mode);
+    CHECK(applied.arp_state.selected == editor.arp_state.selected);
+    CHECK(applied.arp_state.previous_commit_id ==
+          editor.arp_state.previous_commit_id);
+    CHECK(applied.arp_state.previous_chord_name ==
+          editor.arp_state.previous_chord_name);
+    CHECK(applied.arp_state.previous_inversion == editor.arp_state.previous_inversion);
+}
+
 TEST_CASE("Select sequence changes measure and clears nested cell selection",
           "[core][actions]")
 {

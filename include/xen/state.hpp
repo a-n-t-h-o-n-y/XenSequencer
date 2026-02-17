@@ -109,6 +109,14 @@ struct EditorSessionState
 };
 
 /**
+ * Explicit command execution context.
+ *
+ * @details Currently this is identical to EditorSessionState. Keep the alias so
+ * command execution APIs can use context-centric naming without conversion overhead.
+ */
+using ExecutionContext = EditorSessionState;
+
+/**
  * Backwards-compatible alias while the codebase transitions to EditorSessionState
  * naming.
  */
