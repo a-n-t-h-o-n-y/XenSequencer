@@ -9,6 +9,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <xen/command_action.hpp>
 #include <xen/command.hpp>
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
@@ -25,7 +26,7 @@ class XenProcessor : public juce::AudioProcessor
 {
   public:
     PluginState plugin_state;
-    XenCommandTree command_tree;
+    XenCommandTree command_tree{create_command_tree()};
     int editor_width{1400};
     int editor_height{350};
 
@@ -55,7 +56,7 @@ class XenProcessor : public juce::AudioProcessor
     void setStateInformation(void const *data, int sizeInBytes) override;
 
     /**
-     * Execute a string as a command, using the command tree.
+     * Execute a string as a command using typed action dispatch.
      *
      * @details This will normalize the input string, execute it on plugin_state and
      * return the resulting status.
@@ -94,7 +95,7 @@ class XenProcessor : public juce::AudioProcessor
     } audio_thread_state_;
 
     int previous_commit_id_{-1};
-    std::vector<CommandInvocation> previous_command_chain_{};
+    std::vector<CommandAction> previous_action_chain_{};
     std::uint64_t audio_last_engine_version_{0};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
 

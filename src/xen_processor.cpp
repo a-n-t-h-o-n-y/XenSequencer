@@ -20,15 +20,13 @@
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
-#include <xen/xen_command_tree.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
-      command_tree{create_command_tree()}
+    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}}
 {
     initialize_demo_files();
 
@@ -187,93 +185,100 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         auto &ps = plugin_state;
         try
         {
-            auto pending_chain = parse_command_chain(command_string);
-            auto command_chain = std::vector<CommandInvocation>{};
-            command_chain.reserve(pending_chain.size());
-
-            auto expansion_count = std::size_t{0};
-            auto command_index = std::size_t{0};
-            while (command_index < pending_chain.size())
-            {
-                auto const &invocation = pending_chain[command_index];
-                if (!is_again_invocation(invocation))
-                {
-                    command_chain.push_back(invocation);
-                    ++command_index;
-                    continue;
-                }
-
-                if (previous_command_chain_.empty())
-                {
-                    return {MessageLevel::Error, "No previous command to repeat."};
-                }
-
-                auto replay_chain = previous_command_chain_;
-                if (replay_chain.empty())
-                {
-                    return {MessageLevel::Error, "No previous command to repeat."};
-                }
-
-                if (++expansion_count > 64)
-                {
-                    return {MessageLevel::Error,
-                            "Recursive 'again' expansion exceeded safe limit."};
-                }
-
-                pending_chain.erase(std::begin(pending_chain) +
-                                    (std::ptrdiff_t)command_index);
-                pending_chain.insert(std::begin(pending_chain) +
-                                         (std::ptrdiff_t)command_index,
-                                     std::begin(replay_chain),
-                                     std::end(replay_chain));
-            }
-
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-            auto executed_any_command = false;
+            auto executed_any_action = false;
             auto auto_commit_candidate = false;
             auto force_commit_requested = false;
             auto context = ExecutionContext{ps.timeline.get_state().aux};
-            for (auto const &invocation : command_chain)
-            {
-                // Explicitly apply per-command execution context before invoking command
-                // handlers that still read timeline aux state.
-                auto state_before_command = ps.timeline.get_state();
-                state_before_command.aux = context;
-                ps.timeline.stage(std::move(state_before_command));
+            auto executed_chain = std::vector<CommandAction>{};
+            auto const invocations = parse_command_chain(command_string);
+            auto expansion_count = std::size_t{0};
 
-                auto const engine_before_command = ps.timeline.get_state().sequencer;
-                ps.commit_intent = CommitIntent::Auto;
-                executed_any_command = true;
-                status = command_tree.execute(ps, invocation.input);
+            auto const apply_action = [&](CommandAction const &action) {
+                executed_any_action = true;
+                executed_chain.push_back(action);
+                auto const action_result = execute_command_action(ps, context, action);
+                status = action_result.status;
 
-                auto const engine_after_command = ps.timeline.get_state().sequencer;
-                if (ps.commit_intent == CommitIntent::Force)
+                if (action_result.commit_intent == CommitIntent::Force)
                 {
                     force_commit_requested = true;
                 }
-                if (engine_after_command != engine_before_command &&
-                    ps.commit_intent != CommitIntent::Defer)
+                if (action_result.engine_mutated &&
+                    action_result.commit_intent != CommitIntent::Defer)
                 {
                     auto_commit_candidate = true;
                 }
 
-                context = ps.timeline.get_state().aux;
+                context = action_result.context;
+            };
+
+            for (auto const &invocation : invocations)
+            {
+                auto typed_action = try_to_command_action(invocation);
+                if (!typed_action.has_value())
+                {
+                    if (!invocation.input.words.empty())
+                    {
+                        status = {MessageLevel::Error,
+                                  "Command not found: " +
+                                      invocation.input.words.front()};
+                    }
+                    else
+                    {
+                        status = {MessageLevel::Error, "Command not found"};
+                    }
+                    break;
+                }
+
+                if (is_again_action(*typed_action))
+                {
+                    if (previous_action_chain_.empty())
+                    {
+                        status = {MessageLevel::Error,
+                                  "No previous command to repeat."};
+                        break;
+                    }
+
+                    if (++expansion_count > 64)
+                    {
+                        status = {MessageLevel::Error,
+                                  "Recursive 'again' expansion exceeded safe "
+                                  "limit."};
+                        break;
+                    }
+
+                    auto const replay_chain = previous_action_chain_;
+                    for (auto const &replay_action : replay_chain)
+                    {
+                        apply_action(replay_action);
+                        if (status.first == MessageLevel::Error)
+                        {
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    apply_action(*typed_action);
+                }
+
                 if (status.first == MessageLevel::Error)
                 {
                     break;
                 }
             }
 
-            if (executed_any_command)
+            if (executed_any_action)
             {
                 auto final_state = ps.timeline.get_state();
                 final_state.aux = context;
                 ps.timeline.stage(std::move(final_state));
             }
 
-            if (executed_any_command)
+            if (executed_any_action)
             {
-                previous_command_chain_ = command_chain;
+                previous_action_chain_ = executed_chain;
             }
 
             auto const stage_engine = ps.timeline.get_state().sequencer;
@@ -292,7 +297,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 previous_commit_id_ = id;
                 pending_engine_state_update.publish(ps.timeline.get_state().sequencer);
             }
-            if (executed_any_command)
+            if (executed_any_action)
             {
                 notify_ui_state_changed();
             }
@@ -303,10 +308,6 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             ps.timeline.reset_stage();
             throw; // rethrow so you can return proper message without duplicating above
         }
-    }
-    catch (utility::ErrorNoMatch const &)
-    {
-        return {MessageLevel::Error, "Command not found: " + command_string};
     }
     catch (std::exception const &e)
     {

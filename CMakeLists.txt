@@ -145,6 +145,7 @@ set(XEN_CORE_SOURCES
     src/actions.cpp
     src/chord.cpp
     src/command.cpp
+    src/command_action.cpp
     src/command_history.cpp
     src/copy_paste.cpp
     src/guide_text.cpp
@@ -278,6 +279,7 @@ if (XEN_BUILD_TESTS)
     enable_testing()
 
     set(XEN_TEST_SOURCES
+        test/core/command_action.test.cpp
         test/core/command_tree.test.cpp
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp

@@ -1,0 +1,2016 @@
+#include <xen/command_action.hpp>
+
+#include <algorithm>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include <sequence/modify.hpp>
+#include <sequence/sequence.hpp>
+
+#include <xen/actions.hpp>
+#include <xen/chord.hpp>
+#include <xen/constants.hpp>
+#include <xen/message_level.hpp>
+#include <xen/parse_args.hpp>
+#include <xen/selection.hpp>
+#include <xen/string_manip.hpp>
+#include <xen/utility.hpp>
+
+namespace xen
+{
+namespace
+{
+
+template <class>
+inline constexpr bool always_false_v = false;
+
+auto parse_move_direction(std::string const &value) -> std::optional<MoveDirection>
+{
+    auto const lower = to_lower(value);
+    if (lower == "left")
+    {
+        return MoveDirection::Left;
+    }
+    if (lower == "right")
+    {
+        return MoveDirection::Right;
+    }
+    if (lower == "up")
+    {
+        return MoveDirection::Up;
+    }
+    if (lower == "down")
+    {
+        return MoveDirection::Down;
+    }
+
+    return std::nullopt;
+}
+
+auto try_convert_to_typed_action(CommandInvocation const &invocation)
+    -> std::optional<CommandAction>
+{
+    auto const &words = invocation.input.words;
+    if (words.empty())
+    {
+        return std::nullopt;
+    }
+
+    auto const command_id = to_lower(words[0]);
+
+    if (command_id == "welcome")
+    {
+        return CommandAction{WelcomeAction{}};
+    }
+
+    if (command_id == "version")
+    {
+        return CommandAction{VersionAction{}};
+    }
+
+    if (command_id == "reset")
+    {
+        return CommandAction{ResetAction{}};
+    }
+
+    if (command_id == "again")
+    {
+        return CommandAction{AgainAction{}};
+    }
+
+    if (command_id == "commit")
+    {
+        return CommandAction{CommitAction{}};
+    }
+
+    if (command_id == "undo")
+    {
+        return CommandAction{UndoAction{}};
+    }
+
+    if (command_id == "redo")
+    {
+        return CommandAction{RedoAction{}};
+    }
+
+    if (command_id == "move")
+    {
+        if (words.size() < 2)
+        {
+            return std::nullopt;
+        }
+
+        auto const direction = parse_move_direction(words[1]);
+        if (!direction.has_value())
+        {
+            return std::nullopt;
+        }
+
+        auto amount = std::size_t{1};
+        if (words.size() >= 3)
+        {
+            amount = parse<std::size_t>(words[2]);
+        }
+
+        return CommandAction{
+            MoveSelectionAction{.direction = *direction, .amount = amount}};
+    }
+
+    if (command_id == "select" && words.size() >= 2 &&
+        to_lower(words[1]) == "sequence")
+    {
+        if (words.size() < 3)
+        {
+            throw std::invalid_argument("Missing argument and no default value");
+        }
+
+        return CommandAction{SelectSequenceAction{.index = parse<int>(words[2])}};
+    }
+
+    if (command_id == "inputmode")
+    {
+        if (words.size() < 2)
+        {
+            throw std::invalid_argument("Missing argument and no default value");
+        }
+
+        return CommandAction{
+            SetInputModeAction{.mode = parse<InputMode>(words[1])}};
+    }
+
+    if (command_id == "load" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+
+        if (subcommand == "sequencebank")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+            return CommandAction{LoadSequenceBankAction{.filename = words[2]}};
+        }
+
+        if (subcommand == "tuning")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+            return CommandAction{LoadTuningAction{.filename = words[2]}};
+        }
+
+        if (subcommand == "keys")
+        {
+            return CommandAction{LoadKeysAction{}};
+        }
+
+        if (subcommand == "scales")
+        {
+            return CommandAction{LoadScalesAction{}};
+        }
+
+        if (subcommand == "chords")
+        {
+            return CommandAction{LoadChordsAction{}};
+        }
+    }
+
+    if (command_id == "focus")
+    {
+        if (words.size() < 2)
+        {
+            throw std::invalid_argument("Missing argument and no default value");
+        }
+        return CommandAction{DeprecatedFocusAction{.component_id = words[1]}};
+    }
+
+    if (command_id == "show")
+    {
+        if (words.size() < 2)
+        {
+            throw std::invalid_argument("Missing argument and no default value");
+        }
+        return CommandAction{DeprecatedShowAction{.component_id = words[1]}};
+    }
+
+    if (command_id == "save" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+        if (subcommand == "sequencebank")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+            return CommandAction{SaveSequenceBankAction{.filename = words[2]}};
+        }
+    }
+
+    if (command_id == "librarydirectory")
+    {
+        return CommandAction{LibraryDirectoryAction{}};
+    }
+
+    if (command_id == "note")
+    {
+        auto pitch = 0;
+        auto velocity = 100.f / 127.f;
+        auto delay = 0.f;
+        auto gate = 1.f;
+
+        if (words.size() >= 2)
+        {
+            pitch = parse<int>(words[1]);
+        }
+        if (words.size() >= 3)
+        {
+            velocity = parse<float>(words[2]);
+        }
+        if (words.size() >= 4)
+        {
+            delay = parse<float>(words[3]);
+        }
+        if (words.size() >= 5)
+        {
+            gate = parse<float>(words[4]);
+        }
+
+        return CommandAction{
+            CreateNoteAction{
+                .pitch = pitch,
+                .velocity = velocity,
+                .delay = delay,
+                .gate = gate,
+            }};
+    }
+
+    if (command_id == "rest")
+    {
+        return CommandAction{CreateRestAction{}};
+    }
+
+    if (command_id == "copy")
+    {
+        return CommandAction{CopySelectionAction{}};
+    }
+
+    if (command_id == "cut")
+    {
+        return CommandAction{CutSelectionAction{}};
+    }
+
+    if (command_id == "paste")
+    {
+        return CommandAction{PasteSelectionAction{}};
+    }
+
+    if (command_id == "duplicate")
+    {
+        return CommandAction{DuplicateSelectionAction{}};
+    }
+
+    if (command_id == "delete")
+    {
+        return CommandAction{DeleteSelectionAction{}};
+    }
+
+    if (command_id == "split")
+    {
+        auto count = std::size_t{2};
+        if (words.size() >= 2)
+        {
+            count = parse<std::size_t>(words[1]);
+        }
+
+        return CommandAction{SplitSelectionAction{.count = count}};
+    }
+
+    if (command_id == "lift")
+    {
+        return CommandAction{LiftSelectionAction{}};
+    }
+
+    if (command_id == "flip")
+    {
+        return CommandAction{
+            FlipSelectionAction{.pattern = invocation.input.pattern}};
+    }
+
+    if (command_id == "fill" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+        auto const pattern = invocation.input.pattern;
+
+        if (subcommand == "note")
+        {
+            auto pitch = 0;
+            auto velocity = 100.f / 127.f;
+            auto delay = 0.f;
+            auto gate = 1.f;
+
+            if (words.size() >= 3)
+            {
+                pitch = parse<int>(words[2]);
+            }
+            if (words.size() >= 4)
+            {
+                velocity = parse<float>(words[3]);
+            }
+            if (words.size() >= 5)
+            {
+                delay = parse<float>(words[4]);
+            }
+            if (words.size() >= 6)
+            {
+                gate = parse<float>(words[5]);
+            }
+
+            return CommandAction{FillNoteAction{
+                .pattern = pattern,
+                .pitch = pitch,
+                .velocity = velocity,
+                .delay = delay,
+                .gate = gate,
+            }};
+        }
+
+        if (subcommand == "rest")
+        {
+            return CommandAction{FillRestAction{.pattern = pattern}};
+        }
+    }
+
+    if (command_id == "set" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+
+        if (subcommand == "key")
+        {
+            auto key = 0;
+            if (words.size() >= 3)
+            {
+                key = parse<int>(words[2]);
+            }
+
+            return CommandAction{SetKeyAction{.key = key}};
+        }
+
+        if (subcommand == "sequence" && words.size() >= 3 &&
+            to_lower(words[2]) == "name")
+        {
+            if (words.size() < 4)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            auto const name = words[3];
+            auto index = -1;
+            if (words.size() >= 5)
+            {
+                index = parse<int>(words[4]);
+            }
+
+            return CommandAction{
+                SetSequenceNameAction{.name = name, .index = index}};
+        }
+
+        if (subcommand == "sequence" && words.size() >= 3 &&
+            to_lower(words[2]) == "timesignature")
+        {
+            auto ts = sequence::TimeSignature{4, 4};
+            auto index = -1;
+            if (words.size() >= 4)
+            {
+                ts = parse<sequence::TimeSignature>(words[3]);
+            }
+            if (words.size() >= 5)
+            {
+                index = parse<int>(words[4]);
+            }
+
+            return CommandAction{SetSequenceTimeSignatureAction{
+                .time_signature = ts,
+                .index = index,
+            }};
+        }
+
+        if (subcommand == "basefrequency")
+        {
+            auto freq = 440.f;
+            if (words.size() >= 3)
+            {
+                freq = parse<float>(words[2]);
+            }
+
+            return CommandAction{SetBaseFrequencyAction{.freq = freq}};
+        }
+
+        if (subcommand == "theme")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{SetThemeAction{.name = words[2]}};
+        }
+
+        if (subcommand == "pitch")
+        {
+            auto pitch = std::variant<int, Modulator>{0};
+            if (words.size() >= 3)
+            {
+                pitch = parse<std::variant<int, Modulator>>(words[2]);
+            }
+
+            return CommandAction{
+                SetPitchAction{.pattern = invocation.input.pattern, .pitch = pitch}};
+        }
+
+        if (subcommand == "octave")
+        {
+            auto octave = 0;
+            if (words.size() >= 3)
+            {
+                octave = parse<int>(words[2]);
+            }
+
+            return CommandAction{SetOctaveAction{
+                .pattern = invocation.input.pattern, .octave = octave}};
+        }
+
+        if (subcommand == "velocity")
+        {
+            auto velocity = std::variant<float, Modulator>{100.f / 127.f};
+            if (words.size() >= 3)
+            {
+                velocity = parse<std::variant<float, Modulator>>(words[2]);
+            }
+
+            return CommandAction{SetVelocityAction{
+                .pattern = invocation.input.pattern, .velocity = velocity}};
+        }
+
+        if (subcommand == "delay")
+        {
+            auto delay = std::variant<float, Modulator>{0.f};
+            if (words.size() >= 3)
+            {
+                delay = parse<std::variant<float, Modulator>>(words[2]);
+            }
+
+            return CommandAction{
+                SetDelayAction{.pattern = invocation.input.pattern, .delay = delay}};
+        }
+
+        if (subcommand == "gate")
+        {
+            auto gate = std::variant<float, Modulator>{1.f};
+            if (words.size() >= 3)
+            {
+                gate = parse<std::variant<float, Modulator>>(words[2]);
+            }
+
+            return CommandAction{
+                SetGateAction{.pattern = invocation.input.pattern, .gate = gate}};
+        }
+
+        if (subcommand == "weight")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{
+                SetWeightAction{.value = parse<float>(words[2])}};
+        }
+
+        if (subcommand == "weights")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{SetWeightsAction{
+                .pattern = invocation.input.pattern,
+                .weight = parse<std::variant<float, Modulator>>(words[2]),
+            }};
+        }
+
+        if (subcommand == "scale")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{SetScaleAction{.name = words[2]}};
+        }
+
+        if (subcommand == "mode")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{
+                SetScaleModeAction{.mode_index = parse<std::size_t>(words[2])}};
+        }
+
+        if (subcommand == "translatedirection")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{
+                SetTranslateDirectionAction{.direction = words[2]}};
+        }
+    }
+
+    if (command_id == "shift" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+
+        if (subcommand == "pitch")
+        {
+            auto amount = 1;
+            if (words.size() >= 3)
+            {
+                amount = parse<int>(words[2]);
+            }
+            return CommandAction{ShiftPitchAction{
+                .pattern = invocation.input.pattern, .amount = amount}};
+        }
+
+        if (subcommand == "octave")
+        {
+            auto amount = 1;
+            if (words.size() >= 3)
+            {
+                amount = parse<int>(words[2]);
+            }
+            return CommandAction{ShiftOctaveAction{
+                .pattern = invocation.input.pattern, .amount = amount}};
+        }
+
+        if (subcommand == "velocity")
+        {
+            auto amount = 0.1f;
+            if (words.size() >= 3)
+            {
+                amount = parse<float>(words[2]);
+            }
+            return CommandAction{ShiftVelocityAction{
+                .pattern = invocation.input.pattern, .amount = amount}};
+        }
+
+        if (subcommand == "delay")
+        {
+            auto amount = 0.1f;
+            if (words.size() >= 3)
+            {
+                amount = parse<float>(words[2]);
+            }
+            return CommandAction{ShiftDelayAction{
+                .pattern = invocation.input.pattern, .amount = amount}};
+        }
+
+        if (subcommand == "gate")
+        {
+            auto amount = 0.1f;
+            if (words.size() >= 3)
+            {
+                amount = parse<float>(words[2]);
+            }
+            return CommandAction{ShiftGateAction{
+                .pattern = invocation.input.pattern, .amount = amount}};
+        }
+
+        if (subcommand == "selectedsequence")
+        {
+            if (words.size() < 3)
+            {
+                throw std::invalid_argument("Missing argument and no default value");
+            }
+
+            return CommandAction{
+                ShiftSelectedSequenceAction{.amount = parse<int>(words[2])}};
+        }
+
+        if (subcommand == "scale")
+        {
+            auto amount = 1;
+            if (words.size() >= 3)
+            {
+                amount = parse<int>(words[2]);
+            }
+
+            return CommandAction{ShiftScaleAction{.amount = amount}};
+        }
+
+        if (subcommand == "scalemode")
+        {
+            auto amount = 1;
+            if (words.size() >= 3)
+            {
+                amount = parse<int>(words[2]);
+            }
+
+            return CommandAction{ShiftScaleModeAction{.amount = amount}};
+        }
+
+        if (subcommand == "translatedirection")
+        {
+            return CommandAction{ShiftTranslateDirectionAction{}};
+        }
+
+        if (subcommand == "entirescale")
+        {
+            auto direction = 1;
+            if (words.size() >= 3)
+            {
+                direction = parse<int>(words[2]);
+            }
+
+            return CommandAction{ShiftEntireScaleAction{.direction = direction}};
+        }
+    }
+
+    if (command_id == "randomize" && words.size() >= 2)
+    {
+        auto const subcommand = to_lower(words[1]);
+        auto const pattern = invocation.input.pattern;
+
+        if (subcommand == "pitch")
+        {
+            auto min = -12;
+            auto max = 12;
+            if (words.size() >= 3)
+            {
+                min = parse<int>(words[2]);
+            }
+            if (words.size() >= 4)
+            {
+                max = parse<int>(words[3]);
+            }
+            return CommandAction{
+                RandomizePitchAction{.pattern = pattern, .min = min, .max = max}};
+        }
+
+        if (subcommand == "velocity")
+        {
+            auto min = 0.01f;
+            auto max = 1.f;
+            if (words.size() >= 3)
+            {
+                min = parse<float>(words[2]);
+            }
+            if (words.size() >= 4)
+            {
+                max = parse<float>(words[3]);
+            }
+            return CommandAction{
+                RandomizeVelocityAction{.pattern = pattern, .min = min, .max = max}};
+        }
+
+        if (subcommand == "delay")
+        {
+            auto min = 0.f;
+            auto max = 0.95f;
+            if (words.size() >= 3)
+            {
+                min = parse<float>(words[2]);
+            }
+            if (words.size() >= 4)
+            {
+                max = parse<float>(words[3]);
+            }
+            return CommandAction{
+                RandomizeDelayAction{.pattern = pattern, .min = min, .max = max}};
+        }
+
+        if (subcommand == "gate")
+        {
+            auto min = 0.f;
+            auto max = 0.95f;
+            if (words.size() >= 3)
+            {
+                min = parse<float>(words[2]);
+            }
+            if (words.size() >= 4)
+            {
+                max = parse<float>(words[3]);
+            }
+            return CommandAction{
+                RandomizeGateAction{.pattern = pattern, .min = min, .max = max}};
+        }
+    }
+
+    if (command_id == "stretch")
+    {
+        auto count = std::size_t{2};
+        if (words.size() >= 2)
+        {
+            count = parse<std::size_t>(words[1]);
+        }
+        return CommandAction{
+            StretchAction{.pattern = invocation.input.pattern, .count = count}};
+    }
+
+    if (command_id == "compress")
+    {
+        return CommandAction{CompressAction{.pattern = invocation.input.pattern}};
+    }
+
+    if (command_id == "shuffle")
+    {
+        return CommandAction{ShuffleAction{}};
+    }
+
+    if (command_id == "rotate")
+    {
+        auto amount = 1;
+        if (words.size() >= 2)
+        {
+            amount = parse<int>(words[1]);
+        }
+        return CommandAction{RotateAction{.amount = amount}};
+    }
+
+    if (command_id == "reverse")
+    {
+        return CommandAction{ReverseAction{}};
+    }
+
+    if (command_id == "mirror")
+    {
+        auto center_pitch = 0;
+        if (words.size() >= 2)
+        {
+            center_pitch = parse<int>(words[1]);
+        }
+        return CommandAction{MirrorAction{
+            .pattern = invocation.input.pattern, .center_pitch = center_pitch}};
+    }
+
+    if (command_id == "quantize")
+    {
+        return CommandAction{QuantizeAction{.pattern = invocation.input.pattern}};
+    }
+
+    if (command_id == "swing")
+    {
+        auto amount = 0.1f;
+        if (words.size() >= 2)
+        {
+            amount = parse<float>(words[1]);
+        }
+        return CommandAction{SwingAction{.amount = amount}};
+    }
+
+    if (command_id == "step")
+    {
+        auto pitch_distance = 1;
+        auto velocity_distance = 0.f;
+        if (words.size() >= 2)
+        {
+            pitch_distance = parse<int>(words[1]);
+        }
+        if (words.size() >= 3)
+        {
+            velocity_distance = parse<float>(words[2]);
+        }
+        return CommandAction{StepAction{
+            .pattern = invocation.input.pattern,
+            .pitch_distance = pitch_distance,
+            .velocity_distance = velocity_distance,
+        }};
+    }
+
+    if (command_id == "drums")
+    {
+        auto octave_size = std::size_t{16};
+        auto offset = 1;
+        if (words.size() >= 2)
+        {
+            octave_size = parse<std::size_t>(words[1]);
+        }
+        if (words.size() >= 3)
+        {
+            offset = parse<int>(words[2]);
+        }
+        return CommandAction{
+            DrumsAction{.octave_size = octave_size, .offset = offset}};
+    }
+
+    if (command_id == "arp")
+    {
+        auto chord = std::string{"cycle"};
+        auto inversion = -1;
+        if (words.size() >= 2)
+        {
+            chord = words[1];
+        }
+        if (words.size() >= 3)
+        {
+            inversion = parse<int>(words[2]);
+        }
+
+        return CommandAction{ArpAction{
+            .pattern = invocation.input.pattern,
+            .chord = chord,
+            .inversion = inversion,
+        }};
+    }
+
+    if (command_id == "double" && words.size() >= 3 &&
+        to_lower(words[1]) == "sequence" &&
+        to_lower(words[2]) == "timesignature")
+    {
+        auto index = -1;
+        if (words.size() >= 4)
+        {
+            index = parse<int>(words[3]);
+        }
+
+        return CommandAction{
+            DoubleSequenceTimeSignatureAction{.index = index}};
+    }
+
+    if (command_id == "halve" && words.size() >= 3 &&
+        to_lower(words[1]) == "sequence" &&
+        to_lower(words[2]) == "timesignature")
+    {
+        auto index = -1;
+        if (words.size() >= 4)
+        {
+            index = parse<int>(words[3]);
+        }
+
+        return CommandAction{HalveSequenceTimeSignatureAction{.index = index}};
+    }
+
+    return std::nullopt;
+}
+
+} // namespace
+
+auto to_command_actions(std::vector<CommandInvocation> const &invocations)
+    -> std::vector<CommandAction>
+{
+    auto actions = std::vector<CommandAction>{};
+    actions.reserve(invocations.size());
+
+    for (auto const &invocation : invocations)
+    {
+        if (auto typed_action = try_to_command_action(invocation))
+        {
+            actions.push_back(std::move(*typed_action));
+        }
+        else
+        {
+            throw utility::ErrorNoMatch{};
+        }
+    }
+
+    return actions;
+}
+
+auto try_to_command_action(CommandInvocation const &invocation)
+    -> std::optional<CommandAction>
+{
+    return try_convert_to_typed_action(invocation);
+}
+
+auto is_again_action(CommandAction const &action) -> bool
+{
+    return std::holds_alternative<AgainAction>(action);
+}
+
+auto execute_command_action(PluginState &ps, ExecutionContext context,
+                            CommandAction const &action)
+    -> CommandActionResult
+{
+    auto staged_state = ps.timeline.get_state();
+    staged_state.aux = context;
+    ps.timeline.stage(std::move(staged_state));
+
+    auto const engine_before = ps.timeline.get_state().sequencer;
+    ps.commit_intent = CommitIntent::Auto;
+
+    auto status = std::visit(
+        [&](auto const &typed_action) -> std::pair<MessageLevel, std::string> {
+            using ActionType = std::decay_t<decltype(typed_action)>;
+            if constexpr (std::is_same_v<ActionType, MoveSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                switch (typed_action.direction)
+                {
+                case MoveDirection::Left:
+                    state.aux = action::move_left(state.sequencer, std::move(state.aux),
+                                                  typed_action.amount);
+                    ps.timeline.stage(std::move(state));
+                    return mdebug("Moved Left " +
+                                  std::to_string(typed_action.amount) + " Times");
+                case MoveDirection::Right:
+                    state.aux = action::move_right(
+                        state.sequencer, std::move(state.aux), typed_action.amount);
+                    ps.timeline.stage(std::move(state));
+                    return mdebug("Moved Right " +
+                                  std::to_string(typed_action.amount) + " Times");
+                case MoveDirection::Up:
+                    state.aux =
+                        action::move_up(std::move(state.aux), typed_action.amount);
+                    ps.timeline.stage(std::move(state));
+                    return mdebug("Moved Up " +
+                                  std::to_string(typed_action.amount) + " Times");
+                case MoveDirection::Down:
+                    state.aux = action::move_down(
+                        state.sequencer, std::move(state.aux), typed_action.amount);
+                    ps.timeline.stage(std::move(state));
+                    return mdebug("Moved Down " +
+                                  std::to_string(typed_action.amount) + " Times");
+                }
+
+                throw std::runtime_error("Unhandled move direction");
+            }
+            else if constexpr (std::is_same_v<ActionType, WelcomeAction>)
+            {
+                return minfo(std::string{"Welcome to XenSequencer v"} + VERSION);
+            }
+            else if constexpr (std::is_same_v<ActionType, VersionAction>)
+            {
+                return minfo(std::string{"v"} + VERSION);
+            }
+            else if constexpr (std::is_same_v<ActionType, ResetAction>)
+            {
+                ps.timeline.stage({SequencerState{}, AuxState{}});
+                ps.library.scale_shift_index = std::nullopt;
+                return minfo("XenSequencer Reset");
+            }
+            else if constexpr (std::is_same_v<ActionType, AgainAction>)
+            {
+                return merror("Internal error: unexpanded 'again' action.");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetKeyAction>)
+            {
+                if (typed_action.key > 127 || typed_action.key < -127)
+                {
+                    return merror("Invalid Key Value: " +
+                                  std::to_string(typed_action.key) +
+                                  ". Must be in range [-127, 127].");
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer.key = typed_action.key;
+                ps.timeline.stage(std::move(state));
+                return minfo("Key Set to " + std::to_string(typed_action.key) + ".");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetSequenceNameAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto index = typed_action.index;
+                index = (index == -1) ? (int)state.aux.selected.measure : index;
+                if (index < 0 || index >= (int)state.sequencer.sequence_names.size())
+                {
+                    return merror("Invalid Sequence Index");
+                }
+
+                state.sequencer.sequence_names[(std::size_t)index] = typed_action.name;
+                ps.timeline.stage(std::move(state));
+                return minfo("Sequence Name Set");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               SetSequenceTimeSignatureAction>)
+            {
+                if (typed_action.time_signature.denominator == 0 ||
+                    typed_action.time_signature.numerator == 0)
+                {
+                    return merror("Invalid TimeSignature");
+                }
+                if ((float)typed_action.time_signature.numerator /
+                        (float)typed_action.time_signature.denominator >
+                    64.f)
+                {
+                    return merror(
+                        "TimeSignature Too Large, Max length is 64 Whole Notes.");
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto index = typed_action.index;
+                index = (index == -1) ? (int)state.aux.selected.measure : index;
+                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
+                {
+                    return merror("Invalid Sequence Index");
+                }
+
+                state.sequencer.sequence_bank[(std::size_t)index].time_signature =
+                    typed_action.time_signature;
+                ps.timeline.stage(std::move(state));
+                return minfo("TimeSignature Set: " +
+                             std::to_string(typed_action.time_signature.numerator) +
+                             "/" +
+                             std::to_string(typed_action.time_signature.denominator));
+            }
+            else if constexpr (std::is_same_v<ActionType, SelectSequenceAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (state.aux.selected.measure == (std::size_t)typed_action.index)
+                {
+                    return mdebug("Already Selected");
+                }
+
+                state.aux = action::set_selected_sequence(state.aux, typed_action.index);
+                ps.timeline.stage(std::move(state));
+                return mdebug("Sequence " + std::to_string(typed_action.index) +
+                              " Selected");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetInputModeAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.aux = action::set_input_mode(std::move(state.aux),
+                                                   typed_action.mode);
+                ps.timeline.stage(std::move(state));
+                return minfo("Input Mode Set to " +
+                             single_quote(to_string(typed_action.mode)));
+            }
+            else if constexpr (std::is_same_v<ActionType, LoadSequenceBankAction>)
+            {
+                auto const cd = ps.config.current_sequence_directory;
+                if (!cd.isDirectory())
+                {
+                    return merror("Invalid Current Sequence Directory");
+                }
+
+                auto const filepath =
+                    cd.getChildFile(typed_action.filename + ".xss");
+                if (!filepath.exists())
+                {
+                    return merror("File Not Found: " +
+                                  filepath.getFullPathName().toStdString());
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto [sb, names] = action::load_sequence_bank(filepath);
+                state.sequencer.sequence_bank = std::move(sb);
+                state.sequencer.sequence_names = std::move(names);
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Sequence Bank Loaded");
+            }
+            else if constexpr (std::is_same_v<ActionType, LoadTuningAction>)
+            {
+                auto const cd = ps.config.current_tuning_directory;
+                if (!cd.isDirectory())
+                {
+                    return merror("Invalid Current Tuning Library Directory");
+                }
+
+                auto const filepath =
+                    cd.getChildFile(typed_action.filename + ".scl");
+                if (!filepath.exists())
+                {
+                    return merror("File Not Found: " +
+                                  filepath.getFullPathName().toStdString());
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer.tuning_name =
+                    filepath.getFileNameWithoutExtension().toStdString();
+                state.sequencer.tuning =
+                    sequence::from_scala(filepath.getFullPathName().toStdString());
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Tuning Loaded");
+            }
+            else if constexpr (std::is_same_v<ActionType, LoadKeysAction>)
+            {
+                return mwarning(
+                    "Command 'load keys' is deprecated and has no effect.");
+            }
+            else if constexpr (std::is_same_v<ActionType, LoadScalesAction>)
+            {
+                ps.library.scales = load_scales_from_files();
+                return minfo("Scales Loaded: " +
+                             std::to_string(ps.library.scales.size()));
+            }
+            else if constexpr (std::is_same_v<ActionType, LoadChordsAction>)
+            {
+                ps.library.chords = load_chords_from_files();
+                return minfo("Chords Loaded: " +
+                             std::to_string(ps.library.chords.size()));
+            }
+            else if constexpr (std::is_same_v<ActionType, DeprecatedFocusAction>)
+            {
+                return mwarning(
+                    "Command 'focus' is deprecated and has no effect.");
+            }
+            else if constexpr (std::is_same_v<ActionType, DeprecatedShowAction>)
+            {
+                return mwarning("Command 'show' is deprecated and has no effect.");
+            }
+            else if constexpr (std::is_same_v<ActionType, CreateNoteAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(
+                    std::move(state),
+                    [](sequence::Cell const &cell, int pitch, float velocity,
+                       float delay, float gate) -> sequence::Cell {
+                        auto note = sequence::modify::note(pitch, velocity, delay, gate);
+                        note.weight = cell.weight;
+                        return note;
+                    },
+                    typed_action.pitch, typed_action.velocity, typed_action.delay,
+                    typed_action.gate);
+                ps.timeline.stage(std::move(state));
+                return minfo("Note Created");
+            }
+            else if constexpr (std::is_same_v<ActionType, CreateRestAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(
+                    std::move(state),
+                    [](sequence::Cell const &cell) -> sequence::Cell {
+                        auto rest = sequence::modify::rest();
+                        rest.weight = cell.weight;
+                        return rest;
+                    });
+                ps.timeline.stage(std::move(state));
+                return minfo("Rest Created");
+            }
+            else if constexpr (std::is_same_v<ActionType, CopySelectionAction>)
+            {
+                auto const state = ps.timeline.get_state();
+                action::copy(state.sequencer, context);
+                return minfo("Copied Selection");
+            }
+            else if constexpr (std::is_same_v<ActionType, CutSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer = action::cut(std::move(state.sequencer), state.aux);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Cut");
+            }
+            else if constexpr (std::is_same_v<ActionType, PasteSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer =
+                    action::paste(std::move(state.sequencer), state.aux);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Pasted Over");
+            }
+            else if constexpr (std::is_same_v<ActionType, DuplicateSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = action::duplicate(std::move(state));
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Duplicated");
+            }
+            else if constexpr (std::is_same_v<ActionType, DeleteSelectionAction>)
+            {
+                ps.timeline.stage(action::delete_cell(ps.timeline.get_state()));
+                return minfo("Deleted Selection");
+            }
+            else if constexpr (std::is_same_v<ActionType, SplitSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::repeat,
+                                        typed_action.count);
+                ps.timeline.stage(std::move(state));
+                return minfo("Split Selection " +
+                             std::to_string(typed_action.count) + " Times");
+            }
+            else if constexpr (std::is_same_v<ActionType, LiftSelectionAction>)
+            {
+                ps.timeline.stage(action::lift(ps.timeline.get_state()));
+                return minfo("Selection Lifted One Layer");
+            }
+            else if constexpr (std::is_same_v<ActionType, FlipSelectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::flip,
+                                        typed_action.pattern, sequence::Note{});
+                ps.timeline.stage(std::move(state));
+                return minfo("Flipped Selection");
+            }
+            else if constexpr (std::is_same_v<ActionType, FillNoteAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state =
+                    increment_state(std::move(state), &sequence::modify::notes_fill,
+                                    typed_action.pattern,
+                                    sequence::Note{typed_action.pitch,
+                                                   typed_action.velocity,
+                                                   typed_action.delay,
+                                                   typed_action.gate});
+                ps.timeline.stage(std::move(state));
+                return minfo("Filled Selection With Notes");
+            }
+            else if constexpr (std::is_same_v<ActionType, FillRestAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state =
+                    increment_state(std::move(state), &sequence::modify::rests_fill,
+                                    typed_action.pattern);
+                ps.timeline.stage(std::move(state));
+                return minfo("Filled Selection With Rests");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetBaseFrequencyAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer =
+                    action::set_base_frequency(std::move(state.sequencer),
+                                               typed_action.freq);
+                ps.timeline.stage(std::move(state));
+                return minfo("Base Frequency Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetThemeAction>)
+            {
+                return mwarning(
+                    "Command 'set theme' is deprecated and has no effect.");
+            }
+            else if constexpr (std::is_same_v<ActionType, SaveSequenceBankAction>)
+            {
+                auto const cd = ps.config.current_sequence_directory;
+                if (!cd.isDirectory())
+                {
+                    return merror("Invalid Current Sequence Directory");
+                }
+
+                auto const filepath =
+                    cd.getChildFile(typed_action.filename + ".xss");
+                auto const state = ps.timeline.get_state();
+                action::save_sequence_bank(state.sequencer.sequence_bank,
+                                           state.sequencer.sequence_names,
+                                           filepath);
+                return minfo("Sequence Bank Saved to " +
+                             single_quote(filepath.getFullPathName().toStdString()));
+            }
+            else if constexpr (std::is_same_v<ActionType, LibraryDirectoryAction>)
+            {
+                return minfo(
+                    get_user_library_directory().getFullPathName().toStdString());
+            }
+            else if constexpr (std::is_same_v<ActionType, SetPitchAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (std::holds_alternative<int>(typed_action.pitch))
+                {
+                    state = increment_state(std::move(state),
+                                            &sequence::modify::set_pitch,
+                                            typed_action.pattern,
+                                            std::get<int>(typed_action.pitch));
+                }
+                else
+                {
+                    state = increment_state(std::move(state), &action::set_pitches,
+                                            typed_action.pattern,
+                                            std::get<Modulator>(typed_action.pitch));
+                    ps.commit_intent = CommitIntent::Defer;
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Note Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetOctaveAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer = action::set_note_octave(
+                    std::move(state.sequencer), state.aux, typed_action.pattern,
+                    typed_action.octave);
+                ps.timeline.stage(std::move(state));
+                return minfo("Octave Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetVelocityAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (std::holds_alternative<float>(typed_action.velocity))
+                {
+                    state = increment_state(std::move(state),
+                                            &sequence::modify::set_velocity,
+                                            typed_action.pattern,
+                                            std::get<float>(typed_action.velocity));
+                }
+                else
+                {
+                    state = increment_state(
+                        std::move(state), &action::set_velocities,
+                        typed_action.pattern,
+                        std::get<Modulator>(typed_action.velocity));
+                    ps.commit_intent = CommitIntent::Defer;
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Velocity Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetDelayAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (std::holds_alternative<float>(typed_action.delay))
+                {
+                    state = increment_state(std::move(state),
+                                            &sequence::modify::set_delay,
+                                            typed_action.pattern,
+                                            std::get<float>(typed_action.delay));
+                }
+                else
+                {
+                    state = increment_state(std::move(state), &action::set_delays,
+                                            typed_action.pattern,
+                                            std::get<Modulator>(typed_action.delay));
+                    ps.commit_intent = CommitIntent::Defer;
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Delay Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetGateAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (std::holds_alternative<float>(typed_action.gate))
+                {
+                    state = increment_state(std::move(state),
+                                            &sequence::modify::set_gate,
+                                            typed_action.pattern,
+                                            std::get<float>(typed_action.gate));
+                }
+                else
+                {
+                    state = increment_state(std::move(state), &action::set_gates,
+                                            typed_action.pattern,
+                                            std::get<Modulator>(typed_action.gate));
+                    ps.commit_intent = CommitIntent::Defer;
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Gate Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetWeightAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &action::set_weight,
+                                        typed_action.value);
+                ps.timeline.stage(std::move(state));
+                return minfo("Weight Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetWeightsAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (std::holds_alternative<float>(typed_action.weight))
+                {
+                    state = increment_state(
+                        std::move(state),
+                        static_cast<sequence::Cell (*)(
+                            sequence::Cell, sequence::Pattern const &, float)>(
+                            &action::set_weights),
+                        typed_action.pattern, std::get<float>(typed_action.weight));
+                }
+                else
+                {
+                    state = increment_state(
+                        std::move(state),
+                        static_cast<sequence::Cell (*)(
+                            sequence::Cell, sequence::Pattern const &,
+                            Modulator const &)>(&action::set_weights),
+                        typed_action.pattern,
+                        std::get<Modulator>(typed_action.weight));
+                }
+
+                ps.timeline.stage(std::move(state));
+                ps.commit_intent = CommitIntent::Defer;
+                return minfo("Weights Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, CommitAction>)
+            {
+                ps.commit_intent = CommitIntent::Force;
+                return mdebug("commit made");
+            }
+            else if constexpr (std::is_same_v<ActionType, UndoAction>)
+            {
+                ps.timeline.reset_stage();
+                auto current_aux = ps.timeline.get_state().aux;
+                if (ps.timeline.undo())
+                {
+                    auto new_state = ps.timeline.get_state();
+                    new_state.aux.selected = std::move(current_aux.selected);
+                    new_state.aux.input_mode = current_aux.input_mode;
+                    ps.timeline.stage(new_state);
+                    return minfo("Undone");
+                }
+
+                return minfo("Nothing to undo.");
+            }
+            else if constexpr (std::is_same_v<ActionType, RedoAction>)
+            {
+                return ps.timeline.redo() ? minfo("Redone")
+                                          : minfo("Nothing to redo.");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetScaleAction>)
+            {
+                auto scale_name = to_lower(typed_action.name);
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (scale_name == "chromatic")
+                {
+                    state.sequencer.scale = std::nullopt;
+                    ps.timeline.stage(std::move(state));
+                    return minfo("Scale Set to " + scale_name + ".");
+                }
+
+                auto const at = std::ranges::find(
+                    ps.library.scales, scale_name,
+                    [](Scale const &scale) { return scale.name; });
+                if (at != std::end(ps.library.scales))
+                {
+                    state.sequencer.scale = *at;
+                    ps.timeline.stage(std::move(state));
+                    return minfo("Scale Set to " + scale_name + ".");
+                }
+
+                return merror("No Scale Found: " + scale_name + ".");
+            }
+            else if constexpr (std::is_same_v<ActionType, SetScaleModeAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                if (typed_action.mode_index == 0 ||
+                    !state.sequencer.scale.has_value() ||
+                    typed_action.mode_index >
+                        state.sequencer.scale->intervals.size())
+                {
+                    return merror("Invalid Mode Index. Must be in range [1, "
+                                  "scale size).");
+                }
+
+                state.sequencer.scale->mode =
+                    (std::uint8_t)typed_action.mode_index;
+                ps.timeline.stage(std::move(state));
+                return minfo("Scale Mode Set");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               SetTranslateDirectionAction>)
+            {
+                auto direction = to_lower(typed_action.direction);
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                if (direction == "up")
+                {
+                    state.sequencer.scale_translate_direction =
+                        TranslateDirection::Up;
+                }
+                else if (direction == "down")
+                {
+                    state.sequencer.scale_translate_direction =
+                        TranslateDirection::Down;
+                }
+                else
+                {
+                    return merror("Invalid TranslateDirection: " + direction);
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Translate Direction Set");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftPitchAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::shift_pitch,
+                                        typed_action.pattern, typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Pitch Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftOctaveAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state.sequencer = action::shift_octave(std::move(state.sequencer),
+                                                       state.aux,
+                                                       typed_action.pattern,
+                                                       typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Octave Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftVelocityAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::shift_velocity,
+                                        typed_action.pattern, typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Velocity Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftDelayAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::shift_delay,
+                                        typed_action.pattern, typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Delay Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftGateAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::shift_gate,
+                                        typed_action.pattern, typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Gate Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               ShiftSelectedSequenceAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                auto const size = (int)state.sequencer.sequence_bank.size();
+                auto const index = (((int)state.aux.selected.measure +
+                                     typed_action.amount) %
+                                        size +
+                                    size) %
+                                   size;
+                state.aux = action::set_selected_sequence(state.aux, index);
+                ps.timeline.stage(std::move(state));
+                return mdebug("Selected Sequence Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftScaleAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                auto const index = action::shift_scale_index(
+                    ps.library.scale_shift_index, typed_action.amount,
+                    ps.library.scales.size());
+                ps.library.scale_shift_index = index;
+                if (index.has_value() && *index < ps.library.scales.size())
+                {
+                    state.sequencer.scale = ps.library.scales[*index];
+                }
+                else
+                {
+                    state.sequencer.scale = std::nullopt; // Chromatic
+                }
+                ps.timeline.stage(std::move(state));
+                return minfo("Scale Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftScaleModeAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                if (state.sequencer.scale.has_value())
+                {
+                    state.sequencer.scale =
+                        action::shift_scale_mode(*state.sequencer.scale,
+                                                 typed_action.amount);
+                    ps.timeline.stage(std::move(state));
+                }
+                return minfo("Scale Mode Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               ShiftTranslateDirectionAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                action::flip_translate_direction(
+                    state.sequencer.scale_translate_direction);
+                ps.timeline.stage(std::move(state));
+                return minfo("Translate Direction Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShiftEntireScaleAction>)
+            {
+                if (typed_action.direction != 1 && typed_action.direction != -1)
+                {
+                    return merror("Invalid direction, must be 1 or -1");
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                auto &td = state.sequencer.scale_translate_direction;
+                if (state.sequencer.scale.has_value())
+                {
+                    action::flip_translate_direction(td);
+                    if (td == TranslateDirection::Up)
+                    {
+                        state.sequencer.scale =
+                            action::shift_scale_mode(*state.sequencer.scale,
+                                                     typed_action.direction);
+                        if ((state.sequencer.scale->mode == 1 &&
+                             typed_action.direction == 1) ||
+                            (state.sequencer.scale->mode ==
+                                 state.sequencer.scale->intervals.size() &&
+                             typed_action.direction == -1))
+                        {
+                            auto const index = action::shift_scale_index(
+                                ps.library.scale_shift_index,
+                                typed_action.direction,
+                                ps.library.scales.size());
+                            ps.library.scale_shift_index = index;
+                            if (index.has_value() &&
+                                *index < ps.library.scales.size())
+                            {
+                                state.sequencer.scale = ps.library.scales[*index];
+                                if (typed_action.direction == -1)
+                                {
+                                    state.sequencer.scale->mode =
+                                        state.sequencer.scale->intervals.size();
+                                }
+                            }
+                            else
+                            {
+                                state.sequencer.scale = std::nullopt;
+                            }
+                        }
+                    }
+                }
+                else if (!ps.library.scales.empty())
+                {
+                    auto const index = typed_action.direction == 1
+                                           ? 0
+                                           : ps.library.scales.size() - 1;
+                    state.sequencer.scale = ps.library.scales[index];
+                    td = TranslateDirection::Up;
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Entire Scale Shifted");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               DoubleSequenceTimeSignatureAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto index = typed_action.index;
+                index = (index == -1) ? (int)state.aux.selected.measure : index;
+                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
+                {
+                    return merror("Invalid Sequence Index");
+                }
+
+                auto &ts =
+                    state.sequencer.sequence_bank[(std::size_t)index].time_signature;
+                ts.numerator *= 2;
+
+                if ((float)ts.numerator / (float)ts.denominator > 64.f)
+                {
+                    return merror(
+                        "TimeSignature Too Large, Max length is 64 Whole Notes.");
+                }
+
+                if (ts.numerator == 0)
+                {
+                    return merror("Cannot Double the TimeSignature.");
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("TimeSignature Doubled.");
+            }
+            else if constexpr (std::is_same_v<ActionType,
+                                               HalveSequenceTimeSignatureAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto index = typed_action.index;
+                index = (index == -1) ? (int)state.aux.selected.measure : index;
+                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
+                {
+                    return merror("Invalid Sequence Index");
+                }
+
+                auto &ts =
+                    state.sequencer.sequence_bank[(std::size_t)index].time_signature;
+                if (ts.numerator % 2 == 0)
+                {
+                    ts.numerator /= 2;
+                }
+                else
+                {
+                    ts.denominator *= 2;
+                }
+
+                if (ts.denominator == 0)
+                {
+                    return merror("Cannot Halve the TimeSignature.");
+                }
+
+                ps.timeline.stage(std::move(state));
+                return minfo("TimeSignature Halved.");
+            }
+            else if constexpr (std::is_same_v<ActionType, RandomizePitchAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::randomize_pitch,
+                                        typed_action.pattern, typed_action.min,
+                                        typed_action.max);
+                ps.timeline.stage(std::move(state));
+                return minfo("Randomized Pitch");
+            }
+            else if constexpr (std::is_same_v<ActionType, RandomizeVelocityAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::randomize_velocity,
+                                        typed_action.pattern, typed_action.min,
+                                        typed_action.max);
+                ps.timeline.stage(std::move(state));
+                return minfo("Randomized Velocity");
+            }
+            else if constexpr (std::is_same_v<ActionType, RandomizeDelayAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::randomize_delay,
+                                        typed_action.pattern, typed_action.min,
+                                        typed_action.max);
+                ps.timeline.stage(std::move(state));
+                return minfo("Randomized Delay");
+            }
+            else if constexpr (std::is_same_v<ActionType, RandomizeGateAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state),
+                                        &sequence::modify::randomize_gate,
+                                        typed_action.pattern, typed_action.min,
+                                        typed_action.max);
+                ps.timeline.stage(std::move(state));
+                return minfo("Randomized Gate");
+            }
+            else if constexpr (std::is_same_v<ActionType, StretchAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::stretch,
+                                        typed_action.pattern, typed_action.count);
+                ps.timeline.stage(std::move(state));
+                return minfo("Stretched Selection by " +
+                             std::to_string(typed_action.count));
+            }
+            else if constexpr (std::is_same_v<ActionType, CompressAction>)
+            {
+                if (typed_action.pattern == sequence::Pattern{0, {1}})
+                {
+                    return mwarning("Use pattern prefix to define compression.");
+                }
+
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state =
+                    increment_state(std::move(state), &sequence::modify::compress,
+                                    typed_action.pattern);
+                ps.timeline.stage(std::move(state));
+                return minfo("Compressed Selection");
+            }
+            else if constexpr (std::is_same_v<ActionType, ShuffleAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state =
+                    increment_state(std::move(state), &sequence::modify::shuffle);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Shuffled");
+            }
+            else if constexpr (std::is_same_v<ActionType, RotateAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::rotate,
+                                        typed_action.amount);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Rotated");
+            }
+            else if constexpr (std::is_same_v<ActionType, ReverseAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state =
+                    increment_state(std::move(state), &sequence::modify::reverse);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Reversed");
+            }
+            else if constexpr (std::is_same_v<ActionType, MirrorAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::mirror,
+                                        typed_action.pattern,
+                                        typed_action.center_pitch);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Mirrored");
+            }
+            else if constexpr (std::is_same_v<ActionType, QuantizeAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::quantize,
+                                        typed_action.pattern);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Quantized");
+            }
+            else if constexpr (std::is_same_v<ActionType, SwingAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+                state = increment_state(std::move(state), &sequence::modify::swing,
+                                        typed_action.amount, false);
+                ps.timeline.stage(std::move(state));
+                return minfo("Selection Swung by " +
+                             std::to_string(typed_action.amount));
+            }
+            else if constexpr (std::is_same_v<ActionType, StepAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto &selected =
+                    get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+                selected = action::step(selected, typed_action.pattern,
+                                        typed_action.pitch_distance,
+                                        typed_action.velocity_distance);
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Stepped");
+            }
+            else if constexpr (std::is_same_v<ActionType, DrumsAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto octave_size =
+                    std::clamp<std::size_t>(typed_action.octave_size, 1, 128);
+
+                state.sequencer.base_frequency = 440.f;
+                state.sequencer.scale = std::nullopt;
+                ps.library.scale_shift_index = std::nullopt;
+
+                auto const a3 = 57;
+                state.sequencer.key = 23 + typed_action.offset - a3;
+
+                state.sequencer.tuning = {
+                    .intervals =
+                        [octave_size] {
+                            auto intervals = std::vector<float>{};
+                            for (auto i = std::size_t{0}; i < octave_size; ++i)
+                            {
+                                intervals.push_back(100.f * (float)i);
+                            }
+                            return intervals;
+                        }(),
+                    .octave = 100.f * (float)octave_size,
+                    .description = "",
+                };
+                state.sequencer.tuning_name =
+                    "Drums (" + std::to_string(octave_size) + ")";
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Drum Mode Active");
+            }
+            else if constexpr (std::is_same_v<ActionType, ArpAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto chord_name = typed_action.chord;
+                auto inversion = typed_action.inversion;
+
+                bool const starting_new_chain =
+                    state.aux.selected != state.aux.arp_state.selected ||
+                    state.aux.arp_state.previous_commit_id !=
+                        ps.timeline.get_current_commit_id();
+
+                if (starting_new_chain)
+                {
+                    state.aux.arp_state.sequencer = state.sequencer;
+                    state.aux.arp_state.selected = state.aux.selected;
+                }
+
+                if (chord_name == "cycle" && inversion != -1)
+                {
+                    chord_name = find_next_chord(
+                                     ps.library.chords,
+                                     state.aux.arp_state.previous_chord_name)
+                                     .name;
+                    auto const chord = find_chord(ps.library.chords, chord_name);
+                    inversion =
+                        std::min(inversion, (int)chord.intervals.size() - 1);
+                }
+                else if (chord_name != "cycle" && inversion == -1)
+                {
+                    auto const chord = find_chord(ps.library.chords, chord_name);
+                    inversion = increment_inversion(
+                        chord, state.aux.arp_state.previous_inversion);
+                }
+                else if (chord_name == "cycle" && inversion == -1)
+                {
+                    chord_name = state.aux.arp_state.previous_chord_name;
+                    if (chord_name.empty())
+                    {
+                        inversion = 0;
+                    }
+                    else
+                    {
+                        auto const chord = find_chord(ps.library.chords, chord_name);
+                        inversion = increment_inversion(
+                            chord, state.aux.arp_state.previous_inversion);
+                    }
+
+                    if (inversion == 0)
+                    {
+                        chord_name =
+                            find_next_chord(ps.library.chords, chord_name).name;
+                    }
+                }
+
+                state.aux.arp_state.previous_chord_name = chord_name;
+                state.aux.arp_state.previous_inversion = inversion;
+                state.aux.arp_state.previous_commit_id =
+                    ps.timeline.get_next_commit_id();
+
+                state.sequencer = state.aux.arp_state.sequencer;
+                state.aux.selected = state.aux.arp_state.selected;
+
+                auto &selected =
+                    get_selected_cell(state.sequencer.sequence_bank,
+                                      state.aux.selected);
+                auto const chord = find_chord(ps.library.chords, chord_name);
+                auto const intervals = invert_chord(
+                    chord, inversion, state.sequencer.tuning.intervals.size());
+                selected = action::arp(selected, typed_action.pattern, intervals);
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Arpeggiated with " + chord_name +
+                             " inversion: " + std::to_string(inversion));
+            }
+            else
+            {
+                static_assert(always_false_v<ActionType>,
+                              "Unhandled CommandAction variant alternative.");
+            }
+        },
+        action);
+
+    auto const state_after = ps.timeline.get_state();
+    return CommandActionResult{
+        .status = std::move(status),
+        .context = state_after.aux,
+        .engine_mutated = state_after.sequencer != engine_before,
+        .commit_intent = ps.commit_intent,
+    };
+}
+
+} // namespace xen

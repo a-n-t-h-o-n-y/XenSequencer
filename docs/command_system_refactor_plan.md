@@ -4,11 +4,11 @@ Purpose: make command execution more explicit, deterministic, and idiomatic by s
 
 ## Goals
 
-- [ ] Keep engine and editor/session concerns clearly separated.
-- [ ] Replace ambient selection reads with explicit execution context.
-- [ ] Preserve current behavior for key workflows (movement, edit commands, semicolon chains, `again`, undo/redo continuity).
-- [ ] Make command execution policy explicit (chain semantics, error behavior, commit behavior).
-- [ ] Keep migration incremental and compilable at each step.
+- [x] Keep engine and editor/session concerns clearly separated.
+- [x] Replace ambient selection reads with explicit execution context.
+- [x] Preserve current behavior for key workflows (movement, edit commands, semicolon chains, `again`, undo/redo continuity).
+- [x] Make command execution policy explicit (chain semantics, error behavior, commit behavior).
+- [x] Keep migration incremental and compilable at each step.
 
 ## Current Baseline (Already True)
 
@@ -137,15 +137,15 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Phase 5: Typed Action Layer (Optional But Recommended)
 
-- [ ] Introduce typed actions and an `apply(action, engine, context)` style reducer/service.
-- [ ] Keep string commands as an adapter to typed actions during migration.
-- [ ] Gradually convert command handlers from ad-hoc lambdas to typed action dispatch.
-- [ ] Minimize behavioral drift by running old/new paths against the same tests during transition.
+- [x] Introduce typed actions and an `apply(action, engine, context)` style reducer/service.
+- [x] Keep string commands as an adapter to typed actions during migration.
+- [x] Gradually convert command handlers from ad-hoc lambdas to typed action dispatch.
+- [x] Minimize behavioral drift by running old/new paths against the same tests during transition.
 
 ## Testing And Validation
 
 - [x] Add tests for chain target inheritance (`move right; note` style behavior).
-- [ ] Add tests for per-command target override behavior (if supported in syntax).
+- [x] Add tests for per-command target override behavior (if supported in syntax). (N/A: target override syntax removed)
 - [x] Add tests for multi-command failure semantics and commit boundaries.
 - [x] Add tests for `again` replay behavior with chained commands.
 - [x] Add tests ensuring undo/redo preserves required editor-session continuity.
@@ -153,15 +153,15 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Migration Rules
 
-- [ ] No fallback paths or dual command systems beyond tightly scoped migration adapters.
-- [ ] Fail fast on invalid command/context assumptions.
-- [ ] Keep changes incremental and reviewable.
-- [ ] Remove deprecated paths once replacement behavior is validated.
+- [x] No fallback paths or dual command systems beyond tightly scoped migration adapters.
+- [x] Fail fast on invalid command/context assumptions.
+- [x] Keep changes incremental and reviewable.
+- [x] Remove deprecated paths once replacement behavior is validated.
 
 ## Done Criteria
 
-- [ ] No core command relies on ambient global selection state.
-- [ ] Chain semantics are specified, implemented, and tested.
-- [ ] Commit and error behavior are centrally enforced and predictable.
-- [ ] Parser and executor responsibilities are clearly separated.
-- [ ] Existing user-facing workflows remain intact or are intentionally versioned with documented changes.
+- [x] No core command relies on ambient global selection state.
+- [x] Chain semantics are specified, implemented, and tested.
+- [x] Commit and error behavior are centrally enforced and predictable.
+- [x] Parser and executor responsibilities are clearly separated.
+- [x] Existing user-facing workflows remain intact or are intentionally versioned with documented changes.
