@@ -7,7 +7,9 @@
 #include <variant>
 #include <vector>
 
-#include <xen/command.hpp>
+#include <sequence/pattern.hpp>
+
+#include <xen/message_level.hpp>
 #include <xen/modulator.hpp>
 #include <xen/state.hpp>
 

@@ -4,8 +4,6 @@
 
 #include <xen/string_manip.hpp>
 
-#include <string>
-
 namespace xen
 {
 
@@ -54,100 +52,6 @@ auto parse_command_chain(std::string const &raw_command_string)
 auto is_again_invocation(CommandInvocation const &invocation) -> bool
 {
     return to_lower(invocation.canonical_segment) == "again";
-}
-
-// -------------------------------------------------------------------------------------
-
-CommandGroup::CommandGroup(std::string_view id) : id_{id}
-{
-}
-
-void CommandGroup::add(std::unique_ptr<CommandBase> cmd)
-{
-    commands_.push_back(std::move(cmd));
-}
-
-auto CommandGroup::id() const -> std::string_view
-{
-    return id_;
-}
-
-auto CommandGroup::execute(PluginState &ps, SplitInput input) const
-    -> std::pair<MessageLevel, std::string>
-{
-    if (input.words.empty())
-    {
-        return {MessageLevel::Error, "No command given."};
-    }
-
-    auto const front = to_lower(input.words.front());
-    for (auto const &command_ptr : commands_)
-    {
-        if (front == to_lower(command_ptr->id()))
-        {
-            input.words.erase(input.words.begin());
-            return command_ptr->execute(ps, input);
-        }
-    }
-
-    return {MessageLevel::Error, "Command not found: " + input.words.front()};
-}
-
-auto CommandGroup::complete_text(SplitInput input) const -> std::string
-{
-    if (input.words.empty())
-    {
-        return "[next command]";
-    }
-
-    // Search for a complete match.
-    for (auto const &command_ptr : commands_)
-    {
-        CommandBase &cmd = *command_ptr;
-
-        if (to_lower(cmd.id()) == to_lower(input.words.front()))
-        {
-            input.words.erase(input.words.begin());
-            return cmd.complete_text(input);
-        }
-    }
-
-    // If no complete match, search for first partial match.
-    for (auto const &command_ptr : commands_)
-    {
-        CommandBase const &cmd = *command_ptr;
-
-        if (to_lower(cmd.id().substr(0, input.words.front().size())) ==
-            to_lower(input.words.front()))
-        {
-            return std::string{cmd.id().substr(input.words.front().size())};
-        }
-    }
-
-    return "";
-}
-
-auto CommandGroup::generate_docs() -> std::vector<Documentation>
-{
-    auto result = std::vector<Documentation>{};
-    for (auto &command : commands_)
-    {
-        auto docs = command->generate_docs();
-        for (auto &doc : docs)
-        {
-            if (!id_.empty())
-            {
-                doc.signature.id.insert(0, std::string{id_} + " ");
-            }
-        }
-        result.insert(std::end(result), std::cbegin(docs), std::cend(docs));
-    }
-    return result;
-}
-
-auto cmd_group(std::string_view id) -> std::unique_ptr<CommandGroup>
-{
-    return std::make_unique<CommandGroup>(id);
 }
 
 } // namespace xen

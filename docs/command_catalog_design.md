@@ -138,7 +138,7 @@ Replace `XenCommandTree` completion with catalog-driven completion:
 
 This removes duplicated command metadata and keeps completion in sync with runtime.
 
-## File Layout (Proposed)
+## File Layout
 
 New:
 
@@ -154,8 +154,12 @@ New:
   - completion/guide text generation
 - `src/command_catalog_docs.cpp`
   - docs/reference output
-- `src/command_definitions/*.cpp`
-  - grouped command specs (transport/edit/pitch/library/etc.)
+- `src/command_catalog_specs_internal.hpp`
+  - internal declarations for grouped spec registration
+- `src/command_catalog_specs_*.cpp`
+  - grouped command specs (bootstrap/edit/set+shift/transform)
+- `src/command_catalog_spec_builder.hpp`
+  - typed arg/schema helpers used by grouped spec files
 
 Retired (completed):
 

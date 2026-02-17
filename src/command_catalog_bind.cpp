@@ -1,10 +1,10 @@
 #include <xen/command_catalog.hpp>
-#include "command_catalog_parse.hpp"
 
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "command_catalog_metadata_internal.hpp"
 
 namespace xen
 {
@@ -33,31 +33,6 @@ auto to_unknown_command_error(CommandInvocation const &invocation) -> CatalogBin
     };
 }
 
-auto to_parse_error(CommandInvocation const &invocation, std::string const &reason)
-    -> CatalogBindError
-{
-    auto token = std::string{};
-    if (!invocation.input.words.empty())
-    {
-        token = invocation.input.words.front();
-    }
-
-    if (reason == "Missing argument and no default value")
-    {
-        return CatalogBindError{
-            .kind = CatalogBindErrorKind::MissingArgument,
-            .message = "Missing argument: argument",
-            .token = std::move(token),
-        };
-    }
-
-    return CatalogBindError{
-        .kind = CatalogBindErrorKind::InvalidArgument,
-        .message = "Invalid argument 'argument': " + reason,
-        .token = std::move(token),
-    };
-}
-
 } // namespace
 
 auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
@@ -68,22 +43,33 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
         return to_unknown_command_error(invocation);
     }
 
-    try
+    auto const *spec = find_command_spec(invocation);
+    if (spec == nullptr)
     {
-        if (auto action = try_to_command_action(invocation))
-        {
-            return BoundCommand{
-                .action = std::move(*action),
-                .canonical = invocation.canonical_segment,
-            };
-        }
-    }
-    catch (std::invalid_argument const &e)
-    {
-        return to_parse_error(invocation, e.what());
+        return to_unknown_command_error(invocation);
     }
 
-    return to_unknown_command_error(invocation);
+    try
+    {
+        return BoundCommand{
+            .action = spec->bind(invocation, spec->metadata.path.size()),
+            .canonical = invocation.canonical_segment,
+        };
+    }
+    catch (CatalogBindException const &e)
+    {
+        auto token = std::string{};
+        if (!invocation.input.words.empty())
+        {
+            token = invocation.input.words.front();
+        }
+
+        return CatalogBindError{
+            .kind = e.kind(),
+            .message = e.what(),
+            .token = std::move(token),
+        };
+    }
 }
 
 auto CommandCatalog::bind_chain(

@@ -71,15 +71,14 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     REQUIRE(std::holds_alternative<CatalogBindError>(invalid_result));
     auto const &invalid_error = std::get<CatalogBindError>(invalid_result);
     CHECK(invalid_error.kind == CatalogBindErrorKind::InvalidArgument);
-    CHECK(invalid_error.message ==
-          "Invalid argument 'argument': Invalid integer: nope");
+    CHECK(invalid_error.message == "Invalid argument 'key': Invalid integer: nope");
 
     auto const missing_invocation = parse_command_chain("set sequence name")[0];
     auto const missing_result = bind_invocation(missing_invocation);
     REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
     auto const &missing_error = std::get<CatalogBindError>(missing_result);
     CHECK(missing_error.kind == CatalogBindErrorKind::MissingArgument);
-    CHECK(missing_error.message == "Missing argument: argument");
+    CHECK(missing_error.message == "Missing argument: name");
 }
 
 TEST_CASE("Catalog binds non-bootstrap commands without adapter gaps",

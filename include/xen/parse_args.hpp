@@ -5,9 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <type_traits>
-#include <vector>
 
 #include <juce_core/juce_core.h>
 
@@ -15,7 +13,6 @@
 
 #include <xen/input_mode.hpp>
 #include <xen/modulator.hpp>
-#include <xen/signature.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
 
@@ -258,35 +255,6 @@ template <typename T>
     else
     {
         static_assert([] { return false; }(), "Unsupported type.");
-    }
-}
-
-/**
- * Extracts argument at index I from the given argument list.
- *
- * @tparam I The index of the argument to extract.
- * @param args The argument list as strings.
- * @param arg_infos The argument infos.
- * @return auto The extracted argument.
- *
- * @throws std::invalid_argument if the argument is missing and no default value is
- * provided.
- */
-template <std::size_t I, typename T>
-[[nodiscard]] auto get_argument_value(std::vector<std::string> const &args,
-                                      ArgInfo<T> const &arg_info) -> T
-{
-    if (I < args.size())
-    {
-        return parse<T>(args[I]);
-    }
-    else if (arg_info.default_value.has_value())
-    {
-        return arg_info.default_value.value();
-    }
-    else
-    {
-        throw std::invalid_argument("Missing argument and no default value");
     }
 }
 
