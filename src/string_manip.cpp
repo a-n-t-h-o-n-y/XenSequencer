@@ -178,6 +178,46 @@ auto split(std::string const &input, char delimiter) -> std::vector<std::string>
     return result;
 }
 
+auto split_top_level(std::string const &input, char delimiter)
+    -> std::vector<std::string>
+{
+    auto result = std::vector<std::string>{};
+    auto current = std::string{};
+    bool in_quotes = false;
+    int json_depth = 0;
+
+    for (char ch : input)
+    {
+        if (ch == '"' && json_depth == 0)
+        {
+            in_quotes = !in_quotes;
+            current += ch;
+        }
+        else if (ch == '{')
+        {
+            ++json_depth;
+            current += ch;
+        }
+        else if (ch == '}' && json_depth > 0)
+        {
+            --json_depth;
+            current += ch;
+        }
+        else if (ch == delimiter && !in_quotes && json_depth == 0)
+        {
+            result.push_back(current);
+            current.clear();
+        }
+        else
+        {
+            current += ch;
+        }
+    }
+
+    result.push_back(current);
+    return result;
+}
+
 auto split_quoted_string(std::string const &input) -> std::vector<std::string>
 {
     auto result = std::vector<std::string>{};

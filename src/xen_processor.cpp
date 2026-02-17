@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
@@ -186,27 +187,83 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         auto &ps = plugin_state;
         try
         {
-            auto commands = split(command_string, ';');
-            auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-            auto executed_any_command = false;
-            for (auto &command : commands)
-            {
-                command = minimize_spaces(command);
-                if (to_lower(command) == "again")
+            auto normalize_chain =
+                [](std::vector<std::string> raw_commands) -> std::vector<std::string> {
+                auto normalized = std::vector<std::string>{};
+                normalized.reserve(raw_commands.size());
+                for (auto &command : raw_commands)
                 {
-                    command = previous_command_string_;
+                    command = minimize_spaces(command);
+                    if (!command.empty())
+                    {
+                        normalized.push_back(std::move(command));
+                    }
                 }
-                if (command.empty())
+                return normalized;
+            };
+
+            auto pending_commands =
+                normalize_chain(split_top_level(command_string, ';'));
+            auto commands = std::vector<std::string>{};
+            commands.reserve(pending_commands.size());
+
+            auto expansion_count = std::size_t{0};
+            auto command_index = std::size_t{0};
+            while (command_index < pending_commands.size())
+            {
+                auto const command = pending_commands[command_index];
+                if (to_lower(command) != "again")
                 {
+                    commands.push_back(command);
+                    ++command_index;
                     continue;
                 }
+
+                if (previous_command_string_.empty())
+                {
+                    return {MessageLevel::Error, "No previous command to repeat."};
+                }
+
+                auto replay_commands =
+                    normalize_chain(split_top_level(previous_command_string_, ';'));
+                if (replay_commands.empty())
+                {
+                    return {MessageLevel::Error, "No previous command to repeat."};
+                }
+
+                if (++expansion_count > 64)
+                {
+                    return {MessageLevel::Error,
+                            "Recursive 'again' expansion exceeded safe limit."};
+                }
+
+                pending_commands.erase(std::begin(pending_commands) +
+                                       (std::ptrdiff_t)command_index);
+                pending_commands.insert(std::begin(pending_commands) +
+                                            (std::ptrdiff_t)command_index,
+                                        std::begin(replay_commands),
+                                        std::end(replay_commands));
+            }
+
+            auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+            auto executed_any_command = false;
+            for (auto const &command : commands)
+            {
                 executed_any_command = true;
                 status = command_tree.execute(ps, split_input(command));
+                if (status.first == MessageLevel::Error)
+                {
+                    break;
+                }
             }
+
+            if (executed_any_command)
+            {
+                previous_command_string_ = join(commands, ';');
+            }
+
             if (ps.timeline.get_commit_flag())
             {
-                // join() so that 'again' is replaced with the full command string
-                previous_command_string_ = join(commands, ';');
                 ps.timeline.commit();
             }
             if (auto const id = ps.timeline.get_current_commit_id();
@@ -223,16 +280,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         }
         catch (...)
         {
-            // FIXME: This roundabout way can set an invalid selection if a string of
-            // commands is executed that includes splitting and movement. But it isn't a
-            // huge deal and this behaviour is more desirable that without this patch.
-
-            // Roundabout way to revert partial changes but keep the selected state.
-            auto aux = ps.timeline.get_state().aux;
             ps.timeline.reset_stage();
-            auto state = ps.timeline.get_state();
-            state.aux = std::move(aux);
-            ps.timeline.stage(std::move(state));
             throw; // rethrow so you can return proper message without duplicating above
         }
     }

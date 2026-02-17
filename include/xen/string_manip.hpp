@@ -72,6 +72,15 @@ namespace xen
     -> std::vector<std::string>;
 
 /**
+ * Splits a string on a delimiter only at top-level syntax scope.
+ *
+ * @details Delimiters inside double quotes or inside `{ ... }` blocks are ignored.
+ * Empty items are preserved.
+ */
+[[nodiscard]] auto split_top_level(std::string const &input, char delimiter)
+    -> std::vector<std::string>;
+
+/**
  * Splits a string into a vector of strings based on spaces, unless within double
  * quotes.
  *
