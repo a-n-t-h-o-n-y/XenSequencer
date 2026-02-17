@@ -112,7 +112,6 @@ TEST_CASE("command tree executes case-insensitive command ids", "[core][command]
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Key Set to -12.");
     CHECK(ps.timeline.get_state().sequencer.key == -12);
-    CHECK(ps.timeline.get_commit_flag());
 }
 
 TEST_CASE("command tree parses quoted nested command args", "[core][command]")
@@ -126,7 +125,6 @@ TEST_CASE("command tree parses quoted nested command args", "[core][command]")
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Sequence Name Set");
     CHECK(ps.timeline.get_state().sequencer.sequence_names[3] == "my lead");
-    CHECK(ps.timeline.get_commit_flag());
 }
 
 TEST_CASE("command tree reports missing command tokens", "[core][command]")

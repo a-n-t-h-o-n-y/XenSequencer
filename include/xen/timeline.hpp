@@ -47,16 +47,14 @@ class Timeline
      * Commit previously staged state to the timeline.
      *
      * @details This always appends the staged state to the timeline, which is a copy of
-     * the previous state if nothing has been staged since the previous commit. Use
-     * set_commit_flag() and get_commit_flag() to notify yourself if a commit should
-     * happen. If the timeline is in the past, the future is truncated.
+     * the previous state if nothing has been staged since the previous commit. If the
+     * timeline is in the past, the future is truncated.
      */
     auto commit() -> void
     {
         at_ = at_ + 1;
         timeline_.resize(at_);
         timeline_.push_back({stage_, id_origin_++});
-        should_commit_ = false;
     }
 
     /**
@@ -68,6 +66,14 @@ class Timeline
     [[nodiscard]] auto get_state() const -> State
     {
         return stage_;
+    }
+
+    /**
+     * Retrieve the current committed state at the timeline cursor.
+     */
+    [[nodiscard]] auto get_committed_state() const -> State
+    {
+        return timeline_[at_].first;
     }
 
     /**
@@ -125,27 +131,6 @@ class Timeline
     }
 
     /**
-     * Set an internal flag that can be used by the user to determine if a commit should
-     * happen.
-     *
-     * @details This is not used by the Timeline class itself, but can be used by the
-     * user to determine if a commit should happen. It is set to `false` by Timeline
-     * after a commit.
-     */
-    auto set_commit_flag() -> void
-    {
-        should_commit_ = true;
-    }
-
-    /**
-     * Get the commit flag value.
-     */
-    [[nodiscard]] auto get_commit_flag() const -> bool
-    {
-        return should_commit_;
-    }
-
-    /**
      * Reset the staged state to the current commit point.
      *
      * @details This erases any staged changes that have not been committed. Useful if
@@ -161,7 +146,6 @@ class Timeline
     State stage_; // Staged state to be committed. Also the 'current' state.
     std::vector<std::pair<State, int>> timeline_; // [state, commit ID]
     std::size_t at_{0};
-    bool should_commit_{false};
 };
 
 } // namespace xen

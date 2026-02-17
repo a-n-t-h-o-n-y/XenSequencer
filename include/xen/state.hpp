@@ -151,11 +151,19 @@ struct ContentLibraryState
     std::vector<Chord> chords{};
 };
 
+enum class CommitIntent
+{
+    Auto,
+    Defer,
+    Force,
+};
+
 struct PluginState
 {
     AppConfigState config{};
     ContentLibraryState library{};
     CommandHistory command_history{};
+    CommitIntent commit_intent{CommitIntent::Auto};
     XenTimeline timeline;
 };
 

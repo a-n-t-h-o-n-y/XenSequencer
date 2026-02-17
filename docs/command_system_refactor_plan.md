@@ -123,17 +123,17 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Phase 3: Convert Selection-Dependent Commands
 
-- [ ] Refactor selection-dependent helpers to take target/context explicitly instead of reading ambient `aux.selected`.
-- [ ] Update movement/select commands to return context updates that affect downstream commands in same chain.
-- [ ] Update sequence-index defaulting commands (`set sequence ...`) to use context-driven defaults.
-- [ ] Update special flows (`arp` chaining) to use explicit command-session/context state.
+- [x] Refactor selection-dependent helpers to take target/context explicitly instead of reading ambient `aux.selected`.
+- [x] Update movement/select commands to return context updates that affect downstream commands in same chain.
+- [x] Update sequence-index defaulting commands (`set sequence ...`) to use context-driven defaults.
+- [x] Update special flows (`arp` chaining) to use explicit command-session/context state.
 
 ## Phase 4: Centralize Mutation And Commit Policy
 
-- [ ] Move commit decisions into one executor path rather than command-by-command commit handling.
-- [ ] Keep command handlers focused on pure state/context transforms + status.
-- [ ] Ensure undo/redo continuity semantics remain explicit and tested.
-- [ ] Remove duplicate/stale mutation logic after migration.
+- [x] Move commit decisions into one executor path rather than command-by-command commit handling.
+- [x] Keep command handlers focused on pure state/context transforms + status.
+- [x] Ensure undo/redo continuity semantics remain explicit and tested.
+- [x] Remove duplicate/stale mutation logic after migration.
 
 ## Phase 5: Typed Action Layer (Optional But Recommended)
 
@@ -144,11 +144,11 @@ This section is the proposed baseline for implementation. Any decisions marked i
 
 ## Testing And Validation
 
-- [ ] Add tests for chain target inheritance (`move right; note` style behavior).
+- [x] Add tests for chain target inheritance (`move right; note` style behavior).
 - [ ] Add tests for per-command target override behavior (if supported in syntax).
-- [ ] Add tests for multi-command failure semantics and commit boundaries.
-- [ ] Add tests for `again` replay behavior with chained commands.
-- [ ] Add tests ensuring undo/redo preserves required editor-session continuity.
+- [x] Add tests for multi-command failure semantics and commit boundaries.
+- [x] Add tests for `again` replay behavior with chained commands.
+- [x] Add tests ensuring undo/redo preserves required editor-session continuity.
 - [x] Add tests for parser correctness around semicolons inside quotes/structured args.
 
 ## Migration Rules

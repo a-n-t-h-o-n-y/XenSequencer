@@ -33,6 +33,29 @@ namespace xen
 
 using sequence::Pattern;
 
+namespace
+{
+
+template <typename Fn, typename... Args>
+auto stage_selected_mutation(PluginState &ps, Fn &&fn, Args &&...args) -> void
+{
+    auto state = increment_state(ps.timeline.get_state(), std::forward<Fn>(fn),
+                                 std::forward<Args>(args)...);
+    ps.timeline.stage(std::move(state));
+}
+
+auto request_force_commit(PluginState &ps) -> void
+{
+    ps.commit_intent = CommitIntent::Force;
+}
+
+auto request_deferred_commit(PluginState &ps) -> void
+{
+    ps.commit_intent = CommitIntent::Defer;
+}
+
+} // namespace
+
 auto create_command_tree() -> XenCommandTree
 {
     using PS = PluginState;
@@ -51,7 +74,7 @@ auto create_command_tree() -> XenCommandTree
     // commit
     head.add(cmd(signature("commit"),
                  "Commit changes to history, mostly for internal use", [](PS &ps) {
-                     ps.timeline.set_commit_flag();
+                     request_force_commit(ps);
                      return mdebug("commit made");
                  }));
 
@@ -59,7 +82,6 @@ auto create_command_tree() -> XenCommandTree
     head.add(
         cmd(signature("reset"), "Reset XenSequencer to its initial state.", [](PS &ps) {
             ps.timeline.stage({SequencerState{}, AuxState{}});
-            ps.timeline.set_commit_flag();
             ps.library.scale_shift_index = std::nullopt; // Chromatic
             return minfo("XenSequencer Reset");
         }));
@@ -94,7 +116,8 @@ auto create_command_tree() -> XenCommandTree
     // copy
     head.add(cmd(signature("copy"),
                  "Copy the current selection into the shared copy buffer.", [](PS &ps) {
-                     action::copy(ps.timeline);
+                     auto const state = ps.timeline.get_state();
+                     action::copy(state.sequencer, state.aux);
                      return minfo("Copied Selection");
                  }));
 
@@ -103,10 +126,10 @@ auto create_command_tree() -> XenCommandTree
                  "Copy the current selection into the shared copy buffer and replace "
                  "the selection with a Rest.",
                  [](PS &ps) {
-                     auto [_, aux] = ps.timeline.get_state();
-                     auto state = action::cut(ps.timeline);
-                     ps.timeline.stage({std::move(state), std::move(aux)});
-                     ps.timeline.set_commit_flag();
+                     auto state = ps.timeline.get_state();
+                     state.sequencer =
+                         action::cut(std::move(state.sequencer), state.aux);
+                     ps.timeline.stage(std::move(state));
                      return minfo("Selection Cut");
                  }));
 
@@ -115,17 +138,17 @@ auto create_command_tree() -> XenCommandTree
         signature("paste"),
         "Replace the current selection with the contents of the shared copy buffer.",
         [](PS &ps) {
-            auto [_, aux] = ps.timeline.get_state();
-            ps.timeline.stage({action::paste(ps.timeline), std::move(aux)});
-            ps.timeline.set_commit_flag();
+            auto state = ps.timeline.get_state();
+            state.sequencer =
+                action::paste(std::move(state.sequencer), state.aux);
+            ps.timeline.stage(std::move(state));
             return minfo("Selection Pasted Over");
         }));
 
     // duplicate
     head.add(cmd(signature("duplicate"),
                  "Duplicate the current selection to the next Cell.", [](PS &ps) {
-                     ps.timeline.stage(action::duplicate(ps.timeline));
-                     ps.timeline.set_commit_flag();
+                     ps.timeline.stage(action::duplicate(ps.timeline.get_state()));
                      return minfo("Selection Duplicated");
                  }));
 
@@ -134,11 +157,9 @@ auto create_command_tree() -> XenCommandTree
         cmd(signature("inputMode", arg<InputMode>("mode")),
             "Change the input mode. This determines the behavior of the up/down keys.",
             [](PS &ps, InputMode mode) {
-                auto [state, _] = ps.timeline.get_state();
-                ps.timeline.stage({
-                    std::move(state),
-                    action::set_input_mode(ps.timeline, mode),
-                });
+                auto state = ps.timeline.get_state();
+                state.aux = action::set_input_mode(std::move(state.aux), mode);
+                ps.timeline.stage(std::move(state));
                 return minfo("Input Mode Set to " + single_quote(to_string(mode)));
             }));
 
@@ -185,7 +206,6 @@ auto create_command_tree() -> XenCommandTree
                 state.sequence_names = std::move(names);
 
                 ps.timeline.stage({std::move(state), std::move(aux)});
-                ps.timeline.set_commit_flag();
 
                 return minfo("Sequence Bank Loaded");
             }));
@@ -215,7 +235,6 @@ auto create_command_tree() -> XenCommandTree
                     sequence::from_scala(filepath.getFullPathName().toStdString());
 
                 ps.timeline.stage({std::move(seq), std::move(aux)});
-                ps.timeline.set_commit_flag();
 
                 return minfo("Tuning Loaded");
             }));
@@ -286,11 +305,10 @@ auto create_command_tree() -> XenCommandTree
         move->add(cmd(
             signature("left", arg<std::size_t>("amount", 1)),
             "Move the selection left, or wrap around.", [](PS &ps, std::size_t amount) {
-                auto [state, _] = ps.timeline.get_state();
-                ps.timeline.stage({
-                    std::move(state),
-                    action::move_left(ps.timeline, amount),
-                });
+                auto state = ps.timeline.get_state();
+                state.aux = action::move_left(state.sequencer, std::move(state.aux),
+                                              amount);
+                ps.timeline.stage(std::move(state));
                 return mdebug("Moved Left " + std::to_string(amount) + " Times");
             }));
 
@@ -298,11 +316,10 @@ auto create_command_tree() -> XenCommandTree
         move->add(cmd(signature("right", arg<std::size_t>("amount", 1)),
                       "Move the selection right, or wrap around.",
                       [](PS &ps, std::size_t amount) {
-                          auto [state, _] = ps.timeline.get_state();
-                          ps.timeline.stage({
-                              std::move(state),
-                              action::move_right(ps.timeline, amount),
-                          });
+                          auto state = ps.timeline.get_state();
+                          state.aux = action::move_right(
+                              state.sequencer, std::move(state.aux), amount);
+                          ps.timeline.stage(std::move(state));
                           return mdebug("Moved Right " + std::to_string(amount) +
                                         " Times");
                       }));
@@ -311,11 +328,10 @@ auto create_command_tree() -> XenCommandTree
         move->add(cmd(signature("up", arg<std::size_t>("amount", 1)),
                       "Move the selection up one level to a parent sequence.",
                       [](PS &ps, std::size_t amount) {
-                          auto [state, _] = ps.timeline.get_state();
-                          ps.timeline.stage({
-                              std::move(state),
-                              action::move_up(ps.timeline, amount),
-                          });
+                          auto state = ps.timeline.get_state();
+                          state.aux =
+                              action::move_up(std::move(state.aux), amount);
+                          ps.timeline.stage(std::move(state));
                           return mdebug("Moved Up " + std::to_string(amount) +
                                         " Times");
                       }));
@@ -324,11 +340,10 @@ auto create_command_tree() -> XenCommandTree
         move->add(
             cmd(signature("down", arg<std::size_t>("amount", 1)),
                 "Move the selection down one level.", [](PS &ps, std::size_t amount) {
-                    auto [state, _] = ps.timeline.get_state();
-                    ps.timeline.stage({
-                        std::move(state),
-                        action::move_down(ps.timeline, amount),
-                    });
+                    auto state = ps.timeline.get_state();
+                    state.aux = action::move_down(state.sequencer,
+                                                  std::move(state.aux), amount);
+                    ps.timeline.stage(std::move(state));
                     return mdebug("Moved Down " + std::to_string(amount) + " Times");
                 }));
 
@@ -341,35 +356,32 @@ auto create_command_tree() -> XenCommandTree
                            arg<float>("delay", 0.f), arg<float>("gate", 1.f)),
                  "Create a new Note, overwritting the current selection.",
                  [](PS &ps, int pitch, float velocity, float delay, float gate) {
-                     increment_state(
-                         ps.timeline,
+                     stage_selected_mutation(
+                         ps,
                          [](sequence::Cell const &c, auto... args) -> sequence::Cell {
                              auto n = sequence::modify::note(args...);
                              n.weight = c.weight;
                              return n;
                          },
                          pitch, velocity, delay, gate);
-                     ps.timeline.set_commit_flag();
                      return minfo("Note Created");
                  }));
 
     // rest
     head.add(cmd(signature("rest"),
                  "Create a new Rest, overwritting the current selection.", [](PS &ps) {
-                     increment_state(ps.timeline,
+                     stage_selected_mutation(ps,
                                      [](sequence::Cell const &c) -> sequence::Cell {
                                          auto r = sequence::modify::rest();
                                          r.weight = c.weight;
                                          return r;
                                      });
-                     ps.timeline.set_commit_flag();
                      return minfo("Rest Created");
                  }));
 
     // delete
     head.add(cmd(signature("delete"), "Delete the current selection.", [](PS &ps) {
         ps.timeline.stage(action::delete_cell(ps.timeline.get_state()));
-        ps.timeline.set_commit_flag();
         return minfo("Deleted Selection");
     }));
 
@@ -378,8 +390,7 @@ auto create_command_tree() -> XenCommandTree
                  "Duplicates the current selection into `count` equal parts, replacing "
                  "the current selection.",
                  [](PS &ps, std::size_t count) {
-                     increment_state(ps.timeline, &sequence::modify::repeat, count);
-                     ps.timeline.set_commit_flag();
+                     stage_selected_mutation(ps, &sequence::modify::repeat, count);
                      return minfo("Split Selection " + std::to_string(count) +
                                   " Times");
                  }));
@@ -389,8 +400,7 @@ auto create_command_tree() -> XenCommandTree
                  "Bring the current selection up one level, replacing its parent "
                  "sequence with itself.",
                  [](PS &ps) {
-                     ps.timeline.stage(action::lift(ps.timeline));
-                     ps.timeline.set_commit_flag();
+                     ps.timeline.stage(action::lift(ps.timeline.get_state()));
                      return minfo("Selection Lifted One Layer");
                  }));
 
@@ -399,9 +409,8 @@ auto create_command_tree() -> XenCommandTree
                  "Flips Notes to Rests and Rests to Notes for the current selection. "
                  "Works over sequences.",
                  [](PS &ps, Pattern const &pattern) {
-                     increment_state(ps.timeline, &sequence::modify::flip, pattern,
+                     stage_selected_mutation(ps, &sequence::modify::flip, pattern,
                                      sequence::Note{});
-                     ps.timeline.set_commit_flag();
                      return minfo("Flipped Selection");
                  }));
 
@@ -416,10 +425,9 @@ auto create_command_tree() -> XenCommandTree
                       "over sequences.",
                       [](PS &ps, Pattern const &pattern, int pitch, float velocity,
                          float delay, float gate) {
-                          increment_state(ps.timeline, &sequence::modify::notes_fill,
+                          stage_selected_mutation(ps, &sequence::modify::notes_fill,
                                           pattern,
                                           sequence::Note{pitch, velocity, delay, gate});
-                          ps.timeline.set_commit_flag();
                           return minfo("Filled Selection With Notes");
                       }));
 
@@ -428,9 +436,8 @@ auto create_command_tree() -> XenCommandTree
                       "Fill the current selection with Rests, this works specifically "
                       "over sequences.",
                       [](PS &ps, Pattern const &pattern) {
-                          increment_state(ps.timeline, &sequence::modify::rests_fill,
+                          stage_selected_mutation(ps, &sequence::modify::rests_fill,
                                           pattern);
-                          ps.timeline.set_commit_flag();
                           return minfo("Filled Selection With Rests");
                       }));
 
@@ -469,14 +476,14 @@ auto create_command_tree() -> XenCommandTree
             [](PS &ps, Pattern const &pattern, std::variant<int, Modulator> pitch) {
                 std::visit(sequence::utility::overload{
                                [&](int p) {
-                                   increment_state(ps.timeline,
+                                   stage_selected_mutation(ps,
                                                    &sequence::modify::set_pitch,
                                                    pattern, p);
-                                   ps.timeline.set_commit_flag();
                                },
                                [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_pitches,
+                                   stage_selected_mutation(ps, &action::set_pitches,
                                                    pattern, mod);
+                                   request_deferred_commit(ps);
                                },
                            },
                            pitch);
@@ -487,12 +494,10 @@ auto create_command_tree() -> XenCommandTree
         set->add(cmd(signature("octave", arg<Pattern>(""), arg<int>("octave", 0)),
                      "Set the octave of all selected Notes.",
                      [](PS &ps, Pattern const &pattern, int octave) {
-                         auto [_, aux] = ps.timeline.get_state();
-                         ps.timeline.stage({
-                             action::set_note_octave(ps.timeline, pattern, octave),
-                             std::move(aux),
-                         });
-                         ps.timeline.set_commit_flag();
+                         auto state = ps.timeline.get_state();
+                         state.sequencer = action::set_note_octave(
+                             std::move(state.sequencer), state.aux, pattern, octave);
+                         ps.timeline.stage(std::move(state));
                          return minfo("Octave Set");
                      }));
 
@@ -505,14 +510,14 @@ auto create_command_tree() -> XenCommandTree
                std::variant<float, Modulator> velocity) {
                 std::visit(sequence::utility::overload{
                                [&](float v) {
-                                   increment_state(ps.timeline,
+                                   stage_selected_mutation(ps,
                                                    &sequence::modify::set_velocity,
                                                    pattern, v);
-                                   ps.timeline.set_commit_flag();
                                },
                                [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_velocities,
+                                   stage_selected_mutation(ps, &action::set_velocities,
                                                    pattern, mod);
+                                   request_deferred_commit(ps);
                                },
                            },
                            velocity);
@@ -527,14 +532,14 @@ auto create_command_tree() -> XenCommandTree
             [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> delay) {
                 std::visit(sequence::utility::overload{
                                [&](float d) {
-                                   increment_state(ps.timeline,
+                                   stage_selected_mutation(ps,
                                                    &sequence::modify::set_delay,
                                                    pattern, d);
-                                   ps.timeline.set_commit_flag();
                                },
                                [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_delays,
+                                   stage_selected_mutation(ps, &action::set_delays,
                                                    pattern, mod);
+                                   request_deferred_commit(ps);
                                },
                            },
                            delay);
@@ -549,14 +554,14 @@ auto create_command_tree() -> XenCommandTree
             [](PS &ps, Pattern const &pattern, std::variant<float, Modulator> gate) {
                 std::visit(sequence::utility::overload{
                                [&](float g) {
-                                   increment_state(ps.timeline,
+                                   stage_selected_mutation(ps,
                                                    &sequence::modify::set_gate, pattern,
                                                    g);
-                                   ps.timeline.set_commit_flag();
                                },
                                [&](Modulator const &mod) {
-                                   increment_state(ps.timeline, &action::set_gates,
+                                   stage_selected_mutation(ps, &action::set_gates,
                                                    pattern, mod);
+                                   request_deferred_commit(ps);
                                },
                            },
                            gate);
@@ -580,7 +585,6 @@ auto create_command_tree() -> XenCommandTree
                         }
                         state.sequence_names[(std::size_t)index] = std::move(name);
                         ps.timeline.stage({std::move(state), std::move(aux)});
-                        ps.timeline.set_commit_flag();
                         return minfo("Sequence Name Set");
                     }));
 
@@ -609,7 +613,6 @@ auto create_command_tree() -> XenCommandTree
                     }
                     state.sequence_bank[(std::size_t)index].time_signature = ts;
                     ps.timeline.stage({std::move(state), std::move(aux)});
-                    ps.timeline.set_commit_flag();
                     return minfo("TimeSignature Set: " + std::to_string(ts.numerator) +
                                  "/" + std::to_string(ts.denominator));
                 }));
@@ -621,12 +624,10 @@ auto create_command_tree() -> XenCommandTree
         set->add(cmd(signature("baseFrequency", arg<float>("freq", 440.f)),
                      "Set the base note (pitch zero) frequency to `freq` Hz.",
                      [](PS &ps, float freq) {
-                         auto [_, aux] = ps.timeline.get_state();
-                         ps.timeline.stage({
-                             action::set_base_frequency(ps.timeline, freq),
-                             std::move(aux),
-                         });
-                         ps.timeline.set_commit_flag();
+                         auto state = ps.timeline.get_state();
+                         state.sequencer =
+                             action::set_base_frequency(std::move(state.sequencer), freq);
+                         ps.timeline.stage(std::move(state));
                          return minfo("Base Frequency Set");
                      }));
 
@@ -647,7 +648,6 @@ auto create_command_tree() -> XenCommandTree
                              auto state = ps.timeline.get_state();
                              state.sequencer.scale = std::nullopt;
                              ps.timeline.stage(std::move(state));
-                             ps.timeline.set_commit_flag();
                              return minfo("Scale Set to " + name + ".");
                          }
                          // Scale names are stored as all lower case.
@@ -658,7 +658,6 @@ auto create_command_tree() -> XenCommandTree
                              auto state = ps.timeline.get_state();
                              state.sequencer.scale = *at;
                              ps.timeline.stage(std::move(state));
-                             ps.timeline.set_commit_flag();
                              return minfo("Scale Set to " + name + ".");
                          }
                          else
@@ -680,7 +679,6 @@ auto create_command_tree() -> XenCommandTree
                          }
                          state.sequencer.scale->mode = (std::uint8_t)mode_index;
                          ps.timeline.stage(std::move(state));
-                         ps.timeline.set_commit_flag();
                          return minfo("Scale Mode Set");
                      }));
 
@@ -705,7 +703,6 @@ auto create_command_tree() -> XenCommandTree
                              return merror("Invalid TranslateDirection: " + direction);
                          }
                          ps.timeline.stage(std::move(state));
-                         ps.timeline.set_commit_flag();
                          return minfo("Translate Direction Set");
                      }));
 
@@ -721,15 +718,13 @@ auto create_command_tree() -> XenCommandTree
                          auto state = ps.timeline.get_state();
                          state.sequencer.key = key;
                          ps.timeline.stage(std::move(state));
-                         ps.timeline.set_commit_flag();
                          return minfo("Key Set to " + std::to_string(key) + ".");
                      }));
 
         // set weight
         set->add(cmd(signature("weight", arg<float>("value")),
                      "Set the weight of the selected cell", [](PS &ps, float weight) {
-                         increment_state(ps.timeline, &action::set_weight, weight);
-                         ps.timeline.set_commit_flag();
+                         stage_selected_mutation(ps, &action::set_weight, weight);
                          return minfo("Weight Set");
                      }));
 
@@ -744,22 +739,23 @@ auto create_command_tree() -> XenCommandTree
                 std::visit(
                     sequence::utility::overload{
                         [&](float w) {
-                            increment_state(
-                                ps.timeline,
+                            stage_selected_mutation(
+                                ps,
                                 static_cast<sequence::Cell (*)(
                                     sequence::Cell, sequence::Pattern const &, float)>(
                                     &action::set_weights),
                                 pattern, w);
                         },
                         [&](Modulator const &mod) {
-                            increment_state(
-                                ps.timeline,
+                            stage_selected_mutation(
+                                ps,
                                 static_cast<sequence::Cell (*)(
                                     sequence::Cell, sequence::Pattern const &,
                                     Modulator const &)>(&action::set_weights),
                                 pattern, mod);
                         }},
                     weight);
+                request_deferred_commit(ps);
                 return minfo("Weights Set");
             }));
 
@@ -800,7 +796,6 @@ auto create_command_tree() -> XenCommandTree
                     }
 
                     ps.timeline.stage({std::move(state), std::move(aux)});
-                    ps.timeline.set_commit_flag();
                     return minfo("TimeSignature Doubled.");
                 }));
 
@@ -845,7 +840,6 @@ auto create_command_tree() -> XenCommandTree
                              }
 
                              ps.timeline.stage({std::move(state), std::move(aux)});
-                             ps.timeline.set_commit_flag();
                              return minfo("TimeSignature Halved.");
                          }));
 
@@ -862,9 +856,8 @@ auto create_command_tree() -> XenCommandTree
         shift->add(cmd(signature("pitch", arg<Pattern>(""), arg<int>("amount", 1)),
                        "Increment/Decrement the pitch of all selected Notes.",
                        [](PS &ps, Pattern const &pattern, int amount) {
-                           increment_state(ps.timeline, &sequence::modify::shift_pitch,
+                           stage_selected_mutation(ps, &sequence::modify::shift_pitch,
                                            pattern, amount);
-                           ps.timeline.set_commit_flag();
                            return minfo("Pitch Shifted");
                        }));
 
@@ -872,12 +865,10 @@ auto create_command_tree() -> XenCommandTree
         shift->add(cmd(signature("octave", arg<Pattern>(""), arg<int>("amount", 1)),
                        "Increment/Decrement the octave of all selected Notes.",
                        [](PS &ps, Pattern const &pattern, int amount) {
-                           auto [_, aux] = ps.timeline.get_state();
-                           ps.timeline.stage({
-                               action::shift_octave(ps.timeline, pattern, amount),
-                               std::move(aux),
-                           });
-                           ps.timeline.set_commit_flag();
+                           auto state = ps.timeline.get_state();
+                           state.sequencer = action::shift_octave(
+                               std::move(state.sequencer), state.aux, pattern, amount);
+                           ps.timeline.stage(std::move(state));
                            return minfo("Octave Shifted");
                        }));
 
@@ -886,9 +877,8 @@ auto create_command_tree() -> XenCommandTree
             cmd(signature("velocity", arg<Pattern>(""), arg<float>("amount", 0.1f)),
                 "Increment/Decrement the velocity of all selected Notes.",
                 [](PS &ps, Pattern const &pattern, float amount) {
-                    increment_state(ps.timeline, &sequence::modify::shift_velocity,
+                    stage_selected_mutation(ps, &sequence::modify::shift_velocity,
                                     pattern, amount);
-                    ps.timeline.set_commit_flag();
                     return minfo("Velocity Shifted");
                 }));
 
@@ -896,9 +886,8 @@ auto create_command_tree() -> XenCommandTree
         shift->add(cmd(signature("delay", arg<Pattern>(""), arg<float>("amount", 0.1f)),
                        "Increment/Decrement the delay of all selected Notes.",
                        [](PS &ps, Pattern const &pattern, float amount) {
-                           increment_state(ps.timeline, &sequence::modify::shift_delay,
+                           stage_selected_mutation(ps, &sequence::modify::shift_delay,
                                            pattern, amount);
-                           ps.timeline.set_commit_flag();
                            return minfo("Delay Shifted");
                        }));
 
@@ -906,9 +895,8 @@ auto create_command_tree() -> XenCommandTree
         shift->add(cmd(signature("gate", arg<Pattern>(""), arg<float>("amount", 0.1f)),
                        "Increment/Decrement the gate of all selected Notes.",
                        [](PS &ps, Pattern const &pattern, float amount) {
-                           increment_state(ps.timeline, &sequence::modify::shift_gate,
+                           stage_selected_mutation(ps, &sequence::modify::shift_gate,
                                            pattern, amount);
-                           ps.timeline.set_commit_flag();
                            return minfo("Gate Shifted");
                        }));
 
@@ -944,7 +932,6 @@ auto create_command_tree() -> XenCommandTree
                                seq.scale = std::nullopt; // Chromatic
                            }
                            ps.timeline.stage({std::move(seq), std::move(aux)});
-                           ps.timeline.set_commit_flag();
                            return minfo("Scale Shifted");
                        }));
 
@@ -957,7 +944,6 @@ auto create_command_tree() -> XenCommandTree
                            {
                                seq.scale = action::shift_scale_mode(*seq.scale, amount);
                                ps.timeline.stage({std::move(seq), std::move(aux)});
-                               ps.timeline.set_commit_flag();
                            }
                            return minfo("Scale Mode Shifted");
                        }));
@@ -971,7 +957,6 @@ auto create_command_tree() -> XenCommandTree
                            action::flip_translate_direction(
                                state.sequencer.scale_translate_direction);
                            ps.timeline.stage(std::move(state));
-                           ps.timeline.set_commit_flag();
                            return minfo("Translate Direction Shifted");
                        }));
 
@@ -1025,7 +1010,6 @@ auto create_command_tree() -> XenCommandTree
                 }
 
                 ps.timeline.stage({std::move(seq), std::move(aux)});
-                ps.timeline.set_commit_flag();
                 return minfo("Entire Scale Shifted");
             }));
 
@@ -1040,10 +1024,9 @@ auto create_command_tree() -> XenCommandTree
                                      arg<int>("max", 12)),
                            "Set the pitch of any selected Notes to a random value.",
                            [](PS &ps, Pattern const &pattern, int min, int max) {
-                               increment_state(ps.timeline,
+                               stage_selected_mutation(ps,
                                                &sequence::modify::randomize_pitch,
                                                pattern, min, max);
-                               ps.timeline.set_commit_flag();
                                return minfo("Randomized Pitch");
                            }));
 
@@ -1052,10 +1035,9 @@ auto create_command_tree() -> XenCommandTree
                                      arg<float>("min", 0.01f), arg<float>("max", 1.f)),
                            "Set the velocity of any selected Notes to a random value.",
                            [](PS &ps, Pattern const &pattern, float min, float max) {
-                               increment_state(ps.timeline,
+                               stage_selected_mutation(ps,
                                                &sequence::modify::randomize_velocity,
                                                pattern, min, max);
-                               ps.timeline.set_commit_flag();
                                return minfo("Randomized Velocity");
                            }));
 
@@ -1064,10 +1046,9 @@ auto create_command_tree() -> XenCommandTree
                                      arg<float>("max", 0.95f)),
                            "Set the delay of any selected Notes to a random value.",
                            [](PS &ps, Pattern const &pattern, float min, float max) {
-                               increment_state(ps.timeline,
+                               stage_selected_mutation(ps,
                                                &sequence::modify::randomize_delay,
                                                pattern, min, max);
-                               ps.timeline.set_commit_flag();
                                return minfo("Randomized Delay");
                            }));
 
@@ -1076,10 +1057,9 @@ auto create_command_tree() -> XenCommandTree
                                      arg<float>("max", 0.95f)),
                            "Set the gate of any selected Notes to a random value.",
                            [](PS &ps, Pattern const &pattern, float min, float max) {
-                               increment_state(ps.timeline,
+                               stage_selected_mutation(ps,
                                                &sequence::modify::randomize_gate,
                                                pattern, min, max);
-                               ps.timeline.set_commit_flag();
                                return minfo("Randomized Gate");
                            }));
 
@@ -1094,8 +1074,7 @@ auto create_command_tree() -> XenCommandTree
         "not split sequences, it will traverse until it finds a Note or Rest and will "
         "then duplicate it. This can also take a Pattern, whereas split cannot.",
         [](PS &ps, Pattern const &pattern, std::size_t count) {
-            increment_state(ps.timeline, &sequence::modify::stretch, pattern, count);
-            ps.timeline.set_commit_flag();
+            stage_selected_mutation(ps, &sequence::modify::stretch, pattern, count);
             return minfo("Stretched Selection by " + std::to_string(count));
         }));
 
@@ -1110,9 +1089,8 @@ auto create_command_tree() -> XenCommandTree
                      }
                      else
                      {
-                         increment_state(ps.timeline, &sequence::modify::compress,
+                         stage_selected_mutation(ps, &sequence::modify::compress,
                                          pattern);
-                         ps.timeline.set_commit_flag();
                          return minfo("Compressed Selection");
                      }
                  }));
@@ -1120,8 +1098,7 @@ auto create_command_tree() -> XenCommandTree
     // shuffle
     head.add(cmd(signature("shuffle"),
                  "Randomly shuffle Notes and Rests in current selection.", [](PS &ps) {
-                     increment_state(ps.timeline, &sequence::modify::shuffle);
-                     ps.timeline.set_commit_flag();
+                     stage_selected_mutation(ps, &sequence::modify::shuffle);
                      return minfo("Selection Shuffled");
                  }));
 
@@ -1130,8 +1107,7 @@ auto create_command_tree() -> XenCommandTree
                  "Shift Cells in the current selection by `amount`.\n\nPositive values "
                  "shift right, negative values shift left.",
                  [](PS &ps, int amount) {
-                     increment_state(ps.timeline, &sequence::modify::rotate, amount);
-                     ps.timeline.set_commit_flag();
+                     stage_selected_mutation(ps, &sequence::modify::rotate, amount);
                      return minfo("Selection Rotated");
                  }));
 
@@ -1139,8 +1115,7 @@ auto create_command_tree() -> XenCommandTree
     head.add(cmd(signature("reverse"),
                  "Reverse the order of all Notes and Rests in the current selection.",
                  [](PS &ps) {
-                     increment_state(ps.timeline, &sequence::modify::reverse);
-                     ps.timeline.set_commit_flag();
+                     stage_selected_mutation(ps, &sequence::modify::reverse);
                      return minfo("Selection Reversed");
                  }));
 
@@ -1149,9 +1124,8 @@ auto create_command_tree() -> XenCommandTree
         cmd(signature("mirror", arg<Pattern>(""), arg<int>("centerPitch", 0)),
             "Mirror the note pitches of the current selection around `centerPitch`.",
             [](PS &ps, Pattern const &pattern, int center_pitch) {
-                increment_state(ps.timeline, &sequence::modify::mirror, pattern,
+                stage_selected_mutation(ps, &sequence::modify::mirror, pattern,
                                 center_pitch);
-                ps.timeline.set_commit_flag();
                 return minfo("Selection Mirrored");
             }));
 
@@ -1160,8 +1134,7 @@ auto create_command_tree() -> XenCommandTree
         signature("quantize", arg<Pattern>("")),
         "Set the delay to zero and gate to one for all Notes in the current selection.",
         [](PS &ps, Pattern const &pattern) {
-            increment_state(ps.timeline, &sequence::modify::quantize, pattern);
-            ps.timeline.set_commit_flag();
+            stage_selected_mutation(ps, &sequence::modify::quantize, pattern);
             return minfo("Selection Quantized");
         }));
 
@@ -1170,8 +1143,7 @@ auto create_command_tree() -> XenCommandTree
         cmd(signature("swing", arg<float>("amount", 0.1f)),
             "Set the delay of every other Note in the current selection to `amount`.",
             [](PS &ps, float amount) {
-                increment_state(ps.timeline, &sequence::modify::swing, amount, false);
-                ps.timeline.set_commit_flag();
+                stage_selected_mutation(ps, &sequence::modify::swing, amount, false);
                 return minfo("Selection Swung by " + std::to_string(amount));
             }));
 
@@ -1188,7 +1160,6 @@ auto create_command_tree() -> XenCommandTree
             selected =
                 action::step(selected, pattern, pitch_distance, velocity_distance);
             ps.timeline.stage({std::move(state), std::move(aux)});
-            ps.timeline.set_commit_flag();
             return minfo("Stepped");
         }));
 
@@ -1259,7 +1230,6 @@ auto create_command_tree() -> XenCommandTree
             selected = action::arp(selected, pattern, intervals);
 
             ps.timeline.stage({std::move(state), std::move(aux)});
-            ps.timeline.set_commit_flag();
 
             return minfo("Arpeggiated with " + chord_name +
                          " inversion: " + std::to_string(inversion));
@@ -1300,7 +1270,6 @@ auto create_command_tree() -> XenCommandTree
             state.tuning_name = "Drums (" + std::to_string(octave_size) + ")";
 
             ps.timeline.stage({std::move(state), std::move(aux)});
-            ps.timeline.set_commit_flag();
             return minfo("Drum Mode Active");
         }));
 

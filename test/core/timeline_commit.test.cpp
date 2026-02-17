@@ -94,3 +94,45 @@ TEST_CASE("New commit after undo truncates redo history", "[core][timeline][comm
     CHECK(after_redo.engine.key == 3);
     CHECK(after_redo.commit_id == after_new_commit.commit_id);
 }
+
+TEST_CASE("Deferred mutation commands do not auto-commit without explicit commit",
+          "[core][timeline][commit]")
+{
+    auto processor = XenProcessor{};
+
+    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [deferred_level, deferred_message] =
+        processor.execute_command_string("set weights 0.5");
+    CHECK(deferred_level == MessageLevel::Info);
+    CHECK(deferred_message == "Weights Set");
+
+    auto const after_deferred = processor.get_engine_snapshot();
+    CHECK(after_deferred.commit_id == before.commit_id);
+
+    auto const [commit_level, commit_message] =
+        processor.execute_command_string("commit");
+    CHECK(commit_level == MessageLevel::Debug);
+    CHECK(commit_message == "commit made");
+
+    auto const after_commit = processor.get_engine_snapshot();
+    CHECK(after_commit.commit_id > before.commit_id);
+}
+
+TEST_CASE("Deferred mutation with later command error does not commit",
+          "[core][timeline][commit]")
+{
+    auto processor = XenProcessor{};
+
+    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [level, message] =
+        processor.execute_command_string("set weights 0.75; notARealCommand");
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "Command not found: notARealCommand");
+
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.commit_id == before.commit_id);
+}

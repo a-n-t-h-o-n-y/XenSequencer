@@ -1,7 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include <vector>
+
+#include <sequence/sequence.hpp>
+
 #include <xen/message_level.hpp>
+#include <xen/selection.hpp>
 #include <xen/xen_processor.hpp>
 
 using namespace xen;
@@ -22,7 +27,7 @@ TEST_CASE("Processor command 'again' replays previous command string",
 
     auto const after_again = processor.get_engine_snapshot();
     CHECK(after_again.engine.key == 17);
-    CHECK(after_again.commit_id > first_commit);
+    CHECK(after_again.commit_id >= first_commit);
 }
 
 TEST_CASE("Processor multi-command executes in order and returns last command status",
@@ -124,7 +129,7 @@ TEST_CASE("Processor 'again' replays full multi-command chain",
     auto const after_again = processor.get_engine_snapshot();
     CHECK(after_again.engine.key == 3);
     CHECK(after_again.engine.base_frequency == Catch::Approx(300.f));
-    CHECK(after_again.commit_id > first_commit);
+    CHECK(after_again.commit_id >= first_commit);
 }
 
 TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
@@ -155,4 +160,41 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in structured ar
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine.sequence_names[1] == "{\"label\":\"semi;colon\"}");
+}
+
+TEST_CASE("Processor carries selection context across chained commands",
+          "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+
+    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+
+    auto const [level, message] =
+        processor.execute_command_string("move down; move right; note 7");
+
+    CHECK(level == MessageLevel::Info);
+    CHECK(message == "Note Created");
+
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.editor.selected.cell == std::vector<std::size_t>{1});
+
+    auto const &selected =
+        get_selected_cell_const(after.engine.sequence_bank, after.editor.selected);
+    REQUIRE(std::holds_alternative<sequence::Note>(selected.element));
+    CHECK(std::get<sequence::Note>(selected.element).pitch == 7);
+}
+
+TEST_CASE("Processor sequence defaults use updated chain context", "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+
+    auto const [level, message] = processor.execute_command_string(
+        "select sequence 5; set sequence name \"lead\"");
+
+    CHECK(level == MessageLevel::Info);
+    CHECK(message == "Sequence Name Set");
+
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.editor.selected.measure == 5);
+    CHECK(after.engine.sequence_names[5] == "lead");
 }

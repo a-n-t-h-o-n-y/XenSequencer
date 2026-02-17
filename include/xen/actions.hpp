@@ -30,25 +30,25 @@ namespace xen
  * parameter, then stage this state to the timeline. Does not flag the Timeline for
  * commit.
  *
- * @param tl The timeline to operate on.
+ * @param state The state to mutate.
  * @param fn The function to apply to the selected Cell.
  * @param args The arguments to pass to the function.
- * @return SequencerState The new state.
+ * @return TimelineState The updated state.
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-void increment_state(XenTimeline &tl, Fn &&fn, Args &&...args)
+[[nodiscard]] auto increment_state(TimelineState state, Fn &&fn, Args &&...args)
+    -> TimelineState
 {
     static_assert(
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>,
         "Function must be invocable with a Cell and Args... and return a Cell.");
 
-    auto [state, aux] = tl.get_state();
-    auto &selected = get_selected_cell(state.sequence_bank, aux.selected);
+    auto &selected =
+        get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
 
     selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
-
-    tl.stage({std::move(state), std::move(aux)});
+    return state;
 }
 
 } // namespace xen
@@ -56,30 +56,40 @@ void increment_state(XenTimeline &tl, Fn &&fn, Args &&...args)
 namespace xen::action
 {
 
-[[nodiscard]] auto move_left(XenTimeline const &tl, std::size_t amount) -> AuxState;
+[[nodiscard]] auto move_left(SequencerState const &state, ExecutionContext context,
+                             std::size_t amount) -> ExecutionContext;
 
-[[nodiscard]] auto move_right(XenTimeline const &tl, std::size_t amount) -> AuxState;
+[[nodiscard]] auto move_right(SequencerState const &state, ExecutionContext context,
+                              std::size_t amount) -> ExecutionContext;
 
-[[nodiscard]] auto move_up(XenTimeline const &tl, std::size_t amount) -> AuxState;
+[[nodiscard]] auto move_up(ExecutionContext context, std::size_t amount)
+    -> ExecutionContext;
 
-[[nodiscard]] auto move_down(XenTimeline const &tl, std::size_t amount) -> AuxState;
+[[nodiscard]] auto move_down(SequencerState const &state, ExecutionContext context,
+                             std::size_t amount) -> ExecutionContext;
 
-void copy(XenTimeline const &tl);
+void copy(SequencerState const &state, ExecutionContext const &context);
 
-[[nodiscard]] auto cut(XenTimeline const &tl) -> SequencerState;
+[[nodiscard]] auto cut(SequencerState state, ExecutionContext const &context)
+    -> SequencerState;
 
-[[nodiscard]] auto paste(XenTimeline const &tl) -> SequencerState;
+[[nodiscard]] auto paste(SequencerState state, ExecutionContext const &context)
+    -> SequencerState;
 
-[[nodiscard]] auto duplicate(XenTimeline const &tl) -> TrackedState;
+[[nodiscard]] auto duplicate(TimelineState state) -> TimelineState;
 
-[[nodiscard]] auto set_input_mode(XenTimeline const &tl, InputMode mode) -> AuxState;
+[[nodiscard]] auto set_input_mode(ExecutionContext context, InputMode mode)
+    -> ExecutionContext;
 
-[[nodiscard]] auto lift(XenTimeline const &tl) -> TrackedState;
+[[nodiscard]] auto lift(TimelineState state) -> TimelineState;
 
-[[nodiscard]] auto shift_octave(XenTimeline const &tl, sequence::Pattern const &pattern,
-                                int amount) -> SequencerState;
+[[nodiscard]] auto shift_octave(SequencerState state,
+                                ExecutionContext const &context,
+                                sequence::Pattern const &pattern, int amount)
+    -> SequencerState;
 
-[[nodiscard]] auto set_note_octave(XenTimeline const &tl,
+[[nodiscard]] auto set_note_octave(SequencerState state,
+                                   ExecutionContext const &context,
                                    sequence::Pattern const &pattern, int octave)
     -> SequencerState;
 
@@ -96,10 +106,11 @@ void save_sequence_bank(SequenceBank const &bank,
 [[nodiscard]] auto load_sequence_bank(juce::File const &filepath)
     -> std::pair<SequenceBank, std::array<std::string, 16>>;
 
-[[nodiscard]] auto set_base_frequency(XenTimeline const &tl, float freq)
+[[nodiscard]] auto set_base_frequency(SequencerState state, float freq)
     -> SequencerState;
 
-[[nodiscard]] auto set_selected_sequence(AuxState aux, int index) -> AuxState;
+[[nodiscard]] auto set_selected_sequence(ExecutionContext context, int index)
+    -> ExecutionContext;
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 

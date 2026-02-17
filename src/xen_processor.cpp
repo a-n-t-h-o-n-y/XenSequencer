@@ -230,6 +230,8 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
 
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
             auto executed_any_command = false;
+            auto auto_commit_candidate = false;
+            auto force_commit_requested = false;
             auto context = ExecutionContext{ps.timeline.get_state().aux};
             for (auto const &invocation : command_chain)
             {
@@ -239,8 +241,22 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 state_before_command.aux = context;
                 ps.timeline.stage(std::move(state_before_command));
 
+                auto const engine_before_command = ps.timeline.get_state().sequencer;
+                ps.commit_intent = CommitIntent::Auto;
                 executed_any_command = true;
                 status = command_tree.execute(ps, invocation.input);
+
+                auto const engine_after_command = ps.timeline.get_state().sequencer;
+                if (ps.commit_intent == CommitIntent::Force)
+                {
+                    force_commit_requested = true;
+                }
+                if (engine_after_command != engine_before_command &&
+                    ps.commit_intent != CommitIntent::Defer)
+                {
+                    auto_commit_candidate = true;
+                }
+
                 context = ps.timeline.get_state().aux;
                 if (status.first == MessageLevel::Error)
                 {
@@ -260,7 +276,13 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 previous_command_chain_ = command_chain;
             }
 
-            if (ps.timeline.get_commit_flag())
+            auto const stage_engine = ps.timeline.get_state().sequencer;
+            auto const committed_engine = ps.timeline.get_committed_state().sequencer;
+            auto const staged_engine_differs_from_commit =
+                stage_engine != committed_engine;
+
+            if (force_commit_requested ||
+                (staged_engine_differs_from_commit && auto_commit_candidate))
             {
                 ps.timeline.commit();
             }
