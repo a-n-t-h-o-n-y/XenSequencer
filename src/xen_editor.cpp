@@ -50,6 +50,21 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
                     p.plugin_state.command_history, p.audio_thread_state_for_gui},
       processor_{p}, tooltip_window_{this}
 {
+#if XEN_USE_WEBVIEW_BRIDGE_UI
+    this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
+    this->setResizable(true, true);
+    this->setSize(width, height);
+    this->setResizeLimits(400, 300, 0x3fffffff, 0x3fffffff);
+
+    webview_host_ = std::make_unique<WebviewHost>(processor_);
+    this->addAndMakeVisible(webview_host_.get());
+
+    laf_ = gui::make_laf(gui::find_theme("apollo"));
+    this->setLookAndFeel(laf_.get());
+
+    last_snapshot_version_ = processor_.get_ui_snapshot_version();
+    return;
+#else
     processor_.set_focus_command_handler([this](std::string const &component_id) {
         try
         {
@@ -197,6 +212,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     last_snapshot_version_ = processor_.get_ui_snapshot_version();
     this->startTimerHz(30);
+#endif
 }
 
 XenEditor::~XenEditor()
@@ -212,45 +228,66 @@ auto XenEditor::createKeyboardFocusTraverser()
 
 void XenEditor::update()
 {
+#if XEN_USE_WEBVIEW_BRIDGE_UI
+    last_snapshot_version_ = processor_.get_ui_snapshot_version();
+#else
     auto const snapshot = processor_.get_engine_snapshot();
     plugin_window.update(snapshot, processor_.plugin_state.library.scales);
     last_snapshot_version_ = snapshot.snapshot_version;
+#endif
 }
 
 void XenEditor::update_key_listeners(juce::File const &default_keys,
                                      juce::File const &user_keys)
 {
+#if XEN_USE_WEBVIEW_BRIDGE_UI
+    juce::ignoreUnused(default_keys, user_keys);
+#else
     auto previous_listeners = std::move(key_config_listeners_);
     key_config_listeners_ =
         build_key_listeners(default_keys, user_keys, processor_.plugin_state.timeline);
     this->set_key_listeners(std::move(previous_listeners), key_config_listeners_);
+#endif
 }
 
 void XenEditor::resized()
 {
+#if XEN_USE_WEBVIEW_BRIDGE_UI
+    if (webview_host_ != nullptr)
+    {
+        webview_host_->setBounds(this->getLocalBounds());
+    }
+#else
     plugin_window.setBounds(this->getLocalBounds());
+#endif
     processor_.editor_width = this->getWidth();
     processor_.editor_height = this->getHeight();
 }
 
 void XenEditor::timerCallback()
 {
+#if !XEN_USE_WEBVIEW_BRIDGE_UI
     auto const version = processor_.get_ui_snapshot_version();
     if (version != last_snapshot_version_)
     {
         this->update();
     }
+#endif
 }
 
 void XenEditor::execute_command_string(std::string const &command_string)
 {
     auto const [level, message] = processor_.execute_command_string(command_string);
+#if XEN_USE_WEBVIEW_BRIDGE_UI
+    juce::ignoreUnused(level, message);
+#else
     if (level != MessageLevel::Error)
     {
         this->update();
     }
     plugin_window.bottom_bar.status_bar.set_status(level, message);
     plugin_window.center_component.message_log.add_message(message, level);
+#endif
 }
 
 void XenEditor::set_key_listeners(

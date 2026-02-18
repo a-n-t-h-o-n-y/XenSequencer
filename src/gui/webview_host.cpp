@@ -1,0 +1,215 @@
+#include <xen/gui/webview_host.hpp>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <string>
+#include <vector>
+
+#if !JUCE_DEBUG
+#include <embed_webui.hpp>
+#endif
+
+namespace
+{
+
+#if !JUCE_DEBUG
+auto default_mime_type() -> juce::String
+{
+    return "application/octet-stream";
+}
+
+auto mime_type_for_path(juce::String path) -> juce::String
+{
+    auto const extension = path.fromLastOccurrenceOf(".", false, false).toLowerCase();
+
+    if (extension == ".html" || extension == ".htm")
+        return "text/html; charset=utf-8";
+    if (extension == ".js" || extension == ".mjs")
+        return "text/javascript; charset=utf-8";
+    if (extension == ".css")
+        return "text/css; charset=utf-8";
+    if (extension == ".json")
+        return "application/json; charset=utf-8";
+    if (extension == ".svg")
+        return "image/svg+xml";
+    if (extension == ".png")
+        return "image/png";
+    if (extension == ".jpg" || extension == ".jpeg")
+        return "image/jpeg";
+    if (extension == ".gif")
+        return "image/gif";
+    if (extension == ".ico")
+        return "image/x-icon";
+    if (extension == ".webp")
+        return "image/webp";
+    if (extension == ".woff")
+        return "font/woff";
+    if (extension == ".woff2")
+        return "font/woff2";
+    if (extension == ".ttf")
+        return "font/ttf";
+    if (extension == ".map")
+        return "application/json; charset=utf-8";
+
+    return default_mime_type();
+}
+
+auto normalize_resource_path(juce::String resource_path) -> std::optional<juce::String>
+{
+    auto normalized = resource_path.upToFirstOccurrenceOf("?", false, false);
+    normalized = normalized.upToFirstOccurrenceOf("#", false, false);
+
+    if (normalized.isEmpty() || normalized == "/")
+    {
+        normalized = "/index.html";
+    }
+
+    while (normalized.startsWithChar('/'))
+    {
+        normalized = normalized.substring(1);
+    }
+
+    if (normalized.contains(".."))
+    {
+        return std::nullopt;
+    }
+
+    return normalized;
+}
+#endif
+
+} // namespace
+
+namespace xen::gui
+{
+
+WebviewHost::WebviewHost(XenProcessor &processor)
+    : processor_{processor}, bridge_{processor}
+{
+    browser_ =
+        std::make_unique<juce::WebBrowserComponent>(create_browser_options());
+
+    this->addAndMakeVisible(*browser_);
+    this->setWantsKeyboardFocus(true);
+
+    load_initial_url();
+
+    last_snapshot_version_ = processor_.get_ui_snapshot_version();
+    this->startTimerHz(30);
+}
+
+void WebviewHost::resized()
+{
+    if (browser_ != nullptr)
+    {
+        browser_->setBounds(this->getLocalBounds());
+    }
+}
+
+void WebviewHost::timerCallback()
+{
+    auto const version = processor_.get_ui_snapshot_version();
+    if (version != last_snapshot_version_)
+    {
+        last_snapshot_version_ = version;
+        emit_state_changed_event();
+    }
+}
+
+auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
+{
+    auto options = juce::WebBrowserComponent::Options{}
+                       .withNativeIntegrationEnabled()
+                       .withNativeFunction(
+                           "xenBridgeRequest",
+                           [this](juce::Array<juce::var> const &args,
+                                  juce::WebBrowserComponent::NativeFunctionCompletion
+                                      completion) {
+                               auto request_json = std::string{};
+                               if (!args.isEmpty())
+                               {
+                                   request_json =
+                                       args[0].toString().toStdString();
+                               }
+                               completion(
+                                   juce::String{bridge_.handle_request_json(request_json)});
+                           });
+
+#if !JUCE_DEBUG
+    options = options.withResourceProvider(
+        [this](juce::String const &resource_path) {
+            return provide_embedded_resource(resource_path);
+        });
+#endif
+
+    return options;
+}
+
+#if !JUCE_DEBUG
+auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) const
+    -> std::optional<juce::WebBrowserComponent::Resource>
+{
+    auto const normalized_opt = normalize_resource_path(resource_path);
+    if (!normalized_opt.has_value())
+    {
+        return std::nullopt;
+    }
+
+    auto const normalized = *normalized_opt;
+    auto const dist_root = juce::File{XEN_WEB_UI_DIST_DIR};
+
+    for (auto i = 0; i < embed_webui::namedResourceListSize; ++i)
+    {
+        auto const *resource_name = embed_webui::namedResourceList[i];
+        auto const *original_filename =
+            embed_webui::getNamedResourceOriginalFilename(resource_name);
+        auto relative_path = juce::File{original_filename}
+                                 .getRelativePathFrom(dist_root)
+                                 .replaceCharacter('\\', '/');
+
+        if (relative_path != normalized)
+        {
+            continue;
+        }
+
+        auto size = 0;
+        auto const *data = embed_webui::getNamedResource(resource_name, size);
+        if (data == nullptr || size <= 0)
+        {
+            return std::nullopt;
+        }
+
+        auto bytes = std::vector<std::byte>{};
+        bytes.resize((std::size_t)size);
+        std::memcpy(bytes.data(), data, (std::size_t)size);
+
+        return juce::WebBrowserComponent::Resource{
+            .data = std::move(bytes),
+            .mimeType = mime_type_for_path(normalized),
+        };
+    }
+
+    return std::nullopt;
+}
+#endif
+
+void WebviewHost::load_initial_url()
+{
+#if JUCE_DEBUG
+    browser_->goToURL(juce::String{XEN_WEB_UI_DEV_URL});
+#else
+    browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+#endif
+}
+
+void WebviewHost::emit_state_changed_event()
+{
+    browser_->emitEventIfBrowserIsVisible(
+        "xenBridgeEvent",
+        juce::String{bridge_.make_state_changed_event_json()});
+}
+
+} // namespace xen::gui

@@ -14,6 +14,41 @@ add_subdirectory(external/MicrotonalStepSequencer)
 option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
 option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" OFF)
+option(XEN_USE_WEBVIEW_BRIDGE_UI "Use WebView bridge UI in the editor" ON)
+
+set(XEN_WEB_UI_DEV_URL "http://127.0.0.1:5173" CACHE STRING
+    "URL for Web UI dev server used in Debug builds")
+set(XEN_WEB_UI_DIST_DIR "" CACHE PATH
+    "Path to frontend dist/ directory used in non-Debug builds")
+
+if (CMAKE_CONFIGURATION_TYPES)
+    message(FATAL_ERROR
+        "XenSequencer Web UI build currently supports single-config generators only.")
+endif()
+
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+    message(STATUS "CMAKE_BUILD_TYPE not set. Defaulting to Debug.")
+endif()
+
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if (NOT XEN_WEB_UI_DIST_DIR)
+        message(FATAL_ERROR
+            "XEN_WEB_UI_DIST_DIR is required for non-Debug builds.")
+    endif()
+
+    if (NOT IS_DIRECTORY "${XEN_WEB_UI_DIST_DIR}")
+        message(FATAL_ERROR
+            "XEN_WEB_UI_DIST_DIR does not exist or is not a directory: "
+            "${XEN_WEB_UI_DIST_DIR}")
+    endif()
+
+    if (NOT EXISTS "${XEN_WEB_UI_DIST_DIR}/index.html")
+        message(FATAL_ERROR
+            "XEN_WEB_UI_DIST_DIR must contain index.html: "
+            "${XEN_WEB_UI_DIST_DIR}/index.html")
+    endif()
+endif()
 
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -139,6 +174,24 @@ juce_add_binary_data(EmbedFonts
         data/font/RobotoMono-Thin.ttf
 )
 
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    file(GLOB_RECURSE XEN_WEB_UI_DIST_FILES CONFIGURE_DEPENDS
+        LIST_DIRECTORIES false
+        "${XEN_WEB_UI_DIST_DIR}/*")
+
+    if (NOT XEN_WEB_UI_DIST_FILES)
+        message(FATAL_ERROR
+            "No files found in XEN_WEB_UI_DIST_DIR: ${XEN_WEB_UI_DIST_DIR}")
+    endif()
+
+    juce_add_binary_data(EmbedWebUI
+        HEADER_NAME "embed_webui.hpp"
+        NAMESPACE embed_webui
+        SOURCES
+            ${XEN_WEB_UI_DIST_FILES}
+    )
+endif()
+
 # BUILD TARGETS ------------------------------------------------------------------------
 
 set(XEN_CORE_SOURCES
@@ -171,11 +224,14 @@ set(XEN_CORE_SOURCES
     src/string_manip.cpp
     src/user_directory.cpp
     src/utility.cpp
+    src/bridge_serialize.cpp
+    src/webview_bridge.cpp
 )
 
 set(XEN_UI_SOURCES
     src/key_core.cpp
     src/xen_editor.cpp
+    src/gui/webview_host.cpp
     src/gui/accordion.cpp
     src/gui/bg_sequence.cpp
     src/gui/bottom_bar.cpp
@@ -242,8 +298,25 @@ target_link_libraries(XenUI
         juce::juce_audio_processors
         juce::juce_audio_utils
         juce::juce_gui_basics
+        juce::juce_gui_extra
         EmbedFonts
 )
+
+if (TARGET EmbedWebUI)
+    target_link_libraries(XenUI PUBLIC EmbedWebUI)
+endif()
+
+target_compile_definitions(XenUI
+    PUBLIC
+        XEN_WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL}"
+        XEN_WEB_UI_DIST_DIR="${XEN_WEB_UI_DIST_DIR}"
+)
+
+if (XEN_USE_WEBVIEW_BRIDGE_UI)
+    target_compile_definitions(XenUI PUBLIC XEN_USE_WEBVIEW_BRIDGE_UI=1)
+else()
+    target_compile_definitions(XenUI PUBLIC XEN_USE_WEBVIEW_BRIDGE_UI=0)
+endif()
 xen_apply_compile_settings(XenUI PRIVATE)
 
 # PLUGIN -------------------------------------------------------------------------------
@@ -293,6 +366,7 @@ if (XEN_BUILD_TESTS)
         test/core/command_parse.test.cpp
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
+        test/core/webview_bridge.test.cpp
         test/processor/processor_commands.test.cpp
         test/processor/processor_state_roundtrip.test.cpp
         test/sync/engine_state_mailbox.test.cpp

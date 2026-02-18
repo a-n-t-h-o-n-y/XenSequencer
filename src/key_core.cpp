@@ -448,4 +448,34 @@ auto build_key_listeners(juce::File const &default_keys, juce::File const &user_
     return result;
 }
 
+auto export_merged_keymap(juce::File const &default_keys, juce::File const &user_keys)
+    -> std::map<std::string, std::map<std::string, std::string>>
+{
+    auto const keys_node = merge_yaml_files(default_keys, user_keys);
+    auto result = std::map<std::string, std::map<std::string, std::string>>{};
+
+    for (auto const &component : keys_node)
+    {
+        auto const component_name = component.first.as<std::string>();
+        auto const &key_mappings = component.second;
+
+        if (!key_mappings.IsMap())
+        {
+            continue;
+        }
+
+        auto raw_mappings = std::map<std::string, std::string>{};
+        for (auto const &mapping : key_mappings)
+        {
+            auto const key_combo_str = mapping.first.as<std::string>();
+            auto const command = mapping.second.as<std::string>();
+            raw_mappings.insert_or_assign(key_combo_str, command);
+        }
+
+        result.insert_or_assign(component_name, std::move(raw_mappings));
+    }
+
+    return result;
+}
+
 } // namespace xen

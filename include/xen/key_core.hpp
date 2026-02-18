@@ -95,4 +95,8 @@ class KeyConfigListener : public juce::KeyListener
     juce::File const &default_keys, juce::File const &user_keys,
     XenTimeline const &tl) -> std::map<std::string, KeyConfigListener>;
 
+[[nodiscard]] auto export_merged_keymap(
+    juce::File const &default_keys, juce::File const &user_keys)
+    -> std::map<std::string, std::map<std::string, std::string>>;
+
 } // namespace xen

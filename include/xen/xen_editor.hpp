@@ -9,6 +9,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/gui/plugin_window.hpp>
+#include <xen/gui/webview_host.hpp>
 #include <xen/key_core.hpp>
 #include <xen/state.hpp>
 #include <xen/xen_processor.hpp>
@@ -71,6 +72,7 @@ class XenEditor : public juce::AudioProcessorEditor, private juce::Timer
 
   private:
     XenProcessor &processor_;
+    std::unique_ptr<WebviewHost> webview_host_;
 
     std::map<std::string, KeyConfigListener> key_config_listeners_;
     std::unique_ptr<juce::LookAndFeel> laf_;
