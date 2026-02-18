@@ -28,28 +28,24 @@ TEST_CASE("Engine snapshot version mirrors UI snapshot version", "[sync][snapsho
     CHECK(after.commit_id != before_commit_id);
 }
 
-TEST_CASE("Deprecated UI commands do not mutate engine state", "[sync][snapshot]")
+TEST_CASE("Unknown commands do not mutate engine state", "[sync][snapshot]")
 {
     auto processor = XenProcessor{};
 
     auto const before = processor.get_engine_snapshot();
 
-    auto const [focus_level, _focus_message] =
-        processor.execute_command_string("focus SequenceView");
-    CHECK(focus_level == MessageLevel::Warning);
+    auto const [missing_level, _missing_message] =
+        processor.execute_command_string("notACommand");
+    CHECK(missing_level == MessageLevel::Error);
 
-    auto const [show_level, _show_message] =
-        processor.execute_command_string("show LibraryView");
-    CHECK(show_level == MessageLevel::Warning);
-
-    auto const [theme_level, _theme_message] =
-        processor.execute_command_string("set theme apollo");
-    CHECK(theme_level == MessageLevel::Warning);
+    auto const [invalid_level, _invalid_message] =
+        processor.execute_command_string("notACommand 123");
+    CHECK(invalid_level == MessageLevel::Error);
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine == before.engine);
     CHECK(after.commit_id == before.commit_id);
-    CHECK(after.snapshot_version > before.snapshot_version);
+    CHECK(after.snapshot_version == before.snapshot_version);
 }
 
 TEST_CASE("Mailbox version advances only for committed engine changes",

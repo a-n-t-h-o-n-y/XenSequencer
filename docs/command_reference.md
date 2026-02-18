@@ -14,8 +14,6 @@ cut | `cut` | Cut the current selection.
 paste | `paste` | Paste over the current selection.
 duplicate | `duplicate` | Duplicate the current selection.
 inputMode | `inputMode [InputMode: mode]` | Change the input mode used by editing commands.
-focus | `focus [String: component_id]` | Deprecated. UI focus is handled by the UI adapter layer.
-show | `show [String: component_id]` | Deprecated. UI routing is handled by the UI adapter layer.
 load sequenceBank | `load sequenceBank [String: filename]` | Load the sequence bank from the current sequence directory.
 load tuning | `load tuning [String: filename]` | Load a tuning from the current tuning directory.
 load keys | `load keys` | Deprecated command.
@@ -44,7 +42,6 @@ set gate | `[pattern] set gate [Float|Modulator: gate=1]` | Set selected note ga
 set sequence name | `set sequence name [String: name] [Int: index=-1]` | Set sequence name by index or current selection.
 set sequence timeSignature | `set sequence timeSignature [TimeSignature: timesignature=4/4] [Int: index=-1]` | Set sequence time signature.
 set baseFrequency | `set baseFrequency [Float: freq=440]` | Set base frequency in Hz.
-set theme | `set theme [String: name]` | Deprecated. Theme changes are handled by the UI layer.
 set scale | `set scale [String: name]` | Set the active scale by name.
 set mode | `set mode [Unsigned: mode_index]` | Set the active scale mode index.
 set translateDirection | `set translateDirection [String: direction]` | Set scale translate direction.

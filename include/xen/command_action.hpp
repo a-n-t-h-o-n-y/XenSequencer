@@ -141,22 +141,6 @@ struct LoadChordsAction
 };
 
 /**
- * Typed action for deprecated `focus`.
- */
-struct DeprecatedFocusAction
-{
-    std::string component_id{};
-};
-
-/**
- * Typed action for deprecated `show`.
- */
-struct DeprecatedShowAction
-{
-    std::string component_id{};
-};
-
-/**
  * Typed action for `note`.
  */
 struct CreateNoteAction
@@ -258,14 +242,6 @@ struct FillRestAction
 struct SetBaseFrequencyAction
 {
     float freq{440.f};
-};
-
-/**
- * Typed action for deprecated `set theme`.
- */
-struct SetThemeAction
-{
-    std::string name{};
 };
 
 /**
@@ -632,13 +608,12 @@ using CommandAction =
                  SetKeyAction, SetSequenceNameAction,
                  SetSequenceTimeSignatureAction, SelectSequenceAction,
                  SetInputModeAction, LoadSequenceBankAction, LoadTuningAction,
-                 LoadKeysAction, LoadScalesAction, LoadChordsAction,
-                 DeprecatedFocusAction, DeprecatedShowAction, CreateNoteAction,
+                 LoadKeysAction, LoadScalesAction, LoadChordsAction, CreateNoteAction,
                  CreateRestAction, CopySelectionAction, CutSelectionAction,
                  PasteSelectionAction, DuplicateSelectionAction,
                  DeleteSelectionAction, SplitSelectionAction,
                  LiftSelectionAction, FlipSelectionAction, FillNoteAction,
-                 FillRestAction, SetBaseFrequencyAction, SetThemeAction,
+                 FillRestAction, SetBaseFrequencyAction,
                  SaveSequenceBankAction, LibraryDirectoryAction, SetPitchAction,
                  SetOctaveAction, SetVelocityAction, SetDelayAction,
                  SetGateAction, SetWeightAction, SetWeightsAction, CommitAction,

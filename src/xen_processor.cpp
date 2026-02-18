@@ -61,22 +61,6 @@ void XenProcessor::notify_ui_state_changed() noexcept
     ui_snapshot_version_.fetch_add(1, std::memory_order_release);
 }
 
-void XenProcessor::set_focus_command_handler(UiCommandHandler handler)
-{
-    focus_command_handler_ = std::move(handler);
-}
-
-void XenProcessor::set_show_command_handler(UiCommandHandler handler)
-{
-    show_command_handler_ = std::move(handler);
-}
-
-void XenProcessor::clear_ui_command_handlers()
-{
-    focus_command_handler_ = {};
-    show_command_handler_ = {};
-}
-
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                                 juce::MidiBuffer &midi_buffer)
 {
@@ -231,45 +215,6 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             auto const apply_action = [&](CommandAction const &action) {
                 executed_any_action = true;
                 executed_chain.push_back(action);
-
-                if (auto const *focus_action =
-                        std::get_if<DeprecatedFocusAction>(&action);
-                    focus_action != nullptr && focus_command_handler_)
-                {
-                    try
-                    {
-                        status = focus_command_handler_(focus_action->component_id);
-                    }
-                    catch (std::exception const &e)
-                    {
-                        status = {MessageLevel::Error, e.what()};
-                    }
-                    catch (...)
-                    {
-                        status = {MessageLevel::Error,
-                                  "Unknown error while handling 'focus'."};
-                    }
-                    return;
-                }
-
-                if (auto const *show_action = std::get_if<DeprecatedShowAction>(&action);
-                    show_action != nullptr && show_command_handler_)
-                {
-                    try
-                    {
-                        status = show_command_handler_(show_action->component_id);
-                    }
-                    catch (std::exception const &e)
-                    {
-                        status = {MessageLevel::Error, e.what()};
-                    }
-                    catch (...)
-                    {
-                        status = {MessageLevel::Error,
-                                  "Unknown error while handling 'show'."};
-                    }
-                    return;
-                }
 
                 auto const action_result = execute_command_action(ps, context, action);
                 apply_action_result(action_result);

@@ -61,22 +61,6 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"focus"}, false,
-        "Deprecated. UI focus is handled by the UI adapter layer.",
-        std::make_tuple(required_arg<std::string>("String", "component_id")),
-        [](CommandInvocation const &, std::string component_id) {
-            return DeprecatedFocusAction{.component_id = std::move(component_id)};
-        }));
-
-    specs.push_back(make_spec(
-        {"show"}, false,
-        "Deprecated. UI routing is handled by the UI adapter layer.",
-        std::make_tuple(required_arg<std::string>("String", "component_id")),
-        [](CommandInvocation const &, std::string component_id) {
-            return DeprecatedShowAction{.component_id = std::move(component_id)};
-        }));
-
-    specs.push_back(make_spec(
         {"load", "sequenceBank"}, false,
         "Load the sequence bank from the current sequence directory.",
         std::make_tuple(required_arg<std::string>("String", "filename")),

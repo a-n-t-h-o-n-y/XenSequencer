@@ -101,8 +101,6 @@ TEST_CASE("Official command catalog maps to typed actions",
         "paste",
         "duplicate",
         "inputMode pitch",
-        "focus statusBar",
-        "show chordsPane",
         "load sequenceBank fixture",
         "load tuning fixture",
         "load keys",
@@ -131,7 +129,6 @@ TEST_CASE("Official command catalog maps to typed actions",
         "set sequence name \"lead\"",
         "set sequence timeSignature 4/4",
         "set baseFrequency 440",
-        "set theme default",
         "set scale chromatic",
         "set mode 1",
         "set translateDirection up",
@@ -563,25 +560,17 @@ TEST_CASE("Command adapter maps misc and arp commands to typed actions",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "welcome; version; reset; focus statusBar; show chordsPane; "
-        "set theme neon; +1 2 arp major 1");
+        "welcome; version; reset; +1 2 arp major 1");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 7);
+    REQUIRE(actions.size() == 4);
     REQUIRE(std::holds_alternative<WelcomeAction>(actions[0]));
     REQUIRE(std::holds_alternative<VersionAction>(actions[1]));
     REQUIRE(std::holds_alternative<ResetAction>(actions[2]));
-    REQUIRE(std::holds_alternative<DeprecatedFocusAction>(actions[3]));
-    REQUIRE(std::holds_alternative<DeprecatedShowAction>(actions[4]));
-    REQUIRE(std::holds_alternative<SetThemeAction>(actions[5]));
-    REQUIRE(std::holds_alternative<ArpAction>(actions[6]));
-
-    CHECK(std::get<DeprecatedFocusAction>(actions[3]).component_id == "statusBar");
-    CHECK(std::get<DeprecatedShowAction>(actions[4]).component_id == "chordsPane");
-    CHECK(std::get<SetThemeAction>(actions[5]).name == "neon");
-    CHECK(std::get<ArpAction>(actions[6]).pattern == sequence::Pattern{1, {2}});
-    CHECK(std::get<ArpAction>(actions[6]).chord == "major");
-    CHECK(std::get<ArpAction>(actions[6]).inversion == 1);
+    REQUIRE(std::holds_alternative<ArpAction>(actions[3]));
+    CHECK(std::get<ArpAction>(actions[3]).pattern == sequence::Pattern{1, {2}});
+    CHECK(std::get<ArpAction>(actions[3]).chord == "major");
+    CHECK(std::get<ArpAction>(actions[3]).inversion == 1);
 }
 
 TEST_CASE("Command adapter preserves arp defaults", "[core][command][action]")
@@ -842,6 +831,5 @@ TEST_CASE("Typed scale and deprecated/library commands execute via catalog",
           MessageLevel::Info);
     CHECK(run_action("shift entireScale -1").status.first == MessageLevel::Info);
     CHECK(run_action("load keys").status.first == MessageLevel::Warning);
-    CHECK(run_action("set theme neon").status.first == MessageLevel::Warning);
     CHECK(run_action("libraryDirectory").status.first == MessageLevel::Info);
 }

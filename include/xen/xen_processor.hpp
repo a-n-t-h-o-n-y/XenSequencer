@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <cstdint>
-#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,10 +23,6 @@ namespace xen
 
 class XenProcessor : public juce::AudioProcessor
 {
-  public:
-    using UiCommandHandler =
-        std::function<std::pair<MessageLevel, std::string>(std::string const &)>;
-
   public:
     PluginState plugin_state;
     int editor_width{1400};
@@ -68,12 +63,6 @@ class XenProcessor : public juce::AudioProcessor
     auto execute_command_string(std::string const &command_string)
         -> std::pair<MessageLevel, std::string>;
 
-    void set_focus_command_handler(UiCommandHandler handler);
-
-    void set_show_command_handler(UiCommandHandler handler);
-
-    void clear_ui_command_handlers();
-
   public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -107,8 +96,6 @@ class XenProcessor : public juce::AudioProcessor
     std::vector<CommandAction> previous_action_chain_{};
     std::uint64_t audio_last_engine_version_{0};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
-    UiCommandHandler focus_command_handler_{};
-    UiCommandHandler show_command_handler_{};
 
   private:
     void notify_ui_state_changed() noexcept;

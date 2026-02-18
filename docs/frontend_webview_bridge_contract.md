@@ -126,7 +126,7 @@ Response payload:
 Notes:
 
 1. `status.level` may be `error` while snapshot still reflects partial/previous state.
-1. Frontend should not send UI navigation commands (`show`/`focus`). Handle those locally.
+1. Frontend should not send UI navigation commands through the bridge. Handle those locally.
 
 ### `command.completeText`
 
@@ -344,5 +344,5 @@ Typical triggers:
 1. Add runtime validation (zod/io-ts) for envelopes and every endpoint payload.
 1. Treat `state.get` and `state.changed` as the same snapshot schema.
 1. Use `snapshot_version` to drop stale state updates.
-1. Keep `show`/`focus` as frontend-local actions (do not send through bridge).
+1. Keep UI navigation as frontend-local actions (do not send through bridge).
 1. Preserve raw keymap command strings exactly as delivered.

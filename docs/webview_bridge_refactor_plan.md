@@ -95,9 +95,9 @@ Handshake rule:
 
 ### UI actions ownership
 
-- `show` and `focus` are not bridge commands and not part of C++ command catalog.
+- UI navigation commands are not bridge commands and not part of C++ command catalog.
 - View routing and focus transitions are JS-only actions handled inside frontend state.
-- During bridge-first rollout, C++ still accepts legacy `show`/`focus` commands.
+- During bridge-first rollout, C++ still accepts legacy UI-navigation command strings.
   Frontend should stop sending them and handle routing locally.
 
 ---
@@ -204,7 +204,7 @@ type UiStateSnapshot = {
 - Command status level does not imply no state change.
   - Example: a chain may partially mutate state then fail later.
 - Empty/no-op command chains return current snapshot unchanged.
-- `show`/`focus` are excluded from `command.execute`; frontend handles them locally.
+- UI navigation commands are excluded from `command.execute`; frontend handles them locally.
 
 ---
 
@@ -303,7 +303,7 @@ Notes:
 1. C++ returns hello response and immediately sends `state.changed` with full snapshot.
 1. Frontend requests `catalog.get` once and caches result.
 1. User interactions dispatch either:
-   - frontend-local UI actions (`show`/`focus` style navigation), or
+   - frontend-local UI navigation actions, or
    - `command.execute` for engine/editor state changes.
 1. C++ executes command, returns `status + snapshot`.
 1. If host/preset changes state outside command execution, C++ emits `state.changed`.
@@ -339,14 +339,14 @@ Notes:
 ### Phase 3: Interaction Wiring
 
 - Convert engine-edit interactions to command strings.
-- Implement frontend-local navigation/focus actions (replacing command-based `show`/`focus`).
+- Implement frontend-local navigation/focus actions (replacing command-based UI routing).
 - Show status message stream from `command.execute` response.
 - Wire autocomplete from completion endpoints.
 
 ### Phase 4: Parity + Cleanup
 
 - Update default keybinding behavior to call frontend UI actions for view/focus changes.
-- Remove remaining docs/examples that present `show`/`focus` as executable core commands.
+- Remove remaining docs/examples that present UI routing as executable core commands.
 - Remove legacy JUCE UI components and command handler hookups not needed by WebView path.
 - Keep one UI path.
 
@@ -367,4 +367,4 @@ Notes:
 
 1. Include transport animation data (`DAWState` + trigger timing) in v1 snapshot or defer to v2 event stream.
 1. Keep snake_case JSON keys permanently or map to camelCase at bridge boundary.
-1. Timing for final C++ removal of legacy `show`/`focus` command path at frontend cutover.
+1. Timing for final C++ removal of legacy UI-navigation command path at frontend cutover.

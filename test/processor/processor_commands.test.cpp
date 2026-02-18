@@ -200,54 +200,12 @@ TEST_CASE("Processor sequence defaults use updated chain context", "[processor][
     CHECK(after.engine.sequence_names[5] == "lead");
 }
 
-TEST_CASE("Processor delegates focus/show commands to installed UI handlers",
-          "[processor][commands]")
+TEST_CASE("Processor rejects unknown commands", "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    auto focused = std::string{};
-    auto shown = std::string{};
-
-    processor.set_focus_command_handler([&](std::string const &component_id) {
-        focused = component_id;
-        return std::pair<MessageLevel, std::string>{MessageLevel::Info,
-                                                    "focus handled"};
-    });
-
-    processor.set_show_command_handler([&](std::string const &component_id) {
-        shown = component_id;
-        return std::pair<MessageLevel, std::string>{MessageLevel::Info,
-                                                    "show handled"};
-    });
-
-    auto const [focus_level, focus_message] =
-        processor.execute_command_string("focus SequenceView");
-    CHECK(focus_level == MessageLevel::Info);
-    CHECK(focus_message == "focus handled");
-    CHECK(focused == "SequenceView");
-
-    auto const [show_level, show_message] =
-        processor.execute_command_string("show LibraryView");
-    CHECK(show_level == MessageLevel::Info);
-    CHECK(show_message == "show handled");
-    CHECK(shown == "LibraryView");
-}
-
-TEST_CASE("Processor falls back to deprecated warning when UI handlers are cleared",
-          "[processor][commands]")
-{
-    auto processor = XenProcessor{};
-
-    processor.set_focus_command_handler([](std::string const &) {
-        return std::pair<MessageLevel, std::string>{MessageLevel::Info, "handled"};
-    });
-    processor.set_show_command_handler([](std::string const &) {
-        return std::pair<MessageLevel, std::string>{MessageLevel::Info, "handled"};
-    });
-    processor.clear_ui_command_handlers();
-
-    CHECK(processor.execute_command_string("focus SequenceView").first ==
-          MessageLevel::Warning);
-    CHECK(processor.execute_command_string("show LibraryView").first ==
-          MessageLevel::Warning);
+    CHECK(processor.execute_command_string("notACommand").first ==
+          MessageLevel::Error);
+    CHECK(processor.execute_command_string("notACommand 123").first ==
+          MessageLevel::Error);
 }

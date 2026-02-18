@@ -100,14 +100,6 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"set", "theme"}, false,
-        "Deprecated. Theme changes are handled by the UI layer.",
-        std::make_tuple(required_arg<std::string>("String", "name")),
-        [](CommandInvocation const &, std::string name) {
-            return SetThemeAction{.name = std::move(name)};
-        }));
-
-    specs.push_back(make_spec(
         {"set", "scale"}, false, "Set the active scale by name.",
         std::make_tuple(required_arg<std::string>("String", "name")),
         [](CommandInvocation const &, std::string name) {

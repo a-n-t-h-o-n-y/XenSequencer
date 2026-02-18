@@ -58,6 +58,7 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
     webview_host_ = std::make_unique<WebviewHost>(processor_);
     this->addAndMakeVisible(webview_host_.get());
+    webview_host_->setBounds(this->getLocalBounds());
 
     laf_ = gui::make_laf(gui::find_theme("apollo"));
     this->setLookAndFeel(laf_.get());
@@ -65,36 +66,6 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
     last_snapshot_version_ = processor_.get_ui_snapshot_version();
     return;
 #else
-    processor_.set_focus_command_handler([this](std::string const &component_id) {
-        try
-        {
-            plugin_window.set_focus(component_id);
-            return std::pair<MessageLevel, std::string>{
-                MessageLevel::Info,
-                "Focused " + single_quote(component_id) + ".",
-            };
-        }
-        catch (std::exception const &e)
-        {
-            return std::pair<MessageLevel, std::string>{MessageLevel::Error, e.what()};
-        }
-    });
-
-    processor_.set_show_command_handler([this](std::string const &component_id) {
-        try
-        {
-            plugin_window.show_component(component_id);
-            return std::pair<MessageLevel, std::string>{
-                MessageLevel::Info,
-                "Showing " + single_quote(component_id) + ".",
-            };
-        }
-        catch (std::exception const &e)
-        {
-            return std::pair<MessageLevel, std::string>{MessageLevel::Error, e.what()};
-        }
-    });
-
     this->setFocusContainerType(juce::Component::FocusContainerType::focusContainer);
 
     this->setResizable(true, true);
@@ -217,7 +188,6 @@ XenEditor::XenEditor(XenProcessor &p, int width, int height)
 
 XenEditor::~XenEditor()
 {
-    processor_.clear_ui_command_handlers();
 }
 
 auto XenEditor::createKeyboardFocusTraverser()

@@ -259,15 +259,6 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 return minfo("Chords Loaded: " +
                              std::to_string(ps.library.chords.size()));
             }
-            else if constexpr (std::is_same_v<ActionType, DeprecatedFocusAction>)
-            {
-                return mwarning(
-                    "Command 'focus' is deprecated and has no effect.");
-            }
-            else if constexpr (std::is_same_v<ActionType, DeprecatedShowAction>)
-            {
-                return mwarning("Command 'show' is deprecated and has no effect.");
-            }
             else if constexpr (std::is_same_v<ActionType, CreateNoteAction>)
             {
                 auto state = ps.timeline.get_state();
@@ -392,11 +383,6 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                                                typed_action.freq);
                 ps.timeline.stage(std::move(state));
                 return minfo("Base Frequency Set");
-            }
-            else if constexpr (std::is_same_v<ActionType, SetThemeAction>)
-            {
-                return mwarning(
-                    "Command 'set theme' is deprecated and has no effect.");
             }
             else if constexpr (std::is_same_v<ActionType, SaveSequenceBankAction>)
             {
