@@ -17,7 +17,7 @@ option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" OFF)
 
 set(XEN_WEB_UI_DEV_URL "http://127.0.0.1:5173" CACHE STRING
     "URL for Web UI dev server used in Debug builds")
-set(XEN_WEB_UI_DIST_DIR "" CACHE PATH
+set(XEN_WEB_UI_DIST_DIR "${CMAKE_SOURCE_DIR}/../xen-frontend/dist" CACHE PATH
     "Path to frontend dist/ directory used in non-Debug builds")
 
 if (CMAKE_CONFIGURATION_TYPES)

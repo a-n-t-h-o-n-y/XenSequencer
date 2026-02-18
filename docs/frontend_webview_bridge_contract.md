@@ -17,7 +17,7 @@ C++ exposes:
 `xenBridgeRequest` contract:
 
 - Input: first argument must be a JSON string request envelope
-- Output: JSON string response envelope
+- Output: parsed response envelope object (not a JSON string)
 
 Frontend usage with JUCE helper:
 
@@ -25,13 +25,11 @@ Frontend usage with JUCE helper:
 import { getNativeFunction } from "./juce";
 
 const xenBridgeRequest = getNativeFunction("xenBridgeRequest");
-const rawResponse = await xenBridgeRequest(JSON.stringify(requestEnvelope));
-const responseEnvelope = JSON.parse(String(rawResponse));
+const responseEnvelope = await xenBridgeRequest(JSON.stringify(requestEnvelope));
 
 const removalToken = window.__JUCE__.backend.addEventListener(
   "xenBridgeEvent",
-  (rawEvent) => {
-    const eventEnvelope = JSON.parse(String(rawEvent));
+  (eventEnvelope) => {
     // handle state.changed
   }
 );

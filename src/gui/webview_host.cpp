@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,22 @@
 namespace
 {
 
-#if !JUCE_DEBUG
+auto parse_json_to_var_or_throw(std::string const &json_text,
+                                std::string const &context) -> juce::var
+{
+    auto const juce_text =
+        juce::String::fromUTF8(json_text.data(), (int)json_text.size());
+    auto parsed = juce::var{};
+    if (auto const parse_result = juce::JSON::parse(juce_text, parsed);
+        parse_result.failed())
+    {
+        throw std::runtime_error(
+            context + " produced invalid JSON: " +
+            parse_result.getErrorMessage().toStdString());
+    }
+    return parsed;
+}
+
 auto default_mime_type() -> juce::String
 {
     return "application/octet-stream";
@@ -62,6 +78,13 @@ auto normalize_resource_path(juce::String resource_path) -> std::optional<juce::
     auto normalized = resource_path.upToFirstOccurrenceOf("?", false, false);
     normalized = normalized.upToFirstOccurrenceOf("#", false, false);
 
+    auto const scheme_index = normalized.indexOf("://");
+    if (scheme_index >= 0)
+    {
+        auto const path_index = normalized.indexOfChar(scheme_index + 3, '/');
+        normalized = path_index >= 0 ? normalized.substring(path_index) : "/";
+    }
+
     if (normalized.isEmpty() || normalized == "/")
     {
         normalized = "/index.html";
@@ -79,7 +102,31 @@ auto normalize_resource_path(juce::String resource_path) -> std::optional<juce::
 
     return normalized;
 }
-#endif
+
+auto resource_path_matches_embedded_file(juce::String const &normalized_request_path,
+                                         juce::String original_filename)
+    -> bool
+{
+    auto original_path = original_filename.replaceCharacter('\\', '/');
+    while (original_path.startsWith("./"))
+    {
+        original_path = original_path.substring(2);
+    }
+
+    if (original_path == normalized_request_path)
+    {
+        return true;
+    }
+
+    auto const request_basename = juce::File{normalized_request_path}.getFileName();
+    auto const original_basename = juce::File{original_path}.getFileName();
+    if (!request_basename.isEmpty() && request_basename == original_basename)
+    {
+        return true;
+    }
+
+    return false;
+}
 
 } // namespace
 
@@ -134,8 +181,10 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
                                    request_json =
                                        args[0].toString().toStdString();
                                }
-                               completion(
-                                   juce::String{bridge_.handle_request_json(request_json)});
+                               auto const response_json =
+                                   bridge_.handle_request_json(request_json);
+                               completion(parse_json_to_var_or_throw(
+                                   response_json, "xenBridgeRequest"));
                            });
 
 #if !JUCE_DEBUG
@@ -166,11 +215,18 @@ auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) c
         auto const *resource_name = embed_webui::namedResourceList[i];
         auto const *original_filename =
             embed_webui::getNamedResourceOriginalFilename(resource_name);
+        if (original_filename == nullptr)
+        {
+            continue;
+        }
+
         auto relative_path = juce::File{original_filename}
                                  .getRelativePathFrom(dist_root)
                                  .replaceCharacter('\\', '/');
 
-        if (relative_path != normalized)
+        // JUCE BinaryData may flatten source paths to basenames.
+        if (relative_path != normalized &&
+            !resource_path_matches_embedded_file(normalized, original_filename))
         {
             continue;
         }
@@ -201,15 +257,17 @@ void WebviewHost::load_initial_url()
 #if JUCE_DEBUG
     browser_->goToURL(juce::String{XEN_WEB_UI_DEV_URL});
 #else
-    browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    auto const initial_url = juce::WebBrowserComponent::getResourceProviderRoot();
+    browser_->goToURL(initial_url);
 #endif
 }
 
 void WebviewHost::emit_state_changed_event()
 {
+    auto const event_json = bridge_.make_state_changed_event_json();
     browser_->emitEventIfBrowserIsVisible(
         "xenBridgeEvent",
-        juce::String{bridge_.make_state_changed_event_json()});
+        parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
 }
 
 } // namespace xen::gui
