@@ -293,7 +293,7 @@ Notes:
 - Non-`Debug` configure fails fast if `XEN_WEB_UI_DIST_DIR` is missing, invalid,
   or does not contain `index.html`.
 - Current implementation targets single-config generators.
-- Editor bridge path is behind compile-time switch `XEN_USE_WEBVIEW_BRIDGE_UI`.
+- Editor now uses the WebView bridge UI path only.
 
 ## Lifecycle
 

@@ -14,7 +14,6 @@ add_subdirectory(external/MicrotonalStepSequencer)
 option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
 option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" OFF)
-option(XEN_USE_WEBVIEW_BRIDGE_UI "Use WebView bridge UI in the editor" ON)
 
 set(XEN_WEB_UI_DEV_URL "http://127.0.0.1:5173" CACHE STRING
     "URL for Web UI dev server used in Debug builds")
@@ -151,29 +150,6 @@ juce_add_binary_data(EmbedDemos
         "data/demos/in a landscape.xss"
 )
 
-# Add font files as a binary resource
-juce_add_binary_data(EmbedFonts
-    HEADER_NAME "embed_fonts.hpp"
-    NAMESPACE embed_fonts
-    SOURCES
-        data/font/NotoSansSymbols2-Regular.ttf
-        data/font/SourceCodePro-Black.ttf
-        data/font/SourceCodePro-Bold.ttf
-        data/font/SourceCodePro-ExtraBold.ttf
-        data/font/SourceCodePro-ExtraLight.ttf
-        data/font/SourceCodePro-Light.ttf
-        data/font/SourceCodePro-Medium.ttf
-        data/font/SourceCodePro-Regular.ttf
-        data/font/SourceCodePro-SemiBold.ttf
-        data/font/RobotoMono-Bold.ttf
-        data/font/RobotoMono-ExtraLight.ttf
-        data/font/RobotoMono-Light.ttf
-        data/font/RobotoMono-Medium.ttf
-        data/font/RobotoMono-Regular.ttf
-        data/font/RobotoMono-SemiBold.ttf
-        data/font/RobotoMono-Thin.ttf
-)
-
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     file(GLOB_RECURSE XEN_WEB_UI_DIST_FILES CONFIGURE_DEPENDS
         LIST_DIRECTORIES false
@@ -232,27 +208,6 @@ set(XEN_UI_SOURCES
     src/key_core.cpp
     src/xen_editor.cpp
     src/gui/webview_host.cpp
-    src/gui/accordion.cpp
-    src/gui/bg_sequence.cpp
-    src/gui/bottom_bar.cpp
-    src/gui/cell.cpp
-    src/gui/center_component.cpp
-    src/gui/command_bar.cpp
-    src/gui/directory_list_box.cpp
-    # src/gui/graph.cpp
-    src/gui/library_view.cpp
-    src/gui/message_level_color.cpp
-    src/gui/message_log.cpp
-    src/gui/modulation_pane.cpp
-    src/gui/modulation_slider.cpp
-    src/gui/plugin_window.cpp
-    src/gui/sequence_bank.cpp
-    src/gui/status_bar.cpp
-    src/gui/themes.cpp
-    src/gui/tile.cpp
-    src/gui/tuning_reference.cpp
-    src/gui/xen_list_box.cpp
-    src/gui/xen_slider.cpp
 )
 
 set(XEN_PROCESSOR_SOURCES
@@ -299,7 +254,6 @@ target_link_libraries(XenUI
         juce::juce_audio_utils
         juce::juce_gui_basics
         juce::juce_gui_extra
-        EmbedFonts
 )
 
 if (TARGET EmbedWebUI)
@@ -311,12 +265,6 @@ target_compile_definitions(XenUI
         XEN_WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL}"
         XEN_WEB_UI_DIST_DIR="${XEN_WEB_UI_DIST_DIR}"
 )
-
-if (XEN_USE_WEBVIEW_BRIDGE_UI)
-    target_compile_definitions(XenUI PUBLIC XEN_USE_WEBVIEW_BRIDGE_UI=1)
-else()
-    target_compile_definitions(XenUI PUBLIC XEN_USE_WEBVIEW_BRIDGE_UI=0)
-endif()
 xen_apply_compile_settings(XenUI PRIVATE)
 
 # PLUGIN -------------------------------------------------------------------------------
