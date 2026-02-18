@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#if !JUCE_DEBUG
+#if XEN_WEB_UI_USE_EMBEDDED
 #include <embed_webui.hpp>
 #endif
 
@@ -187,7 +187,7 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
                                    response_json, "xenBridgeRequest"));
                            });
 
-#if !JUCE_DEBUG
+#if XEN_WEB_UI_USE_EMBEDDED
     options = options.withResourceProvider(
         [this](juce::String const &resource_path) {
             return provide_embedded_resource(resource_path);
@@ -197,7 +197,7 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
     return options;
 }
 
-#if !JUCE_DEBUG
+#if XEN_WEB_UI_USE_EMBEDDED
 auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) const
     -> std::optional<juce::WebBrowserComponent::Resource>
 {
@@ -254,11 +254,13 @@ auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) c
 
 void WebviewHost::load_initial_url()
 {
-#if JUCE_DEBUG
+#if XEN_WEB_UI_USE_DEV_SERVER
     browser_->goToURL(juce::String{XEN_WEB_UI_DEV_URL});
-#else
+#elif XEN_WEB_UI_USE_EMBEDDED
     auto const initial_url = juce::WebBrowserComponent::getResourceProviderRoot();
     browser_->goToURL(initial_url);
+#else
+#error "Invalid Web UI mode compile definitions."
 #endif
 }
 

@@ -15,10 +15,13 @@ option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
 option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" OFF)
 
+set(XEN_WEB_UI_MODE "DEV_SERVER" CACHE STRING
+    "Web UI source mode: DEV_SERVER or EMBEDDED")
+set_property(CACHE XEN_WEB_UI_MODE PROPERTY STRINGS DEV_SERVER EMBEDDED)
 set(XEN_WEB_UI_DEV_URL "http://127.0.0.1:5173" CACHE STRING
-    "URL for Web UI dev server used in Debug builds")
+    "URL for Web UI dev server when XEN_WEB_UI_MODE=DEV_SERVER")
 set(XEN_WEB_UI_DIST_DIR "${CMAKE_SOURCE_DIR}/../xen-frontend/dist" CACHE PATH
-    "Path to frontend dist/ directory used in non-Debug builds")
+    "Path to frontend dist/ directory when XEN_WEB_UI_MODE=EMBEDDED")
 
 if (CMAKE_CONFIGURATION_TYPES)
     message(FATAL_ERROR
@@ -30,10 +33,16 @@ if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE not set. Defaulting to Debug.")
 endif()
 
-if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (NOT XEN_WEB_UI_MODE STREQUAL "DEV_SERVER" AND
+    NOT XEN_WEB_UI_MODE STREQUAL "EMBEDDED")
+    message(FATAL_ERROR
+        "Invalid XEN_WEB_UI_MODE='${XEN_WEB_UI_MODE}'. Expected DEV_SERVER or EMBEDDED.")
+endif()
+
+if (XEN_WEB_UI_MODE STREQUAL "EMBEDDED")
     if (NOT XEN_WEB_UI_DIST_DIR)
         message(FATAL_ERROR
-            "XEN_WEB_UI_DIST_DIR is required for non-Debug builds.")
+            "XEN_WEB_UI_DIST_DIR is required when XEN_WEB_UI_MODE=EMBEDDED.")
     endif()
 
     if (NOT IS_DIRECTORY "${XEN_WEB_UI_DIST_DIR}")
@@ -150,7 +159,7 @@ juce_add_binary_data(EmbedDemos
         "data/demos/in a landscape.xss"
 )
 
-if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (XEN_WEB_UI_MODE STREQUAL "EMBEDDED")
     file(GLOB_RECURSE XEN_WEB_UI_DIST_FILES CONFIGURE_DEPENDS
         LIST_DIRECTORIES false
         "${XEN_WEB_UI_DIST_DIR}/*")
@@ -262,6 +271,8 @@ endif()
 
 target_compile_definitions(XenUI
     PUBLIC
+        XEN_WEB_UI_USE_DEV_SERVER=$<STREQUAL:${XEN_WEB_UI_MODE},DEV_SERVER>
+        XEN_WEB_UI_USE_EMBEDDED=$<STREQUAL:${XEN_WEB_UI_MODE},EMBEDDED>
         XEN_WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL}"
         XEN_WEB_UI_DIST_DIR="${XEN_WEB_UI_DIST_DIR}"
 )

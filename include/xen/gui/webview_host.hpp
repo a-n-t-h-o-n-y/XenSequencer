@@ -28,7 +28,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     [[nodiscard]] auto create_browser_options()
         -> juce::WebBrowserComponent::Options;
 
-#if !JUCE_DEBUG
+#if XEN_WEB_UI_USE_EMBEDDED
     [[nodiscard]] auto provide_embedded_resource(
         juce::String const &resource_path) const
         -> std::optional<juce::WebBrowserComponent::Resource>;

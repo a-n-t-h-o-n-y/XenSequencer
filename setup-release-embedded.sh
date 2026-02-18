@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="build-release"
+BUILD_DIR="build-release-embedded"
 LLVM21_BIN="${LLVM21_BIN:-/opt/local/libexec/llvm-21/bin}"
 CMAKE_C_COMPILER_BIN="${CMAKE_C_COMPILER:-${LLVM21_BIN}/clang}"
 CMAKE_CXX_COMPILER_BIN="${CMAKE_CXX_COMPILER:-${LLVM21_BIN}/clang++}"
@@ -56,6 +56,7 @@ cmake \
   -DCMAKE_AR="${CMAKE_AR_BIN}" \
   -DCMAKE_RANLIB="${CMAKE_RANLIB_BIN}" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DXEN_WEB_UI_MODE=EMBEDDED \
   -DXEN_WEB_UI_DIST_DIR="${WEB_UI_DIST_DIR}" \
   -DXEN_BUILD_TESTS=OFF \
   -DXEN_BUILD_AUDIO_PLUGIN_HOST=OFF \
@@ -63,5 +64,6 @@ cmake \
   "$@"
 
 echo "Configured Release build in ${BUILD_DIR}"
+echo "Configured Web UI mode: EMBEDDED"
 echo "Using LLVM toolchain from ${LLVM21_BIN}"
 echo "Build with: cmake --build ${ROOT_DIR}/${BUILD_DIR}"
