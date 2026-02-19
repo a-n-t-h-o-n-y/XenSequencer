@@ -13,7 +13,7 @@ add_subdirectory(external/MicrotonalStepSequencer)
 
 option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
-option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" OFF)
+option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" ON)
 
 set(XEN_WEB_UI_MODE "DEV_SERVER" CACHE STRING
     "Web UI source mode: DEV_SERVER or EMBEDDED")
