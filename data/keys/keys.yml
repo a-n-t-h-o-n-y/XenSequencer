@@ -29,11 +29,6 @@ SequenceView:
   "g": "inputMode gate"
   "c": "inputMode scale"
 
-  # UI Display
-  "Shift + :": "show commandbar;focus commandbar"
-  "w" : "show LibraryView;focus SequencesList"
-  "e" : "show MessageLog;focus MessageLog"
-
   # Copy/Paste, etc...
   "Cmd + c": "copy"
   "Cmd + x": "cut"
