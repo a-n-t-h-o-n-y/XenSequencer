@@ -40,7 +40,7 @@ TEST_CASE("Processor multi-command executes in order and returns last command st
         "set key 3; set baseFrequency 300; version");
 
     CHECK(level == MessageLevel::Info);
-    CHECK(message == "v0.3.0");
+    CHECK(message == "v0.3.1");
 
     auto const snapshot = processor.get_engine_snapshot();
     CHECK(snapshot.engine.key == 3);
@@ -102,11 +102,11 @@ TEST_CASE("Processor 'again' replays most recent non-empty non-mutating chain",
     auto const [version_level, version_message] =
         processor.execute_command_string("version");
     CHECK(version_level == MessageLevel::Info);
-    CHECK(version_message == "v0.3.0");
+    CHECK(version_message == "v0.3.1");
 
     auto const [again_level, again_message] = processor.execute_command_string("again");
     CHECK(again_level == MessageLevel::Info);
-    CHECK(again_message == "v0.3.0");
+    CHECK(again_message == "v0.3.1");
 }
 
 TEST_CASE("Processor 'again' replays full multi-command chain",
@@ -142,7 +142,7 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
         "set sequence name \"semi;colon\" 0; version");
 
     CHECK(level == MessageLevel::Info);
-    CHECK(message == "v0.3.0");
+    CHECK(message == "v0.3.1");
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine.sequence_names[0] == "semi;colon");
@@ -157,7 +157,7 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in structured ar
         "set sequence name {\"label\":\"semi;colon\"} 1; version");
 
     CHECK(level == MessageLevel::Info);
-    CHECK(message == "v0.3.0");
+    CHECK(message == "v0.3.1");
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine.sequence_names[1] == "{\"label\":\"semi;colon\"}");

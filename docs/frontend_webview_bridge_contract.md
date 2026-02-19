@@ -81,6 +81,20 @@ Response payload:
   protocol: "xen.bridge.v1";
   snapshot_schema_version: 1;
   plugin_version: string;
+  reference: {
+    commands: Array<{
+      id: string;
+      signature: string;
+      description: string;
+    }>;
+    keybindings: Array<{
+      component: string;
+      bindings: Array<{
+        key: string;
+        command: string;
+      }>;
+    }>;
+  };
 }
 ```
 
@@ -198,6 +212,67 @@ Keymap semantics:
 1. Raw strings may contain command chains (`;`) and placeholders like `:N=2:`.
 1. Frontend owns parsing/execution policy for UI-local actions.
 
+### `library.get`
+
+Request payload must be an empty object.
+
+Response payload:
+
+```ts
+{
+  paths: {
+    library: string;
+    sequences: string;
+    tunings: string;
+  };
+  sequence_banks: Array<{
+    name: string;    // e.g. "demo.xss"
+    relative_path: string; // slash-delimited, e.g. "demos/demo.xss"
+    stem: string;    // slash-delimited path without extension, e.g. "demos/demo"
+    path: string;    // absolute path
+    command: string; // e.g. "load sequenceBank \"demos/demo\""
+  }>;
+  tunings: Array<{
+    name: string;    // e.g. "edo12.scl"
+    relative_path: string; // slash-delimited, e.g. "micro/edo12.scl"
+    stem: string;    // slash-delimited path without extension, e.g. "micro/edo12"
+    path: string;    // absolute path
+    command: string; // e.g. "load tuning \"micro/edo12\""
+    description: string; // Scala first non-comment line
+    intervals: number[]; // cents offsets excluding the period
+    octave: number;      // Scala period (usually 1200)
+    note_count: number;  // same as intervals.length
+  }>;
+  scales: Array<{
+    name: string;    // includes "chromatic"
+    intervals: number[];
+    command: string; // e.g. "set scale \"major pentatonic\""
+  }>;
+  chords: Array<{
+    name: string;
+    intervals: number[];
+    command: string; // e.g. "arp \"major\""
+  }>;
+  commands: {
+    reload_scales: "load scales";
+    reload_chords: "load chords";
+    library_directory: "libraryDirectory";
+  };
+  active: {
+    tuning_name: string;
+    scale_name: string | null;
+  };
+}
+```
+
+Semantics:
+
+1. `sequence_banks` and `tunings` are read recursively from disk at request time.
+1. Use this endpoint for explicit refresh in Library View so newly added files appear.
+1. `scales` and `chords` reflect currently loaded backend memory. To pick up edited files, execute `load scales` / `load chords` and request `library.get` again.
+1. Tuning metadata is parsed from each `.scl` using the same parser as `load tuning`.
+1. String fields from file-system and `.scl` metadata are normalized to valid UTF-8 before serialization; invalid byte sequences are replaced.
+
 ## 4. Event map (C++ -> frontend)
 
 ### `state.changed`
@@ -218,6 +293,70 @@ Emission behavior:
 1. Emitted when `snapshot_version` changes.
 1. No `request_id` on events.
 1. Do not assume an initial event on startup; call `state.get` after handshake.
+
+### `transport.trigger.noteOn`
+
+Envelope:
+
+```ts
+{
+  protocol: "xen.bridge.v1";
+  type: "event";
+  name: "transport.trigger.noteOn";
+  payload: {
+    sequence_index: number; // 0..15
+  };
+}
+```
+
+Emission behavior:
+
+1. Emitted when a trigger sequence transitions from inactive to active.
+1. `sequence_index` is the trigger slot index, not a raw MIDI note number.
+
+### `transport.trigger.noteOff`
+
+Envelope:
+
+```ts
+{
+  protocol: "xen.bridge.v1";
+  type: "event";
+  name: "transport.trigger.noteOff";
+  payload: {
+    sequence_index: number; // 0..15
+  };
+}
+```
+
+Emission behavior:
+
+1. Emitted when a trigger sequence transitions from active to inactive.
+
+### `transport.phase.sync`
+
+Envelope:
+
+```ts
+{
+  protocol: "xen.bridge.v1";
+  type: "event";
+  name: "transport.phase.sync";
+  payload: {
+    bpm: number;
+    phases: Array<{
+      sequence_index: number; // 0..15
+      phase: number; // normalized [0, 1)
+    }>;
+  };
+}
+```
+
+Emission behavior:
+
+1. Emitted on the host timer while at least one trigger is active.
+1. `phases` only includes currently active trigger indices.
+1. Phase is derived from trigger note start time + current BPM + measure time signature.
 
 ## 5. Snapshot payload (`UiStateSnapshot`)
 
@@ -333,9 +472,11 @@ Typical triggers:
 1. Bind `xenBridgeRequest` and subscribe to `xenBridgeEvent`.
 1. Send `session.hello`.
 1. Validate response protocol/schema.
+1. Cache `session.hello.payload.reference` for command/help UI.
 1. Call `state.get` and set store from returned snapshot.
-1. Call `catalog.get` and `keymap.get` and cache both.
+1. Call `library.get` when opening Library View and on user refresh.
 1. Start normal command loop with `command.execute` and `state.changed` updates.
+1. Listen for `transport.trigger.noteOn`, `transport.trigger.noteOff`, and `transport.phase.sync` to drive playhead animation.
 
 ## 8. Frontend implementation checklist
 
@@ -344,3 +485,4 @@ Typical triggers:
 1. Use `snapshot_version` to drop stale state updates.
 1. Keep UI navigation as frontend-local actions (do not send through bridge).
 1. Preserve raw keymap command strings exactly as delivered.
+1. Treat transport events as transient UI animation signals; snapshot remains authoritative for editor/engine data.

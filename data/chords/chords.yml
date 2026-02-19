@@ -1,4 +1,4 @@
-version: "0.3.0"
+version: "0.3.1"
 chords:
   - name: "Major"
     intervals: [0, 4, 7]

@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
 #include <xen/message_level.hpp>
 #include <xen/state.hpp>
@@ -26,6 +27,11 @@ inline constexpr int snapshot_schema_version = 1;
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 
 [[nodiscard]] auto make_keymap_payload(
+    std::map<std::string, std::map<std::string, std::string>> const &keymap)
+    -> nlohmann::json;
+
+[[nodiscard]] auto make_reference_payload(
+    std::vector<Documentation> const &docs,
     std::map<std::string, std::map<std::string, std::string>> const &keymap)
     -> nlohmann::json;
 

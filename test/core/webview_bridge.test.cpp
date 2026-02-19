@@ -1,4 +1,5 @@
 #include <string>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -74,6 +75,11 @@ TEST_CASE("WebviewBridge handles session hello with fixed contract",
     CHECK(response["payload"]["protocol"] == bridge::protocol);
     CHECK(response["payload"]["snapshot_schema_version"] ==
           bridge::snapshot_schema_version);
+    REQUIRE(response["payload"].contains("reference"));
+    REQUIRE(response["payload"]["reference"].contains("commands"));
+    REQUIRE(response["payload"]["reference"].contains("keybindings"));
+    CHECK_FALSE(response["payload"]["reference"]["commands"].empty());
+    CHECK_FALSE(response["payload"]["reference"]["keybindings"].empty());
 }
 
 TEST_CASE("WebviewBridge state.get returns snapshot payload", "[core][webview-bridge]")
@@ -139,4 +145,97 @@ TEST_CASE("WebviewBridge keymap.get returns merged raw keymap",
     auto const &keymap = response.at("payload").at("keymap");
     REQUIRE(keymap.contains("SequenceView"));
     CHECK(keymap.at("SequenceView").contains("w"));
+}
+
+TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
+          "[core][webview-bridge]")
+{
+    auto processor = XenProcessor{};
+    auto bridge = WebviewBridge{processor};
+
+    auto const response = parse_response(
+        bridge.handle_request_json(request("library.get", nlohmann::json::object()).dump()));
+
+    auto const &payload = response.at("payload");
+    REQUIRE(payload.contains("paths"));
+    REQUIRE(payload.at("paths").contains("library"));
+    REQUIRE(payload.at("paths").contains("sequences"));
+    REQUIRE(payload.at("paths").contains("tunings"));
+
+    REQUIRE(payload.contains("sequence_banks"));
+    REQUIRE(payload.at("sequence_banks").is_array());
+    CHECK_FALSE(payload.at("sequence_banks").empty());
+    REQUIRE(payload.at("sequence_banks").at(0).contains("relative_path"));
+    REQUIRE(payload.at("sequence_banks").at(0).contains("command"));
+    REQUIRE(payload.contains("tunings"));
+    REQUIRE(payload.at("tunings").is_array());
+    for (auto const &tuning : payload.at("tunings"))
+    {
+        REQUIRE(tuning.contains("description"));
+        REQUIRE(tuning.contains("intervals"));
+        REQUIRE(tuning.contains("octave"));
+        REQUIRE(tuning.contains("note_count"));
+    }
+
+    REQUIRE(payload.contains("scales"));
+    REQUIRE(payload.at("scales").is_array());
+    CHECK_FALSE(payload.at("scales").empty());
+    REQUIRE(payload.at("scales").at(0).contains("intervals"));
+    CHECK(payload.at("scales").at(0).at("command") == "set scale chromatic");
+
+    REQUIRE(payload.contains("chords"));
+    REQUIRE(payload.at("chords").is_array());
+    CHECK_FALSE(payload.at("chords").empty());
+    REQUIRE(payload.at("chords").at(0).contains("intervals"));
+    REQUIRE(payload.at("chords").at(0).contains("command"));
+
+    REQUIRE(payload.contains("commands"));
+    CHECK(payload.at("commands").at("reload_scales") == "load scales");
+    CHECK(payload.at("commands").at("reload_chords") == "load chords");
+
+    REQUIRE(payload.contains("active"));
+    REQUIRE(payload.at("active").contains("tuning_name"));
+    REQUIRE(payload.at("active").contains("scale_name"));
+
+    auto has_directory_segment = false;
+    for (auto const &entry : payload.at("sequence_banks"))
+    {
+        auto const rel = entry.at("relative_path").get<std::string>();
+        if (rel.find('/') != std::string::npos)
+        {
+            has_directory_segment = true;
+            break;
+        }
+    }
+    CHECK(has_directory_segment);
+}
+
+TEST_CASE("WebviewBridge transport event helpers produce bridge envelopes",
+          "[core][webview-bridge]")
+{
+    auto processor = XenProcessor{};
+    auto bridge = WebviewBridge{processor};
+
+    auto const note_on = nlohmann::json::parse(
+        bridge.make_trigger_note_event_json(3, true));
+    CHECK(note_on.at("type") == "event");
+    CHECK(note_on.at("name") == "transport.trigger.noteOn");
+    CHECK(note_on.at("payload").at("sequence_index") == 3);
+
+    auto const note_off = nlohmann::json::parse(
+        bridge.make_trigger_note_event_json(3, false));
+    CHECK(note_off.at("name") == "transport.trigger.noteOff");
+    CHECK(note_off.at("payload").at("sequence_index") == 3);
+
+    auto const phase_sync = nlohmann::json::parse(bridge.make_phase_sync_event_json(
+        std::vector<WebviewBridge::SequencePhase>{
+            {.sequence_index = 1, .phase = 0.25},
+            {.sequence_index = 9, .phase = 0.75},
+        },
+        120.f));
+    CHECK(phase_sync.at("type") == "event");
+    CHECK(phase_sync.at("name") == "transport.phase.sync");
+    CHECK(phase_sync.at("payload").at("bpm") == 120.f);
+    REQUIRE(phase_sync.at("payload").at("phases").is_array());
+    CHECK(phase_sync.at("payload").at("phases").size() == 2);
 }

@@ -203,6 +203,26 @@ auto catalog_command_to_json(xen::CatalogCommandMetadata const &command)
     };
 }
 
+auto command_reference_to_json(xen::Documentation const &doc) -> nlohmann::json
+{
+    auto signature = std::string{};
+    if (doc.signature.pattern_arg)
+    {
+        signature += "[pattern] ";
+    }
+    signature += doc.signature.id;
+    for (auto const &argument : doc.signature.arguments)
+    {
+        signature += " " + argument;
+    }
+
+    return nlohmann::json{
+        {"id", doc.signature.id},
+        {"signature", signature},
+        {"description", doc.description},
+    };
+}
+
 } // namespace xen::bridge::detail
 
 namespace xen::bridge
@@ -284,6 +304,41 @@ auto make_keymap_payload(
 
     return nlohmann::json{
         {"keymap", std::move(out)},
+    };
+}
+
+auto make_reference_payload(
+    std::vector<Documentation> const &docs,
+    std::map<std::string, std::map<std::string, std::string>> const &keymap)
+    -> nlohmann::json
+{
+    auto commands = nlohmann::json::array();
+    for (auto const &doc : docs)
+    {
+        commands.push_back(detail::command_reference_to_json(doc));
+    }
+
+    auto keybindings = nlohmann::json::array();
+    for (auto const &[component, mappings] : keymap)
+    {
+        auto bindings = nlohmann::json::array();
+        for (auto const &[key, command] : mappings)
+        {
+            bindings.push_back(nlohmann::json{
+                {"key", key},
+                {"command", command},
+            });
+        }
+
+        keybindings.push_back(nlohmann::json{
+            {"component", component},
+            {"bindings", std::move(bindings)},
+        });
+    }
+
+    return nlohmann::json{
+        {"commands", std::move(commands)},
+        {"keybindings", std::move(keybindings)},
     };
 }
 

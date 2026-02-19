@@ -73,7 +73,7 @@ Each request returns one response with same `request_id`.
 {
   "protocol": "xen.bridge.v1",
   "snapshot_schema_version": 1,
-  "plugin_version": "v0.3.0"
+  "plugin_version": "v0.3.1"
 }
 ```
 

@@ -1,6 +1,8 @@
 #include <xen/gui/webview_host.hpp>
 
 #include <array>
+#include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -9,12 +11,15 @@
 #include <string>
 #include <vector>
 
+#include <sequence/measure.hpp>
+
 #if XEN_WEB_UI_USE_EMBEDDED
 #include <embed_webui.hpp>
 #endif
 
 namespace
 {
+auto const inactive_note_start_time = xen::Clock::time_point{};
 
 auto parse_json_to_var_or_throw(std::string const &json_text,
                                 std::string const &context) -> juce::var
@@ -128,6 +133,29 @@ auto resource_path_matches_embedded_file(juce::String const &normalized_request_
     return false;
 }
 
+auto is_note_active(xen::Clock::time_point note_start_time) -> bool
+{
+    return note_start_time != inactive_note_start_time;
+}
+
+auto loop_duration_seconds(sequence::TimeSignature const &time_signature, float bpm)
+    -> double
+{
+    if (bpm <= 0.f || time_signature.numerator == 0 || time_signature.denominator == 0)
+    {
+        return 0.0;
+    }
+
+    auto const quarters_per_loop =
+        (double)time_signature.numerator * (4.0 / (double)time_signature.denominator);
+    if (quarters_per_loop <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return quarters_per_loop * 60.0 / (double)bpm;
+}
+
 } // namespace
 
 namespace xen::gui
@@ -164,6 +192,8 @@ void WebviewHost::timerCallback()
         last_snapshot_version_ = version;
         emit_state_changed_event();
     }
+
+    emit_transport_events();
 }
 
 auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
@@ -270,6 +300,70 @@ void WebviewHost::emit_state_changed_event()
     browser_->emitEventIfBrowserIsVisible(
         "xenBridgeEvent",
         parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+}
+
+void WebviewHost::emit_transport_events()
+{
+    auto const transport_state = processor_.audio_thread_state_for_gui.read();
+
+    for (auto i = std::size_t{0}; i < transport_state.note_start_times.size(); ++i)
+    {
+        auto const was_active = is_note_active(previous_note_start_times_[i]);
+        auto const is_active = is_note_active(transport_state.note_start_times[i]);
+        if (was_active == is_active)
+        {
+            continue;
+        }
+
+        auto const event_json = bridge_.make_trigger_note_event_json(i, is_active);
+        browser_->emitEventIfBrowserIsVisible(
+            "xenBridgeEvent",
+            parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+    }
+
+    previous_note_start_times_ = transport_state.note_start_times;
+
+    auto phase_payload = std::vector<WebviewBridge::SequencePhase>{};
+    if (transport_state.daw.bpm > 0.f)
+    {
+        auto const snapshot = processor_.get_engine_snapshot();
+        auto const now = Clock::now();
+        for (auto i = std::size_t{0}; i < transport_state.note_start_times.size(); ++i)
+        {
+            auto const note_start = transport_state.note_start_times[i];
+            if (!is_note_active(note_start))
+            {
+                continue;
+            }
+
+            auto const loop_seconds = loop_duration_seconds(
+                snapshot.engine.sequence_bank[i].time_signature, transport_state.daw.bpm);
+            if (loop_seconds <= 0.0)
+            {
+                continue;
+            }
+
+            auto const elapsed_seconds =
+                std::chrono::duration<double>(now - note_start).count();
+            if (elapsed_seconds < 0.0)
+            {
+                continue;
+            }
+
+            auto const phase =
+                std::fmod(elapsed_seconds, loop_seconds) / loop_seconds;
+            phase_payload.push_back({.sequence_index = i, .phase = phase});
+        }
+    }
+
+    if (!phase_payload.empty())
+    {
+        auto const event_json =
+            bridge_.make_phase_sync_event_json(phase_payload, transport_state.daw.bpm);
+        browser_->emitEventIfBrowserIsVisible(
+            "xenBridgeEvent",
+            parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+    }
 }
 
 } // namespace xen::gui
