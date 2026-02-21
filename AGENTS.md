@@ -18,3 +18,15 @@
 ## Build Commands
 
 - Do not pass explicit `-j` options to ninja/cmake build commands.
+
+## C++ Style (Beyond clang-format)
+
+- Use east const consistently (`Type const &value`, `auto const x = ...`), including pointers/references.
+- Prefer `auto` for local variables when the type is obvious from the initializer or would be noisy to repeat; avoid `auto` when it hurts readability.
+- Prefer trailing return types for non-trivial function signatures (`auto fn(...) -> ReturnType`), matching existing headers/sources.
+- Use `snake_case` for variables, functions, parameters, and file names.
+- Use `PascalCase` for type names (`struct`, `class`, `enum class`, aliases).
+- Use `UPPER_SNAKE_CASE` for compile-time constants/macros that are intended as constants (for example `VERSION`).
+- Keep private member fields with a trailing underscore (`processor_`, `webview_host_`).
+- Keep namespaces explicit and consistent with folder/module layout (for example `namespace xen` and `namespace xen::gui`).
+- In production code, avoid `using namespace`; keep qualified names explicit. (Using-directives are acceptable in tests when they improve readability.)
