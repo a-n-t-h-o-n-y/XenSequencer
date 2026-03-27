@@ -3,11 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="build-debug-embedded"
-LLVM21_BIN="${LLVM21_BIN:-/opt/local/libexec/llvm-21/bin}"
-CMAKE_C_COMPILER_BIN="${CMAKE_C_COMPILER:-${LLVM21_BIN}/clang}"
-CMAKE_CXX_COMPILER_BIN="${CMAKE_CXX_COMPILER:-${LLVM21_BIN}/clang++}"
-CMAKE_AR_BIN="${CMAKE_AR:-${LLVM21_BIN}/llvm-ar}"
-CMAKE_RANLIB_BIN="${CMAKE_RANLIB:-${LLVM21_BIN}/llvm-ranlib}"
+LLVM22_BIN="${LLVM22_BIN:-/opt/local/libexec/llvm-22/bin}"
+CMAKE_C_COMPILER_BIN="${CMAKE_C_COMPILER:-${LLVM22_BIN}/clang}"
+CMAKE_CXX_COMPILER_BIN="${CMAKE_CXX_COMPILER:-${LLVM22_BIN}/clang++}"
+CMAKE_AR_BIN="${CMAKE_AR:-${LLVM22_BIN}/llvm-ar}"
+CMAKE_RANLIB_BIN="${CMAKE_RANLIB:-${LLVM22_BIN}/llvm-ranlib}"
 DEFAULT_WEB_UI_DIST_DIR="${ROOT_DIR}/../xen-frontend/dist"
 WEB_UI_DIST_DIR="${XEN_WEB_UI_DIST_DIR:-${DEFAULT_WEB_UI_DIST_DIR}}"
 
@@ -42,7 +42,7 @@ for tool in \
   "${CMAKE_RANLIB_BIN}"; do
   if [[ ! -x "${tool}" ]]; then
     echo "error: required LLVM tool not found or not executable: ${tool}" >&2
-    echo "set LLVM21_BIN or CMAKE_* env vars to override" >&2
+    echo "set LLVM22_BIN or CMAKE_* env vars to override" >&2
     exit 1
   fi
 done
@@ -65,5 +65,5 @@ cmake \
 
 echo "Configured Debug build in ${BUILD_DIR}"
 echo "Configured Web UI mode: EMBEDDED"
-echo "Using LLVM toolchain from ${LLVM21_BIN}"
+echo "Using LLVM toolchain from ${LLVM22_BIN}"
 echo "Build with: cmake --build ${ROOT_DIR}/${BUILD_DIR}"

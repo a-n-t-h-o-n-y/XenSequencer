@@ -3,12 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="build-debug-vite"
-LLVM21_BIN="${LLVM21_BIN:-/opt/local/libexec/llvm-21/bin}"
-CMAKE_C_COMPILER_BIN="${CMAKE_C_COMPILER:-${LLVM21_BIN}/clang}"
-CMAKE_CXX_COMPILER_BIN="${CMAKE_CXX_COMPILER:-${LLVM21_BIN}/clang++}"
-CMAKE_AR_BIN="${CMAKE_AR:-${LLVM21_BIN}/llvm-ar}"
-CMAKE_RANLIB_BIN="${CMAKE_RANLIB:-${LLVM21_BIN}/llvm-ranlib}"
-WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL:-http://127.0.0.1:5173}"
+LLVM22_BIN="${LLVM22_BIN:-/opt/local/libexec/llvm-22/bin}"
+CMAKE_C_COMPILER_BIN="${CMAKE_C_COMPILER:-${LLVM22_BIN}/clang}"
+CMAKE_CXX_COMPILER_BIN="${CMAKE_CXX_COMPILER:-${LLVM22_BIN}/clang++}"
+CMAKE_AR_BIN="${CMAKE_AR:-${LLVM22_BIN}/llvm-ar}"
+CMAKE_RANLIB_BIN="${CMAKE_RANLIB:-${LLVM22_BIN}/llvm-ranlib}"
+WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL:-http://127.0.0.1:5173,http://localhost:5173}"
 
 # Optional first positional arg overrides the build directory.
 if [[ $# -gt 0 && "${1}" != -* ]]; then
@@ -16,7 +16,7 @@ if [[ $# -gt 0 && "${1}" != -* ]]; then
   shift
 fi
 
-# Optional second positional arg overrides XEN_WEB_UI_DEV_URL.
+# Optional second positional arg overrides the ordered XEN_WEB_UI_DEV_URL list.
 if [[ $# -gt 0 && "${1}" != -* ]]; then
   WEB_UI_DEV_URL="$1"
   shift
@@ -29,7 +29,7 @@ for tool in \
   "${CMAKE_RANLIB_BIN}"; do
   if [[ ! -x "${tool}" ]]; then
     echo "error: required LLVM tool not found or not executable: ${tool}" >&2
-    echo "set LLVM21_BIN or CMAKE_* env vars to override" >&2
+    echo "set LLVM22_BIN or CMAKE_* env vars to override" >&2
     exit 1
   fi
 done
@@ -52,5 +52,6 @@ cmake \
 
 echo "Configured Debug build in ${BUILD_DIR}"
 echo "Configured Web UI mode: DEV_SERVER"
-echo "Using LLVM toolchain from ${LLVM21_BIN}"
+echo "Using LLVM toolchain from ${LLVM22_BIN}"
+echo "Configured dev-server URLs: ${WEB_UI_DEV_URL}"
 echo "Build with: cmake --build ${ROOT_DIR}/${BUILD_DIR}"

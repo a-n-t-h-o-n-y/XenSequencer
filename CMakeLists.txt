@@ -18,8 +18,8 @@ option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" ON)
 set(XEN_WEB_UI_MODE "DEV_SERVER" CACHE STRING
     "Web UI source mode: DEV_SERVER or EMBEDDED")
 set_property(CACHE XEN_WEB_UI_MODE PROPERTY STRINGS DEV_SERVER EMBEDDED)
-set(XEN_WEB_UI_DEV_URL "http://localhost:5173" CACHE STRING
-    "URL for Web UI dev server when XEN_WEB_UI_MODE=DEV_SERVER")
+set(XEN_WEB_UI_DEV_URL "http://127.0.0.1:5173,http://localhost:5173" CACHE STRING
+    "Comma-separated ordered dev-server URLs when XEN_WEB_UI_MODE=DEV_SERVER")
 set(XEN_WEB_UI_DIST_DIR "${CMAKE_SOURCE_DIR}/../xen-frontend/dist" CACHE PATH
     "Path to frontend dist/ directory when XEN_WEB_UI_MODE=EMBEDDED")
 

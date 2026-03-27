@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -37,6 +38,7 @@ auto parse_json_to_var_or_throw(std::string const &json_text,
     return parsed;
 }
 
+#if XEN_WEB_UI_USE_EMBEDDED
 auto default_mime_type() -> juce::String
 {
     return "application/octet-stream";
@@ -132,6 +134,7 @@ auto resource_path_matches_embedded_file(juce::String const &normalized_request_
 
     return false;
 }
+#endif
 
 auto is_note_active(xen::Clock::time_point note_start_time) -> bool
 {
@@ -156,6 +159,136 @@ auto loop_duration_seconds(sequence::TimeSignature const &time_signature, float 
     return quarters_per_loop * 60.0 / (double)bpm;
 }
 
+#if XEN_WEB_UI_USE_DEV_SERVER
+class CallbackWebBrowserComponent final : public juce::WebBrowserComponent
+{
+  public:
+    using LoadSuccessHandler = std::function<void(juce::String const &)>;
+    using LoadFailureHandler = std::function<bool(juce::String const &)>;
+
+    CallbackWebBrowserComponent(juce::WebBrowserComponent::Options const &options,
+                                LoadSuccessHandler on_load_success,
+                                LoadFailureHandler on_load_failure)
+        : juce::WebBrowserComponent{options},
+          on_load_success_{std::move(on_load_success)},
+          on_load_failure_{std::move(on_load_failure)}
+    {
+    }
+
+    void pageFinishedLoading(juce::String const &url) override
+    {
+        if (on_load_success_ != nullptr)
+        {
+            on_load_success_(url);
+        }
+    }
+
+    auto pageLoadHadNetworkError(juce::String const &error_info) -> bool override
+    {
+        if (on_load_failure_ == nullptr)
+        {
+            return true;
+        }
+
+        return on_load_failure_(error_info);
+    }
+
+  private:
+    LoadSuccessHandler on_load_success_;
+    LoadFailureHandler on_load_failure_;
+};
+
+auto parse_dev_server_urls(juce::String configured_urls) -> std::vector<juce::String>
+{
+    auto urls = std::vector<juce::String>{};
+    auto remaining = std::move(configured_urls);
+
+    while (true)
+    {
+        auto const comma_index = remaining.indexOfChar(',');
+        auto entry =
+            comma_index >= 0 ? remaining.substring(0, comma_index) : remaining;
+        entry = entry.trim();
+
+        if (entry.isNotEmpty())
+        {
+            urls.push_back(entry);
+        }
+
+        if (comma_index < 0)
+        {
+            break;
+        }
+
+        remaining = remaining.substring(comma_index + 1);
+    }
+
+    return urls;
+}
+
+auto escape_html(juce::String text) -> juce::String
+{
+    text = text.replace("&", "&amp;");
+    text = text.replace("<", "&lt;");
+    text = text.replace(">", "&gt;");
+    text = text.replace("\"", "&quot;");
+    text = text.replace("'", "&#39;");
+    return text;
+}
+
+auto make_dev_server_error_page(juce::String const &configured_urls,
+                                std::vector<juce::String> const &attempted_urls)
+    -> juce::String
+{
+    auto attempted_urls_html = juce::String{};
+    if (attempted_urls.empty())
+    {
+        attempted_urls_html = "<li>No usable URLs were configured.</li>";
+    }
+    else
+    {
+        for (auto const &url : attempted_urls)
+        {
+            attempted_urls_html +=
+                "<li><code>" + escape_html(url) + "</code></li>";
+        }
+    }
+
+    return "<!doctype html>"
+           "<html>"
+           "<head>"
+           "<meta charset=\"utf-8\">"
+           "<title>XenSequencer Web UI</title>"
+           "<style>"
+           "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+           "margin:0;padding:24px;background:#111827;color:#e5e7eb;}"
+           "main{max-width:720px;margin:0 auto;}"
+           "h1{font-size:20px;margin:0 0 12px;}"
+           "p{line-height:1.5;margin:0 0 12px;}"
+           "code{font-family:'SFMono-Regular','Consolas','Menlo',monospace;"
+           "background:#1f2937;padding:2px 6px;border-radius:4px;}"
+           "ul{margin:0 0 16px 20px;padding:0;}"
+           "li{margin:0 0 8px;}"
+           "</style>"
+           "</head>"
+           "<body>"
+           "<main>"
+           "<h1>Unable to load the dev server UI.</h1>"
+           "<p>XenSequencer could not reach any configured dev-server URL.</p>"
+           "<p>Attempted URLs:</p>"
+           "<ul>" +
+           attempted_urls_html +
+           "</ul>"
+           "<p>Configured <code>XEN_WEB_UI_DEV_URL</code> value:</p>"
+           "<p><code>" +
+           escape_html(configured_urls) +
+           "</code></p>"
+           "</main>"
+           "</body>"
+           "</html>";
+}
+#endif
+
 } // namespace
 
 namespace xen::gui
@@ -164,8 +297,18 @@ namespace xen::gui
 WebviewHost::WebviewHost(XenProcessor &processor)
     : processor_{processor}, bridge_{processor}
 {
+#if XEN_WEB_UI_USE_DEV_SERVER
+    candidate_urls_ = parse_dev_server_urls(juce::String{XEN_WEB_UI_DEV_URL});
+    browser_ = std::make_unique<CallbackWebBrowserComponent>(
+        create_browser_options(),
+        [this](juce::String const &url) { handle_dev_server_load_success(url); },
+        [this](juce::String const &error_info) {
+            return handle_dev_server_load_failure(error_info);
+        });
+#else
     browser_ =
         std::make_unique<juce::WebBrowserComponent>(create_browser_options());
+#endif
 
     this->addAndMakeVisible(*browser_);
     this->setWantsKeyboardFocus(true);
@@ -199,6 +342,9 @@ void WebviewHost::timerCallback()
 auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
 {
     auto options = juce::WebBrowserComponent::Options{}
+                       .withWinWebView2Options(
+                           juce::WebBrowserComponent::Options::WinWebView2{}
+                               .withBuiltInErrorPageDisabled())
                        .withNativeIntegrationEnabled()
                        .withNativeFunction(
                            "xenBridgeRequest",
@@ -285,7 +431,13 @@ auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) c
 void WebviewHost::load_initial_url()
 {
 #if XEN_WEB_UI_USE_DEV_SERVER
-    browser_->goToURL(juce::String{XEN_WEB_UI_DEV_URL});
+    if (candidate_urls_.empty())
+    {
+        show_dev_server_error_page();
+        return;
+    }
+
+    load_current_dev_server_url();
 #elif XEN_WEB_UI_USE_EMBEDDED
     auto const initial_url = juce::WebBrowserComponent::getResourceProviderRoot();
     browser_->goToURL(initial_url);
@@ -293,6 +445,80 @@ void WebviewHost::load_initial_url()
 #error "Invalid Web UI mode compile definitions."
 #endif
 }
+
+#if XEN_WEB_UI_USE_DEV_SERVER
+void WebviewHost::load_current_dev_server_url()
+{
+    if (browser_ == nullptr || dev_server_load_succeeded_ ||
+        final_failure_page_shown_ ||
+        current_candidate_index_ >= candidate_urls_.size())
+    {
+        return;
+    }
+
+    browser_->goToURL(candidate_urls_[current_candidate_index_]);
+}
+
+void WebviewHost::load_next_dev_server_url()
+{
+    ++current_candidate_index_;
+
+    if (current_candidate_index_ < candidate_urls_.size())
+    {
+        load_current_dev_server_url();
+        return;
+    }
+
+    show_dev_server_error_page();
+}
+
+void WebviewHost::handle_dev_server_load_success(juce::String const &url)
+{
+    juce::ignoreUnused(url);
+
+    if (dev_server_load_succeeded_ || final_failure_page_shown_)
+    {
+        return;
+    }
+
+    dev_server_load_succeeded_ = true;
+}
+
+auto WebviewHost::handle_dev_server_load_failure(juce::String const &error_info)
+    -> bool
+{
+    juce::ignoreUnused(error_info);
+
+    if (dev_server_load_succeeded_ || final_failure_page_shown_)
+    {
+        return false;
+    }
+
+    if (current_candidate_index_ < candidate_urls_.size())
+    {
+        attempted_urls_.push_back(candidate_urls_[current_candidate_index_]);
+    }
+
+    load_next_dev_server_url();
+    return false;
+}
+
+void WebviewHost::show_dev_server_error_page()
+{
+    if (browser_ == nullptr || final_failure_page_shown_)
+    {
+        return;
+    }
+
+    final_failure_page_shown_ = true;
+
+    auto const html =
+        make_dev_server_error_page(juce::String{XEN_WEB_UI_DEV_URL}, attempted_urls_);
+    auto const data_url =
+        "data:text/html;charset=utf-8," + juce::URL::addEscapeChars(html, true);
+    browser_->goToURL(data_url);
+}
+#endif
 
 void WebviewHost::emit_state_changed_event()
 {

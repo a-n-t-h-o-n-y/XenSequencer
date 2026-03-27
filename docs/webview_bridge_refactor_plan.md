@@ -286,8 +286,11 @@ Notes:
 
 ## Build Modes
 
-- `Debug` builds load the frontend from `XEN_WEB_UI_DEV_URL` (default:
-  `http://127.0.0.1:5173`).
+- `Debug` builds load the frontend from `XEN_WEB_UI_DEV_URL`, interpreted as an
+  ordered comma-separated list of candidate dev-server URLs (default:
+  `http://127.0.0.1:5173,http://localhost:5173`).
+- In `DEV_SERVER` mode, the editor starts with the first configured URL and
+  only advances to later URLs if an earlier one fails with a network error.
 - Non-`Debug` builds require `XEN_WEB_UI_DIST_DIR` and embed all `dist/` assets
   into the plugin binary (`EmbedWebUI`).
 - Non-`Debug` configure fails fast if `XEN_WEB_UI_DIST_DIR` is missing, invalid,
