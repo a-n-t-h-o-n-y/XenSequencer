@@ -17,6 +17,8 @@
 
 ## Build Commands
 
+- Do not run builds, tests, or other compile commands unless the user explicitly asks for them.
+- If build, test, or executable-run verification would be useful, list the exact commands at the end of the final message so the user can run them manually.
 - Do not pass explicit `-j` options to ninja/cmake build commands.
 
 ## C++ Style (Beyond clang-format)
