@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <optional>
-#include <variant>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -90,7 +89,7 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
                        float base_frequency, DAWState const &daw_state,
                        std::optional<Scale> const &scale, int key,
                        TranslateDirection scale_translate_direction)
-    -> sequence::midi::EventTimeline
+    -> std::vector<sequence::midi::TimedMidiNote>
 {
     if (scale)
     {
@@ -107,28 +106,19 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
         tuning, base_frequency, 48.f);
 }
 
-auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::MidiBuffer
+auto render_to_midi(std::vector<sequence::midi::TimedMidiNote> const &timeline)
+    -> juce::MidiBuffer
 {
-    namespace seq = sequence;
-
     auto buffer = juce::MidiBuffer{};
-    buffer.ensureSize(timeline.size());
-    for (auto const &[event, sample] : timeline)
+    buffer.ensureSize((int)timeline.size() * 3);
+    for (auto const &note : timeline)
     {
-        juce::MidiMessage midi = std::visit(
-            seq::utility::overload{
-                [](seq::midi::NoteOn const &note) -> juce::MidiMessage {
-                    return juce::MidiMessage::noteOn(1, note.note, note.velocity);
-                },
-                [](seq::midi::NoteOff const &note) -> juce::MidiMessage {
-                    return juce::MidiMessage::noteOff(1, note.note);
-                },
-                [](seq::midi::PitchBend const &pitch) -> juce::MidiMessage {
-                    return juce::MidiMessage::pitchWheel(1, pitch.value);
-                },
-            },
-            event);
-        buffer.addEvent(midi, (int)sample);
+        buffer.addEvent(juce::MidiMessage::pitchWheel(1, note.pitch_bend),
+                        (int)note.begin);
+        buffer.addEvent(
+            juce::MidiMessage::noteOn(1, note.note, (juce::uint8)note.velocity),
+            (int)note.begin);
+        buffer.addEvent(juce::MidiMessage::noteOff(1, note.note), (int)note.end);
     }
     return buffer;
 }

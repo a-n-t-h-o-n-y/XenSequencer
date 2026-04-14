@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
@@ -12,7 +13,7 @@ namespace xen
 {
 
 /**
- * Converts the state of the plugin to a MIDI Event timeline.
+ * Converts the state of the plugin to a timeline of timed MIDI notes.
  *
  * @param measure The measure to convert.
  * @param tuning The tuning to use.
@@ -20,21 +21,22 @@ namespace xen
  * @param daw_state The state of the DAW.
  * @param key The key to transpose to, simple addition.
  * @param scale_translate_direction The direction to move a pitch when applying a scale.
- * @return sequence::midi::EventTimeline
+ * @return std::vector<sequence::midi::TimedMidiNote>
  */
 [[nodiscard]] auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
                                      float base_frequency, DAWState const &daw_state,
                                      std::optional<Scale> const &scale, int key,
                                      TranslateDirection scale_translate_direction)
-    -> sequence::midi::EventTimeline;
+    -> std::vector<sequence::midi::TimedMidiNote>;
 
 /**
- * Renders a sequence library midi::EventTimeline as a MIDI buffer.
+ * Renders timed MIDI notes as a MIDI buffer.
  *
- * @param timeline The MIDI Event timeline.
+ * @param timeline The timed MIDI notes.
  * @return juce::MidiBuffer
  */
-[[nodiscard]] auto render_to_midi(sequence::midi::EventTimeline const &timeline)
+[[nodiscard]] auto render_to_midi(
+    std::vector<sequence::midi::TimedMidiNote> const &timeline)
     -> juce::MidiBuffer;
 
 /**
