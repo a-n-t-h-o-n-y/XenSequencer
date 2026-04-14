@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <variant>
 
-#include <sequence/measure.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/utility.hpp>
 

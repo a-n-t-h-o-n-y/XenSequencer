@@ -4,8 +4,7 @@
 #include <string>
 #include <utility>
 
-#include <sequence/measure.hpp>
-
+#include <xen/measure.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -27,22 +26,21 @@ namespace xen
 [[nodiscard]] auto deserialize_cell(std::string const &json_str) -> sequence::Cell;
 
 /**
- * Serialize a sequence::Measure object to a JSON string.
+ * Serialize a Measure object to a JSON string.
  *
- * @param m The sequence::Measure object to serialize.
+ * @param m The Measure object to serialize.
  * @return std::string The JSON string.
  */
-[[nodiscard]] auto serialize_measure(sequence::Measure const &m) -> std::string;
+[[nodiscard]] auto serialize_measure(Measure const &m) -> std::string;
 
 /**
- * Deserialize a JSON string to a sequence::Measure object.
+ * Deserialize a JSON string to a Measure object.
  *
  * @param json_str The JSON string to deserialize.
  * @return Measure The deserialized Measure object.
  * @throw std::invalid_argument If the JSON string is invalid.
  */
-[[nodiscard]] auto deserialize_measure(std::string const &json_str)
-    -> sequence::Measure;
+[[nodiscard]] auto deserialize_measure(std::string const &json_str) -> Measure;
 
 /**
  * Serialize a SequenceBank object to a JSON string.

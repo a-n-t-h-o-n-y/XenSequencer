@@ -2,7 +2,6 @@
 
 #include <cstddef>
 
-#include <sequence/measure.hpp>
 #include <sequence/sequence.hpp>
 
 #include <xen/state.hpp>

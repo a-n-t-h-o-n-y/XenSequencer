@@ -56,14 +56,6 @@ static void to_json(nlohmann::json &j, TimeSignature const &ts)
     };
 }
 
-static void to_json(nlohmann::json &j, Measure const &measure)
-{
-    j = nlohmann::json{
-        {"cell", measure.cell},
-        {"time_signature", measure.time_signature},
-    };
-}
-
 static void to_json(nlohmann::json &j, Tuning const &tuning)
 {
     j = nlohmann::json{
@@ -124,12 +116,6 @@ static void from_json(nlohmann::json const &j, TimeSignature &ts)
     ts.denominator = j.at("denominator").get<unsigned>();
 }
 
-static void from_json(nlohmann::json const &j, Measure &measure)
-{
-    measure.cell = j.at("cell").get<Cell>();
-    measure.time_signature = j.at("time_signature").get<TimeSignature>();
-}
-
 static void from_json(nlohmann::json const &j, Tuning &tuning)
 {
     tuning.intervals = j.at("intervals").get<std::vector<Tuning::Interval_t>>();
@@ -137,6 +123,25 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 }
 
 } // namespace sequence
+
+namespace xen
+{
+
+static void to_json(nlohmann::json &j, Measure const &measure)
+{
+    j = nlohmann::json{
+        {"cell", measure.cell},
+        {"time_signature", measure.time_signature},
+    };
+}
+
+static void from_json(nlohmann::json const &j, Measure &measure)
+{
+    measure.cell = j.at("cell").get<sequence::Cell>();
+    measure.time_signature = j.at("time_signature").get<sequence::TimeSignature>();
+}
+
+} // namespace xen
 
 namespace nlohmann
 {
@@ -234,17 +239,17 @@ auto deserialize_cell(std::string const &json_str) -> sequence::Cell
     return cell;
 }
 
-auto serialize_measure(sequence::Measure const &m) -> std::string
+auto serialize_measure(Measure const &m) -> std::string
 {
     auto json = nlohmann::json{};
     to_json(json, m);
     return json.dump();
 }
 
-auto deserialize_measure(std::string const &json_str) -> sequence::Measure
+auto deserialize_measure(std::string const &json_str) -> Measure
 {
     auto const json = nlohmann::json::parse(json_str);
-    auto measure = sequence::Measure{};
+    auto measure = Measure{};
     from_json(json, measure);
     return measure;
 }

@@ -12,8 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include <sequence/measure.hpp>
-
 #include <xen/clock.hpp>
 #include <xen/midi.hpp>
 #include <xen/scale.hpp>
@@ -36,7 +34,7 @@ auto const first_midi_trigger_note = 36;
 }
 
 /**
- * Renders a sequence::Measure as a MIDI buffer.
+ * Renders a Measure as a MIDI buffer.
  *
  * @param measure The measure to render.
  * @param tuning The tuning to use.
@@ -46,7 +44,7 @@ auto const first_midi_trigger_note = 36;
  * @param scale_translate_direction The direction to move pitches for a Scale.
  * @return juce::MidiBuffer
  */
-[[nodiscard]] auto render_measure(sequence::Measure const &measure,
+[[nodiscard]] auto render_measure(xen::Measure const &measure,
                                   sequence::Tuning const &tuning, float base_frequency,
                                   xen::DAWState const &daw,
                                   std::optional<xen::Scale> const &scale, int key,
@@ -344,7 +342,8 @@ void MidiEngine::update(EngineState const &sequencer, DAWState const &daw)
             .midi = render_measure(measure, sequencer.tuning, sequencer.base_frequency,
                                    daw, sequencer.scale, sequencer.key,
                                    sequencer.scale_translate_direction),
-            .sample_count = sequence::samples_count(measure, daw.sample_rate, daw.bpm),
+            .sample_count = sequence::samples_count(
+                measure.cell, measure.time_signature, daw.sample_rate, daw.bpm),
         };
     }
 }

@@ -179,12 +179,12 @@ auto delete_cell(TimelineState ts) -> TimelineState
     return ts;
 }
 
-auto save_measure(juce::File const &filepath, sequence::Measure const &measure) -> void
+auto save_measure(juce::File const &filepath, Measure const &measure) -> void
 {
     filepath.replaceWithText(serialize_measure(measure));
 }
 
-auto load_measure(juce::File const &filepath) -> sequence::Measure
+auto load_measure(juce::File const &filepath) -> Measure
 {
     if (filepath.getSize() > (128 * 1'024 * 1'024))
     {

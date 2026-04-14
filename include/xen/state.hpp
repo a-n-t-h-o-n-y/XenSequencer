@@ -9,13 +9,13 @@
 
 #include <juce_core/juce_core.h>
 
-#include <sequence/measure.hpp>
 #include <sequence/tuning.hpp>
 
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
 #include <xen/command_history.hpp>
 #include <xen/input_mode.hpp>
+#include <xen/measure.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
 #include <xen/user_directory.hpp>
@@ -27,7 +27,7 @@ using SampleIndex = std::uint64_t;
 
 using SampleCount = std::uint64_t;
 
-using SequenceBank = std::array<sequence::Measure, 16>;
+using SequenceBank = std::array<Measure, 16>;
 
 /**
  * The state of the sequencing engine.

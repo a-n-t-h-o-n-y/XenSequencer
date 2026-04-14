@@ -22,8 +22,7 @@ namespace xen
  * @param scale_translate_direction The direction to move a pitch when applying a scale.
  * @return sequence::midi::EventTimeline
  */
-[[nodiscard]] auto state_to_timeline(sequence::Measure measure,
-                                     sequence::Tuning const &tuning,
+[[nodiscard]] auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
                                      float base_frequency, DAWState const &daw_state,
                                      std::optional<Scale> const &scale, int key,
                                      TranslateDirection scale_translate_direction)

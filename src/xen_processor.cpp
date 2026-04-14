@@ -12,8 +12,6 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <sequence/measure.hpp>
-
 #include <xen/command.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>

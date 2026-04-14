@@ -7,7 +7,6 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
-#include <sequence/measure.hpp>
 #include <sequence/midi.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/tuning.hpp>
@@ -87,7 +86,7 @@ namespace
 namespace xen
 {
 
-auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning,
+auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
                        float base_frequency, DAWState const &daw_state,
                        std::optional<Scale> const &scale, int key,
                        TranslateDirection scale_translate_direction)
@@ -104,7 +103,8 @@ auto state_to_timeline(sequence::Measure measure, sequence::Tuning const &tuning
 
     // TODO add pitch bend range parameter to state and commands to alter it.
     return sequence::midi::translate_to_midi_timeline(
-        measure, daw_state.sample_rate, daw_state.bpm, tuning, base_frequency, 48.f);
+        measure.cell, measure.time_signature, daw_state.sample_rate, daw_state.bpm,
+        tuning, base_frequency, 48.f);
 }
 
 auto render_to_midi(sequence::midi::EventTimeline const &timeline) -> juce::MidiBuffer

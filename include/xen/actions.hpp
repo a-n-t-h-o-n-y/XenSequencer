@@ -9,12 +9,12 @@
 
 #include <juce_core/juce_core.h>
 
-#include <sequence/measure.hpp>
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
 #include <xen/input_mode.hpp>
+#include <xen/measure.hpp>
 #include <xen/modulator.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
@@ -95,9 +95,9 @@ void copy(EngineState const &state, ExecutionContext const &context);
 
 [[nodiscard]] auto delete_cell(TimelineState state) -> TimelineState;
 
-void save_measure(juce::File const &filepath, sequence::Measure const &measure);
+void save_measure(juce::File const &filepath, Measure const &measure);
 
-[[nodiscard]] auto load_measure(juce::File const &filepath) -> sequence::Measure;
+[[nodiscard]] auto load_measure(juce::File const &filepath) -> Measure;
 
 void save_sequence_bank(SequenceBank const &bank,
                         std::array<std::string, 16> const &sequence_names,

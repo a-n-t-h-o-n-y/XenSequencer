@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include <sequence/measure.hpp>
 #include <sequence/sequence.hpp>
 
 #include <xen/input_mode.hpp>
@@ -76,7 +75,7 @@ auto cell_to_json(sequence::Cell const &cell) -> nlohmann::json
         cell.element);
 }
 
-auto measure_to_json(sequence::Measure const &measure) -> nlohmann::json
+auto measure_to_json(xen::Measure const &measure) -> nlohmann::json
 {
     return nlohmann::json{
         {"cell", cell_to_json(measure.cell)},

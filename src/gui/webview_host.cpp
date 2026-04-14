@@ -12,8 +12,6 @@
 #include <string>
 #include <vector>
 
-#include <sequence/measure.hpp>
-
 #if XEN_WEB_UI_USE_EMBEDDED
 #include <embed_webui.hpp>
 #endif
