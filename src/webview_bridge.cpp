@@ -621,4 +621,11 @@ auto WebviewBridge::make_phase_sync_event_json(MeasurePhase phase, float bpm) co
     return make_envelope("event", "transport.phase.sync", std::nullopt, payload).dump();
 }
 
+auto WebviewBridge::make_transport_stopped_event_json() const -> std::string
+{
+    return make_envelope("event", "transport.stopped", std::nullopt,
+                         nlohmann::json::object())
+        .dump();
+}
+
 } // namespace xen

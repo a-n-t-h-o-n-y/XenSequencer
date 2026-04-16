@@ -282,29 +282,8 @@ auto delete_cell(TimelineState ts) -> TimelineState
         return ts;
     }
 
-    sequence::Cell *parent =
-        get_parent_of_selected(ts.sequencer.measure, ts.aux.selected);
-    if (parent != nullptr)
-    {
-        auto &cells = navigable_sequence(*parent).cells;
-        cells.erase(std::next(
-            std::begin(cells),
-            (std::vector<sequence::Cell>::difference_type)ts.aux.selected.cell.back()));
-
-        if (cells.empty())
-        {
-            ts.aux.selected = xen::move_up(ts.aux.selected, 1);
-            return delete_cell(ts);
-        }
-
-        ts.aux.selected.cell.back() =
-            std::min(ts.aux.selected.cell.back(), cells.size() - 1);
-    }
-    else
-    {
-        ts.sequencer.measure.cell.elements.clear();
-    }
-
+    auto &selected_cell = get_selected_cell(ts.sequencer.measure, ts.aux.selected);
+    selected_cell.elements.clear();
     return ts;
 }
 

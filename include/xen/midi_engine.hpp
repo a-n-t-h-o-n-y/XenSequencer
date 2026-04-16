@@ -1,10 +1,12 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include <xen/clock.hpp>
+#include <xen/midi_internal.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -46,9 +48,11 @@ class MidiEngine
     struct MidiSequence
     {
         juce::MidiBuffer midi;
-        SampleCount sample_count;
+        std::vector<midi_internal::AssignedMidiNote> assigned_notes{};
+        SampleCount sample_count{};
     };
     MidiSequence rendered_midi_{};
+    std::vector<midi_internal::LiveVoice> active_live_voices_{};
 };
 
 } // namespace xen

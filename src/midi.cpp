@@ -1,7 +1,12 @@
 #include <xen/midi.hpp>
 
+#include <algorithm>
+#include <cstdint>
 #include <cstddef>
+#include <functional>
 #include <optional>
+#include <queue>
+#include <tuple>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -12,11 +17,21 @@
 #include <sequence/tuning.hpp>
 #include <sequence/utility.hpp>
 
+#include <xen/midi_internal.hpp>
 #include <xen/scale.hpp>
 #include <xen/state.hpp>
 
 namespace
 {
+
+struct MidiEvent
+{
+    int sample_position;
+    int priority;
+    int channel;
+    int note_number;
+    juce::MidiMessage message;
+};
 
 [[nodiscard]] auto scale_translate_element(sequence::MusicElement const &element,
                                            std::vector<int> const &valid_pitches,
@@ -102,6 +117,138 @@ namespace
 
 } // namespace
 
+namespace xen::midi_internal
+{
+
+namespace
+{
+
+struct ActiveChannel
+{
+    std::uint32_t end;
+    int channel;
+};
+
+} // namespace
+
+auto assign_mpe_channels(std::vector<sequence::midi::TimedMidiNote> const &timeline)
+    -> std::vector<AssignedMidiNote>
+{
+    auto sorted = timeline;
+    std::sort(std::begin(sorted), std::end(sorted), [](auto const &lhs, auto const &rhs) {
+        return std::tie(lhs.begin, lhs.end, lhs.note, lhs.pitch_bend, lhs.velocity) <
+               std::tie(rhs.begin, rhs.end, rhs.note, rhs.pitch_bend, rhs.velocity);
+    });
+
+    auto free_channels =
+        std::priority_queue<int, std::vector<int>, std::greater<>>{};
+    for (auto channel = mpe_first_member_channel; channel <= mpe_last_member_channel;
+         ++channel)
+    {
+        free_channels.push(channel);
+    }
+
+    auto active = std::priority_queue<
+        ActiveChannel,
+        std::vector<ActiveChannel>,
+        std::function<bool(ActiveChannel const &, ActiveChannel const &)>>{
+        [](ActiveChannel const &lhs, ActiveChannel const &rhs) {
+            return std::tie(lhs.end, lhs.channel) >
+                   std::tie(rhs.end, rhs.channel);
+        }};
+
+    auto assigned = std::vector<AssignedMidiNote>{};
+    assigned.reserve(sorted.size());
+
+    for (auto const &note : sorted)
+    {
+        if (note.end <= note.begin)
+        {
+            continue;
+        }
+
+        while (!active.empty() && active.top().end <= note.begin)
+        {
+            free_channels.push(active.top().channel);
+            active.pop();
+        }
+
+        if (free_channels.empty())
+        {
+            continue;
+        }
+
+        auto const channel = free_channels.top();
+        free_channels.pop();
+
+        assigned.push_back({.note = note, .channel = channel});
+        active.push({.end = note.end, .channel = channel});
+    }
+
+    return assigned;
+}
+
+auto render_assigned_notes(std::vector<AssignedMidiNote> const &assigned_notes)
+    -> juce::MidiBuffer
+{
+    auto events = std::vector<MidiEvent>{};
+    events.reserve(assigned_notes.size() * 3);
+
+    for (auto const &assigned : assigned_notes)
+    {
+        auto const &note = assigned.note;
+        auto const channel = assigned.channel;
+
+        events.push_back({
+            .sample_position = (int)note.begin,
+            .priority = 1,
+            .channel = channel,
+            .note_number = note.note,
+            .message = juce::MidiMessage::pitchWheel(channel, note.pitch_bend),
+        });
+        events.push_back({
+            .sample_position = (int)note.begin,
+            .priority = 2,
+            .channel = channel,
+            .note_number = note.note,
+            .message = juce::MidiMessage::noteOn(channel, note.note,
+                                                 (juce::uint8)note.velocity),
+        });
+        events.push_back({
+            .sample_position = (int)note.end,
+            .priority = 0,
+            .channel = channel,
+            .note_number = note.note,
+            .message = juce::MidiMessage::noteOff(channel, note.note),
+        });
+    }
+
+    std::sort(std::begin(events), std::end(events), [](auto const &lhs, auto const &rhs) {
+        return std::tie(lhs.sample_position, lhs.priority, lhs.channel,
+                        lhs.note_number) <
+               std::tie(rhs.sample_position, rhs.priority, rhs.channel,
+                        rhs.note_number);
+    });
+
+    auto buffer = juce::MidiBuffer{};
+    buffer.ensureSize((int)events.size());
+    for (auto const &event : events)
+    {
+        buffer.addEvent(event.message, event.sample_position);
+    }
+    return buffer;
+}
+
+auto live_voice_from(AssignedMidiNote const &assigned) -> LiveVoice
+{
+    return {
+        .note = assigned.note,
+        .channel = assigned.channel,
+    };
+}
+
+} // namespace xen::midi_internal
+
 namespace xen
 {
 
@@ -131,18 +278,8 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
 auto render_to_midi(std::vector<sequence::midi::TimedMidiNote> const &timeline)
     -> juce::MidiBuffer
 {
-    auto buffer = juce::MidiBuffer{};
-    buffer.ensureSize((int)timeline.size() * 3);
-    for (auto const &note : timeline)
-    {
-        buffer.addEvent(juce::MidiMessage::pitchWheel(1, note.pitch_bend),
-                        (int)note.begin);
-        buffer.addEvent(
-            juce::MidiMessage::noteOn(1, note.note, (juce::uint8)note.velocity),
-            (int)note.begin);
-        buffer.addEvent(juce::MidiMessage::noteOff(1, note.note), (int)note.end);
-    }
-    return buffer;
+    return midi_internal::render_assigned_notes(
+        midi_internal::assign_mpe_channels(timeline));
 }
 
 auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,

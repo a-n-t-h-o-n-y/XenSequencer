@@ -165,6 +165,7 @@ struct DAWState
 {
     float bpm = 0.f;
     std::uint32_t sample_rate = 0;
+    bool is_playing = false;
 };
 
 struct AudioThreadStateForGUI

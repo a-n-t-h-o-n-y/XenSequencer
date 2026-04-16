@@ -1,5 +1,6 @@
 #include <xen/xen_processor.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -65,10 +66,12 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     buffer.clear();
 
     bool update_needed = false;
+    auto transport_offset = SampleIndex{0};
 
     { // Update DAWState
         auto bpm = audio_thread_state_.daw.bpm > 0.f ? audio_thread_state_.daw.bpm
                                                       : 120.f;
+        auto is_playing = false;
         if (auto *playhead = this->getPlayHead(); playhead != nullptr)
         {
             auto const position = playhead->getPosition();
@@ -78,6 +81,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 {
                     bpm = static_cast<float>(*bpm_opt);
                 }
+                is_playing = position->getIsPlaying();
             }
         }
 
@@ -91,11 +95,34 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
         update_needed = !utility::compare_within_tolerance(audio_thread_state_.daw.bpm,
                                                            bpm, 0.0001f) ||
-                        audio_thread_state_.daw.sample_rate != sample_rate;
+                        audio_thread_state_.daw.sample_rate != sample_rate ||
+                        audio_thread_state_.daw.is_playing != is_playing;
+
+        if (auto *playhead = this->getPlayHead(); playhead != nullptr)
+        {
+            auto const position = playhead->getPosition();
+            if (position.hasValue())
+            {
+                if (auto const samples_opt = position->getTimeInSamples();
+                    samples_opt.hasValue())
+                {
+                    transport_offset =
+                        (SampleIndex)std::max<std::int64_t>(*samples_opt, 0);
+                }
+                else if (auto const ppq_opt = position->getPpqPosition();
+                         ppq_opt.hasValue() && bpm > 0.f && sample_rate > 0)
+                {
+                    auto const samples =
+                        *ppq_opt * (60.0 / (double)bpm) * (double)sample_rate;
+                    transport_offset = (SampleIndex)std::max<double>(samples, 0.0);
+                }
+            }
+        }
 
         audio_thread_state_.daw = DAWState{
             .bpm = bpm,
             .sample_rate = sample_rate,
+            .is_playing = is_playing,
         };
     }
 
@@ -113,18 +140,16 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     // Calculate MIDI buffer slice
     auto next_slice = audio_thread_state_.midi_engine.step(
-        midi_buffer, audio_thread_state_.accumulated_sample_count,
+        midi_buffer, transport_offset,
         (SampleCount)buffer.getNumSamples(), audio_thread_state_.daw);
 
     midi_buffer.swapWith(next_slice);
 
-    audio_thread_state_.accumulated_sample_count += (SampleCount)buffer.getNumSamples();
-
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,
         .loop_phase = audio_thread_state_.midi_engine.get_loop_phase(
-            audio_thread_state_.accumulated_sample_count, audio_thread_state_.daw),
-        .transport_active = audio_thread_state_.daw.bpm > 0.f,
+            transport_offset, audio_thread_state_.daw),
+        .transport_active = audio_thread_state_.daw.is_playing,
     });
 }
 

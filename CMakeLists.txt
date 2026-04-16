@@ -326,10 +326,13 @@ if (XEN_BUILD_TESTS)
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
         test/core/webview_bridge.test.cpp
+        test/midi.test.cpp
+        test/midi_engine.test.cpp
         test/processor/processor_commands.test.cpp
         test/processor/processor_state_roundtrip.test.cpp
         test/sync/engine_state_mailbox.test.cpp
         test/sync/engine_snapshot_contract.test.cpp
+        test/utility.test.cpp
     )
 
     if (XEN_TEST_SOURCES)

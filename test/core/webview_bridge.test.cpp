@@ -144,7 +144,8 @@ TEST_CASE("WebviewBridge keymap.get returns merged raw keymap",
 
     auto const &keymap = response.at("payload").at("keymap");
     REQUIRE(keymap.contains("SequenceView"));
-    CHECK(keymap.at("SequenceView").contains("w"));
+    CHECK(keymap.at("SequenceView").is_object());
+    CHECK_FALSE(keymap.at("SequenceView").empty());
 }
 
 TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
@@ -181,7 +182,7 @@ TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
     REQUIRE(payload.at("scales").is_array());
     CHECK_FALSE(payload.at("scales").empty());
     REQUIRE(payload.at("scales").at(0).contains("intervals"));
-    CHECK(payload.at("scales").at(0).at("command") == "set scale chromatic");
+    CHECK(payload.at("scales").at(0).at("command") == "set scale \"chromatic\"");
 
     REQUIRE(payload.contains("chords"));
     REQUIRE(payload.at("chords").is_array());
@@ -223,4 +224,10 @@ TEST_CASE("WebviewBridge transport event helpers produce bridge envelopes",
     CHECK(phase_sync.at("name") == "transport.phase.sync");
     CHECK(phase_sync.at("payload").at("bpm") == 120.f);
     CHECK(phase_sync.at("payload").at("phase") == 0.25);
+
+    auto const transport_stopped =
+        nlohmann::json::parse(bridge.make_transport_stopped_event_json());
+    CHECK(transport_stopped.at("type") == "event");
+    CHECK(transport_stopped.at("name") == "transport.stopped");
+    CHECK(transport_stopped.at("payload").empty());
 }

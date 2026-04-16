@@ -504,9 +504,20 @@ void WebviewHost::emit_transport_events()
     auto const transport_state = processor_.audio_thread_state_for_gui.read();
     if (!transport_state.transport_active)
     {
+        if (!last_transport_active_)
+        {
+            return;
+        }
+
+        last_transport_active_ = false;
+        auto const event_json = bridge_.make_transport_stopped_event_json();
+        browser_->emitEventIfBrowserIsVisible(
+            "xenBridgeEvent",
+            parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
         return;
     }
 
+    last_transport_active_ = true;
     auto const event_json = bridge_.make_phase_sync_event_json(
         {.phase = transport_state.loop_phase}, transport_state.daw.bpm);
     browser_->emitEventIfBrowserIsVisible(

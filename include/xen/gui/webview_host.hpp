@@ -60,6 +60,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     bool final_failure_page_shown_{false};
 #endif
     std::uint64_t last_snapshot_version_{0};
+    bool last_transport_active_{false};
 };
 
 } // namespace xen::gui

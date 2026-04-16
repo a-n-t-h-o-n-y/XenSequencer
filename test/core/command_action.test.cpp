@@ -648,7 +648,7 @@ TEST_CASE("Typed note and delete actions update selected cell",
         .elements = {sequence::Sequence{
             .cells = {
                 sequence::Cell{
-                    .elements = {},
+                    .elements = {sequence::Note{3, 0.2f, 0.1f, 0.4f}},
                     .weight = 0.37f,
                 },
             },
@@ -669,9 +669,9 @@ TEST_CASE("Typed note and delete actions update selected cell",
     auto const state_after_note = ps.timeline.get_state();
     auto const &note_cell =
         get_selected_cell_const(state_after_note.sequencer.measure, note_target);
-    REQUIRE(note_cell.elements.size() == 1);
-    REQUIRE(std::holds_alternative<sequence::Note>(note_cell.elements.front()));
-    auto const &note = std::get<sequence::Note>(note_cell.elements.front());
+    REQUIRE(note_cell.elements.size() == 2);
+    REQUIRE(std::holds_alternative<sequence::Note>(note_cell.elements.back()));
+    auto const &note = std::get<sequence::Note>(note_cell.elements.back());
     CHECK(note.pitch == 12);
     CHECK(note.velocity == Catch::Approx(0.5f));
     CHECK(note.delay == Catch::Approx(0.25f));
@@ -689,6 +689,38 @@ TEST_CASE("Typed note and delete actions update selected cell",
         state_after_delete.sequencer.measure, note_result.context.selected);
     CHECK(deleted_cell.elements.empty());
     CHECK(deleted_cell.weight == Catch::Approx(0.37f));
+}
+
+TEST_CASE("Typed note action replaces selected element only",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    auto state = ps.timeline.get_state();
+    state.sequencer.measure.cell.elements = {
+        sequence::Note{1, 0.2f, 0.1f, 0.3f},
+        sequence::Sequence{.cells = {sequence::Cell{.elements = {}, .weight = 1.f}}},
+    };
+    state.aux.selected.element_index = 1;
+    ps.timeline.stage(std::move(state));
+
+    auto const context = ExecutionContext{ps.timeline.get_state().aux};
+    auto note_action = to_command_actions(parse_command_chain("note 9 0.6 0.2 0.8"))[0];
+    auto note_result = execute_command_action(ps, context, note_action);
+    CHECK(note_result.status.first == MessageLevel::Info);
+    CHECK(note_result.status.second == "Note Created");
+    CHECK(note_result.engine_mutated);
+
+    auto const &root_cell = ps.timeline.get_state().sequencer.measure.cell;
+    REQUIRE(root_cell.elements.size() == 2);
+    REQUIRE(std::holds_alternative<sequence::Note>(root_cell.elements.front()));
+    CHECK(std::get<sequence::Note>(root_cell.elements.front()).pitch == 1);
+    REQUIRE(std::holds_alternative<sequence::Note>(root_cell.elements.at(1)));
+    auto const &note = std::get<sequence::Note>(root_cell.elements.at(1));
+    CHECK(note.pitch == 9);
+    CHECK(note.velocity == Catch::Approx(0.6f));
+    CHECK(note.delay == Catch::Approx(0.2f));
+    CHECK(note.gate == Catch::Approx(0.8f));
+    CHECK(note_result.context.selected.element_index == 1);
 }
 
 TEST_CASE("Typed undo and redo actions restore committed history",

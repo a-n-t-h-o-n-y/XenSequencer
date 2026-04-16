@@ -88,7 +88,6 @@ class XenProcessor : public juce::AudioProcessor
     {
         DAWState daw;
         EngineState sequencer{};
-        SampleCount accumulated_sample_count{0};
         MidiEngine midi_engine;
     } audio_thread_state_;
 

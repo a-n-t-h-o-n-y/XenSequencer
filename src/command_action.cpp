@@ -223,16 +223,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 state.aux = context;
                 state = increment_state(
                     std::move(state),
-                    [](auto const &selected, int pitch, float velocity, float delay,
+                    [](auto selected, int pitch, float velocity, float delay,
                        float gate) {
                         auto note = sequence::modify::note(pitch, velocity, delay, gate);
                         using Selected = std::decay_t<decltype(selected)>;
                         if constexpr (std::is_same_v<Selected, sequence::Cell>)
                         {
-                            return sequence::Cell{
-                                .elements = {std::move(note)},
-                                .weight = selected.weight,
-                            };
+                            selected.elements.push_back(std::move(note));
+                            return selected;
                         }
                         else
                         {

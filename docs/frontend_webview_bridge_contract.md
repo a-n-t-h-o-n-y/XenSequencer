@@ -315,6 +315,24 @@ Emission behavior:
 1. Emitted on the host timer while transport-driven playback is active.
 1. Phase is derived from current transport sample position modulo measure length.
 
+### `transport.stopped`
+
+Envelope:
+
+```ts
+{
+  protocol: "xen.bridge.v1";
+  type: "event";
+  name: "transport.stopped";
+  payload: {};
+}
+```
+
+Emission behavior:
+
+1. Emitted once when transport-driven playback transitions from active to stopped.
+1. Frontend should stop playhead animation immediately on receipt.
+
 ## 5. Snapshot payload (`UiStateSnapshot`)
 
 ```ts
@@ -430,7 +448,8 @@ Typical triggers:
 1. Call `state.get` and set store from returned snapshot.
 1. Call `library.get` when opening Library View and on user refresh.
 1. Start normal command loop with `command.execute` and `state.changed` updates.
-1. Listen for `transport.phase.sync` to drive playhead animation.
+1. Listen for `transport.phase.sync` to drive playhead animation while active.
+1. Listen for `transport.stopped` to stop playhead animation immediately.
 
 ## 8. Frontend implementation checklist
 
@@ -440,3 +459,4 @@ Typical triggers:
 1. Keep UI navigation as frontend-local actions (do not send through bridge).
 1. Preserve raw keymap command strings exactly as delivered.
 1. Treat transport events as transient UI animation signals; snapshot remains authoritative for editor/engine data.
+1. Treat `transport.stopped` as the authoritative stop edge; no frontend timeout heuristic is required.
