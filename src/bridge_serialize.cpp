@@ -147,15 +147,20 @@ auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
 
 auto editor_to_json(xen::EditorSessionState const &editor) -> nlohmann::json
 {
-    auto const element_index_json = editor.selected.element_index.has_value()
-                                        ? nlohmann::json(*editor.selected.element_index)
-                                        : nlohmann::json(nullptr);
+    auto selected_path = nlohmann::json::array();
+    for (auto const &step : editor.selected.path)
+    {
+        selected_path.push_back({
+            {"kind", step.kind == xen::SelectionStepKind::Element ? "element"
+                                                                   : "cell"},
+            {"index", step.index},
+        });
+    }
 
     return nlohmann::json{
         {"selected",
          {
-             {"cell", editor.selected.cell},
-             {"element_index", std::move(element_index_json)},
+             {"path", std::move(selected_path)},
          }},
         {"input_mode", xen::to_string(editor.input_mode)},
     };

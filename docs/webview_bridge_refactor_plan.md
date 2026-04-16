@@ -111,10 +111,25 @@ type MessageLevel = "debug" | "info" | "warning" | "error";
 type InputMode = "pitch" | "velocity" | "delay" | "gate" | "scale";
 type TranslateDirection = "up" | "down";
 
-type Cell =
-  | { type: "Note"; weight: number; pitch: number; velocity: number; delay: number; gate: number }
-  | { type: "Rest"; weight: number }
-  | { type: "Sequence"; weight: number; cells: Cell[] };
+type NoteElement = {
+  type: "Note";
+  pitch: number;
+  velocity: number;
+  delay: number;
+  gate: number;
+};
+
+type SequenceElement = {
+  type: "Sequence";
+  cells: Cell[];
+};
+
+type MusicElement = NoteElement | SequenceElement;
+
+type Cell = {
+  weight: number;
+  elements: MusicElement[];
+};
 
 type TimeSignature = { numerator: number; denominator: number };
 type Measure = { cell: Cell; time_signature: TimeSignature };
@@ -122,7 +137,12 @@ type Tuning = { intervals: number[]; octave: number };
 type Scale = { name: string; tuning_length: number; intervals: number[]; mode: number };
 type Chord = { name: string; intervals: number[] };
 
-type SelectedState = { cell: number[]; element_index: number | null };
+type SelectionStep = {
+  kind: "element" | "cell";
+  index: number;
+};
+
+type SelectedState = { path: SelectionStep[] };
 
 type EngineState = {
   measure: Measure;

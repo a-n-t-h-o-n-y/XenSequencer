@@ -388,7 +388,7 @@ type Chord = {
 };
 
 type UiStateSnapshot = {
-  schema_version: 3;
+  schema_version: 4;
   snapshot_version: number;
   commit_id: number;
   engine: {
@@ -402,8 +402,10 @@ type UiStateSnapshot = {
   };
   editor: {
     selected: {
-      cell: number[];
-      element_index: number | null;
+      path: Array<{
+        kind: "element" | "cell";
+        index: number;
+      }>;
     };
     input_mode: InputMode;
   };

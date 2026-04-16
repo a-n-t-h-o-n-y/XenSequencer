@@ -18,12 +18,26 @@ auto check_editor_stable(EngineSnapshot const &after, EngineSnapshot const &befo
     CHECK(after.editor.input_mode == before.editor.input_mode);
 }
 
+auto singleton_sequence_cell_selection(
+    std::vector<std::size_t> const &indices) -> SelectedState
+{
+    auto selected = SelectedState{};
+    for (auto const index : indices)
+    {
+        selected.path.push_back(
+            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back(
+            {.kind = SelectionStepKind::SequenceCell, .index = index});
+    }
+    return selected;
+}
+
 } // namespace
 
 TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]")
 {
     auto editor = EditorSessionState{};
-    editor.selected.cell = {1, 2, 3};
+    editor.selected = singleton_sequence_cell_selection({1, 2, 3});
     editor.input_mode = InputMode::Gate;
     editor.arp_state.previous_chord_name = "major";
     editor.arp_state.previous_inversion = 2;
@@ -53,18 +67,25 @@ TEST_CASE("Move up changes selection path and clears nested cell selection",
           "[core][actions]")
 {
     auto processor = XenProcessor{};
-
-    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
-    REQUIRE(processor.execute_command_string("move down").first == MessageLevel::Debug);
+    auto state = processor.plugin_state.timeline.get_state();
+    state.aux.selected = singleton_sequence_cell_selection({1, 2, 3});
+    processor.plugin_state.timeline.stage(std::move(state));
 
     auto before = processor.get_engine_snapshot();
-    REQUIRE_FALSE(before.editor.selected.cell.empty());
+    REQUIRE_FALSE(before.editor.selected.path.empty());
 
     auto const [level, _message] = processor.execute_command_string("move up");
     CHECK(level == MessageLevel::Debug);
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.editor.selected.cell.empty());
+    CHECK(after.editor.selected ==
+          SelectedState{.path = {
+              {.kind = SelectionStepKind::Element, .index = 0},
+              {.kind = SelectionStepKind::SequenceCell, .index = 1},
+              {.kind = SelectionStepKind::Element, .index = 0},
+              {.kind = SelectionStepKind::SequenceCell, .index = 2},
+              {.kind = SelectionStepKind::Element, .index = 0},
+          }});
 }
 
 TEST_CASE("Base frequency command clamps to supported range", "[core][actions]")

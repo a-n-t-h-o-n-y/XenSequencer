@@ -12,6 +12,25 @@
 
 using namespace xen;
 
+namespace
+{
+
+auto singleton_sequence_cell_selection(
+    std::vector<std::size_t> const &indices) -> SelectedState
+{
+    auto selected = SelectedState{};
+    for (auto const index : indices)
+    {
+        selected.path.push_back(
+            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back(
+            {.kind = SelectionStepKind::SequenceCell, .index = index});
+    }
+    return selected;
+}
+
+} // namespace
+
 TEST_CASE("Processor command 'again' replays previous command string",
           "[processor][commands]")
 {
@@ -171,15 +190,18 @@ TEST_CASE("Processor carries selection context across chained commands",
     auto processor = XenProcessor{};
 
     REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    auto state = processor.plugin_state.timeline.get_state();
+    state.aux.selected = singleton_sequence_cell_selection({0});
+    processor.plugin_state.timeline.stage(std::move(state));
 
     auto const [level, message] =
-        processor.execute_command_string("move down; move right; note 7");
+        processor.execute_command_string("move right; note 7");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Note Created");
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.editor.selected.cell == std::vector<std::size_t>{1});
+    CHECK(after.editor.selected == singleton_sequence_cell_selection({1}));
 
     auto const &selected =
         get_selected_cell_const(after.engine.measure, after.editor.selected);

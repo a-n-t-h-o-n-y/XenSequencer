@@ -2,11 +2,31 @@
 
 #include <vector>
 
+#include <xen/selection.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
 #include <xen/xen_processor.hpp>
 
 using namespace xen;
+
+namespace
+{
+
+auto singleton_sequence_cell_selection(
+    std::vector<std::size_t> const &indices) -> SelectedState
+{
+    auto selected = SelectedState{};
+    for (auto const index : indices)
+    {
+        selected.path.push_back(
+            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back(
+            {.kind = SelectionStepKind::SequenceCell, .index = index});
+    }
+    return selected;
+}
+
+} // namespace
 
 TEST_CASE("Mutating commands advance commit id while non-mutating commands do not",
           "[core][timeline][commit]")
@@ -40,13 +60,15 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     auto processor = XenProcessor{};
 
     REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
-    REQUIRE(processor.execute_command_string("move down").first ==
-            MessageLevel::Debug);
+    auto state = processor.plugin_state.timeline.get_state();
+    state.aux.selected = singleton_sequence_cell_selection({0});
+    processor.plugin_state.timeline.stage(std::move(state));
     REQUIRE(processor.execute_command_string("inputMode gate").first ==
             MessageLevel::Info);
     REQUIRE(processor.execute_command_string("set key 9").first == MessageLevel::Info);
     auto const previous_commit = processor.get_engine_snapshot();
-    REQUIRE(previous_commit.editor.selected.cell == std::vector<std::size_t>{0});
+    REQUIRE(previous_commit.editor.selected ==
+            singleton_sequence_cell_selection({0}));
     REQUIRE(previous_commit.editor.input_mode == InputMode::Gate);
 
     REQUIRE(processor.execute_command_string("set key 11").first == MessageLevel::Info);
@@ -66,7 +88,7 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     auto const after_undo = processor.get_engine_snapshot();
     CHECK(after_undo.commit_id == previous_commit.commit_id);
     CHECK(after_undo.engine.key == previous_commit.engine.key);
-    CHECK(after_undo.editor.selected.cell == std::vector<std::size_t>{0});
+    CHECK(after_undo.editor.selected == singleton_sequence_cell_selection({0}));
     CHECK(after_undo.editor.input_mode == InputMode::Gate);
 }
 

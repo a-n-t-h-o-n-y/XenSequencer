@@ -264,10 +264,11 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 auto const content = read_copy_buffer();
                 state.sequencer =
                     action::paste(std::move(state.sequencer), state.aux);
-                if (content.has_value() && has_selected_element(state.aux.selected) &&
+                if (content.has_value() &&
+                    selection_kind(state.aux.selected) == SelectionKind::Element &&
                     std::holds_alternative<sequence::Cell>(*content))
                 {
-                    state.aux.selected.element_index.reset();
+                    state.aux.selected = select_parent_cell(state.aux.selected);
                 }
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Pasted Over");

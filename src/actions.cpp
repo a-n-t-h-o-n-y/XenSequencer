@@ -53,22 +53,6 @@ auto visit_sequence(sequence::Cell cell, Fn &&fn) -> sequence::Cell
     return cell;
 }
 
-auto navigable_sequence(sequence::Cell &cell) -> sequence::Sequence &
-{
-    if (cell.elements.size() != 1)
-    {
-        throw std::runtime_error("Selected parent cell is not a navigable sequence.");
-    }
-
-    auto *sequence = std::get_if<sequence::Sequence>(&cell.elements.front());
-    if (sequence == nullptr)
-    {
-        throw std::runtime_error("Selected parent cell is not a navigable sequence.");
-    }
-
-    return *sequence;
-}
-
 auto erase_selected_element(sequence::Cell &cell, std::size_t element_index) -> void
 {
     cell.elements.erase(std::next(std::begin(cell.elements),
@@ -107,7 +91,7 @@ auto move_down(EngineState const &state, ExecutionContext context,
 
 void copy(EngineState const &state, ExecutionContext const &context)
 {
-    if (has_selected_element(context.selected))
+    if (selection_kind(context.selected) == SelectionKind::Element)
     {
         write_copy_buffer(get_selected_element_const(state.measure, context.selected));
     }
@@ -129,7 +113,7 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
     if (std::holds_alternative<sequence::Cell>(*content))
     {
         auto replacement = std::get<sequence::Cell>(*content);
-        if (has_selected_element(context.selected))
+        if (selection_kind(context.selected) == SelectionKind::Element)
         {
             auto *parent_cell =
                 get_parent_cell_of_selection(state.measure, context.selected);
@@ -144,14 +128,15 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
     else
     {
         auto element = std::get<sequence::MusicElement>(*content);
-        if (has_selected_element(context.selected))
+        if (selection_kind(context.selected) == SelectionKind::Element)
         {
             auto &parent_cell =
                 *get_parent_cell_of_selection(state.measure, context.selected);
+            auto const index = get_selected_element_index(context.selected);
             parent_cell.elements.insert(
                 std::next(std::begin(parent_cell.elements),
                           (std::vector<sequence::MusicElement>::difference_type)
-                              (*context.selected.element_index + 1)),
+                              (index + 1)),
                 std::move(element));
         }
         else
@@ -166,16 +151,17 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
 
 auto duplicate(TimelineState state) -> TimelineState
 {
-    if (has_selected_element(state.aux.selected))
+    if (selection_kind(state.aux.selected) == SelectionKind::Element)
     {
         auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
-        auto const index = *state.aux.selected.element_index;
+        auto const index = get_selected_element_index(state.aux.selected);
         auto copy = cell.elements.at(index);
         cell.elements.insert(
             std::next(std::begin(cell.elements),
                       (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
             copy);
-        state.aux.selected.element_index = index + 1;
+        state.aux.selected = select_element_in_cell(
+            select_parent_cell(state.aux.selected), index + 1);
         return state;
     }
 
@@ -198,13 +184,14 @@ auto set_input_mode(ExecutionContext context, InputMode mode) -> ExecutionContex
 
 auto lift(TimelineState state) -> TimelineState
 {
-    if (has_selected_element(state.aux.selected))
+    if (selection_kind(state.aux.selected) == SelectionKind::Element)
     {
         auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
-        auto element = std::move(cell.elements.at(*state.aux.selected.element_index));
+        auto element =
+            std::move(cell.elements.at(get_selected_element_index(state.aux.selected)));
         cell.elements.clear();
         cell.elements.push_back(std::move(element));
-        state.aux.selected.element_index.reset();
+        state.aux.selected = select_parent_cell(state.aux.selected);
         return state;
     }
 
@@ -221,7 +208,7 @@ auto lift(TimelineState state) -> TimelineState
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
 
-    state.aux = action::move_up(state.aux, 1);
+    state.aux.selected = select_parent_cell(state.aux.selected);
     return state;
 }
 
@@ -229,7 +216,7 @@ auto shift_octave(EngineState state, ExecutionContext const &context,
                   sequence::Pattern const &pattern, int amount) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
-    if (has_selected_element(context.selected))
+    if (selection_kind(context.selected) == SelectionKind::Element)
     {
         auto &element = get_selected_element(state.measure, context.selected);
         element = sequence::modify::shift_pitch(element, pattern,
@@ -248,7 +235,7 @@ auto set_note_octave(EngineState state, ExecutionContext const &context,
                      sequence::Pattern const &pattern, int octave) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
-    if (has_selected_element(context.selected))
+    if (selection_kind(context.selected) == SelectionKind::Element)
     {
         auto &element = get_selected_element(state.measure, context.selected);
         element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
@@ -263,20 +250,22 @@ auto set_note_octave(EngineState state, ExecutionContext const &context,
 
 auto delete_cell(TimelineState ts) -> TimelineState
 {
-    if (has_selected_element(ts.aux.selected))
+    if (selection_kind(ts.aux.selected) == SelectionKind::Element)
     {
-        auto &selected_cell = get_selected_cell(ts.sequencer.measure, ts.aux.selected);
-        auto const index = *ts.aux.selected.element_index;
+        auto &selected_cell =
+            *get_parent_cell_of_selection(ts.sequencer.measure, ts.aux.selected);
+        auto const index = get_selected_element_index(ts.aux.selected);
         erase_selected_element(selected_cell, index);
 
         if (selected_cell.elements.empty())
         {
-            ts.aux.selected.element_index.reset();
+            ts.aux.selected = select_parent_cell(ts.aux.selected);
         }
         else
         {
-            ts.aux.selected.element_index =
-                std::min(index, selected_cell.elements.size() - 1);
+            ts.aux.selected = select_element_in_cell(
+                select_parent_cell(ts.aux.selected),
+                std::min(index, selected_cell.elements.size() - 1));
         }
 
         return ts;

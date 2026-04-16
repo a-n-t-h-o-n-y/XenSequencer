@@ -97,6 +97,10 @@ TEST_CASE("WebviewBridge state.get returns snapshot payload", "[core][webview-br
     CHECK(payload.contains("engine"));
     CHECK(payload.contains("editor"));
     CHECK(payload.contains("library"));
+    CHECK(payload.at("editor").at("selected").contains("path"));
+    CHECK(payload.at("editor").at("selected").at("path").is_array());
+    CHECK_FALSE(payload.at("editor").at("selected").contains("cell"));
+    CHECK_FALSE(payload.at("editor").at("selected").contains("element_index"));
 }
 
 TEST_CASE("WebviewBridge command.execute returns status and snapshot",

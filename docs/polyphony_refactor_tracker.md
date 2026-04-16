@@ -34,15 +34,14 @@ It is intended to stay current during the migration and should be updated as dec
 - Do not expose unfinished polyphonic interaction until the internal plumbing is stable.
 - Keep the single-root measure model and transport playback clean and direct.
 
-## Main unresolved product question
+## Navigation model
 
-The remaining design question is the navigation model for moving between:
+The selection model currently behaves as follows:
 
-- whole-cell selection
-- element selection within a cell
-- descending into a selected `Sequence` element
-
-This should be resolved before adding keybindings or UI affordances, but it does not block internal plumbing work.
+- `move left` / `move right` cycle through sibling `Cell`s when a `Cell` is selected
+- `move left` / `move right` cycle through sibling `MusicElement`s when an element is selected
+- `move down` enters the first element of the current `Cell`
+- if that element is a `Sequence`, additional `move down` steps enter its child `Cell`s
 
 ## Work tracker
 
@@ -70,15 +69,24 @@ Primary files already known to be affected:
 - [x] Extend selection state so it can represent either:
   - a selected `Cell`
   - a selected `MusicElement` within a `Cell`
-- [x] Define the internal representation for element selection.
-- [x] Update navigation helpers to work with element selection.
-- [x] Define how descent into a `Sequence` element works.
+- [x] Replace the old `cell + optional element_index` model with an explicit typed path.
+- [x] Define the internal representation for nested sibling-sequence selection.
+- [x] Update navigation helpers to work with typed-path selection.
+- [x] Define how descent into a selected `Sequence` element works.
 - [ ] Keep the initial implementation internal until the interaction model is ready to expose.
 
-Suggested implementation direction:
+Current implementation direction:
 
-- represent selection as current cell path plus optional selected element index
-- avoid designing a more complicated recursive element-path model unless it becomes necessary
+- selection is now an explicit alternating path of:
+  - `Element(index)` steps inside the current `Cell`
+  - `SequenceCell(index)` steps inside the current `Sequence`
+- empty path means the root `Measure.cell` is selected
+- a path ending in `Element` selects a `MusicElement`
+- a path ending in `SequenceCell` selects a `Cell`
+- `move down` from a selected `Cell` enters element `0` of that cell, regardless of
+  element type
+- if that element is a `Sequence`, additional `move down` steps enter its first
+  child `Cell`
 
 ### 3. Editing semantics
 

@@ -57,16 +57,28 @@ struct EngineState
 #endif
 };
 
+enum class SelectionStepKind
+{
+    Element,
+    SequenceCell,
+};
+
+struct SelectionStep
+{
+    SelectionStepKind kind{SelectionStepKind::Element};
+    std::size_t index{};
+
+    auto operator==(SelectionStep const &) const -> bool = default;
+    auto operator!=(SelectionStep const &) const -> bool = default;
+};
+
 /**
  * The state of the current selection in the sequencer.
  */
 struct SelectedState
 {
-    /// The path to the currently selected Cell in the current Measure.
-    std::vector<std::size_t> cell{};
-
-    /// The index of the selected element within the selected Cell, if any.
-    std::optional<std::size_t> element_index{};
+    /// Explicit alternating path through Cell elements and Sequence child cells.
+    std::vector<SelectionStep> path{};
 
     auto operator==(SelectedState const &other) const -> bool = default;
     auto operator!=(SelectedState const &other) const -> bool = default;

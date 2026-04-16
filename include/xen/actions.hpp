@@ -49,7 +49,7 @@ template <typename Fn, typename... Args>
         supports_cell || supports_element,
         "Function must be invocable with a Cell or MusicElement and return the same type.");
 
-    if (has_selected_element(state.aux.selected))
+    if (selection_kind(state.aux.selected) == SelectionKind::Element)
     {
         if constexpr (supports_element)
         {

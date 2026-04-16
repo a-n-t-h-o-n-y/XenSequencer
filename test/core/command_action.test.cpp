@@ -57,6 +57,20 @@ auto to_command_actions(std::vector<CommandInvocation> const &invocations)
     return actions;
 }
 
+auto singleton_sequence_cell_selection(
+    std::vector<std::size_t> const &indices) -> SelectedState
+{
+    auto selected = SelectedState{};
+    for (auto const index : indices)
+    {
+        selected.path.push_back(
+            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back(
+            {.kind = SelectionStepKind::SequenceCell, .index = index});
+    }
+    return selected;
+}
+
 } // namespace
 
 TEST_CASE("Command invocations are adapted to typed actions in order",
@@ -271,7 +285,7 @@ TEST_CASE("Typed action execution applies explicit context and reports updated c
     auto ps = make_plugin_state();
 
     auto context = ExecutionContext{};
-    context.selected.cell = {0};
+    context.selected = singleton_sequence_cell_selection({0});
 
     auto const actions =
         to_command_actions(parse_command_chain("set key 12"));
@@ -279,7 +293,7 @@ TEST_CASE("Typed action execution applies explicit context and reports updated c
 
     auto const result = execute_command_action(ps, context, actions[0]);
     CHECK(result.status.first == MessageLevel::Info);
-    CHECK(result.context.selected.cell == std::vector<std::size_t>{0});
+    CHECK(result.context.selected == singleton_sequence_cell_selection({0}));
     CHECK(ps.timeline.get_state().sequencer.key == 12);
 }
 
@@ -344,7 +358,7 @@ TEST_CASE("Typed input mode update context-only state",
     auto ps = make_plugin_state();
 
     auto context = ExecutionContext{};
-    context.selected.cell = {0};
+    context.selected = singleton_sequence_cell_selection({0});
     context.input_mode = InputMode::Pitch;
 
     auto const mode_result = execute_command_action(
@@ -353,7 +367,7 @@ TEST_CASE("Typed input mode update context-only state",
     CHECK(mode_result.status.second == "Input Mode Set to 'gate'");
     CHECK_FALSE(mode_result.engine_mutated);
     CHECK(mode_result.context.input_mode == InputMode::Gate);
-    CHECK(mode_result.context.selected.cell == std::vector<std::size_t>{0});
+    CHECK(mode_result.context.selected == singleton_sequence_cell_selection({0}));
 }
 
 TEST_CASE("Typed baseFrequency action clamps value", "[core][command][action]")
@@ -643,7 +657,7 @@ TEST_CASE("Typed note and delete actions update selected cell",
 {
     auto ps = make_plugin_state();
     auto state = ps.timeline.get_state();
-    state.aux.selected.cell = {0};
+    state.aux.selected = singleton_sequence_cell_selection({0});
     state.sequencer.measure.cell = {
         .elements = {sequence::Sequence{
             .cells = {
@@ -691,6 +705,29 @@ TEST_CASE("Typed note and delete actions update selected cell",
     CHECK(deleted_cell.weight == Catch::Approx(0.37f));
 }
 
+TEST_CASE("Typed delete action on the last selected element returns to the parent cell",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    auto state = ps.timeline.get_state();
+    state.sequencer.measure.cell.elements = {
+        sequence::Note{1, 0.2f, 0.1f, 0.3f},
+    };
+    state.aux.selected = select_element_in_cell({}, 0);
+    ps.timeline.stage(std::move(state));
+
+    auto const context = ExecutionContext{ps.timeline.get_state().aux};
+    auto delete_action = to_command_actions(parse_command_chain("delete"))[0];
+    auto delete_result = execute_command_action(ps, context, delete_action);
+    CHECK(delete_result.status.first == MessageLevel::Info);
+    CHECK(delete_result.status.second == "Deleted Selection");
+    CHECK(delete_result.engine_mutated);
+    CHECK(delete_result.context.selected == SelectedState{});
+
+    auto const &root_cell = ps.timeline.get_state().sequencer.measure.cell;
+    CHECK(root_cell.elements.empty());
+}
+
 TEST_CASE("Typed note action replaces selected element only",
           "[core][command][action]")
 {
@@ -700,7 +737,7 @@ TEST_CASE("Typed note action replaces selected element only",
         sequence::Note{1, 0.2f, 0.1f, 0.3f},
         sequence::Sequence{.cells = {sequence::Cell{.elements = {}, .weight = 1.f}}},
     };
-    state.aux.selected.element_index = 1;
+    state.aux.selected = select_element_in_cell({}, 1);
     ps.timeline.stage(std::move(state));
 
     auto const context = ExecutionContext{ps.timeline.get_state().aux};
@@ -720,7 +757,7 @@ TEST_CASE("Typed note action replaces selected element only",
     CHECK(note.velocity == Catch::Approx(0.6f));
     CHECK(note.delay == Catch::Approx(0.2f));
     CHECK(note.gate == Catch::Approx(0.8f));
-    CHECK(note_result.context.selected.element_index == 1);
+    CHECK(note_result.context.selected == select_element_in_cell({}, 1));
 }
 
 TEST_CASE("Typed undo and redo actions restore committed history",
@@ -739,7 +776,7 @@ TEST_CASE("Typed undo and redo actions restore committed history",
     ps.timeline.commit();
 
     auto context = ExecutionContext{};
-    context.selected.cell = {0};
+    context.selected = singleton_sequence_cell_selection({0});
     context.input_mode = InputMode::Gate;
 
     auto undo_action = to_command_actions(parse_command_chain("undo"))[0];
