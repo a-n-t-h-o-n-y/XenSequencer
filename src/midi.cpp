@@ -8,6 +8,7 @@
 
 #include <sequence/midi.hpp>
 #include <sequence/sequence.hpp>
+#include <sequence/timing.hpp>
 #include <sequence/tuning.hpp>
 #include <sequence/utility.hpp>
 
@@ -17,67 +18,86 @@
 namespace
 {
 
-/**
- * Maps any Notes to the list of valid pitches
- */
+[[nodiscard]] auto scale_translate_element(sequence::MusicElement const &element,
+                                           std::vector<int> const &valid_pitches,
+                                           std::size_t tuning_length,
+                                           xen::TranslateDirection direction)
+    -> sequence::MusicElement;
+
 [[nodiscard]] auto scale_translate_cell(sequence::Cell const &cell,
                                         std::vector<int> const &valid_pitches,
                                         std::size_t tuning_length,
                                         xen::TranslateDirection direction)
     -> sequence::Cell
 {
-    return {
-        .element =
-            std::visit(sequence::utility::overload{
-                           [&](sequence::Note note) -> sequence::MusicElement {
-                               note.pitch = xen::map_pitch_to_scale(
-                                   note.pitch, valid_pitches, tuning_length, direction);
-                               return note;
-                           },
-                           [](sequence::Rest const &rest) -> sequence::MusicElement {
-                               return rest;
-                           },
-                           [&](sequence::Sequence seq) -> sequence::MusicElement {
-                               for (auto &c : seq.cells)
-                               {
-                                   c = scale_translate_cell(c, valid_pitches,
-                                                            tuning_length, direction);
-                               }
-                               return seq;
-                           },
-                       },
-                       cell.element),
-        .weight = cell.weight,
-    };
+    auto out = sequence::Cell{.elements = {}, .weight = cell.weight};
+    out.elements.reserve(cell.elements.size());
+    for (auto const &element : cell.elements)
+    {
+        out.elements.push_back(scale_translate_element(
+            element, valid_pitches, tuning_length, direction));
+    }
+    return out;
 }
 
-/**
- * Transposes notes based on a key value.
- */
+[[nodiscard]] auto scale_translate_element(sequence::MusicElement const &element,
+                                           std::vector<int> const &valid_pitches,
+                                           std::size_t tuning_length,
+                                           xen::TranslateDirection direction)
+    -> sequence::MusicElement
+{
+    return std::visit(
+        sequence::utility::overload{
+            [&](sequence::Note note) -> sequence::MusicElement {
+                note.pitch = xen::map_pitch_to_scale(
+                    note.pitch, valid_pitches, tuning_length, direction);
+                return note;
+            },
+            [&](sequence::Sequence sequence) -> sequence::MusicElement {
+                for (auto &cell : sequence.cells)
+                {
+                    cell = scale_translate_cell(cell, valid_pitches, tuning_length,
+                                                direction);
+                }
+                return sequence;
+            },
+        },
+        element);
+}
+
+[[nodiscard]] auto key_transpose_element(sequence::MusicElement const &element, int key)
+    -> sequence::MusicElement;
+
 [[nodiscard]] auto key_transpose_cell(sequence::Cell const &cell, int key)
     -> sequence::Cell
 {
-    return {
-        .element =
-            std::visit(sequence::utility::overload{
-                           [&](sequence::Note note) -> sequence::MusicElement {
-                               note.pitch += key;
-                               return note;
-                           },
-                           [](sequence::Rest const &rest) -> sequence::MusicElement {
-                               return rest;
-                           },
-                           [&](sequence::Sequence seq) -> sequence::MusicElement {
-                               for (auto &c : seq.cells)
-                               {
-                                   c = key_transpose_cell(c, key);
-                               }
-                               return seq;
-                           },
-                       },
-                       cell.element),
-        .weight = cell.weight,
-    };
+    auto out = sequence::Cell{.elements = {}, .weight = cell.weight};
+    out.elements.reserve(cell.elements.size());
+    for (auto const &element : cell.elements)
+    {
+        out.elements.push_back(key_transpose_element(element, key));
+    }
+    return out;
+}
+
+[[nodiscard]] auto key_transpose_element(sequence::MusicElement const &element, int key)
+    -> sequence::MusicElement
+{
+    return std::visit(
+        sequence::utility::overload{
+            [&](sequence::Note note) -> sequence::MusicElement {
+                note.pitch += key;
+                return note;
+            },
+            [&](sequence::Sequence sequence) -> sequence::MusicElement {
+                for (auto &cell : sequence.cells)
+                {
+                    cell = key_transpose_cell(cell, key);
+                }
+                return sequence;
+            },
+        },
+        element);
 }
 
 } // namespace
@@ -93,17 +113,19 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
 {
     if (scale)
     {
-        measure.cell =
-            scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
-                                 tuning.intervals.size(), scale_translate_direction);
+        measure.cell = scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
+                                            tuning.intervals.size(),
+                                            scale_translate_direction);
     }
 
     measure.cell = key_transpose_cell(measure.cell, key);
 
-    // TODO add pitch bend range parameter to state and commands to alter it.
-    return sequence::midi::translate_to_midi_timeline(
-        measure.cell, measure.time_signature, daw_state.sample_rate, daw_state.bpm,
-        tuning, base_frequency, 48.f);
+    auto const sample_count = sequence::samples_count(measure.time_signature,
+                                                      daw_state.sample_rate,
+                                                      daw_state.bpm);
+
+    return sequence::midi::flatten_to_midi(measure.cell.elements, 0, sample_count,
+                                           tuning, base_frequency, 48.f);
 }
 
 auto render_to_midi(std::vector<sequence::midi::TimedMidiNote> const &timeline)
@@ -149,7 +171,6 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
             out_buffer.addEvent(event.data, event.numBytes, relative_position);
         }
 
-        // Move current_sample forward by the remaining length in this buffer segment
         current_sample += buffer_length - wrapped_position;
     }
 

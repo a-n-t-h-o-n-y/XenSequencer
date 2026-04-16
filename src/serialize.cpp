@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -18,8 +20,6 @@
 namespace sequence
 {
 
-// Serialization -------------------------------------------------------------
-
 static void to_json(nlohmann::json &j, Note const &note)
 {
     j = nlohmann::json{{"type", "Note"},
@@ -29,23 +29,28 @@ static void to_json(nlohmann::json &j, Note const &note)
                        {"gate", note.gate}};
 }
 
-static void to_json(nlohmann::json &j, Rest const &)
-{
-    j = nlohmann::json{{"type", "Rest"}};
-}
+static void to_json(nlohmann::json &j, MusicElement const &element);
+static void from_json(nlohmann::json const &j, MusicElement &element);
 
-// Forward declare for Sequence implementation.
 static void to_json(nlohmann::json &j, Cell const &cell);
+static void from_json(nlohmann::json const &j, Cell &cell);
 
 static void to_json(nlohmann::json &j, Sequence const &sequence)
 {
     j = nlohmann::json{{"type", "Sequence"}, {"cells", sequence.cells}};
 }
 
+static void to_json(nlohmann::json &j, MusicElement const &element)
+{
+    std::visit([&j](auto const &typed) { to_json(j, typed); }, element);
+}
+
 static void to_json(nlohmann::json &j, Cell const &cell)
 {
-    std::visit([&j](auto const &element) { to_json(j, element); }, cell.element);
-    j["weight"] = cell.weight;
+    j = nlohmann::json{
+        {"weight", cell.weight},
+        {"elements", cell.elements},
+    };
 }
 
 static void to_json(nlohmann::json &j, TimeSignature const &ts)
@@ -64,8 +69,6 @@ static void to_json(nlohmann::json &j, Tuning const &tuning)
     };
 }
 
-// Deserialization -----------------------------------------------------------
-
 static void from_json(nlohmann::json const &j, Note &note)
 {
     note.pitch = j.at("pitch").get<int>();
@@ -74,40 +77,41 @@ static void from_json(nlohmann::json const &j, Note &note)
     note.gate = j.at("gate").get<float>();
 }
 
-static void from_json(nlohmann::json const &, Rest &)
-{
-    // Empty; Rest has no members
-}
-
-// Forward declare for Sequence implementation.
-static void from_json(nlohmann::json const &j, Cell &cell);
-
 static void from_json(nlohmann::json const &j, Sequence &sequence)
 {
     sequence.cells = j.at("cells").get<std::vector<Cell>>();
 }
 
-static void from_json(nlohmann::json const &j, Cell &cell)
+static void from_json(nlohmann::json const &j, MusicElement &element)
 {
-    cell.weight = j.value("weight", 1.f);
-
     auto const type = j.at("type").get<std::string>();
     if (type == "Note")
     {
-        cell.element = j.get<Note>();
-    }
-    else if (type == "Rest")
-    {
-        cell.element = j.get<Rest>();
+        element = j.get<Note>();
     }
     else if (type == "Sequence")
     {
-        cell.element = j.get<Sequence>();
+        element = j.get<Sequence>();
+    }
+    else if (type == "Rest")
+    {
+        throw std::invalid_argument("Legacy rest data is unsupported.");
     }
     else
     {
-        throw std::invalid_argument("Unknown type for Cell");
+        throw std::invalid_argument("Unknown type for MusicElement.");
     }
+}
+
+static void from_json(nlohmann::json const &j, Cell &cell)
+{
+    if (!j.contains("elements"))
+    {
+        throw std::invalid_argument("Legacy cell format is unsupported.");
+    }
+
+    cell.weight = j.value("weight", 1.f);
+    cell.elements = j.at("elements").get<std::vector<MusicElement>>();
 }
 
 static void from_json(nlohmann::json const &j, TimeSignature &ts)
@@ -222,8 +226,6 @@ static void from_json(nlohmann::json const &j, EngineState &state)
     state.base_frequency = j.at("base_frequency").get<float>();
 }
 
-// -------------------------------------------------------------------------------------
-
 auto serialize_cell(sequence::Cell const &c) -> std::string
 {
     auto json = nlohmann::json{};
@@ -285,6 +287,50 @@ auto serialize_plugin(EngineState const &state) -> std::string
 auto deserialize_plugin(std::string const &json_str) -> EngineState
 {
     return nlohmann::json::parse(json_str).get<EngineState>();
+}
+
+auto serialize_copy_buffer_content(CopyBufferContent const &content) -> std::string
+{
+    auto json = nlohmann::json{};
+    std::visit(
+        [&json](auto const &typed) {
+            using Typed = std::decay_t<decltype(typed)>;
+            if constexpr (std::is_same_v<Typed, sequence::Cell>)
+            {
+                json = nlohmann::json{
+                    {"kind", "Cell"},
+                    {"content", typed},
+                };
+            }
+            else
+            {
+                json = nlohmann::json{
+                    {"kind", "MusicElement"},
+                    {"content", typed},
+                };
+            }
+        },
+        content);
+    return json.dump();
+}
+
+auto deserialize_copy_buffer_content(std::string const &json_str)
+    -> CopyBufferContent
+{
+    auto const json = nlohmann::json::parse(json_str);
+    auto const kind = json.at("kind").get<std::string>();
+
+    if (kind == "Cell")
+    {
+        return json.at("content").get<sequence::Cell>();
+    }
+
+    if (kind == "MusicElement")
+    {
+        return json.at("content").get<sequence::MusicElement>();
+    }
+
+    throw std::invalid_argument("Unknown copy buffer content kind.");
 }
 
 } // namespace xen

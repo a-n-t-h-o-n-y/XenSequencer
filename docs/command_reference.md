@@ -26,13 +26,9 @@ move right | `move right [Unsigned: amount=1]` | Move selection right.
 move up | `move up [Unsigned: amount=1]` | Move selection up one level.
 move down | `move down [Unsigned: amount=1]` | Move selection down one level.
 note | `note [Int: pitch=0] [Float: velocity=0.787402] [Float: delay=0] [Float: gate=1]` | Create a note at the current selection.
-rest | `rest` | Create a rest at the current selection.
 delete | `delete` | Delete the current selection.
 split | `split [Unsigned: count=2]` | Split the current selection.
 lift | `lift` | Lift the current selection up one level.
-flip | `[pattern] flip` | Flip notes and rests in the selected pattern.
-fill note | `[pattern] fill note [Int: pitch=0] [Float: velocity=0.787402] [Float: delay=0] [Float: gate=1]` | Fill the current selection with notes.
-fill rest | `[pattern] fill rest` | Fill the current selection with rests.
 select sequence | `select sequence [Int: index]` | Select a sequence index from the sequence bank.
 set pitch | `[pattern] set pitch [Int|Modulator: pitch=0]` | Set selected note pitches.
 set octave | `[pattern] set octave [Int: octave=0]` | Set selected note octaves.
@@ -70,8 +66,6 @@ shuffle | `shuffle` | Shuffle selected content.
 rotate | `rotate [Int: amount=1]` | Rotate selected content.
 reverse | `reverse` | Reverse selected content.
 mirror | `[pattern] mirror [Int: centerPitch=0]` | Mirror selected notes around center pitch.
-quantize | `[pattern] quantize` | Quantize selected note timing.
-swing | `swing [Float: amount=0.1]` | Apply swing to selection.
 step | `[pattern] step [Int: pitchDistance=1] [Float: velocityDistance=0]` | Apply incremental pitch/velocity offsets to selected sequence.
 arp | `[pattern] arp [String: chord="cycle"] [Int: inversion=-1]` | Apply chord arpeggiation to selection.
 drums | `drums [Unsigned: octaveSize=16] [Int: offset=1]` | Switch to drum-oriented tuning.

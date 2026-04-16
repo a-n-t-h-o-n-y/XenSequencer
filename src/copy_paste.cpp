@@ -25,10 +25,10 @@ namespace
 namespace xen
 {
 
-void write_copy_buffer(sequence::Cell const &cell)
+void write_copy_buffer(CopyBufferContent const &content)
 {
     auto const filepath = copy_buffer_filepath();
-    auto const json_str = serialize_cell(cell);
+    auto const json_str = serialize_copy_buffer_content(content);
 
     if (!filepath.create()) // Does not overwrite.
     {
@@ -42,7 +42,7 @@ void write_copy_buffer(sequence::Cell const &cell)
     }
 }
 
-auto read_copy_buffer() -> std::optional<sequence::Cell>
+auto read_copy_buffer() -> std::optional<CopyBufferContent>
 {
     auto const filepath = copy_buffer_filepath();
     auto const json_str = filepath.loadFileAsString().toStdString();
@@ -53,7 +53,7 @@ auto read_copy_buffer() -> std::optional<sequence::Cell>
     }
     else
     {
-        return deserialize_cell(json_str);
+        return deserialize_copy_buffer_content(json_str);
     }
 }
 

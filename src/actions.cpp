@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -17,7 +18,6 @@
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
-#include <sequence/utility.hpp>
 
 #include <xen/copy_paste.hpp>
 #include <xen/serialize.hpp>
@@ -27,20 +27,68 @@
 namespace xen::action
 {
 
-// These can throw exceptions with error messages and those will be displayed as errors
-// in the status bar.
+namespace
+{
+
+template <typename Fn>
+auto visit_sequence(sequence::MusicElement element, Fn &&fn) -> sequence::MusicElement
+{
+    if (auto *sequence = std::get_if<sequence::Sequence>(&element))
+    {
+        fn(*sequence);
+    }
+    return element;
+}
+
+template <typename Fn>
+auto visit_sequence(sequence::Cell cell, Fn &&fn) -> sequence::Cell
+{
+    for (auto &element : cell.elements)
+    {
+        if (auto *sequence = std::get_if<sequence::Sequence>(&element))
+        {
+            fn(*sequence);
+        }
+    }
+    return cell;
+}
+
+auto navigable_sequence(sequence::Cell &cell) -> sequence::Sequence &
+{
+    if (cell.elements.size() != 1)
+    {
+        throw std::runtime_error("Selected parent cell is not a navigable sequence.");
+    }
+
+    auto *sequence = std::get_if<sequence::Sequence>(&cell.elements.front());
+    if (sequence == nullptr)
+    {
+        throw std::runtime_error("Selected parent cell is not a navigable sequence.");
+    }
+
+    return *sequence;
+}
+
+auto erase_selected_element(sequence::Cell &cell, std::size_t element_index) -> void
+{
+    cell.elements.erase(std::next(std::begin(cell.elements),
+                                  (std::vector<sequence::MusicElement>::difference_type)
+                                      element_index));
+}
+
+} // namespace
 
 auto move_left(EngineState const &state, ExecutionContext context, std::size_t amount)
     -> ExecutionContext
 {
-    context.selected = move_left(state.sequence_bank, context.selected, amount);
+    context.selected = xen::move_left(state.sequence_bank, context.selected, amount);
     return context;
 }
 
 auto move_right(EngineState const &state, ExecutionContext context,
                 std::size_t amount) -> ExecutionContext
 {
-    context.selected = move_right(state.sequence_bank, context.selected, amount);
+    context.selected = xen::move_right(state.sequence_bank, context.selected, amount);
     return context;
 }
 
@@ -59,33 +107,78 @@ auto move_down(EngineState const &state, ExecutionContext context,
 
 void copy(EngineState const &state, ExecutionContext const &context)
 {
-    write_copy_buffer(get_selected_cell_const(state.sequence_bank, context.selected));
-}
-
-auto cut(EngineState state, ExecutionContext const &context) -> EngineState
-{
-    ::xen::action::copy(state, context);
-    auto &selected = get_selected_cell(state.sequence_bank, context.selected);
-    selected = {.element = sequence::Rest{}, .weight = selected.weight};
-    return state;
+    if (has_selected_element(context.selected))
+    {
+        write_copy_buffer(get_selected_element_const(state.sequence_bank, context.selected));
+    }
+    else
+    {
+        write_copy_buffer(get_selected_cell_const(state.sequence_bank, context.selected));
+    }
 }
 
 auto paste(EngineState state, ExecutionContext const &context) -> EngineState
 {
-    auto const cell = read_copy_buffer();
+    auto const content = read_copy_buffer();
 
-    if (!cell.has_value())
+    if (!content.has_value())
     {
         throw std::runtime_error{"Copy Buffer Is Empty"};
     }
 
-    auto &selected = get_selected_cell(state.sequence_bank, context.selected);
-    selected = *cell;
+    if (std::holds_alternative<sequence::Cell>(*content))
+    {
+        auto replacement = std::get<sequence::Cell>(*content);
+        if (has_selected_element(context.selected))
+        {
+            auto *parent_cell =
+                get_parent_cell_of_selection(state.sequence_bank, context.selected);
+            *parent_cell = std::move(replacement);
+        }
+        else
+        {
+            auto &selected = get_selected_cell(state.sequence_bank, context.selected);
+            selected = std::move(replacement);
+        }
+    }
+    else
+    {
+        auto element = std::get<sequence::MusicElement>(*content);
+        if (has_selected_element(context.selected))
+        {
+            auto &parent_cell =
+                *get_parent_cell_of_selection(state.sequence_bank, context.selected);
+            parent_cell.elements.insert(
+                std::next(std::begin(parent_cell.elements),
+                          (std::vector<sequence::MusicElement>::difference_type)
+                              (*context.selected.element_index + 1)),
+                std::move(element));
+        }
+        else
+        {
+            auto &selected = get_selected_cell(state.sequence_bank, context.selected);
+            selected.elements.push_back(std::move(element));
+        }
+    }
+
     return state;
 }
 
 auto duplicate(TimelineState state) -> TimelineState
 {
+    if (has_selected_element(state.aux.selected))
+    {
+        auto &cell = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+        auto const index = *state.aux.selected.element_index;
+        auto copy = cell.elements.at(index);
+        cell.elements.insert(
+            std::next(std::begin(cell.elements),
+                      (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
+            copy);
+        state.aux.selected.element_index = index + 1;
+        return state;
+    }
+
     auto selected_copy = get_selected_cell(state.sequencer.sequence_bank,
                                            state.aux.selected);
 
@@ -106,6 +199,16 @@ auto set_input_mode(ExecutionContext context, InputMode mode) -> ExecutionContex
 
 auto lift(TimelineState state) -> TimelineState
 {
+    if (has_selected_element(state.aux.selected))
+    {
+        auto &cell = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+        auto element = std::move(cell.elements.at(*state.aux.selected.element_index));
+        cell.elements.clear();
+        cell.elements.push_back(std::move(element));
+        state.aux.selected.element_index.reset();
+        return state;
+    }
+
     sequence::Cell *parent =
         get_parent_of_selected(state.sequencer.sequence_bank, state.aux.selected);
     if (parent == nullptr)
@@ -116,8 +219,6 @@ auto lift(TimelineState state) -> TimelineState
     auto &cell =
         get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
 
-    // Move out Cell because you are writing over the owner of cell.
-    // Do not get rid of this local variable.
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
 
@@ -128,9 +229,19 @@ auto lift(TimelineState state) -> TimelineState
 auto shift_octave(EngineState state, ExecutionContext const &context,
                   sequence::Pattern const &pattern, int amount) -> EngineState
 {
-    auto &cell = get_selected_cell(state.sequence_bank, context.selected);
     auto const tuning_length = state.tuning.intervals.size();
-    cell = sequence::modify::shift_pitch(cell, pattern, amount * (int)tuning_length);
+    if (has_selected_element(context.selected))
+    {
+        auto &element = get_selected_element(state.sequence_bank, context.selected);
+        element = sequence::modify::shift_pitch(element, pattern,
+                                                amount * (int)tuning_length);
+    }
+    else
+    {
+        auto &cell = get_selected_cell(state.sequence_bank, context.selected);
+        cell = sequence::modify::shift_pitch(cell, pattern,
+                                             amount * (int)tuning_length);
+    }
     return state;
 }
 
@@ -138,23 +249,46 @@ auto set_note_octave(EngineState state, ExecutionContext const &context,
                      sequence::Pattern const &pattern, int octave) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
-    auto &cell = get_selected_cell(state.sequence_bank, context.selected);
-    cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
+    if (has_selected_element(context.selected))
+    {
+        auto &element = get_selected_element(state.sequence_bank, context.selected);
+        element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
+    }
+    else
+    {
+        auto &cell = get_selected_cell(state.sequence_bank, context.selected);
+        cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
+    }
     return state;
 }
 
 auto delete_cell(TimelineState ts) -> TimelineState
 {
-    // Delete selected cell.
-    // If the selected cell is the top level then replace it with a Rest.
+    if (has_selected_element(ts.aux.selected))
+    {
+        auto &selected_cell =
+            get_selected_cell(ts.sequencer.sequence_bank, ts.aux.selected);
+        auto const index = *ts.aux.selected.element_index;
+        erase_selected_element(selected_cell, index);
+
+        if (selected_cell.elements.empty())
+        {
+            ts.aux.selected.element_index.reset();
+        }
+        else
+        {
+            ts.aux.selected.element_index =
+                std::min(index, selected_cell.elements.size() - 1);
+        }
+
+        return ts;
+    }
 
     sequence::Cell *parent =
         get_parent_of_selected(ts.sequencer.sequence_bank, ts.aux.selected);
     if (parent != nullptr)
     {
-        // Delete Cell
-        assert(std::holds_alternative<sequence::Sequence>(parent->element));
-        auto &cells = std::get<sequence::Sequence>(parent->element).cells;
+        auto &cells = navigable_sequence(*parent).cells;
         cells.erase(std::next(
             std::begin(cells),
             (std::vector<sequence::Cell>::difference_type)ts.aux.selected.cell.back()));
@@ -164,16 +298,13 @@ auto delete_cell(TimelineState ts) -> TimelineState
             ts.aux.selected = xen::move_up(ts.aux.selected, 1);
             return delete_cell(ts);
         }
-        else
-        {
-            ts.aux.selected.cell.back() =
-                std::min(ts.aux.selected.cell.back(), cells.size() - 1);
-        }
-    }
-    else // Replace with a rest
-    {
 
-        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell = {sequence::Rest{}};
+        ts.aux.selected.cell.back() =
+            std::min(ts.aux.selected.cell.back(), cells.size() - 1);
+    }
+    else
+    {
+        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell.elements.clear();
     }
 
     return ts;
@@ -218,7 +349,6 @@ auto set_base_frequency(EngineState state, float freq) -> EngineState
 
 auto set_selected_sequence(ExecutionContext context, int index) -> ExecutionContext
 {
-
     if (index < 0 || index > 15)
     {
         throw std::runtime_error{
@@ -226,9 +356,8 @@ auto set_selected_sequence(ExecutionContext context, int index) -> ExecutionCont
             std::to_string(index) + " was given."};
     }
     context.selected.measure = (std::size_t)index;
-
-    // TODO implement stored cell selection vectors in array of 16 and restore from it.
     context.selected.cell.clear();
+    context.selected.element_index.reset();
 
     return context;
 }
@@ -266,20 +395,40 @@ auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
         offset = offset + (int)scale_count + 1;
     }
 
-    if (offset == (int)scale_count) // chromatic
+    if (offset == (int)scale_count)
     {
         return std::nullopt;
     }
-    else
-    {
-        return offset;
-    }
+
+    return offset;
 }
 
 void flip_translate_direction(TranslateDirection &td)
 {
     td = (td == TranslateDirection::Up) ? TranslateDirection::Down
                                         : TranslateDirection::Up;
+}
+
+auto step(sequence::MusicElement element, sequence::Pattern const &pattern,
+          int pitch_distance, float velocity_distance) -> sequence::MusicElement
+{
+    if (velocity_distance > 1.f || velocity_distance < -1.f)
+    {
+        throw std::runtime_error{"velocity distance must be in the range: [-1, 1]"};
+    }
+
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
+        auto i = std::size_t{0};
+        for (auto &cell : view)
+        {
+            cell = sequence::modify::shift_pitch(cell, {0, {1}},
+                                                 (int)i * pitch_distance);
+            cell = sequence::modify::shift_velocity(cell, {0, {1}},
+                                                    (float)i * velocity_distance);
+            ++i;
+        }
+    });
 }
 
 auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_distance,
@@ -290,63 +439,82 @@ auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_dista
         throw std::runtime_error{"velocity distance must be in the range: [-1, 1]"};
     }
 
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        // Call shift_pitch for each cell instead of passing in sequence because each
-        // cell is a different pitch and velocity value.
-        auto view = sequence::PatternView{seq.cells, pattern};
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
         auto i = std::size_t{0};
-        for (auto &c : view)
+        for (auto &target_cell : view)
         {
-            c = sequence::modify::shift_pitch(c, {0, {1}}, (int)i * pitch_distance);
-            c = sequence::modify::shift_velocity(c, {0, {1}},
-                                                 (float)i * velocity_distance);
+            target_cell = sequence::modify::shift_pitch(target_cell, {0, {1}},
+                                                        (int)i * pitch_distance);
+            target_cell = sequence::modify::shift_velocity(
+                target_cell, {0, {1}}, (float)i * velocity_distance);
             ++i;
         }
-    }
+    });
+}
 
-    return cell;
+auto arp(sequence::MusicElement element, sequence::Pattern const &pattern,
+         std::vector<int> const &intervals) -> sequence::MusicElement
+{
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
+        auto i = std::size_t{0};
+        for (auto &cell : view)
+        {
+            cell = sequence::modify::shift_pitch(cell, {0, {1}},
+                                                 intervals[i % intervals.size()]);
+            ++i;
+        }
+    });
 }
 
 auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
          std::vector<int> const &intervals) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-        auto view = sequence::PatternView{seq.cells, pattern};
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
         auto i = std::size_t{0};
-        for (auto &c : view)
+        for (auto &target_cell : view)
         {
-            c = sequence::modify::shift_pitch(c, {0, {1}},
-                                              intervals[i % intervals.size()]);
+            target_cell = sequence::modify::shift_pitch(
+                target_cell, {0, {1}}, intervals[i % intervals.size()]);
             ++i;
         }
-    }
-    return cell;
+    });
+}
+
+auto set_pitches(sequence::MusicElement element, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::MusicElement
+{
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &cell = sequence.cells[i];
+                cell = sequence::modify::set_pitch(
+                    cell, pattern,
+                    (int)std::floor(evaluate(mod, (float)i / (float)sequence.cells.size())));
+            }
+        }
+    });
 }
 
 auto set_pitches(sequence::Cell cell, sequence::Pattern const &pattern,
                  Modulator const &mod) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
             if (sequence::pattern_contains(pattern, i))
             {
-                auto &c = seq.cells[i];
-                c = sequence::modify::set_pitch(
-                    c, pattern,
-                    (int)std::floor(evaluate(mod, (float)i / (float)seq.cells.size())));
+                auto &target_cell = sequence.cells[i];
+                target_cell = sequence::modify::set_pitch(
+                    target_cell, pattern,
+                    (int)std::floor(evaluate(mod, (float)i / (float)sequence.cells.size())));
             }
         }
-    }
-    return cell;
+    });
 }
 
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
@@ -360,23 +528,52 @@ auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
     return cell;
 }
 
-auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::Cell
+auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::MusicElement
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
             if (sequence::pattern_contains(pattern, i))
             {
-                auto &c = seq.cells[i];
-                c.weight = evaluate(mod, (float)i / (float)seq.cells.size());
+                auto &cell = sequence.cells[i];
+                cell.weight = evaluate(mod, (float)i / (float)sequence.cells.size());
             }
         }
+    });
+}
+
+auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
+                 Modulator const &mod) -> sequence::Cell
+{
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &target_cell = sequence.cells[i];
+                target_cell.weight =
+                    evaluate(mod, (float)i / (float)sequence.cells.size());
+            }
+        }
+    });
+}
+
+auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
+                 float weight) -> sequence::MusicElement
+{
+    if (weight <= 0.f)
+    {
+        throw std::runtime_error{"Weight must be greater than 0."};
     }
-    return cell;
+
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
+        for (auto &cell : view)
+        {
+            cell.weight = weight;
+        }
+    });
 }
 
 auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float weight)
@@ -387,78 +584,113 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
         throw std::runtime_error{"Weight must be greater than 0."};
     }
 
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        auto view = sequence::PatternView{seq.cells, pattern};
-
-        for (auto &c : view)
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        auto view = sequence::PatternView{sequence.cells, pattern};
+        for (auto &target_cell : view)
         {
-            c.weight = weight;
+            target_cell.weight = weight;
         }
-    }
-    return cell;
+    });
+}
+
+auto set_velocities(sequence::MusicElement element,
+                    sequence::Pattern const &pattern,
+                    Modulator const &mod) -> sequence::MusicElement
+{
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &cell = sequence.cells[i];
+                cell = sequence::modify::set_velocity(
+                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+            }
+        }
+    });
 }
 
 auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
                     Modulator const &mod) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
             if (sequence::pattern_contains(pattern, i))
             {
-                auto &c = seq.cells[i];
-                c = sequence::modify::set_velocity(
-                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
+                auto &target_cell = sequence.cells[i];
+                target_cell = sequence::modify::set_velocity(
+                    target_cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
-    }
-    return cell;
+    });
+}
+
+auto set_delays(sequence::MusicElement element, sequence::Pattern const &pattern,
+                Modulator const &mod) -> sequence::MusicElement
+{
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &cell = sequence.cells[i];
+                cell = sequence::modify::set_delay(
+                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+            }
+        }
+    });
 }
 
 auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
                 Modulator const &mod) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
             if (sequence::pattern_contains(pattern, i))
             {
-                auto &c = seq.cells[i];
-                c = sequence::modify::set_delay(
-                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
+                auto &target_cell = sequence.cells[i];
+                target_cell = sequence::modify::set_delay(
+                    target_cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
-    }
-    return cell;
+    });
+}
+
+auto set_gates(sequence::MusicElement element, sequence::Pattern const &pattern,
+               Modulator const &mod) -> sequence::MusicElement
+{
+    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+        {
+            if (sequence::pattern_contains(pattern, i))
+            {
+                auto &cell = sequence.cells[i];
+                cell = sequence::modify::set_gate(
+                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+            }
+        }
+    });
 }
 
 auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
                Modulator const &mod) -> sequence::Cell
 {
-    if (std::holds_alternative<sequence::Sequence>(cell.element))
-    {
-        auto &seq = std::get<sequence::Sequence>(cell.element);
-
-        for (auto i = std::size_t{0}; i < seq.cells.size(); ++i)
+    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
+        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
             if (sequence::pattern_contains(pattern, i))
             {
-                auto &c = seq.cells[i];
-                c = sequence::modify::set_gate(
-                    c, pattern, evaluate(mod, (float)i / (float)seq.cells.size()));
+                auto &target_cell = sequence.cells[i];
+                target_cell = sequence::modify::set_gate(
+                    target_cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
-    }
-    return cell;
+    });
 }
 
 } // namespace xen::action

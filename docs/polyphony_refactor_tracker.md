@@ -47,9 +47,9 @@ This should be resolved before adding keybindings or UI affordances, but it does
 
 ### 1. Core data model migration
 
-- [ ] Replace all plugin-side uses of `cell.element` with logic over `cell.elements`.
-- [ ] Remove all plugin-side references to `Rest`.
-- [ ] Update default silent cells to `Cell{.elements = {}, .weight = 1.f}`.
+- [x] Replace all plugin-side uses of `cell.element` with logic over `cell.elements`.
+- [x] Remove all plugin-side references to `Rest`.
+- [x] Update default silent cells to `Cell{.elements = {}, .weight = 1.f}`.
 - [ ] Review all code that assumed one event/object per step.
 
 Primary files already known to be affected:
@@ -65,12 +65,12 @@ Primary files already known to be affected:
 
 ### 2. Selection model
 
-- [ ] Extend selection state so it can represent either:
+- [x] Extend selection state so it can represent either:
   - a selected `Cell`
   - a selected `MusicElement` within a `Cell`
-- [ ] Define the internal representation for element selection.
-- [ ] Update navigation helpers to work with element selection.
-- [ ] Define how descent into a `Sequence` element works.
+- [x] Define the internal representation for element selection.
+- [x] Update navigation helpers to work with element selection.
+- [x] Define how descent into a `Sequence` element works.
 - [ ] Keep the initial implementation internal until the interaction model is ready to expose.
 
 Suggested implementation direction:
@@ -80,23 +80,23 @@ Suggested implementation direction:
 
 ### 3. Editing semantics
 
-- [ ] Make edit commands distinguish between whole-cell operations and single-element operations.
-- [ ] Update `delete` so it removes the selected element when an element is selected.
-- [ ] Define delete behavior for emptying the last remaining element in a cell.
-- [ ] Update `copy`, `cut`, `paste`, `duplicate`, and `lift` to respect selection kind.
+- [x] Make edit commands distinguish between whole-cell operations and single-element operations.
+- [x] Update `delete` so it removes the selected element when an element is selected.
+- [x] Define delete behavior for emptying the last remaining element in a cell.
+- [x] Update `copy`, `cut`, `paste`, `duplicate`, and `lift` to respect selection kind.
 - [ ] Ensure per-element operations use `MusicElement` modify overloads where appropriate.
 - [ ] Ensure whole-step operations use `Cell` overloads where appropriate.
 
 ### 4. Command surface cleanup
 
-- [ ] Remove deleted commands from typed actions, parsing, execution, docs, and metadata:
+- [x] Remove deleted commands from typed actions, parsing, execution, docs, and metadata:
   - `rest`
   - `flip`
   - `fill note`
   - `fill rest`
   - `quantize`
   - `swing`
-- [ ] Replace any logic that still depends on deleted `sequence::modify` APIs.
+- [x] Replace any logic that still depends on deleted `sequence::modify` APIs.
 - [ ] Revisit status messages and command descriptions that still talk about rests.
 
 Known command-side follow-up:
@@ -107,11 +107,11 @@ Known command-side follow-up:
 
 ### 5. Serialization and clipboard
 
-- [ ] Redesign plugin serialization for `Cell.elements`.
-- [ ] Redesign bridge/webview JSON for `Cell.elements`.
-- [ ] Update clipboard serialization to support copying either `Cell` or `MusicElement`.
+- [x] Redesign plugin serialization for `Cell.elements`.
+- [x] Redesign bridge/webview JSON for `Cell.elements`.
+- [x] Update clipboard serialization to support copying either `Cell` or `MusicElement`.
 - [ ] Update demo files, fixtures, and generators to the new format.
-- [ ] Decide whether old saved files should fail fast or be migrated explicitly.
+- [x] Decide whether old saved files should fail fast or be migrated explicitly.
 
 Current preferred direction:
 
@@ -119,20 +119,20 @@ Current preferred direction:
 
 ### 6. MIDI and timing
 
-- [ ] Stop passing cell/sequence content into `samples_count(...)`.
+- [x] Stop passing cell/sequence content into `samples_count(...)`.
 - [ ] Compute total measure duration from:
   - `samples_count(TimeSignature const&, std::uint32_t sample_rate, float bpm)`
-- [ ] Replace old MIDI flattening with:
+- [x] Replace old MIDI flattening with:
   - `flatten_to_midi(cell.elements, sample_offset, sample_count, tuning, base_frequency, pb_range)`
-- [ ] Rewrite any recursive note transforms so they visit every `MusicElement` inside `Cell.elements`.
+- [x] Rewrite any recursive note transforms so they visit every `MusicElement` inside `Cell.elements`.
 - [ ] Confirm empty cells consume time but emit no notes.
 
 ### 7. Tests and docs
 
-- [ ] Update tests that still expect `Rest` or single-payload cells.
-- [ ] Update command documentation to remove deleted commands.
+- [x] Update tests that still expect `Rest` or single-payload cells.
+- [x] Update command documentation to remove deleted commands.
 - [ ] Update user-facing documentation that still describes rests or sequence-bank-centric behavior that is no longer accurate.
-- [ ] Keep this tracker updated as implementation decisions change.
+- [x] Keep this tracker updated as implementation decisions change.
 
 ## Things not to over-invest in during this refactor
 

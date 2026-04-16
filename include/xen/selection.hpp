@@ -31,6 +31,16 @@ namespace xen
 [[nodiscard]] auto get_selected_cell_const(
     SequenceBank const &bank, SelectedState const &selected) -> sequence::Cell const &;
 
+[[nodiscard]] auto has_selected_element(SelectedState const &selected) -> bool;
+
+[[nodiscard]] auto get_selected_element(SequenceBank &bank,
+                                        SelectedState const &selected)
+    -> sequence::MusicElement &;
+
+[[nodiscard]] auto get_selected_element_const(
+    SequenceBank const &bank, SelectedState const &selected)
+    -> sequence::MusicElement const &;
+
 /**
  * Utility to get the parent Sequence of the currently selected Cell.
  *
@@ -53,6 +63,13 @@ namespace xen
  * @throws std::bad_variant_access If parent is not a Sequence.
  */
 [[nodiscard]] auto get_parent_of_selected_const(
+    SequenceBank const &bank, SelectedState const &selected) -> sequence::Cell const *;
+
+[[nodiscard]] auto get_parent_cell_of_selection(SequenceBank &bank,
+                                                SelectedState const &selected)
+    -> sequence::Cell *;
+
+[[nodiscard]] auto get_parent_cell_of_selection_const(
     SequenceBank const &bank, SelectedState const &selected) -> sequence::Cell const *;
 
 /**

@@ -14,6 +14,7 @@
 #include <xen/actions.hpp>
 #include <xen/chord.hpp>
 #include <xen/constants.hpp>
+#include <xen/copy_paste.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/string_manip.hpp>
@@ -265,30 +266,26 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 state.aux = context;
                 state = increment_state(
                     std::move(state),
-                    [](sequence::Cell const &cell, int pitch, float velocity,
-                       float delay, float gate) -> sequence::Cell {
+                    [](auto const &selected, int pitch, float velocity, float delay,
+                       float gate) {
                         auto note = sequence::modify::note(pitch, velocity, delay, gate);
-                        note.weight = cell.weight;
-                        return note;
+                        using Selected = std::decay_t<decltype(selected)>;
+                        if constexpr (std::is_same_v<Selected, sequence::Cell>)
+                        {
+                            return sequence::Cell{
+                                .elements = {std::move(note)},
+                                .weight = selected.weight,
+                            };
+                        }
+                        else
+                        {
+                            return note;
+                        }
                     },
                     typed_action.pitch, typed_action.velocity, typed_action.delay,
                     typed_action.gate);
                 ps.timeline.stage(std::move(state));
                 return minfo("Note Created");
-            }
-            else if constexpr (std::is_same_v<ActionType, CreateRestAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state = increment_state(
-                    std::move(state),
-                    [](sequence::Cell const &cell) -> sequence::Cell {
-                        auto rest = sequence::modify::rest();
-                        rest.weight = cell.weight;
-                        return rest;
-                    });
-                ps.timeline.stage(std::move(state));
-                return minfo("Rest Created");
             }
             else if constexpr (std::is_same_v<ActionType, CopySelectionAction>)
             {
@@ -300,7 +297,8 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state.sequencer = action::cut(std::move(state.sequencer), state.aux);
+                action::copy(state.sequencer, state.aux);
+                state = action::delete_cell(std::move(state));
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Cut");
             }
@@ -308,8 +306,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
+                auto const content = read_copy_buffer();
                 state.sequencer =
                     action::paste(std::move(state.sequencer), state.aux);
+                if (content.has_value() && has_selected_element(state.aux.selected) &&
+                    std::holds_alternative<sequence::Cell>(*content))
+                {
+                    state.aux.selected.element_index.reset();
+                }
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Pasted Over");
             }
@@ -330,8 +334,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::repeat,
-                                        typed_action.count);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, std::size_t count) {
+                        return sequence::modify::repeat(target, count);
+                    },
+                    typed_action.count);
                 ps.timeline.stage(std::move(state));
                 return minfo("Split Selection " +
                              std::to_string(typed_action.count) + " Times");
@@ -340,39 +348,6 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 ps.timeline.stage(action::lift(ps.timeline.get_state()));
                 return minfo("Selection Lifted One Layer");
-            }
-            else if constexpr (std::is_same_v<ActionType, FlipSelectionAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::flip,
-                                        typed_action.pattern, sequence::Note{});
-                ps.timeline.stage(std::move(state));
-                return minfo("Flipped Selection");
-            }
-            else if constexpr (std::is_same_v<ActionType, FillNoteAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state =
-                    increment_state(std::move(state), &sequence::modify::notes_fill,
-                                    typed_action.pattern,
-                                    sequence::Note{typed_action.pitch,
-                                                   typed_action.velocity,
-                                                   typed_action.delay,
-                                                   typed_action.gate});
-                ps.timeline.stage(std::move(state));
-                return minfo("Filled Selection With Notes");
-            }
-            else if constexpr (std::is_same_v<ActionType, FillRestAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state =
-                    increment_state(std::move(state), &sequence::modify::rests_fill,
-                                    typed_action.pattern);
-                ps.timeline.stage(std::move(state));
-                return minfo("Filled Selection With Rests");
             }
             else if constexpr (std::is_same_v<ActionType, SetBaseFrequencyAction>)
             {
@@ -413,16 +388,22 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 if (std::holds_alternative<int>(typed_action.pitch))
                 {
-                    state = increment_state(std::move(state),
-                                            &sequence::modify::set_pitch,
-                                            typed_action.pattern,
-                                            std::get<int>(typed_action.pitch));
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern, int pitch) {
+                            return sequence::modify::set_pitch(target, pattern, pitch);
+                        },
+                        typed_action.pattern, std::get<int>(typed_action.pitch));
                 }
                 else
                 {
-                    state = increment_state(std::move(state), &action::set_pitches,
-                                            typed_action.pattern,
-                                            std::get<Modulator>(typed_action.pitch));
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern,
+                           Modulator const &mod) {
+                            return action::set_pitches(target, pattern, mod);
+                        },
+                        typed_action.pattern, std::get<Modulator>(typed_action.pitch));
                     ps.commit_intent = CommitIntent::Defer;
                 }
 
@@ -446,15 +427,24 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 if (std::holds_alternative<float>(typed_action.velocity))
                 {
-                    state = increment_state(std::move(state),
-                                            &sequence::modify::set_velocity,
-                                            typed_action.pattern,
-                                            std::get<float>(typed_action.velocity));
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern,
+                           float velocity) {
+                            return sequence::modify::set_velocity(target, pattern,
+                                                                 velocity);
+                        },
+                        typed_action.pattern,
+                        std::get<float>(typed_action.velocity));
                 }
                 else
                 {
                     state = increment_state(
-                        std::move(state), &action::set_velocities,
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern,
+                           Modulator const &mod) {
+                            return action::set_velocities(target, pattern, mod);
+                        },
                         typed_action.pattern,
                         std::get<Modulator>(typed_action.velocity));
                     ps.commit_intent = CommitIntent::Defer;
@@ -470,15 +460,22 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 if (std::holds_alternative<float>(typed_action.delay))
                 {
-                    state = increment_state(std::move(state),
-                                            &sequence::modify::set_delay,
-                                            typed_action.pattern,
-                                            std::get<float>(typed_action.delay));
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern, float delay) {
+                            return sequence::modify::set_delay(target, pattern, delay);
+                        },
+                        typed_action.pattern, std::get<float>(typed_action.delay));
                 }
                 else
                 {
-                    state = increment_state(std::move(state), &action::set_delays,
-                                            typed_action.pattern,
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern,
+                           Modulator const &mod) {
+                            return action::set_delays(target, pattern, mod);
+                        },
+                        typed_action.pattern,
                                             std::get<Modulator>(typed_action.delay));
                     ps.commit_intent = CommitIntent::Defer;
                 }
@@ -493,15 +490,22 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 if (std::holds_alternative<float>(typed_action.gate))
                 {
-                    state = increment_state(std::move(state),
-                                            &sequence::modify::set_gate,
-                                            typed_action.pattern,
-                                            std::get<float>(typed_action.gate));
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern, float gate) {
+                            return sequence::modify::set_gate(target, pattern, gate);
+                        },
+                        typed_action.pattern, std::get<float>(typed_action.gate));
                 }
                 else
                 {
-                    state = increment_state(std::move(state), &action::set_gates,
-                                            typed_action.pattern,
+                    state = increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern,
+                           Modulator const &mod) {
+                            return action::set_gates(target, pattern, mod);
+                        },
+                        typed_action.pattern,
                                             std::get<Modulator>(typed_action.gate));
                     ps.commit_intent = CommitIntent::Defer;
                 }
@@ -527,18 +531,20 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 {
                     state = increment_state(
                         std::move(state),
-                        static_cast<sequence::Cell (*)(
-                            sequence::Cell, sequence::Pattern const &, float)>(
-                            &action::set_weights),
+                        [](auto target, sequence::Pattern const &pattern,
+                           float weight) {
+                            return action::set_weights(target, pattern, weight);
+                        },
                         typed_action.pattern, std::get<float>(typed_action.weight));
                 }
                 else
                 {
                     state = increment_state(
                         std::move(state),
-                        static_cast<sequence::Cell (*)(
-                            sequence::Cell, sequence::Pattern const &,
-                            Modulator const &)>(&action::set_weights),
+                        [](auto target, sequence::Pattern const &pattern,
+                           Modulator const &mod) {
+                            return action::set_weights(target, pattern, mod);
+                        },
                         typed_action.pattern,
                         std::get<Modulator>(typed_action.weight));
                 }
@@ -644,9 +650,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::shift_pitch,
-                                        typed_action.pattern, typed_action.amount);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, int amount) {
+                        return sequence::modify::shift_pitch(target, pattern, amount);
+                    },
+                    typed_action.pattern, typed_action.amount);
                 ps.timeline.stage(std::move(state));
                 return minfo("Pitch Shifted");
             }
@@ -665,9 +674,13 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::shift_velocity,
-                                        typed_action.pattern, typed_action.amount);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_velocity(target, pattern,
+                                                                amount);
+                    },
+                    typed_action.pattern, typed_action.amount);
                 ps.timeline.stage(std::move(state));
                 return minfo("Velocity Shifted");
             }
@@ -675,9 +688,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::shift_delay,
-                                        typed_action.pattern, typed_action.amount);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_delay(target, pattern, amount);
+                    },
+                    typed_action.pattern, typed_action.amount);
                 ps.timeline.stage(std::move(state));
                 return minfo("Delay Shifted");
             }
@@ -685,9 +701,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::shift_gate,
-                                        typed_action.pattern, typed_action.amount);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_gate(target, pattern, amount);
+                    },
+                    typed_action.pattern, typed_action.amount);
                 ps.timeline.stage(std::move(state));
                 return minfo("Gate Shifted");
             }
@@ -873,10 +892,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::randomize_pitch,
-                                        typed_action.pattern, typed_action.min,
-                                        typed_action.max);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, int min,
+                       int max) {
+                        return sequence::modify::randomize_pitch(target, pattern, min,
+                                                                 max);
+                    },
+                    typed_action.pattern, typed_action.min, typed_action.max);
                 ps.timeline.stage(std::move(state));
                 return minfo("Randomized Pitch");
             }
@@ -884,10 +907,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::randomize_velocity,
-                                        typed_action.pattern, typed_action.min,
-                                        typed_action.max);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float min,
+                       float max) {
+                        return sequence::modify::randomize_velocity(target, pattern,
+                                                                    min, max);
+                    },
+                    typed_action.pattern, typed_action.min, typed_action.max);
                 ps.timeline.stage(std::move(state));
                 return minfo("Randomized Velocity");
             }
@@ -895,10 +922,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::randomize_delay,
-                                        typed_action.pattern, typed_action.min,
-                                        typed_action.max);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float min,
+                       float max) {
+                        return sequence::modify::randomize_delay(target, pattern,
+                                                                 min, max);
+                    },
+                    typed_action.pattern, typed_action.min, typed_action.max);
                 ps.timeline.stage(std::move(state));
                 return minfo("Randomized Delay");
             }
@@ -906,10 +937,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state),
-                                        &sequence::modify::randomize_gate,
-                                        typed_action.pattern, typed_action.min,
-                                        typed_action.max);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float min,
+                       float max) {
+                        return sequence::modify::randomize_gate(target, pattern,
+                                                                min, max);
+                    },
+                    typed_action.pattern, typed_action.min, typed_action.max);
                 ps.timeline.stage(std::move(state));
                 return minfo("Randomized Gate");
             }
@@ -917,8 +952,13 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::stretch,
-                                        typed_action.pattern, typed_action.count);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern,
+                       std::size_t count) {
+                        return sequence::modify::stretch(target, pattern, count);
+                    },
+                    typed_action.pattern, typed_action.count);
                 ps.timeline.stage(std::move(state));
                 return minfo("Stretched Selection by " +
                              std::to_string(typed_action.count));
@@ -933,8 +973,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 auto state = ps.timeline.get_state();
                 state.aux = context;
                 state =
-                    increment_state(std::move(state), &sequence::modify::compress,
-                                    typed_action.pattern);
+                    increment_state(
+                        std::move(state),
+                        [](auto target, sequence::Pattern const &pattern) {
+                            return sequence::modify::compress(target, pattern);
+                        },
+                        typed_action.pattern);
                 ps.timeline.stage(std::move(state));
                 return minfo("Compressed Selection");
             }
@@ -942,8 +986,9 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state =
-                    increment_state(std::move(state), &sequence::modify::shuffle);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target) { return sequence::modify::shuffle(target); });
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Shuffled");
             }
@@ -951,8 +996,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::rotate,
-                                        typed_action.amount);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, int amount) {
+                        return sequence::modify::rotate(target, amount);
+                    },
+                    typed_action.amount);
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Rotated");
             }
@@ -960,8 +1009,9 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state =
-                    increment_state(std::move(state), &sequence::modify::reverse);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target) { return sequence::modify::reverse(target); });
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Reversed");
             }
@@ -969,42 +1019,28 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::mirror,
-                                        typed_action.pattern,
-                                        typed_action.center_pitch);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, int center_pitch) {
+                        return sequence::modify::mirror(target, pattern, center_pitch);
+                    },
+                    typed_action.pattern, typed_action.center_pitch);
                 ps.timeline.stage(std::move(state));
                 return minfo("Selection Mirrored");
-            }
-            else if constexpr (std::is_same_v<ActionType, QuantizeAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::quantize,
-                                        typed_action.pattern);
-                ps.timeline.stage(std::move(state));
-                return minfo("Selection Quantized");
-            }
-            else if constexpr (std::is_same_v<ActionType, SwingAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                state = increment_state(std::move(state), &sequence::modify::swing,
-                                        typed_action.amount, false);
-                ps.timeline.stage(std::move(state));
-                return minfo("Selection Swung by " +
-                             std::to_string(typed_action.amount));
             }
             else if constexpr (std::is_same_v<ActionType, StepAction>)
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-
-                auto &selected =
-                    get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
-                selected = action::step(selected, typed_action.pattern,
-                                        typed_action.pitch_distance,
-                                        typed_action.velocity_distance);
-
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, int pitch_distance,
+                       float velocity_distance) {
+                        return action::step(target, pattern, pitch_distance,
+                                            velocity_distance);
+                    },
+                    typed_action.pattern, typed_action.pitch_distance,
+                    typed_action.velocity_distance);
                 ps.timeline.stage(std::move(state));
                 return minfo("Stepped");
             }
@@ -1106,13 +1142,16 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 state.sequencer = state.aux.arp_state.sequencer;
                 state.aux.selected = state.aux.arp_state.selected;
 
-                auto &selected =
-                    get_selected_cell(state.sequencer.sequence_bank,
-                                      state.aux.selected);
                 auto const chord = find_chord(ps.library.chords, chord_name);
                 auto const intervals = invert_chord(
                     chord, inversion, state.sequencer.tuning.intervals.size());
-                selected = action::arp(selected, typed_action.pattern, intervals);
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern,
+                       std::vector<int> const &intervals) {
+                        return action::arp(target, pattern, intervals);
+                    },
+                    typed_action.pattern, intervals);
 
                 ps.timeline.stage(std::move(state));
                 return minfo("Arpeggiated with " + chord_name +

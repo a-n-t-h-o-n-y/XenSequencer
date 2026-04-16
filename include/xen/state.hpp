@@ -69,8 +69,11 @@ struct SelectedState
     /// The index of the currently selected Measure in the SequenceBank.
     std::size_t measure{0};
 
-    /// The index of the currently selected Cell in the current Measure.
+    /// The path to the currently selected Cell in the current Measure.
     std::vector<std::size_t> cell{};
+
+    /// The index of the selected element within the selected Cell, if any.
+    std::optional<std::size_t> element_index{};
 
     auto operator==(SelectedState const &other) const -> bool = default;
     auto operator!=(SelectedState const &other) const -> bool = default;

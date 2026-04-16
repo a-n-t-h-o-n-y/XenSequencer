@@ -17,12 +17,12 @@ namespace xen::bridge::detail
 {
 
 auto cell_to_json(sequence::Cell const &cell) -> nlohmann::json;
+auto element_to_json(sequence::MusicElement const &element) -> nlohmann::json;
 
-auto note_to_json(sequence::Note const &note, float weight) -> nlohmann::json
+auto note_to_json(sequence::Note const &note) -> nlohmann::json
 {
     return nlohmann::json{
         {"type", "Note"},
-        {"weight", weight},
         {"pitch", note.pitch},
         {"velocity", note.velocity},
         {"delay", note.delay},
@@ -30,16 +30,7 @@ auto note_to_json(sequence::Note const &note, float weight) -> nlohmann::json
     };
 }
 
-auto rest_to_json(sequence::Rest const &, float weight) -> nlohmann::json
-{
-    return nlohmann::json{
-        {"type", "Rest"},
-        {"weight", weight},
-    };
-}
-
-auto sequence_to_json(sequence::Sequence const &sequence, float weight)
-    -> nlohmann::json
+auto sequence_to_json(sequence::Sequence const &sequence) -> nlohmann::json
 {
     auto cells = nlohmann::json::array();
     for (auto const &cell : sequence.cells)
@@ -49,30 +40,39 @@ auto sequence_to_json(sequence::Sequence const &sequence, float weight)
 
     return nlohmann::json{
         {"type", "Sequence"},
-        {"weight", weight},
         {"cells", std::move(cells)},
     };
 }
 
-auto cell_to_json(sequence::Cell const &cell) -> nlohmann::json
+auto element_to_json(sequence::MusicElement const &element) -> nlohmann::json
 {
     return std::visit(
         [&](auto const &typed) {
             using Typed = std::decay_t<decltype(typed)>;
             if constexpr (std::is_same_v<Typed, sequence::Note>)
             {
-                return note_to_json(typed, cell.weight);
-            }
-            else if constexpr (std::is_same_v<Typed, sequence::Rest>)
-            {
-                return rest_to_json(typed, cell.weight);
+                return note_to_json(typed);
             }
             else
             {
-                return sequence_to_json(typed, cell.weight);
+                return sequence_to_json(typed);
             }
         },
-        cell.element);
+        element);
+}
+
+auto cell_to_json(sequence::Cell const &cell) -> nlohmann::json
+{
+    auto elements = nlohmann::json::array();
+    for (auto const &element : cell.elements)
+    {
+        elements.push_back(element_to_json(element));
+    }
+
+    return nlohmann::json{
+        {"weight", cell.weight},
+        {"elements", std::move(elements)},
+    };
 }
 
 auto measure_to_json(xen::Measure const &measure) -> nlohmann::json
@@ -160,11 +160,16 @@ auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
 
 auto editor_to_json(xen::EditorSessionState const &editor) -> nlohmann::json
 {
+    auto const element_index_json = editor.selected.element_index.has_value()
+                                        ? nlohmann::json(*editor.selected.element_index)
+                                        : nlohmann::json(nullptr);
+
     return nlohmann::json{
         {"selected",
          {
              {"measure", editor.selected.measure},
              {"cell", editor.selected.cell},
+             {"element_index", std::move(element_index_json)},
          }},
         {"input_mode", xen::to_string(editor.input_mode)},
     };

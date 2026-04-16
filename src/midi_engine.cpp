@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include <sequence/timing.hpp>
+
 #include <xen/clock.hpp>
 #include <xen/midi.hpp>
 #include <xen/scale.hpp>
@@ -343,7 +345,7 @@ void MidiEngine::update(EngineState const &sequencer, DAWState const &daw)
                                    daw, sequencer.scale, sequencer.key,
                                    sequencer.scale_translate_direction),
             .sample_count = sequence::samples_count(
-                measure.cell, measure.time_signature, daw.sample_rate, daw.bpm),
+                measure.time_signature, daw.sample_rate, daw.bpm),
         };
     }
 }

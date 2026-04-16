@@ -10,19 +10,42 @@
 namespace xen
 {
 
+namespace
+{
+
+auto selected_sequence(sequence::Cell &cell) -> sequence::Sequence *
+{
+    if (cell.elements.size() != 1)
+    {
+        return nullptr;
+    }
+
+    return std::get_if<sequence::Sequence>(&cell.elements.front());
+}
+
+auto selected_sequence(sequence::Cell const &cell) -> sequence::Sequence const *
+{
+    if (cell.elements.size() != 1)
+    {
+        return nullptr;
+    }
+
+    return std::get_if<sequence::Sequence>(&cell.elements.front());
+}
+
+} // namespace
+
 auto get_selected_cell(SequenceBank &bank, SelectedState const &selected)
     -> sequence::Cell &
 {
-    // Start with the top-level Cell in the specified measure
     sequence::Cell *current_cell = &bank[selected.measure].cell;
 
     for (auto index : selected.cell)
     {
-        // Assumption: current_cell must be a Sequence to navigate further
-        if (std::holds_alternative<sequence::Sequence>(current_cell->element))
+        auto *sequence = selected_sequence(*current_cell);
+        if (sequence != nullptr)
         {
-            current_cell =
-                &std::get<sequence::Sequence>(current_cell->element).cells[index];
+            current_cell = &sequence->cells[index];
         }
         else
         {
@@ -36,16 +59,14 @@ auto get_selected_cell(SequenceBank &bank, SelectedState const &selected)
 auto get_selected_cell_const(SequenceBank const &bank, SelectedState const &selected)
     -> sequence::Cell const &
 {
-    // Start with the top-level Cell in the specified measure
     sequence::Cell const *current_cell = &bank[selected.measure].cell;
 
     for (auto index : selected.cell)
     {
-        // Assumption: current_cell must be a Sequence to navigate further
-        if (std::holds_alternative<sequence::Sequence>(current_cell->element))
+        auto const *sequence = selected_sequence(*current_cell);
+        if (sequence != nullptr)
         {
-            current_cell =
-                &std::get<sequence::Sequence>(current_cell->element).cells[index];
+            current_cell = &sequence->cells[index];
         }
         else
         {
@@ -54,6 +75,36 @@ auto get_selected_cell_const(SequenceBank const &bank, SelectedState const &sele
     }
 
     return *current_cell;
+}
+
+auto has_selected_element(SelectedState const &selected) -> bool
+{
+    return selected.element_index.has_value();
+}
+
+auto get_selected_element(SequenceBank &bank, SelectedState const &selected)
+    -> sequence::MusicElement &
+{
+    if (!selected.element_index.has_value())
+    {
+        throw std::invalid_argument("No element is selected.");
+    }
+
+    auto &cell = get_selected_cell(bank, selected);
+    return cell.elements.at(*selected.element_index);
+}
+
+auto get_selected_element_const(SequenceBank const &bank,
+                                SelectedState const &selected)
+    -> sequence::MusicElement const &
+{
+    if (!selected.element_index.has_value())
+    {
+        throw std::invalid_argument("No element is selected.");
+    }
+
+    auto const &cell = get_selected_cell_const(bank, selected);
+    return cell.elements.at(*selected.element_index);
 }
 
 auto get_parent_of_selected(SequenceBank &bank, SelectedState const &selected)
@@ -68,8 +119,12 @@ auto get_parent_of_selected(SequenceBank &bank, SelectedState const &selected)
 
     for (auto i = std::size_t{0}; i + 1 < selected.cell.size(); ++i)
     {
-        current_cell = &(std::get<sequence::Sequence>(current_cell->element)
-                             .cells[selected.cell[i]]);
+        auto *sequence = selected_sequence(*current_cell);
+        if (sequence == nullptr)
+        {
+            throw std::invalid_argument("Invalid cell index path in selected state.");
+        }
+        current_cell = &sequence->cells[selected.cell[i]];
     }
 
     return current_cell;
@@ -88,11 +143,38 @@ auto get_parent_of_selected_const(SequenceBank const &bank,
 
     for (auto i = std::size_t{0}; i + 1 < selected.cell.size(); ++i)
     {
-        current_cell = &(std::get<sequence::Sequence>(current_cell->element)
-                             .cells[selected.cell[i]]);
+        auto const *sequence = selected_sequence(*current_cell);
+        if (sequence == nullptr)
+        {
+            throw std::invalid_argument("Invalid cell index path in selected state.");
+        }
+        current_cell = &sequence->cells[selected.cell[i]];
     }
 
     return current_cell;
+}
+
+auto get_parent_cell_of_selection(SequenceBank &bank, SelectedState const &selected)
+    -> sequence::Cell *
+{
+    if (has_selected_element(selected))
+    {
+        return &get_selected_cell(bank, selected);
+    }
+
+    return get_parent_of_selected(bank, selected);
+}
+
+auto get_parent_cell_of_selection_const(SequenceBank const &bank,
+                                        SelectedState const &selected)
+    -> sequence::Cell const *
+{
+    if (has_selected_element(selected))
+    {
+        return &get_selected_cell_const(bank, selected);
+    }
+
+    return get_parent_of_selected_const(bank, selected);
 }
 
 auto get_sibling_count(SequenceBank const &bank, SelectedState const &selected)
@@ -103,12 +185,18 @@ auto get_sibling_count(SequenceBank const &bank, SelectedState const &selected)
     {
         throw std::runtime_error("Cannot get sibling count of top-level Cell.");
     }
-    return std::get<sequence::Sequence>(parent->element).cells.size();
+    auto const *sequence = selected_sequence(*parent);
+    if (sequence == nullptr)
+    {
+        throw std::runtime_error("Selected parent cell is not a navigable sequence.");
+    }
+    return sequence->cells.size();
 }
 
 auto move_left(SequenceBank const &bank, SelectedState selected, std::size_t amount)
     -> SelectedState
 {
+    selected.element_index.reset();
     if (!selected.cell.empty())
     {
         auto const parent_cells_size = get_sibling_count(bank, selected);
@@ -125,6 +213,7 @@ auto move_left(SequenceBank const &bank, SelectedState selected, std::size_t amo
 auto move_right(SequenceBank const &bank, SelectedState selected, std::size_t amount)
     -> SelectedState
 {
+    selected.element_index.reset();
     if (!selected.cell.empty())
     {
         auto const parent_cells_size = get_sibling_count(bank, selected);
@@ -135,6 +224,7 @@ auto move_right(SequenceBank const &bank, SelectedState selected, std::size_t am
 
 auto move_up(SelectedState selected, std::size_t amount) -> SelectedState
 {
+    selected.element_index.reset();
     for (auto i = std::size_t{0}; i < amount && !selected.cell.empty(); ++i)
     {
         selected.cell.pop_back();
@@ -145,10 +235,11 @@ auto move_up(SelectedState selected, std::size_t amount) -> SelectedState
 auto move_down(SequenceBank const &bank, SelectedState selected, std::size_t amount)
     -> SelectedState
 {
+    selected.element_index.reset();
     for (auto i = std::size_t{0}; i < amount; ++i)
     {
         auto const &selected_cell = get_selected_cell_const(bank, selected);
-        if (std::holds_alternative<sequence::Sequence>(selected_cell.element))
+        if (selected_sequence(selected_cell) != nullptr)
         {
             selected.cell.push_back(0);
         }

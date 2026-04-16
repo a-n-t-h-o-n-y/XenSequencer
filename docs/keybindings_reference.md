@@ -84,7 +84,6 @@
 | --- | `delete` | `delete` |
 | --- | `s` | `split :N=2:` |
 | --- | `n` | `note :N=0:` |
-| --- | `r` | `rest` |
 
 ## SequencesList
 
@@ -131,4 +130,3 @@
 |------------|-----|--------|
 | --- | `e` | `show SequenceView;focus SequenceView` |
 | --- | `escape` | `show SequenceView;focus SequenceView` |
-

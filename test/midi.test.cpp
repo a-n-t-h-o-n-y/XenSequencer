@@ -7,6 +7,7 @@
 
 #include <sequence/midi.hpp>
 #include <sequence/sequence.hpp>
+#include <sequence/timing.hpp>
 #include <sequence/tuning.hpp>
 
 #include <xen/midi.hpp>
@@ -17,12 +18,12 @@ TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
     auto const measure = xen::Measure{
         .cell =
             {
-                .element = sequence::Sequence{{
-                    {.element = sequence::Note{.pitch = 0, .velocity = 0.5f},
+                .elements = {sequence::Sequence{{
+                    {.elements = {sequence::Note{.pitch = 0, .velocity = 0.5f}},
                      .weight = 1.f},
-                    {.element = sequence::Note{.pitch = 4, .velocity = 0.75f},
+                    {.elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
                      .weight = 1.f},
-                }},
+                }}},
                 .weight = 1.f,
             },
         .time_signature = sequence::TimeSignature{4, 4},
@@ -38,8 +39,10 @@ TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
         xen::state_to_timeline(measure, tuning, 440.f, daw_state, std::nullopt, 0,
                                xen::TranslateDirection::Up);
 
-    auto const expected = sequence::midi::translate_to_midi_timeline(
-        measure.cell, measure.time_signature, daw_state.sample_rate, daw_state.bpm,
+    auto const expected = sequence::midi::flatten_to_midi(
+        measure.cell.elements, 0,
+        sequence::samples_count(measure.time_signature, daw_state.sample_rate,
+                                daw_state.bpm),
         tuning, 440.f, 48.f);
 
     REQUIRE(timeline == expected);

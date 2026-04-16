@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 
+#include <xen/copy_paste.hpp>
 #include <xen/measure.hpp>
 #include <xen/state.hpp>
 
@@ -79,5 +80,11 @@ namespace xen
  * @throw std::invalid_argument If the JSON string is invalid.
  */
 [[nodiscard]] auto deserialize_plugin(std::string const &json_str) -> EngineState;
+
+[[nodiscard]] auto serialize_copy_buffer_content(CopyBufferContent const &content)
+    -> std::string;
+
+[[nodiscard]] auto deserialize_copy_buffer_content(std::string const &json_str)
+    -> CopyBufferContent;
 
 } // namespace xen

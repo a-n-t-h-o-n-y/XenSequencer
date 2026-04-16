@@ -68,7 +68,7 @@ Request payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 1;
+  snapshot_schema_version: 2;
   frontend_app: string;
   frontend_version: string;
 }
@@ -79,7 +79,7 @@ Response payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 1;
+  snapshot_schema_version: 2;
   plugin_version: string;
   reference: {
     commands: Array<{
@@ -101,7 +101,7 @@ Response payload:
 Validation behavior:
 
 1. `protocol` mismatch -> `unsupported_protocol`.
-1. `snapshot_schema_version !== 1` -> `unsupported_protocol`.
+1. `snapshot_schema_version !== 2` -> `unsupported_protocol`.
 
 ### `state.get`
 
@@ -365,27 +365,25 @@ type MessageLevel = "debug" | "info" | "warning" | "error";
 type InputMode = "pitch" | "velocity" | "delay" | "gate" | "scale";
 type TranslateDirection = "up" | "down";
 
-type NoteCell = {
+type NoteElement = {
   type: "Note";
-  weight: number;
   pitch: number;
   velocity: number;
   delay: number;
   gate: number;
 };
 
-type RestCell = {
-  type: "Rest";
-  weight: number;
-};
-
-type SequenceCell = {
+type SequenceElement = {
   type: "Sequence";
-  weight: number;
   cells: Cell[];
 };
 
-type Cell = NoteCell | RestCell | SequenceCell;
+type MusicElement = NoteElement | SequenceElement;
+
+type Cell = {
+  weight: number;
+  elements: MusicElement[];
+};
 
 type TimeSignature = {
   numerator: number;
@@ -415,7 +413,7 @@ type Chord = {
 };
 
 type UiStateSnapshot = {
-  schema_version: 1;
+  schema_version: 2;
   snapshot_version: number;
   commit_id: number;
   engine: {
@@ -432,6 +430,7 @@ type UiStateSnapshot = {
     selected: {
       measure: number;
       cell: number[];
+      element_index: number | null;
     };
     input_mode: InputMode;
   };

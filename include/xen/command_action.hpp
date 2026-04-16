@@ -152,13 +152,6 @@ struct CreateNoteAction
 };
 
 /**
- * Typed action for `rest`.
- */
-struct CreateRestAction
-{
-};
-
-/**
  * Typed action for `copy`.
  */
 struct CopySelectionAction
@@ -206,34 +199,6 @@ struct SplitSelectionAction
  */
 struct LiftSelectionAction
 {
-};
-
-/**
- * Typed action for `flip`.
- */
-struct FlipSelectionAction
-{
-    sequence::Pattern pattern{0, {1}};
-};
-
-/**
- * Typed action for `fill note`.
- */
-struct FillNoteAction
-{
-    sequence::Pattern pattern{0, {1}};
-    int pitch{0};
-    float velocity{100.f / 127.f};
-    float delay{0.f};
-    float gate{1.f};
-};
-
-/**
- * Typed action for `fill rest`.
- */
-struct FillRestAction
-{
-    sequence::Pattern pattern{0, {1}};
 };
 
 /**
@@ -555,22 +520,6 @@ struct MirrorAction
 };
 
 /**
- * Typed action for `quantize`.
- */
-struct QuantizeAction
-{
-    sequence::Pattern pattern{0, {1}};
-};
-
-/**
- * Typed action for `swing`.
- */
-struct SwingAction
-{
-    float amount{0.1f};
-};
-
-/**
  * Typed action for `step`.
  */
 struct StepAction
@@ -609,11 +558,10 @@ using CommandAction =
                  SetSequenceTimeSignatureAction, SelectSequenceAction,
                  SetInputModeAction, LoadSequenceBankAction, LoadTuningAction,
                  LoadKeysAction, LoadScalesAction, LoadChordsAction, CreateNoteAction,
-                 CreateRestAction, CopySelectionAction, CutSelectionAction,
+                 CopySelectionAction, CutSelectionAction,
                  PasteSelectionAction, DuplicateSelectionAction,
                  DeleteSelectionAction, SplitSelectionAction,
-                 LiftSelectionAction, FlipSelectionAction, FillNoteAction,
-                 FillRestAction, SetBaseFrequencyAction,
+                 LiftSelectionAction, SetBaseFrequencyAction,
                  SaveSequenceBankAction, LibraryDirectoryAction, SetPitchAction,
                  SetOctaveAction, SetVelocityAction, SetDelayAction,
                  SetGateAction, SetWeightAction, SetWeightsAction, CommitAction,
@@ -627,7 +575,7 @@ using CommandAction =
                  RandomizeVelocityAction, RandomizeDelayAction,
                  RandomizeGateAction, StretchAction, CompressAction,
                  ShuffleAction, RotateAction, ReverseAction, MirrorAction,
-                 QuantizeAction, SwingAction, StepAction, DrumsAction, ArpAction>;
+                 StepAction, DrumsAction, ArpAction>;
 
 /**
  * Result of applying one typed command action.

@@ -8,7 +8,7 @@ namespace xen
 
 struct Measure
 {
-    sequence::Cell cell{.element = sequence::Rest{}, .weight = 1.f};
+    sequence::Cell cell{.elements = {}, .weight = 1.f};
     sequence::TimeSignature time_signature{4, 4};
 
     auto operator==(Measure const &) const -> bool = default;

@@ -181,8 +181,9 @@ TEST_CASE("Processor carries selection context across chained commands",
 
     auto const &selected =
         get_selected_cell_const(after.engine.sequence_bank, after.editor.selected);
-    REQUIRE(std::holds_alternative<sequence::Note>(selected.element));
-    CHECK(std::get<sequence::Note>(selected.element).pitch == 7);
+    REQUIRE(selected.elements.size() == 1);
+    REQUIRE(std::holds_alternative<sequence::Note>(selected.elements.front()));
+    CHECK(std::get<sequence::Note>(selected.elements.front()).pitch == 7);
 }
 
 TEST_CASE("Processor sequence defaults use updated chain context", "[processor][commands]")

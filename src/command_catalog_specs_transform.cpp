@@ -48,19 +48,6 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"quantize"}, true, "Quantize selected note timing.", std::make_tuple(),
-        [](CommandInvocation const &invocation) {
-            return QuantizeAction{.pattern = invocation.input.pattern};
-        }));
-
-    specs.push_back(make_spec(
-        {"swing"}, false, "Apply swing to selection.",
-        std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-        [](CommandInvocation const &, float amount) {
-            return SwingAction{.amount = amount};
-        }));
-
-    specs.push_back(make_spec(
         {"step"}, true,
         "Apply incremental pitch/velocity offsets to selected sequence.",
         std::make_tuple(optional_arg<int>("Int", "pitchDistance", 1),

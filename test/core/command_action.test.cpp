@@ -113,13 +113,9 @@ TEST_CASE("Official command catalog maps to typed actions",
         "move up 1",
         "move down 1",
         "note",
-        "rest",
         "delete",
         "split 2",
         "lift",
-        "+0 flip",
-        "+0 fill note",
-        "+0 fill rest",
         "select sequence 0",
         "set pitch 0",
         "set octave 0",
@@ -157,8 +153,6 @@ TEST_CASE("Official command catalog maps to typed actions",
         "rotate 1",
         "reverse",
         "+0 mirror 0",
-        "+0 quantize",
-        "swing 0.1",
         "+0 step 1 0.1",
         "drums",
         "+0 arp major 1",
@@ -178,27 +172,26 @@ TEST_CASE("Command adapter maps migrated commands to typed action variants",
 {
     auto const invocations = parse_command_chain(
         "move down 2; set key 11; set sequence name \"pad\" 4; "
-        "select sequence 3; inputMode gate; note 2 0.7 0.1 0.9; rest; "
+        "select sequence 3; inputMode gate; note 2 0.7 0.1 0.9; "
         "set baseFrequency 880; commit; undo; redo; "
         "set scale major; set mode 2; set translateDirection down; version");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 15);
+    REQUIRE(actions.size() == 14);
     CHECK(std::holds_alternative<MoveSelectionAction>(actions[0]));
     CHECK(std::holds_alternative<SetKeyAction>(actions[1]));
     CHECK(std::holds_alternative<SetSequenceNameAction>(actions[2]));
     CHECK(std::holds_alternative<SelectSequenceAction>(actions[3]));
     CHECK(std::holds_alternative<SetInputModeAction>(actions[4]));
     CHECK(std::holds_alternative<CreateNoteAction>(actions[5]));
-    CHECK(std::holds_alternative<CreateRestAction>(actions[6]));
-    CHECK(std::holds_alternative<SetBaseFrequencyAction>(actions[7]));
-    CHECK(std::holds_alternative<CommitAction>(actions[8]));
-    CHECK(std::holds_alternative<UndoAction>(actions[9]));
-    CHECK(std::holds_alternative<RedoAction>(actions[10]));
-    CHECK(std::holds_alternative<SetScaleAction>(actions[11]));
-    CHECK(std::holds_alternative<SetScaleModeAction>(actions[12]));
-    CHECK(std::holds_alternative<SetTranslateDirectionAction>(actions[13]));
-    CHECK(std::holds_alternative<VersionAction>(actions[14]));
+    CHECK(std::holds_alternative<SetBaseFrequencyAction>(actions[6]));
+    CHECK(std::holds_alternative<CommitAction>(actions[7]));
+    CHECK(std::holds_alternative<UndoAction>(actions[8]));
+    CHECK(std::holds_alternative<RedoAction>(actions[9]));
+    CHECK(std::holds_alternative<SetScaleAction>(actions[10]));
+    CHECK(std::holds_alternative<SetScaleModeAction>(actions[11]));
+    CHECK(std::holds_alternative<SetTranslateDirectionAction>(actions[12]));
+    CHECK(std::holds_alternative<VersionAction>(actions[13]));
 
     auto const move = std::get<MoveSelectionAction>(actions[0]);
     CHECK(move.direction == MoveDirection::Down);
@@ -223,13 +216,13 @@ TEST_CASE("Command adapter maps migrated commands to typed action variants",
     CHECK(note.delay == Catch::Approx(0.1f));
     CHECK(note.gate == Catch::Approx(0.9f));
 
-    auto const base = std::get<SetBaseFrequencyAction>(actions[7]);
+    auto const base = std::get<SetBaseFrequencyAction>(actions[6]);
     CHECK(base.freq == Catch::Approx(880.f));
 
-    auto const mode = std::get<SetScaleModeAction>(actions[12]);
+    auto const mode = std::get<SetScaleModeAction>(actions[11]);
     CHECK(mode.mode_index == 2);
 
-    auto const translate = std::get<SetTranslateDirectionAction>(actions[13]);
+    auto const translate = std::get<SetTranslateDirectionAction>(actions[12]);
     CHECK(translate.direction == "down");
 }
 
@@ -422,94 +415,77 @@ TEST_CASE(
     "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "delete; split 3; lift; +1 flip; +2 fill note 4 0.8 0.1 0.9; +3 fill rest; "
-        "set pitch 9; set octave 1; set velocity 0.75; set delay 0.2; set gate 0.8; "
-        "set weight 0.6; +4 set weights 0.5; +5 shift pitch -2; +6 shift octave 2; "
-        "+7 shift velocity -0.1; +8 shift delay 0.25; +9 shift gate -0.2; "
-        "+10 step 3 0.4; drums 24 -2");
+        "delete; split 3; lift; set pitch 9; set octave 1; set velocity 0.75; "
+        "set delay 0.2; set gate 0.8; set weight 0.6; +4 set weights 0.5; "
+        "+5 shift pitch -2; +6 shift octave 2; +7 shift velocity -0.1; "
+        "+8 shift delay 0.25; +9 shift gate -0.2; +10 step 3 0.4; drums 24 -2");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 20);
+    REQUIRE(actions.size() == 17);
     REQUIRE(std::holds_alternative<DeleteSelectionAction>(actions[0]));
     REQUIRE(std::holds_alternative<SplitSelectionAction>(actions[1]));
     REQUIRE(std::holds_alternative<LiftSelectionAction>(actions[2]));
-    REQUIRE(std::holds_alternative<FlipSelectionAction>(actions[3]));
-    REQUIRE(std::holds_alternative<FillNoteAction>(actions[4]));
-    REQUIRE(std::holds_alternative<FillRestAction>(actions[5]));
-    REQUIRE(std::holds_alternative<SetPitchAction>(actions[6]));
-    REQUIRE(std::holds_alternative<SetOctaveAction>(actions[7]));
-    REQUIRE(std::holds_alternative<SetVelocityAction>(actions[8]));
-    REQUIRE(std::holds_alternative<SetDelayAction>(actions[9]));
-    REQUIRE(std::holds_alternative<SetGateAction>(actions[10]));
-    REQUIRE(std::holds_alternative<SetWeightAction>(actions[11]));
-    REQUIRE(std::holds_alternative<SetWeightsAction>(actions[12]));
-    REQUIRE(std::holds_alternative<ShiftPitchAction>(actions[13]));
-    REQUIRE(std::holds_alternative<ShiftOctaveAction>(actions[14]));
-    REQUIRE(std::holds_alternative<ShiftVelocityAction>(actions[15]));
-    REQUIRE(std::holds_alternative<ShiftDelayAction>(actions[16]));
-    REQUIRE(std::holds_alternative<ShiftGateAction>(actions[17]));
-    REQUIRE(std::holds_alternative<StepAction>(actions[18]));
-    REQUIRE(std::holds_alternative<DrumsAction>(actions[19]));
+    REQUIRE(std::holds_alternative<SetPitchAction>(actions[3]));
+    REQUIRE(std::holds_alternative<SetOctaveAction>(actions[4]));
+    REQUIRE(std::holds_alternative<SetVelocityAction>(actions[5]));
+    REQUIRE(std::holds_alternative<SetDelayAction>(actions[6]));
+    REQUIRE(std::holds_alternative<SetGateAction>(actions[7]));
+    REQUIRE(std::holds_alternative<SetWeightAction>(actions[8]));
+    REQUIRE(std::holds_alternative<SetWeightsAction>(actions[9]));
+    REQUIRE(std::holds_alternative<ShiftPitchAction>(actions[10]));
+    REQUIRE(std::holds_alternative<ShiftOctaveAction>(actions[11]));
+    REQUIRE(std::holds_alternative<ShiftVelocityAction>(actions[12]));
+    REQUIRE(std::holds_alternative<ShiftDelayAction>(actions[13]));
+    REQUIRE(std::holds_alternative<ShiftGateAction>(actions[14]));
+    REQUIRE(std::holds_alternative<StepAction>(actions[15]));
+    REQUIRE(std::holds_alternative<DrumsAction>(actions[16]));
 
     CHECK(std::get<SplitSelectionAction>(actions[1]).count == 3);
-    CHECK(std::get<FlipSelectionAction>(actions[3]).pattern ==
-          sequence::Pattern{1, {1}});
-    CHECK(std::get<FillNoteAction>(actions[4]).pattern == sequence::Pattern{2, {1}});
-    CHECK(std::get<FillNoteAction>(actions[4]).pitch == 4);
-    CHECK(std::get<FillRestAction>(actions[5]).pattern == sequence::Pattern{3, {1}});
-    CHECK(std::get<SetWeightAction>(actions[11]).value == Catch::Approx(0.6f));
-    CHECK(std::get<SetWeightsAction>(actions[12]).pattern ==
+    CHECK(std::get<SetWeightAction>(actions[8]).value == Catch::Approx(0.6f));
+    CHECK(std::get<SetWeightsAction>(actions[9]).pattern ==
           sequence::Pattern{4, {1}});
-    CHECK(std::get<ShiftGateAction>(actions[17]).pattern == sequence::Pattern{9, {1}});
-    CHECK(std::get<StepAction>(actions[18]).pattern == sequence::Pattern{10, {1}});
-    CHECK(std::get<StepAction>(actions[18]).pitch_distance == 3);
-    CHECK(std::get<StepAction>(actions[18]).velocity_distance ==
+    CHECK(std::get<ShiftGateAction>(actions[14]).pattern == sequence::Pattern{9, {1}});
+    CHECK(std::get<StepAction>(actions[15]).pattern == sequence::Pattern{10, {1}});
+    CHECK(std::get<StepAction>(actions[15]).pitch_distance == 3);
+    CHECK(std::get<StepAction>(actions[15]).velocity_distance ==
           Catch::Approx(0.4f));
-    CHECK(std::get<DrumsAction>(actions[19]).octave_size == 24);
-    CHECK(std::get<DrumsAction>(actions[19]).offset == -2);
+    CHECK(std::get<DrumsAction>(actions[16]).octave_size == 24);
+    CHECK(std::get<DrumsAction>(actions[16]).offset == -2);
 }
 
 TEST_CASE("Command adapter preserves edit/set/shift/step/drums defaults",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "split; flip; fill note; fill rest; set pitch; set octave; set velocity; "
-        "set delay; set gate; shift pitch; shift octave; shift velocity; shift delay; "
-        "shift gate; step; drums");
+        "split; set pitch; set octave; set velocity; set delay; set gate; "
+        "shift pitch; shift octave; shift velocity; shift delay; shift gate; "
+        "step; drums");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 16);
+    REQUIRE(actions.size() == 13);
     CHECK(std::get<SplitSelectionAction>(actions[0]).count == 2);
-    CHECK(std::get<FlipSelectionAction>(actions[1]).pattern ==
-          sequence::Pattern{0, {1}});
-    CHECK(std::get<FillNoteAction>(actions[2]).pitch == 0);
-    CHECK(std::get<FillNoteAction>(actions[2]).velocity ==
-          Catch::Approx(100.f / 127.f));
-    CHECK(std::get<FillNoteAction>(actions[2]).delay == Catch::Approx(0.f));
-    CHECK(std::get<FillNoteAction>(actions[2]).gate == Catch::Approx(1.f));
-    CHECK(std::get<FillRestAction>(actions[3]).pattern == sequence::Pattern{0, {1}});
-    CHECK(std::holds_alternative<int>(std::get<SetPitchAction>(actions[4]).pitch));
-    CHECK(std::get<int>(std::get<SetPitchAction>(actions[4]).pitch) == 0);
-    CHECK(std::get<SetOctaveAction>(actions[5]).octave == 0);
+    CHECK(std::holds_alternative<int>(std::get<SetPitchAction>(actions[1]).pitch));
+    CHECK(std::get<int>(std::get<SetPitchAction>(actions[1]).pitch) == 0);
+    CHECK(std::get<SetOctaveAction>(actions[2]).octave == 0);
     CHECK(std::holds_alternative<float>(
-        std::get<SetVelocityAction>(actions[6]).velocity));
-    CHECK(std::get<float>(std::get<SetVelocityAction>(actions[6]).velocity) ==
+        std::get<SetVelocityAction>(actions[3]).velocity));
+    CHECK(std::get<float>(std::get<SetVelocityAction>(actions[3]).velocity) ==
           Catch::Approx(100.f / 127.f));
-    CHECK(std::holds_alternative<float>(std::get<SetDelayAction>(actions[7]).delay));
-    CHECK(std::get<float>(std::get<SetDelayAction>(actions[7]).delay) ==
+    CHECK(std::holds_alternative<float>(std::get<SetDelayAction>(actions[4]).delay));
+    CHECK(std::get<float>(std::get<SetDelayAction>(actions[4]).delay) ==
           Catch::Approx(0.f));
-    CHECK(std::holds_alternative<float>(std::get<SetGateAction>(actions[8]).gate));
-    CHECK(std::get<float>(std::get<SetGateAction>(actions[8]).gate) ==
+    CHECK(std::holds_alternative<float>(std::get<SetGateAction>(actions[5]).gate));
+    CHECK(std::get<float>(std::get<SetGateAction>(actions[5]).gate) ==
           Catch::Approx(1.f));
-    CHECK(std::get<ShiftPitchAction>(actions[9]).amount == 1);
-    CHECK(std::get<ShiftOctaveAction>(actions[10]).amount == 1);
-    CHECK(std::get<ShiftVelocityAction>(actions[11]).amount == Catch::Approx(0.1f));
-    CHECK(std::get<ShiftDelayAction>(actions[12]).amount == Catch::Approx(0.1f));
-    CHECK(std::get<ShiftGateAction>(actions[13]).amount == Catch::Approx(0.1f));
-    CHECK(std::get<StepAction>(actions[14]).pitch_distance == 1);
-    CHECK(std::get<StepAction>(actions[14]).velocity_distance == Catch::Approx(0.f));
-    CHECK(std::get<DrumsAction>(actions[15]).octave_size == 16);
-    CHECK(std::get<DrumsAction>(actions[15]).offset == 1);
+    CHECK(std::get<ShiftPitchAction>(actions[6]).amount == 1);
+    CHECK(std::get<ShiftOctaveAction>(actions[7]).amount == 1);
+    CHECK(std::get<ShiftVelocityAction>(actions[8]).amount == Catch::Approx(0.1f));
+    CHECK(std::get<ShiftDelayAction>(actions[9]).amount == Catch::Approx(0.1f));
+    CHECK(std::get<ShiftGateAction>(actions[10]).amount == Catch::Approx(0.1f));
+    CHECK(std::get<StepAction>(actions[11]).pitch_distance == 1);
+    CHECK(std::get<StepAction>(actions[11]).velocity_distance == Catch::Approx(0.f));
+    CHECK(std::get<DrumsAction>(actions[12]).octave_size == 16);
+    CHECK(std::get<DrumsAction>(actions[12]).offset == 1);
 }
 
 TEST_CASE(
@@ -619,11 +595,10 @@ TEST_CASE(
     auto const invocations = parse_command_chain(
         "+1 2 randomize pitch -3 3; +2 randomize velocity 0.2 0.2; "
         "+3 randomize delay 0.1 0.1; +4 randomize gate 0.9 0.9; "
-        "+5 2 stretch 3; compress; shuffle; rotate -2; reverse; "
-        "+7 mirror 12; +8 quantize; swing 0.2");
+        "+5 2 stretch 3; compress; shuffle; rotate -2; reverse; +7 mirror 12");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 12);
+    REQUIRE(actions.size() == 10);
     REQUIRE(std::holds_alternative<RandomizePitchAction>(actions[0]));
     REQUIRE(std::holds_alternative<RandomizeVelocityAction>(actions[1]));
     REQUIRE(std::holds_alternative<RandomizeDelayAction>(actions[2]));
@@ -634,8 +609,6 @@ TEST_CASE(
     REQUIRE(std::holds_alternative<RotateAction>(actions[7]));
     REQUIRE(std::holds_alternative<ReverseAction>(actions[8]));
     REQUIRE(std::holds_alternative<MirrorAction>(actions[9]));
-    REQUIRE(std::holds_alternative<QuantizeAction>(actions[10]));
-    REQUIRE(std::holds_alternative<SwingAction>(actions[11]));
 
     CHECK(std::get<RandomizePitchAction>(actions[0]).pattern ==
           sequence::Pattern{1, {2}});
@@ -646,9 +619,6 @@ TEST_CASE(
     CHECK(std::get<RotateAction>(actions[7]).amount == -2);
     CHECK(std::get<MirrorAction>(actions[9]).pattern == sequence::Pattern{7, {1}});
     CHECK(std::get<MirrorAction>(actions[9]).center_pitch == 12);
-    CHECK(std::get<QuantizeAction>(actions[10]).pattern ==
-          sequence::Pattern{8, {1}});
-    CHECK(std::get<SwingAction>(actions[11]).amount == Catch::Approx(0.2f));
 }
 
 TEST_CASE("Command adapter preserves randomize and transform defaults",
@@ -656,10 +626,10 @@ TEST_CASE("Command adapter preserves randomize and transform defaults",
 {
     auto const invocations = parse_command_chain(
         "randomize pitch; randomize velocity; randomize delay; randomize gate; "
-        "stretch; rotate; mirror; swing");
+        "stretch; rotate; mirror");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 8);
+    REQUIRE(actions.size() == 7);
     CHECK(std::get<RandomizePitchAction>(actions[0]).min == -12);
     CHECK(std::get<RandomizePitchAction>(actions[0]).max == 12);
     CHECK(std::get<RandomizeVelocityAction>(actions[1]).min == Catch::Approx(0.01f));
@@ -671,7 +641,6 @@ TEST_CASE("Command adapter preserves randomize and transform defaults",
     CHECK(std::get<StretchAction>(actions[4]).count == 2);
     CHECK(std::get<RotateAction>(actions[5]).amount == 1);
     CHECK(std::get<MirrorAction>(actions[6]).center_pitch == 0);
-    CHECK(std::get<SwingAction>(actions[7]).amount == Catch::Approx(0.1f));
 }
 
 TEST_CASE("Typed randomize and transform actions execute deterministically",
@@ -680,7 +649,7 @@ TEST_CASE("Typed randomize and transform actions execute deterministically",
     auto ps = make_plugin_state();
     auto state = ps.timeline.get_state();
     auto &selected = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
-    selected.element = sequence::Note{5, 0.5f, 0.2f, 0.8f};
+    selected.elements = {sequence::Note{5, 0.5f, 0.2f, 0.8f}};
     selected.weight = 0.7f;
     ps.timeline.stage(std::move(state));
 
@@ -706,11 +675,9 @@ TEST_CASE("Typed randomize and transform actions execute deterministically",
     CHECK(run_action("rotate -1").status.first == MessageLevel::Info);
     CHECK(run_action("reverse").status.first == MessageLevel::Info);
     CHECK(run_action("+0 mirror 10").status.first == MessageLevel::Info);
-    CHECK(run_action("+0 quantize").status.first == MessageLevel::Info);
-    CHECK(run_action("swing 0.25").status.first == MessageLevel::Info);
 }
 
-TEST_CASE("Typed note and rest actions update selected cell",
+TEST_CASE("Typed note and delete actions update selected cell",
           "[core][command][action]")
 {
     auto ps = make_plugin_state();
@@ -718,14 +685,14 @@ TEST_CASE("Typed note and rest actions update selected cell",
     state.aux.selected.measure = 0;
     state.aux.selected.cell = {0};
     state.sequencer.sequence_bank[0].cell = {
-        .element = sequence::Sequence{
+        .elements = {sequence::Sequence{
             .cells = {
                 sequence::Cell{
-                    .element = sequence::Rest{},
+                    .elements = {},
                     .weight = 0.37f,
                 },
             },
-        },
+        }},
         .weight = 1.f,
     };
     ps.timeline.stage(std::move(state));
@@ -742,25 +709,26 @@ TEST_CASE("Typed note and rest actions update selected cell",
     auto const state_after_note = ps.timeline.get_state();
     auto const &note_cell =
         get_selected_cell_const(state_after_note.sequencer.sequence_bank, note_target);
-    REQUIRE(std::holds_alternative<sequence::Note>(note_cell.element));
-    auto const &note = std::get<sequence::Note>(note_cell.element);
+    REQUIRE(note_cell.elements.size() == 1);
+    REQUIRE(std::holds_alternative<sequence::Note>(note_cell.elements.front()));
+    auto const &note = std::get<sequence::Note>(note_cell.elements.front());
     CHECK(note.pitch == 12);
     CHECK(note.velocity == Catch::Approx(0.5f));
     CHECK(note.delay == Catch::Approx(0.25f));
     CHECK(note.gate == Catch::Approx(0.75f));
     CHECK(note_cell.weight == Catch::Approx(0.37f));
 
-    auto rest_action = to_command_actions(parse_command_chain("rest"))[0];
-    auto rest_result = execute_command_action(ps, note_result.context, rest_action);
-    CHECK(rest_result.status.first == MessageLevel::Info);
-    CHECK(rest_result.status.second == "Rest Created");
-    CHECK(rest_result.engine_mutated);
+    auto delete_action = to_command_actions(parse_command_chain("delete"))[0];
+    auto delete_result = execute_command_action(ps, note_result.context, delete_action);
+    CHECK(delete_result.status.first == MessageLevel::Info);
+    CHECK(delete_result.status.second == "Deleted Selection");
+    CHECK(delete_result.engine_mutated);
 
-    auto const state_after_rest = ps.timeline.get_state();
-    auto const &rest_cell = get_selected_cell_const(
-        state_after_rest.sequencer.sequence_bank, note_result.context.selected);
-    REQUIRE(std::holds_alternative<sequence::Rest>(rest_cell.element));
-    CHECK(rest_cell.weight == Catch::Approx(0.37f));
+    auto const state_after_delete = ps.timeline.get_state();
+    auto const &deleted_cell = get_selected_cell_const(
+        state_after_delete.sequencer.sequence_bank, note_result.context.selected);
+    CHECK(deleted_cell.elements.empty());
+    CHECK(deleted_cell.weight == Catch::Approx(0.37f));
 }
 
 TEST_CASE("Typed undo and redo actions restore committed history",
