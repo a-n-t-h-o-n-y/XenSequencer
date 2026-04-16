@@ -127,21 +127,8 @@ auto direction_to_json(xen::TranslateDirection direction) -> nlohmann::json
 
 auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
 {
-    auto sequence_bank = nlohmann::json::array();
-    for (auto const &measure : engine.sequence_bank)
-    {
-        sequence_bank.push_back(measure_to_json(measure));
-    }
-
-    auto sequence_names = nlohmann::json::array();
-    for (auto const &name : engine.sequence_names)
-    {
-        sequence_names.push_back(name);
-    }
-
     auto result = nlohmann::json{
-        {"sequence_bank", std::move(sequence_bank)},
-        {"sequence_names", std::move(sequence_names)},
+        {"measure", measure_to_json(engine.measure)},
         {"tuning", tuning_to_json(engine.tuning)},
         {"tuning_name", engine.tuning_name},
         {"scale", nullptr},
@@ -167,7 +154,6 @@ auto editor_to_json(xen::EditorSessionState const &editor) -> nlohmann::json
     return nlohmann::json{
         {"selected",
          {
-             {"measure", editor.selected.measure},
              {"cell", editor.selected.cell},
              {"element_index", std::move(element_index_json)},
          }},

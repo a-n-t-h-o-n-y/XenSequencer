@@ -73,19 +73,19 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     CHECK(invalid_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(invalid_error.message == "Invalid argument 'key': Invalid integer: nope");
 
-    auto const missing_invocation = parse_command_chain("set sequence name")[0];
+    auto const missing_invocation = parse_command_chain("load measure")[0];
     auto const missing_result = bind_invocation(missing_invocation);
     REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
     auto const &missing_error = std::get<CatalogBindError>(missing_result);
     CHECK(missing_error.kind == CatalogBindErrorKind::MissingArgument);
-    CHECK(missing_error.message == "Missing argument: name");
+    CHECK(missing_error.message == "Missing argument: filename");
 }
 
 TEST_CASE("Catalog binds non-bootstrap commands without adapter gaps",
           "[core][command][catalog]")
 {
     auto const chain =
-        parse_command_chain("set baseFrequency 333; load scales; save sequenceBank foo");
+        parse_command_chain("set baseFrequency 333; load scales; save measure foo");
     auto const result = bind_chain(chain);
 
     REQUIRE(std::holds_alternative<std::vector<BoundCommand>>(result));
@@ -93,7 +93,7 @@ TEST_CASE("Catalog binds non-bootstrap commands without adapter gaps",
     REQUIRE(bound.size() == 3);
     CHECK(std::holds_alternative<SetBaseFrequencyAction>(bound[0].action));
     CHECK(std::holds_alternative<LoadScalesAction>(bound[1].action));
-    CHECK(std::holds_alternative<SaveSequenceBankAction>(bound[2].action));
+    CHECK(std::holds_alternative<SaveMeasureAction>(bound[2].action));
 }
 
 TEST_CASE("Catalog bind_chain stops at first bind error",

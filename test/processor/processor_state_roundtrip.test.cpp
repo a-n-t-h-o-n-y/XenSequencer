@@ -16,7 +16,7 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
     REQUIRE(source.execute_command_string("set key 31").first == MessageLevel::Info);
     REQUIRE(source.execute_command_string("set baseFrequency 333.3").first ==
             MessageLevel::Info);
-    REQUIRE(source.execute_command_string("set sequence name \"alpha\" 0").first ==
+    REQUIRE(source.execute_command_string("set measure timeSignature 7/8").first ==
             MessageLevel::Info);
 
     auto const expected = source.get_engine_snapshot().engine;

@@ -70,29 +70,11 @@ struct SetKeyAction
 };
 
 /**
- * Typed action for `set sequence name`.
+ * Typed action for `set measure timeSignature`.
  */
-struct SetSequenceNameAction
-{
-    std::string name{};
-    int index{-1};
-};
-
-/**
- * Typed action for `set sequence timeSignature`.
- */
-struct SetSequenceTimeSignatureAction
+struct SetMeasureTimeSignatureAction
 {
     sequence::TimeSignature time_signature{4, 4};
-    int index{-1};
-};
-
-/**
- * Typed action for `select sequence`.
- */
-struct SelectSequenceAction
-{
-    int index{0};
 };
 
 /**
@@ -104,9 +86,9 @@ struct SetInputModeAction
 };
 
 /**
- * Typed action for `load sequenceBank`.
+ * Typed action for `load measure`.
  */
-struct LoadSequenceBankAction
+struct LoadMeasureAction
 {
     std::string filename{};
 };
@@ -210,9 +192,9 @@ struct SetBaseFrequencyAction
 };
 
 /**
- * Typed action for `save sequenceBank`.
+ * Typed action for `save measure`.
  */
-struct SaveSequenceBankAction
+struct SaveMeasureAction
 {
     std::string filename{};
 };
@@ -332,14 +314,6 @@ struct SetTranslateDirectionAction
 };
 
 /**
- * Typed action for `shift selectedSequence`.
- */
-struct ShiftSelectedSequenceAction
-{
-    int amount{0};
-};
-
-/**
  * Typed action for `shift scale`.
  */
 struct ShiftScaleAction
@@ -371,19 +345,17 @@ struct ShiftEntireScaleAction
 };
 
 /**
- * Typed action for `double sequence timeSignature`.
+ * Typed action for `double measure timeSignature`.
  */
-struct DoubleSequenceTimeSignatureAction
+struct DoubleMeasureTimeSignatureAction
 {
-    int index{-1};
 };
 
 /**
- * Typed action for `halve sequence timeSignature`.
+ * Typed action for `halve measure timeSignature`.
  */
-struct HalveSequenceTimeSignatureAction
+struct HalveMeasureTimeSignatureAction
 {
-    int index{-1};
 };
 
 /**
@@ -554,24 +526,23 @@ struct ArpAction
 using CommandAction =
     std::variant<MoveSelectionAction, WelcomeAction, VersionAction, ResetAction,
                  AgainAction,
-                 SetKeyAction, SetSequenceNameAction,
-                 SetSequenceTimeSignatureAction, SelectSequenceAction,
-                 SetInputModeAction, LoadSequenceBankAction, LoadTuningAction,
+                 SetKeyAction, SetMeasureTimeSignatureAction,
+                 SetInputModeAction, LoadMeasureAction, LoadTuningAction,
                  LoadKeysAction, LoadScalesAction, LoadChordsAction, CreateNoteAction,
                  CopySelectionAction, CutSelectionAction,
                  PasteSelectionAction, DuplicateSelectionAction,
                  DeleteSelectionAction, SplitSelectionAction,
                  LiftSelectionAction, SetBaseFrequencyAction,
-                 SaveSequenceBankAction, LibraryDirectoryAction, SetPitchAction,
+                 SaveMeasureAction, LibraryDirectoryAction, SetPitchAction,
                  SetOctaveAction, SetVelocityAction, SetDelayAction,
                  SetGateAction, SetWeightAction, SetWeightsAction, CommitAction,
                  UndoAction, RedoAction, SetScaleAction, SetScaleModeAction,
                  SetTranslateDirectionAction, ShiftPitchAction,
                  ShiftOctaveAction, ShiftVelocityAction, ShiftDelayAction,
-                 ShiftGateAction, ShiftSelectedSequenceAction, ShiftScaleAction,
+                 ShiftGateAction, ShiftScaleAction,
                  ShiftScaleModeAction, ShiftTranslateDirectionAction,
-                 ShiftEntireScaleAction, DoubleSequenceTimeSignatureAction,
-                 HalveSequenceTimeSignatureAction, RandomizePitchAction,
+                 ShiftEntireScaleAction, DoubleMeasureTimeSignatureAction,
+                 HalveMeasureTimeSignatureAction, RandomizePitchAction,
                  RandomizeVelocityAction, RandomizeDelayAction,
                  RandomizeGateAction, StretchAction, CompressAction,
                  ShuffleAction, RotateAction, ReverseAction, MirrorAction,

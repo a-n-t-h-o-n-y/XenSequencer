@@ -225,12 +225,12 @@ Response payload:
     sequences: string;
     tunings: string;
   };
-  sequence_banks: Array<{
+  measures: Array<{
     name: string;    // e.g. "demo.xss"
     relative_path: string; // slash-delimited, e.g. "demos/demo.xss"
     stem: string;    // slash-delimited path without extension, e.g. "demos/demo"
     path: string;    // absolute path
-    command: string; // e.g. "load sequenceBank \"demos/demo\""
+    command: string; // e.g. "load measure \"demos/demo\""
   }>;
   tunings: Array<{
     name: string;    // e.g. "edo12.scl"
@@ -267,7 +267,7 @@ Response payload:
 
 Semantics:
 
-1. `sequence_banks` and `tunings` are read recursively from disk at request time.
+1. `measures` and `tunings` are read recursively from disk at request time.
 1. Use this endpoint for explicit refresh in Library View so newly added files appear.
 1. `scales` and `chords` reflect currently loaded backend memory. To pick up edited files, execute `load scales` / `load chords` and request `library.get` again.
 1. Tuning metadata is parsed from each `.scl` using the same parser as `load tuning`.
@@ -294,45 +294,6 @@ Emission behavior:
 1. No `request_id` on events.
 1. Do not assume an initial event on startup; call `state.get` after handshake.
 
-### `transport.trigger.noteOn`
-
-Envelope:
-
-```ts
-{
-  protocol: "xen.bridge.v1";
-  type: "event";
-  name: "transport.trigger.noteOn";
-  payload: {
-    sequence_index: number; // 0..15
-  };
-}
-```
-
-Emission behavior:
-
-1. Emitted when a trigger sequence transitions from inactive to active.
-1. `sequence_index` is the trigger slot index, not a raw MIDI note number.
-
-### `transport.trigger.noteOff`
-
-Envelope:
-
-```ts
-{
-  protocol: "xen.bridge.v1";
-  type: "event";
-  name: "transport.trigger.noteOff";
-  payload: {
-    sequence_index: number; // 0..15
-  };
-}
-```
-
-Emission behavior:
-
-1. Emitted when a trigger sequence transitions from active to inactive.
-
 ### `transport.phase.sync`
 
 Envelope:
@@ -344,19 +305,15 @@ Envelope:
   name: "transport.phase.sync";
   payload: {
     bpm: number;
-    phases: Array<{
-      sequence_index: number; // 0..15
-      phase: number; // normalized [0, 1)
-    }>;
+    phase: number; // normalized [0, 1)
   };
 }
 ```
 
 Emission behavior:
 
-1. Emitted on the host timer while at least one trigger is active.
-1. `phases` only includes currently active trigger indices.
-1. Phase is derived from trigger note start time + current BPM + measure time signature.
+1. Emitted on the host timer while transport-driven playback is active.
+1. Phase is derived from current transport sample position modulo measure length.
 
 ## 5. Snapshot payload (`UiStateSnapshot`)
 
@@ -413,12 +370,11 @@ type Chord = {
 };
 
 type UiStateSnapshot = {
-  schema_version: 2;
+  schema_version: 3;
   snapshot_version: number;
   commit_id: number;
   engine: {
-    sequence_bank: Measure[]; // currently fixed-size 16 from C++ state
-    sequence_names: string[]; // currently fixed-size 16 from C++ state
+    measure: Measure;
     tuning: Tuning;
     tuning_name: string;
     scale: Scale | null;
@@ -428,7 +384,6 @@ type UiStateSnapshot = {
   };
   editor: {
     selected: {
-      measure: number;
       cell: number[];
       element_index: number | null;
     };
@@ -475,7 +430,7 @@ Typical triggers:
 1. Call `state.get` and set store from returned snapshot.
 1. Call `library.get` when opening Library View and on user refresh.
 1. Start normal command loop with `command.execute` and `state.changed` updates.
-1. Listen for `transport.trigger.noteOn`, `transport.trigger.noteOff`, and `transport.phase.sync` to drive playhead animation.
+1. Listen for `transport.phase.sync` to drive playhead animation.
 
 ## 8. Frontend implementation checklist
 

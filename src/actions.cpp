@@ -81,14 +81,14 @@ auto erase_selected_element(sequence::Cell &cell, std::size_t element_index) -> 
 auto move_left(EngineState const &state, ExecutionContext context, std::size_t amount)
     -> ExecutionContext
 {
-    context.selected = xen::move_left(state.sequence_bank, context.selected, amount);
+    context.selected = xen::move_left(state.measure, context.selected, amount);
     return context;
 }
 
 auto move_right(EngineState const &state, ExecutionContext context,
                 std::size_t amount) -> ExecutionContext
 {
-    context.selected = xen::move_right(state.sequence_bank, context.selected, amount);
+    context.selected = xen::move_right(state.measure, context.selected, amount);
     return context;
 }
 
@@ -101,7 +101,7 @@ auto move_up(ExecutionContext context, std::size_t amount) -> ExecutionContext
 auto move_down(EngineState const &state, ExecutionContext context,
                std::size_t amount) -> ExecutionContext
 {
-    context.selected = xen::move_down(state.sequence_bank, context.selected, amount);
+    context.selected = xen::move_down(state.measure, context.selected, amount);
     return context;
 }
 
@@ -109,11 +109,11 @@ void copy(EngineState const &state, ExecutionContext const &context)
 {
     if (has_selected_element(context.selected))
     {
-        write_copy_buffer(get_selected_element_const(state.sequence_bank, context.selected));
+        write_copy_buffer(get_selected_element_const(state.measure, context.selected));
     }
     else
     {
-        write_copy_buffer(get_selected_cell_const(state.sequence_bank, context.selected));
+        write_copy_buffer(get_selected_cell_const(state.measure, context.selected));
     }
 }
 
@@ -132,12 +132,12 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
         if (has_selected_element(context.selected))
         {
             auto *parent_cell =
-                get_parent_cell_of_selection(state.sequence_bank, context.selected);
+                get_parent_cell_of_selection(state.measure, context.selected);
             *parent_cell = std::move(replacement);
         }
         else
         {
-            auto &selected = get_selected_cell(state.sequence_bank, context.selected);
+            auto &selected = get_selected_cell(state.measure, context.selected);
             selected = std::move(replacement);
         }
     }
@@ -147,7 +147,7 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
         if (has_selected_element(context.selected))
         {
             auto &parent_cell =
-                *get_parent_cell_of_selection(state.sequence_bank, context.selected);
+                *get_parent_cell_of_selection(state.measure, context.selected);
             parent_cell.elements.insert(
                 std::next(std::begin(parent_cell.elements),
                           (std::vector<sequence::MusicElement>::difference_type)
@@ -156,7 +156,7 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
         }
         else
         {
-            auto &selected = get_selected_cell(state.sequence_bank, context.selected);
+            auto &selected = get_selected_cell(state.measure, context.selected);
             selected.elements.push_back(std::move(element));
         }
     }
@@ -168,7 +168,7 @@ auto duplicate(TimelineState state) -> TimelineState
 {
     if (has_selected_element(state.aux.selected))
     {
-        auto &cell = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+        auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
         auto const index = *state.aux.selected.element_index;
         auto copy = cell.elements.at(index);
         cell.elements.insert(
@@ -179,12 +179,11 @@ auto duplicate(TimelineState state) -> TimelineState
         return state;
     }
 
-    auto selected_copy = get_selected_cell(state.sequencer.sequence_bank,
-                                           state.aux.selected);
+    auto selected_copy = get_selected_cell(state.sequencer.measure, state.aux.selected);
 
-    auto new_selection =
-        ::xen::move_right(state.sequencer.sequence_bank, state.aux.selected, 1);
-    auto &selected = get_selected_cell(state.sequencer.sequence_bank, new_selection);
+    auto new_selection = ::xen::move_right(state.sequencer.measure,
+                                           state.aux.selected, 1);
+    auto &selected = get_selected_cell(state.sequencer.measure, new_selection);
     selected = selected_copy;
     state.aux.selected = new_selection;
 
@@ -201,7 +200,7 @@ auto lift(TimelineState state) -> TimelineState
 {
     if (has_selected_element(state.aux.selected))
     {
-        auto &cell = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+        auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
         auto element = std::move(cell.elements.at(*state.aux.selected.element_index));
         cell.elements.clear();
         cell.elements.push_back(std::move(element));
@@ -210,14 +209,14 @@ auto lift(TimelineState state) -> TimelineState
     }
 
     sequence::Cell *parent =
-        get_parent_of_selected(state.sequencer.sequence_bank, state.aux.selected);
+        get_parent_of_selected(state.sequencer.measure, state.aux.selected);
     if (parent == nullptr)
     {
         throw std::runtime_error{"Can't lift top level Cell."};
     }
 
     auto &cell =
-        get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+        get_selected_cell(state.sequencer.measure, state.aux.selected);
 
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
@@ -232,13 +231,13 @@ auto shift_octave(EngineState state, ExecutionContext const &context,
     auto const tuning_length = state.tuning.intervals.size();
     if (has_selected_element(context.selected))
     {
-        auto &element = get_selected_element(state.sequence_bank, context.selected);
+        auto &element = get_selected_element(state.measure, context.selected);
         element = sequence::modify::shift_pitch(element, pattern,
                                                 amount * (int)tuning_length);
     }
     else
     {
-        auto &cell = get_selected_cell(state.sequence_bank, context.selected);
+        auto &cell = get_selected_cell(state.measure, context.selected);
         cell = sequence::modify::shift_pitch(cell, pattern,
                                              amount * (int)tuning_length);
     }
@@ -251,12 +250,12 @@ auto set_note_octave(EngineState state, ExecutionContext const &context,
     auto const tuning_length = state.tuning.intervals.size();
     if (has_selected_element(context.selected))
     {
-        auto &element = get_selected_element(state.sequence_bank, context.selected);
+        auto &element = get_selected_element(state.measure, context.selected);
         element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
     }
     else
     {
-        auto &cell = get_selected_cell(state.sequence_bank, context.selected);
+        auto &cell = get_selected_cell(state.measure, context.selected);
         cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
     }
     return state;
@@ -266,8 +265,7 @@ auto delete_cell(TimelineState ts) -> TimelineState
 {
     if (has_selected_element(ts.aux.selected))
     {
-        auto &selected_cell =
-            get_selected_cell(ts.sequencer.sequence_bank, ts.aux.selected);
+        auto &selected_cell = get_selected_cell(ts.sequencer.measure, ts.aux.selected);
         auto const index = *ts.aux.selected.element_index;
         erase_selected_element(selected_cell, index);
 
@@ -285,7 +283,7 @@ auto delete_cell(TimelineState ts) -> TimelineState
     }
 
     sequence::Cell *parent =
-        get_parent_of_selected(ts.sequencer.sequence_bank, ts.aux.selected);
+        get_parent_of_selected(ts.sequencer.measure, ts.aux.selected);
     if (parent != nullptr)
     {
         auto &cells = navigable_sequence(*parent).cells;
@@ -304,7 +302,7 @@ auto delete_cell(TimelineState ts) -> TimelineState
     }
     else
     {
-        ts.sequencer.sequence_bank[ts.aux.selected.measure].cell.elements.clear();
+        ts.sequencer.measure.cell.elements.clear();
     }
 
     return ts;
@@ -324,42 +322,10 @@ auto load_measure(juce::File const &filepath) -> Measure
     return deserialize_measure(filepath.loadFileAsString().toStdString());
 }
 
-auto save_sequence_bank(SequenceBank const &bank,
-                        std::array<std::string, 16> const &sequence_names,
-                        juce::File const &filepath) -> void
-{
-    filepath.replaceWithText(serialize_sequence_bank(bank, sequence_names));
-}
-
-auto load_sequence_bank(juce::File const &filepath)
-    -> std::pair<SequenceBank, std::array<std::string, 16>>
-{
-    if (filepath.getSize() > (128 * 1'024 * 1'024))
-    {
-        throw std::runtime_error{"Sequence Bank file size exceeds 128MB"};
-    }
-    return deserialize_sequence_bank(filepath.loadFileAsString().toStdString());
-}
-
 auto set_base_frequency(EngineState state, float freq) -> EngineState
 {
     state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
     return state;
-}
-
-auto set_selected_sequence(ExecutionContext context, int index) -> ExecutionContext
-{
-    if (index < 0 || index > 15)
-    {
-        throw std::runtime_error{
-            "Invalid Sequence Index; Must be in closed range [0, 15]: " +
-            std::to_string(index) + " was given."};
-    }
-    context.selected.measure = (std::size_t)index;
-    context.selected.cell.clear();
-    context.selected.element_index.reset();
-
-    return context;
 }
 
 auto shift_scale_mode(Scale scale, int amount) -> Scale

@@ -22,8 +22,8 @@ It is intended to stay current during the migration and should be updated as dec
   - If an element is selected, pasting a copied `Cell` overwrites the parent cell of that element.
   - Copying a `MusicElement` and pasting onto a selected cell appends to that cell's `elements`.
   - Copying a `MusicElement` and pasting onto a selected element inserts as a sibling in the parent cell.
-- The sequence bank is likely to be removed later because `Cell.elements` replaces the need for multiple concurrently playing top-level sequences.
-- MIDI note trigger playback is also likely to be removed later in favor of transport-locked playback, so related code should not be overdesigned during this refactor.
+- The sequence bank has been removed; the plugin now has one top-level `Measure`.
+- Playback is now transport-locked rather than driven by 16 MIDI trigger notes.
 
 ## Goals for the first pass
 
@@ -32,6 +32,7 @@ It is intended to stay current during the migration and should be updated as dec
 - Keep the implementation clean and direct.
 - Avoid compatibility shims or fallback paths.
 - Do not expose unfinished polyphonic interaction until the internal plumbing is stable.
+- Keep the single-root measure model and transport playback clean and direct.
 
 ## Main unresolved product question
 
@@ -51,6 +52,7 @@ This should be resolved before adding keybindings or UI affordances, but it does
 - [x] Remove all plugin-side references to `Rest`.
 - [x] Update default silent cells to `Cell{.elements = {}, .weight = 1.f}`.
 - [ ] Review all code that assumed one event/object per step.
+- [x] Remove the top-level sequence bank and sequence-name state.
 
 Primary files already known to be affected:
 
@@ -98,6 +100,7 @@ Suggested implementation direction:
   - `swing`
 - [x] Replace any logic that still depends on deleted `sequence::modify` APIs.
 - [ ] Revisit status messages and command descriptions that still talk about rests.
+- [x] Remove bank-specific commands and rename surviving time-signature commands to measure terminology.
 
 Known command-side follow-up:
 
@@ -122,6 +125,7 @@ Current preferred direction:
 - [x] Stop passing cell/sequence content into `samples_count(...)`.
 - [ ] Compute total measure duration from:
   - `samples_count(TimeSignature const&, std::uint32_t sample_rate, float bpm)`
+- [x] Remove trigger-note playback and replace it with one transport-driven loop.
 - [x] Replace old MIDI flattening with:
   - `flatten_to_midi(cell.elements, sample_offset, sample_count, tuning, base_frequency, pb_range)`
 - [x] Rewrite any recursive note transforms so they visit every `MusicElement` inside `Cell.elements`.
@@ -131,13 +135,11 @@ Current preferred direction:
 
 - [x] Update tests that still expect `Rest` or single-payload cells.
 - [x] Update command documentation to remove deleted commands.
-- [ ] Update user-facing documentation that still describes rests or sequence-bank-centric behavior that is no longer accurate.
+- [x] Update user-facing documentation that still describes sequence-bank-centric behavior that is no longer accurate.
 - [x] Keep this tracker updated as implementation decisions change.
 
 ## Things not to over-invest in during this refactor
 
-- Sequence-bank-specific behavior that will likely be removed soon.
-- MIDI note trigger behavior that will likely be replaced by transport-locked playback.
 - Polished keybinding/UI work before the internal selection and data plumbing are stable.
 
 ## Notes

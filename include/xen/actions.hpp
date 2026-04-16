@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <optional>
 #include <stdexcept>
@@ -55,7 +54,7 @@ template <typename Fn, typename... Args>
         if constexpr (supports_element)
         {
             auto &selected =
-                get_selected_element(state.sequencer.sequence_bank, state.aux.selected);
+                get_selected_element(state.sequencer.measure, state.aux.selected);
             selected =
                 std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
@@ -69,7 +68,7 @@ template <typename Fn, typename... Args>
         if constexpr (supports_cell)
         {
             auto &selected =
-                get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+                get_selected_cell(state.sequencer.measure, state.aux.selected);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -126,18 +125,8 @@ void save_measure(juce::File const &filepath, Measure const &measure);
 
 [[nodiscard]] auto load_measure(juce::File const &filepath) -> Measure;
 
-void save_sequence_bank(SequenceBank const &bank,
-                        std::array<std::string, 16> const &sequence_names,
-                        juce::File const &filepath);
-
-[[nodiscard]] auto load_sequence_bank(juce::File const &filepath)
-    -> std::pair<SequenceBank, std::array<std::string, 16>>;
-
 [[nodiscard]] auto set_base_frequency(EngineState state, float freq)
     -> EngineState;
-
-[[nodiscard]] auto set_selected_sequence(ExecutionContext context, int index)
-    -> ExecutionContext;
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 

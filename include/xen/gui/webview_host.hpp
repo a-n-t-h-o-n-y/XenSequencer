@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -61,7 +60,6 @@ class WebviewHost : public juce::Component, private juce::Timer
     bool final_failure_page_shown_{false};
 #endif
     std::uint64_t last_snapshot_version_{0};
-    std::array<Clock::time_point, 16> previous_note_start_times_{};
 };
 
 } // namespace xen::gui

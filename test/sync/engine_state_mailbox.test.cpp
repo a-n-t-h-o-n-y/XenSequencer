@@ -17,7 +17,7 @@ auto make_state(int id) -> EngineState
     state.key = id;
     state.base_frequency = 400.f + static_cast<float>(id);
     state.tuning_name = "tuning-" + std::to_string(id);
-    state.sequence_names[0] = "seq-" + std::to_string(id);
+    state.measure.time_signature.numerator = static_cast<unsigned>((id % 7) + 1);
     state.scale = Scale{
         .name = "scale-" + std::to_string(id),
         .tuning_length = 12,
@@ -47,7 +47,7 @@ TEST_CASE("EngineStateMailbox publishes and consumes latest state", "[sync][mail
     published.key = 7;
     published.base_frequency = 432.f;
     published.tuning_name = "test tuning";
-    published.sequence_names[0] = "lead";
+    published.measure.time_signature = {7, 8};
 
     mailbox.publish(published);
 
@@ -115,7 +115,7 @@ TEST_CASE("EngineStateMailbox publish snapshots are immutable to later source mu
     published.key = -1;
     published.base_frequency = 999.f;
     published.tuning_name = "mutated";
-    published.sequence_names[0] = "mutated";
+    published.measure.time_signature = {3, 4};
     published.tuning.description = "after-publish";
     published.tuning.intervals = {0, 1, 2, 3};
     REQUIRE(published.scale.has_value());

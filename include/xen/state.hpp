@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -27,15 +26,12 @@ using SampleIndex = std::uint64_t;
 
 using SampleCount = std::uint64_t;
 
-using SequenceBank = std::array<Measure, 16>;
-
 /**
  * The state of the sequencing engine.
  */
 struct EngineState
 {
-    SequenceBank sequence_bank{};
-    std::array<std::string, 16> sequence_names{};
+    Measure measure{};
 
     sequence::Tuning tuning{
         .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
@@ -66,9 +62,6 @@ struct EngineState
  */
 struct SelectedState
 {
-    /// The index of the currently selected Measure in the SequenceBank.
-    std::size_t measure{0};
-
     /// The path to the currently selected Cell in the current Measure.
     std::vector<std::size_t> cell{};
 
@@ -177,7 +170,8 @@ struct DAWState
 struct AudioThreadStateForGUI
 {
     DAWState daw;
-    std::array<Clock::time_point, 16> note_start_times;
+    double loop_phase{0.0};
+    bool transport_active{false};
 };
 
 } // namespace xen

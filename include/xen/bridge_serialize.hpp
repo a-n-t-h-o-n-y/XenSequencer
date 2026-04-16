@@ -15,7 +15,7 @@ namespace xen::bridge
 {
 
 inline constexpr std::string_view protocol = "xen.bridge.v1";
-inline constexpr int snapshot_schema_version = 2;
+inline constexpr int snapshot_schema_version = 3;
 
 [[nodiscard]] auto to_string(MessageLevel level) -> std::string;
 

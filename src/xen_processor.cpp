@@ -122,8 +122,9 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     audio_thread_state_for_gui.write({
         .daw = audio_thread_state_.daw,
-        .note_start_times =
-            audio_thread_state_.midi_engine.get_trigger_note_start_times(),
+        .loop_phase = audio_thread_state_.midi_engine.get_loop_phase(
+            audio_thread_state_.accumulated_sample_count, audio_thread_state_.daw),
+        .transport_active = audio_thread_state_.daw.bpm > 0.f,
     });
 }
 

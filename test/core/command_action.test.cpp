@@ -101,12 +101,12 @@ TEST_CASE("Official command catalog maps to typed actions",
         "paste",
         "duplicate",
         "inputMode pitch",
-        "load sequenceBank fixture",
+        "load measure fixture",
         "load tuning fixture",
         "load keys",
         "load scales",
         "load chords",
-        "save sequenceBank fixture",
+        "save measure fixture",
         "libraryDirectory",
         "move left 1",
         "move right 1",
@@ -116,14 +116,12 @@ TEST_CASE("Official command catalog maps to typed actions",
         "delete",
         "split 2",
         "lift",
-        "select sequence 0",
         "set pitch 0",
         "set octave 0",
         "set velocity 0.5",
         "set delay 0.1",
         "set gate 0.5",
-        "set sequence name \"lead\"",
-        "set sequence timeSignature 4/4",
+        "set measure timeSignature 4/4",
         "set baseFrequency 440",
         "set scale chromatic",
         "set mode 1",
@@ -131,14 +129,13 @@ TEST_CASE("Official command catalog maps to typed actions",
         "set key 0",
         "set weight 1",
         "+0 set weights 0.5",
-        "double sequence timeSignature",
-        "halve sequence timeSignature",
+        "double measure timeSignature",
+        "halve measure timeSignature",
         "+0 shift pitch 1",
         "+0 shift octave 1",
         "+0 shift velocity 0.1",
         "+0 shift delay 0.1",
         "+0 shift gate 0.1",
-        "shift selectedSequence 1",
         "shift scale",
         "shift scaleMode",
         "shift translateDirection",
@@ -171,27 +168,24 @@ TEST_CASE("Command adapter maps migrated commands to typed action variants",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "move down 2; set key 11; set sequence name \"pad\" 4; "
-        "select sequence 3; inputMode gate; note 2 0.7 0.1 0.9; "
+        "move down 2; set key 11; inputMode gate; note 2 0.7 0.1 0.9; "
         "set baseFrequency 880; commit; undo; redo; "
         "set scale major; set mode 2; set translateDirection down; version");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 14);
+    REQUIRE(actions.size() == 12);
     CHECK(std::holds_alternative<MoveSelectionAction>(actions[0]));
     CHECK(std::holds_alternative<SetKeyAction>(actions[1]));
-    CHECK(std::holds_alternative<SetSequenceNameAction>(actions[2]));
-    CHECK(std::holds_alternative<SelectSequenceAction>(actions[3]));
-    CHECK(std::holds_alternative<SetInputModeAction>(actions[4]));
-    CHECK(std::holds_alternative<CreateNoteAction>(actions[5]));
-    CHECK(std::holds_alternative<SetBaseFrequencyAction>(actions[6]));
-    CHECK(std::holds_alternative<CommitAction>(actions[7]));
-    CHECK(std::holds_alternative<UndoAction>(actions[8]));
-    CHECK(std::holds_alternative<RedoAction>(actions[9]));
-    CHECK(std::holds_alternative<SetScaleAction>(actions[10]));
-    CHECK(std::holds_alternative<SetScaleModeAction>(actions[11]));
-    CHECK(std::holds_alternative<SetTranslateDirectionAction>(actions[12]));
-    CHECK(std::holds_alternative<VersionAction>(actions[13]));
+    CHECK(std::holds_alternative<SetInputModeAction>(actions[2]));
+    CHECK(std::holds_alternative<CreateNoteAction>(actions[3]));
+    CHECK(std::holds_alternative<SetBaseFrequencyAction>(actions[4]));
+    CHECK(std::holds_alternative<CommitAction>(actions[5]));
+    CHECK(std::holds_alternative<UndoAction>(actions[6]));
+    CHECK(std::holds_alternative<RedoAction>(actions[7]));
+    CHECK(std::holds_alternative<SetScaleAction>(actions[8]));
+    CHECK(std::holds_alternative<SetScaleModeAction>(actions[9]));
+    CHECK(std::holds_alternative<SetTranslateDirectionAction>(actions[10]));
+    CHECK(std::holds_alternative<VersionAction>(actions[11]));
 
     auto const move = std::get<MoveSelectionAction>(actions[0]);
     CHECK(move.direction == MoveDirection::Down);
@@ -200,29 +194,22 @@ TEST_CASE("Command adapter maps migrated commands to typed action variants",
     auto const set_key = std::get<SetKeyAction>(actions[1]);
     CHECK(set_key.key == 11);
 
-    auto const set_name = std::get<SetSequenceNameAction>(actions[2]);
-    CHECK(set_name.name == "pad");
-    CHECK(set_name.index == 4);
-
-    auto const select = std::get<SelectSequenceAction>(actions[3]);
-    CHECK(select.index == 3);
-
-    auto const input_mode = std::get<SetInputModeAction>(actions[4]);
+    auto const input_mode = std::get<SetInputModeAction>(actions[2]);
     CHECK(input_mode.mode == InputMode::Gate);
 
-    auto const note = std::get<CreateNoteAction>(actions[5]);
+    auto const note = std::get<CreateNoteAction>(actions[3]);
     CHECK(note.pitch == 2);
     CHECK(note.velocity == Catch::Approx(0.7f));
     CHECK(note.delay == Catch::Approx(0.1f));
     CHECK(note.gate == Catch::Approx(0.9f));
 
-    auto const base = std::get<SetBaseFrequencyAction>(actions[6]);
+    auto const base = std::get<SetBaseFrequencyAction>(actions[4]);
     CHECK(base.freq == Catch::Approx(880.f));
 
-    auto const mode = std::get<SetScaleModeAction>(actions[11]);
+    auto const mode = std::get<SetScaleModeAction>(actions[9]);
     CHECK(mode.mode_index == 2);
 
-    auto const translate = std::get<SetTranslateDirectionAction>(actions[12]);
+    auto const translate = std::get<SetTranslateDirectionAction>(actions[10]);
     CHECK(translate.direction == "down");
 }
 
@@ -230,44 +217,40 @@ TEST_CASE("Command adapter preserves migrated command defaults",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "set key; set sequence name \"lead\"; note; set baseFrequency");
+        "set key; note; set baseFrequency");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 4);
+    REQUIRE(actions.size() == 3);
     REQUIRE(std::holds_alternative<SetKeyAction>(actions[0]));
-    REQUIRE(std::holds_alternative<SetSequenceNameAction>(actions[1]));
-    REQUIRE(std::holds_alternative<CreateNoteAction>(actions[2]));
-    REQUIRE(std::holds_alternative<SetBaseFrequencyAction>(actions[3]));
+    REQUIRE(std::holds_alternative<CreateNoteAction>(actions[1]));
+    REQUIRE(std::holds_alternative<SetBaseFrequencyAction>(actions[2]));
 
     CHECK(std::get<SetKeyAction>(actions[0]).key == 0);
-    CHECK(std::get<SetSequenceNameAction>(actions[1]).index == -1);
-    CHECK(std::get<CreateNoteAction>(actions[2]).pitch == 0);
-    CHECK(std::get<CreateNoteAction>(actions[2]).velocity ==
+    CHECK(std::get<CreateNoteAction>(actions[1]).pitch == 0);
+    CHECK(std::get<CreateNoteAction>(actions[1]).velocity ==
           Catch::Approx(100.f / 127.f));
-    CHECK(std::get<CreateNoteAction>(actions[2]).delay == Catch::Approx(0.f));
-    CHECK(std::get<CreateNoteAction>(actions[2]).gate == Catch::Approx(1.f));
-    CHECK(std::get<SetBaseFrequencyAction>(actions[3]).freq == Catch::Approx(440.f));
+    CHECK(std::get<CreateNoteAction>(actions[1]).delay == Catch::Approx(0.f));
+    CHECK(std::get<CreateNoteAction>(actions[1]).gate == Catch::Approx(1.f));
+    CHECK(std::get<SetBaseFrequencyAction>(actions[2]).freq == Catch::Approx(440.f));
 }
 
 TEST_CASE("Command adapter maps shift commands to typed action variants",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "shift selectedSequence -2; shift scale; shift scaleMode -1; "
-        "shift translateDirection; shift entireScale -1");
+        "shift scale; shift scaleMode -1; shift translateDirection; "
+        "shift entireScale -1");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 5);
-    REQUIRE(std::holds_alternative<ShiftSelectedSequenceAction>(actions[0]));
-    REQUIRE(std::holds_alternative<ShiftScaleAction>(actions[1]));
-    REQUIRE(std::holds_alternative<ShiftScaleModeAction>(actions[2]));
-    REQUIRE(std::holds_alternative<ShiftTranslateDirectionAction>(actions[3]));
-    REQUIRE(std::holds_alternative<ShiftEntireScaleAction>(actions[4]));
+    REQUIRE(actions.size() == 4);
+    REQUIRE(std::holds_alternative<ShiftScaleAction>(actions[0]));
+    REQUIRE(std::holds_alternative<ShiftScaleModeAction>(actions[1]));
+    REQUIRE(std::holds_alternative<ShiftTranslateDirectionAction>(actions[2]));
+    REQUIRE(std::holds_alternative<ShiftEntireScaleAction>(actions[3]));
 
-    CHECK(std::get<ShiftSelectedSequenceAction>(actions[0]).amount == -2);
-    CHECK(std::get<ShiftScaleAction>(actions[1]).amount == 1);
-    CHECK(std::get<ShiftScaleModeAction>(actions[2]).amount == -1);
-    CHECK(std::get<ShiftEntireScaleAction>(actions[4]).direction == -1);
+    CHECK(std::get<ShiftScaleAction>(actions[0]).amount == 1);
+    CHECK(std::get<ShiftScaleModeAction>(actions[1]).amount == -1);
+    CHECK(std::get<ShiftEntireScaleAction>(actions[3]).direction == -1);
 }
 
 TEST_CASE("Command adapter preserves shift defaults", "[core][command][action]")
@@ -288,16 +271,16 @@ TEST_CASE("Typed action execution applies explicit context and reports updated c
     auto ps = make_plugin_state();
 
     auto context = ExecutionContext{};
-    context.selected.measure = 3;
+    context.selected.cell = {0};
 
     auto const actions =
-        to_command_actions(parse_command_chain("set sequence name \"lead\""));
+        to_command_actions(parse_command_chain("set key 12"));
     REQUIRE(actions.size() == 1);
 
     auto const result = execute_command_action(ps, context, actions[0]);
     CHECK(result.status.first == MessageLevel::Info);
-    CHECK(result.context.selected.measure == 3);
-    CHECK(ps.timeline.get_state().sequencer.sequence_names[3] == "lead");
+    CHECK(result.context.selected.cell == std::vector<std::size_t>{0});
+    CHECK(ps.timeline.get_state().sequencer.key == 12);
 }
 
 TEST_CASE("Typed action execution exposes commit intent and mutation metadata",
@@ -355,38 +338,22 @@ TEST_CASE("Typed move action updates context without mutating engine",
                                  .selected);
 }
 
-TEST_CASE("Typed select sequence and input mode update context-only state",
+TEST_CASE("Typed input mode update context-only state",
           "[core][command][action]")
 {
     auto ps = make_plugin_state();
 
     auto context = ExecutionContext{};
-    context.selected.measure = 5;
     context.selected.cell = {0};
     context.input_mode = InputMode::Pitch;
 
-    auto select_result = execute_command_action(
-        ps, context, CommandAction{SelectSequenceAction{.index = 5}});
-    CHECK(select_result.status.first == MessageLevel::Debug);
-    CHECK(select_result.status.second == "Already Selected");
-    CHECK_FALSE(select_result.engine_mutated);
-    CHECK(select_result.context.selected.measure == 5);
-    CHECK(select_result.context.selected.cell == std::vector<std::size_t>{0});
-
-    select_result = execute_command_action(
-        ps, context, CommandAction{SelectSequenceAction{.index = 3}});
-    CHECK(select_result.status.first == MessageLevel::Debug);
-    CHECK(select_result.status.second == "Sequence 3 Selected");
-    CHECK_FALSE(select_result.engine_mutated);
-    CHECK(select_result.context.selected.measure == 3);
-    CHECK(select_result.context.selected.cell.empty());
-
     auto const mode_result = execute_command_action(
-        ps, select_result.context, CommandAction{SetInputModeAction{.mode = InputMode::Gate}});
+        ps, context, CommandAction{SetInputModeAction{.mode = InputMode::Gate}});
     CHECK(mode_result.status.first == MessageLevel::Info);
     CHECK(mode_result.status.second == "Input Mode Set to 'gate'");
     CHECK_FALSE(mode_result.engine_mutated);
     CHECK(mode_result.context.input_mode == InputMode::Gate);
+    CHECK(mode_result.context.selected.cell == std::vector<std::size_t>{0});
 }
 
 TEST_CASE("Typed baseFrequency action clamps value", "[core][command][action]")
@@ -489,12 +456,12 @@ TEST_CASE("Command adapter preserves edit/set/shift/step/drums defaults",
 }
 
 TEST_CASE(
-    "Command adapter maps clipboard and sequence time-signature commands to typed actions",
+    "Command adapter maps clipboard and measure time-signature commands to typed actions",
     "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "copy; cut; paste; duplicate; set sequence timeSignature 7/8 3; "
-        "double sequence timeSignature 2; halve sequence timeSignature 5");
+        "copy; cut; paste; duplicate; set measure timeSignature 7/8; "
+        "double measure timeSignature; halve measure timeSignature");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 7);
@@ -502,34 +469,28 @@ TEST_CASE(
     REQUIRE(std::holds_alternative<CutSelectionAction>(actions[1]));
     REQUIRE(std::holds_alternative<PasteSelectionAction>(actions[2]));
     REQUIRE(std::holds_alternative<DuplicateSelectionAction>(actions[3]));
-    REQUIRE(std::holds_alternative<SetSequenceTimeSignatureAction>(actions[4]));
-    REQUIRE(std::holds_alternative<DoubleSequenceTimeSignatureAction>(actions[5]));
-    REQUIRE(std::holds_alternative<HalveSequenceTimeSignatureAction>(actions[6]));
+    REQUIRE(std::holds_alternative<SetMeasureTimeSignatureAction>(actions[4]));
+    REQUIRE(std::holds_alternative<DoubleMeasureTimeSignatureAction>(actions[5]));
+    REQUIRE(std::holds_alternative<HalveMeasureTimeSignatureAction>(actions[6]));
 
-    auto const set_ts = std::get<SetSequenceTimeSignatureAction>(actions[4]);
+    auto const set_ts = std::get<SetMeasureTimeSignatureAction>(actions[4]);
     CHECK(set_ts.time_signature.numerator == 7);
     CHECK(set_ts.time_signature.denominator == 8);
-    CHECK(set_ts.index == 3);
-    CHECK(std::get<DoubleSequenceTimeSignatureAction>(actions[5]).index == 2);
-    CHECK(std::get<HalveSequenceTimeSignatureAction>(actions[6]).index == 5);
 }
 
 TEST_CASE(
-    "Command adapter preserves clipboard and sequence time-signature defaults",
+    "Command adapter preserves clipboard and measure time-signature defaults",
     "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "set sequence timeSignature; double sequence timeSignature; "
-        "halve sequence timeSignature");
+        "set measure timeSignature; double measure timeSignature; "
+        "halve measure timeSignature");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 3);
-    auto const set_ts = std::get<SetSequenceTimeSignatureAction>(actions[0]);
+    auto const set_ts = std::get<SetMeasureTimeSignatureAction>(actions[0]);
     CHECK(set_ts.time_signature.numerator == 4);
     CHECK(set_ts.time_signature.denominator == 4);
-    CHECK(set_ts.index == -1);
-    CHECK(std::get<DoubleSequenceTimeSignatureAction>(actions[1]).index == -1);
-    CHECK(std::get<HalveSequenceTimeSignatureAction>(actions[2]).index == -1);
 }
 
 TEST_CASE("Command adapter maps misc and arp commands to typed actions",
@@ -570,22 +531,22 @@ TEST_CASE("Command adapter maps load/save/libraryDirectory commands to typed act
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "load sequenceBank demo; load tuning edo12; load keys; load scales; "
-        "load chords; save sequenceBank backup; libraryDirectory");
+        "load measure demo; load tuning edo12; load keys; load scales; "
+        "load chords; save measure backup; libraryDirectory");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 7);
-    REQUIRE(std::holds_alternative<LoadSequenceBankAction>(actions[0]));
+    REQUIRE(std::holds_alternative<LoadMeasureAction>(actions[0]));
     REQUIRE(std::holds_alternative<LoadTuningAction>(actions[1]));
     REQUIRE(std::holds_alternative<LoadKeysAction>(actions[2]));
     REQUIRE(std::holds_alternative<LoadScalesAction>(actions[3]));
     REQUIRE(std::holds_alternative<LoadChordsAction>(actions[4]));
-    REQUIRE(std::holds_alternative<SaveSequenceBankAction>(actions[5]));
+    REQUIRE(std::holds_alternative<SaveMeasureAction>(actions[5]));
     REQUIRE(std::holds_alternative<LibraryDirectoryAction>(actions[6]));
 
-    CHECK(std::get<LoadSequenceBankAction>(actions[0]).filename == "demo");
+    CHECK(std::get<LoadMeasureAction>(actions[0]).filename == "demo");
     CHECK(std::get<LoadTuningAction>(actions[1]).filename == "edo12");
-    CHECK(std::get<SaveSequenceBankAction>(actions[5]).filename == "backup");
+    CHECK(std::get<SaveMeasureAction>(actions[5]).filename == "backup");
 }
 
 TEST_CASE(
@@ -648,7 +609,7 @@ TEST_CASE("Typed randomize and transform actions execute deterministically",
 {
     auto ps = make_plugin_state();
     auto state = ps.timeline.get_state();
-    auto &selected = get_selected_cell(state.sequencer.sequence_bank, state.aux.selected);
+    auto &selected = get_selected_cell(state.sequencer.measure, state.aux.selected);
     selected.elements = {sequence::Note{5, 0.5f, 0.2f, 0.8f}};
     selected.weight = 0.7f;
     ps.timeline.stage(std::move(state));
@@ -682,9 +643,8 @@ TEST_CASE("Typed note and delete actions update selected cell",
 {
     auto ps = make_plugin_state();
     auto state = ps.timeline.get_state();
-    state.aux.selected.measure = 0;
     state.aux.selected.cell = {0};
-    state.sequencer.sequence_bank[0].cell = {
+    state.sequencer.measure.cell = {
         .elements = {sequence::Sequence{
             .cells = {
                 sequence::Cell{
@@ -708,7 +668,7 @@ TEST_CASE("Typed note and delete actions update selected cell",
 
     auto const state_after_note = ps.timeline.get_state();
     auto const &note_cell =
-        get_selected_cell_const(state_after_note.sequencer.sequence_bank, note_target);
+        get_selected_cell_const(state_after_note.sequencer.measure, note_target);
     REQUIRE(note_cell.elements.size() == 1);
     REQUIRE(std::holds_alternative<sequence::Note>(note_cell.elements.front()));
     auto const &note = std::get<sequence::Note>(note_cell.elements.front());
@@ -726,7 +686,7 @@ TEST_CASE("Typed note and delete actions update selected cell",
 
     auto const state_after_delete = ps.timeline.get_state();
     auto const &deleted_cell = get_selected_cell_const(
-        state_after_delete.sequencer.sequence_bank, note_result.context.selected);
+        state_after_delete.sequencer.measure, note_result.context.selected);
     CHECK(deleted_cell.elements.empty());
     CHECK(deleted_cell.weight == Catch::Approx(0.37f));
 }
@@ -747,7 +707,7 @@ TEST_CASE("Typed undo and redo actions restore committed history",
     ps.timeline.commit();
 
     auto context = ExecutionContext{};
-    context.selected.measure = 7;
+    context.selected.cell = {0};
     context.input_mode = InputMode::Gate;
 
     auto undo_action = to_command_actions(parse_command_chain("undo"))[0];

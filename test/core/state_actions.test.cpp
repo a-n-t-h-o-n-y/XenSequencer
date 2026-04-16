@@ -23,7 +23,6 @@ auto check_editor_stable(EngineSnapshot const &after, EngineSnapshot const &befo
 TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]")
 {
     auto editor = EditorSessionState{};
-    editor.selected.measure = 5;
     editor.selected.cell = {1, 2, 3};
     editor.input_mode = InputMode::Gate;
     editor.arp_state.previous_chord_name = "major";
@@ -50,7 +49,7 @@ TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]"
     CHECK(applied.arp_state.previous_inversion == editor.arp_state.previous_inversion);
 }
 
-TEST_CASE("Select sequence changes measure and clears nested cell selection",
+TEST_CASE("Move up changes selection path and clears nested cell selection",
           "[core][actions]")
 {
     auto processor = XenProcessor{};
@@ -61,28 +60,11 @@ TEST_CASE("Select sequence changes measure and clears nested cell selection",
     auto before = processor.get_engine_snapshot();
     REQUIRE_FALSE(before.editor.selected.cell.empty());
 
-    auto const [level, _message] = processor.execute_command_string("select sequence 3");
+    auto const [level, _message] = processor.execute_command_string("move up");
     CHECK(level == MessageLevel::Debug);
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.editor.selected.measure == 3);
     CHECK(after.editor.selected.cell.empty());
-}
-
-TEST_CASE("Invalid select sequence returns error and keeps state unchanged",
-          "[core][actions]")
-{
-    auto processor = XenProcessor{};
-    auto const before = processor.get_engine_snapshot();
-
-    auto const [level, message] = processor.execute_command_string("select sequence 16");
-    auto const after = processor.get_engine_snapshot();
-
-    CHECK(level == MessageLevel::Error);
-    CHECK(message.find("Invalid Sequence Index") != std::string::npos);
-    CHECK(after.engine == before.engine);
-    check_editor_stable(after, before);
-    CHECK(after.commit_id == before.commit_id);
 }
 
 TEST_CASE("Base frequency command clamps to supported range", "[core][actions]")
@@ -123,27 +105,27 @@ TEST_CASE("Set key validates range and does not mutate on invalid input",
     CHECK(processor.get_engine_snapshot().engine.key == -127);
 }
 
-TEST_CASE("Set sequence name validates index and mutates only target sequence",
+TEST_CASE("Set measure timeSignature validates values",
           "[core][actions]")
 {
     auto processor = XenProcessor{};
     auto const before = processor.get_engine_snapshot();
 
     auto const [level, _message] =
-        processor.execute_command_string("set sequence name \"bravo\" 2");
+        processor.execute_command_string("set measure timeSignature 7/8");
     REQUIRE(level == MessageLevel::Info);
 
     auto const after_valid = processor.get_engine_snapshot();
-    CHECK(after_valid.engine.sequence_names[2] == "bravo");
-    CHECK(after_valid.engine.sequence_names[0] == before.engine.sequence_names[0]);
+    CHECK(after_valid.engine.measure.time_signature.numerator == 7);
+    CHECK(after_valid.engine.measure.time_signature.denominator == 8);
 
     auto const before_invalid = after_valid;
     auto const [invalid_level, invalid_message] =
-        processor.execute_command_string("set sequence name \"bad\" 99");
+        processor.execute_command_string("set measure timeSignature 0/4");
     auto const after_invalid = processor.get_engine_snapshot();
 
     CHECK(invalid_level == MessageLevel::Error);
-    CHECK(invalid_message == "Invalid Sequence Index");
+    CHECK(invalid_message == "Invalid TimeSignature");
     CHECK(after_invalid.engine == before_invalid.engine);
     check_editor_stable(after_invalid, before_invalid);
     CHECK(after_invalid.commit_id == before_invalid.commit_id);

@@ -7,15 +7,13 @@ using namespace xen;
 
 TEST_CASE("split_input parses quoted arguments with default pattern", "[core][command]")
 {
-    auto const split = split_input("set sequence name \"my seq\" 2");
+    auto const split = split_input("load measure \"my seq\"");
 
     CHECK(split.pattern == sequence::Pattern{0, {1}});
-    REQUIRE(split.words.size() == 5);
-    CHECK(split.words[0] == "set");
-    CHECK(split.words[1] == "sequence");
-    CHECK(split.words[2] == "name");
-    CHECK(split.words[3] == "my seq");
-    CHECK(split.words[4] == "2");
+    REQUIRE(split.words.size() == 3);
+    CHECK(split.words[0] == "load");
+    CHECK(split.words[1] == "measure");
+    CHECK(split.words[2] == "my seq");
 }
 
 TEST_CASE("split_input parses explicit pattern prefix", "[core][command]")
@@ -52,23 +50,22 @@ TEST_CASE(
     "[core][command]")
 {
     auto const quoted_chain =
-        parse_command_chain("set sequence name \"semi;colon\" 0; version");
+        parse_command_chain("load measure \"semi;colon\"; version");
 
     REQUIRE(quoted_chain.size() == 2);
-    CHECK(quoted_chain[0].canonical_segment ==
-          "set sequence name \"semi;colon\" 0");
-    REQUIRE(quoted_chain[0].input.words.size() == 5);
-    CHECK(quoted_chain[0].input.words[3] == "semi;colon");
+    CHECK(quoted_chain[0].canonical_segment == "load measure \"semi;colon\"");
+    REQUIRE(quoted_chain[0].input.words.size() == 3);
+    CHECK(quoted_chain[0].input.words[2] == "semi;colon");
     CHECK(quoted_chain[1].canonical_segment == "version");
 
     auto const structured_chain = parse_command_chain(
-        "set sequence name {\"label\":\"semi;colon\"} 0; version");
+        "load measure {\"label\":\"semi;colon\"}; version");
 
     REQUIRE(structured_chain.size() == 2);
     CHECK(structured_chain[0].canonical_segment ==
-          "set sequence name {\"label\":\"semi;colon\"} 0");
-    REQUIRE(structured_chain[0].input.words.size() == 5);
-    CHECK(structured_chain[0].input.words[3] == "{\"label\":\"semi;colon\"}");
+          "load measure {\"label\":\"semi;colon\"}");
+    REQUIRE(structured_chain[0].input.words.size() == 3);
+    CHECK(structured_chain[0].input.words[2] == "{\"label\":\"semi;colon\"}");
     CHECK(structured_chain[1].canonical_segment == "version");
 }
 

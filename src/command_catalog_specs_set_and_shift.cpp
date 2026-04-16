@@ -66,29 +66,13 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"set", "sequence", "name"}, false,
-        "Set sequence name by index or current selection.",
-        std::make_tuple(required_arg<std::string>("String", "name"),
-                        optional_arg<int>("Int", "index", -1)),
-        [](CommandInvocation const &, std::string name, int index) {
-            return SetSequenceNameAction{
-                .name = std::move(name),
-                .index = index,
-            };
-        }));
-
-    specs.push_back(make_spec(
-        {"set", "sequence", "timeSignature"}, false,
-        "Set sequence time signature.",
+        {"set", "measure", "timeSignature"}, false,
+        "Set measure time signature.",
         std::make_tuple(optional_arg<sequence::TimeSignature>(
-                            "TimeSignature", "timesignature",
-                            sequence::TimeSignature{4, 4}),
-                        optional_arg<int>("Int", "index", -1)),
-        [](CommandInvocation const &, sequence::TimeSignature timesignature,
-           int index) {
-            return SetSequenceTimeSignatureAction{
+            "TimeSignature", "timesignature", sequence::TimeSignature{4, 4})),
+        [](CommandInvocation const &, sequence::TimeSignature timesignature) {
+            return SetMeasureTimeSignatureAction{
                 .time_signature = timesignature,
-                .index = index,
             };
         }));
 
@@ -145,19 +129,17 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"double", "sequence", "timeSignature"}, false,
-        "Double sequence time signature.",
-        std::make_tuple(optional_arg<int>("Int", "index", -1)),
-        [](CommandInvocation const &, int index) {
-            return DoubleSequenceTimeSignatureAction{.index = index};
+        {"double", "measure", "timeSignature"}, false,
+        "Double measure time signature.",
+        std::make_tuple(), [](CommandInvocation const &) {
+            return DoubleMeasureTimeSignatureAction{};
         }));
 
     specs.push_back(make_spec(
-        {"halve", "sequence", "timeSignature"}, false,
-        "Halve sequence time signature.",
-        std::make_tuple(optional_arg<int>("Int", "index", -1)),
-        [](CommandInvocation const &, int index) {
-            return HalveSequenceTimeSignatureAction{.index = index};
+        {"halve", "measure", "timeSignature"}, false,
+        "Halve measure time signature.",
+        std::make_tuple(), [](CommandInvocation const &) {
+            return HalveMeasureTimeSignatureAction{};
         }));
 
     specs.push_back(make_spec(
@@ -208,13 +190,6 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 .pattern = invocation.input.pattern,
                 .amount = amount,
             };
-        }));
-
-    specs.push_back(make_spec(
-        {"shift", "selectedSequence"}, false, "Shift selected sequence index.",
-        std::make_tuple(required_arg<int>("Int", "amount")),
-        [](CommandInvocation const &, int amount) {
-            return ShiftSelectedSequenceAction{.amount = amount};
         }));
 
     specs.push_back(make_spec(

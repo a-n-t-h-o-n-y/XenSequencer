@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vector>
+
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
 #include <xen/xen_processor.hpp>
@@ -18,9 +20,9 @@ TEST_CASE("Mutating commands advance commit id while non-mutating commands do no
     CHECK(version_level == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().commit_id == initial.commit_id);
 
-    auto const [select_level, _select_message] =
-        processor.execute_command_string("select sequence 2");
-    CHECK(select_level == MessageLevel::Debug);
+    auto const [move_level, _move_message] =
+        processor.execute_command_string("move right");
+    CHECK(move_level == MessageLevel::Debug);
     CHECK(processor.get_engine_snapshot().commit_id == initial.commit_id);
 
     auto const [set_key_level, _set_key_message] =
@@ -37,13 +39,14 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("select sequence 7").first ==
+    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("move down").first ==
             MessageLevel::Debug);
     REQUIRE(processor.execute_command_string("inputMode gate").first ==
             MessageLevel::Info);
     REQUIRE(processor.execute_command_string("set key 9").first == MessageLevel::Info);
     auto const previous_commit = processor.get_engine_snapshot();
-    REQUIRE(previous_commit.editor.selected.measure == 7);
+    REQUIRE(previous_commit.editor.selected.cell == std::vector<std::size_t>{0});
     REQUIRE(previous_commit.editor.input_mode == InputMode::Gate);
 
     REQUIRE(processor.execute_command_string("set key 11").first == MessageLevel::Info);
@@ -52,7 +55,7 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     REQUIRE(current.commit_id != previous_commit.commit_id);
 
     // Stage aux changes that should be discarded by undo's reset_stage().
-    REQUIRE(processor.execute_command_string("select sequence 2").first ==
+    REQUIRE(processor.execute_command_string("move right").first ==
             MessageLevel::Debug);
     REQUIRE(processor.execute_command_string("inputMode pitch").first ==
             MessageLevel::Info);
@@ -63,7 +66,7 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     auto const after_undo = processor.get_engine_snapshot();
     CHECK(after_undo.commit_id == previous_commit.commit_id);
     CHECK(after_undo.engine.key == previous_commit.engine.key);
-    CHECK(after_undo.editor.selected.measure == 7);
+    CHECK(after_undo.editor.selected.cell == std::vector<std::size_t>{0});
     CHECK(after_undo.editor.input_mode == InputMode::Gate);
 }
 

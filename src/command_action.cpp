@@ -116,24 +116,8 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 ps.timeline.stage(std::move(state));
                 return minfo("Key Set to " + std::to_string(typed_action.key) + ".");
             }
-            else if constexpr (std::is_same_v<ActionType, SetSequenceNameAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-
-                auto index = typed_action.index;
-                index = (index == -1) ? (int)state.aux.selected.measure : index;
-                if (index < 0 || index >= (int)state.sequencer.sequence_names.size())
-                {
-                    return merror("Invalid Sequence Index");
-                }
-
-                state.sequencer.sequence_names[(std::size_t)index] = typed_action.name;
-                ps.timeline.stage(std::move(state));
-                return minfo("Sequence Name Set");
-            }
             else if constexpr (std::is_same_v<ActionType,
-                                               SetSequenceTimeSignatureAction>)
+                                               SetMeasureTimeSignatureAction>)
             {
                 if (typed_action.time_signature.denominator == 0 ||
                     typed_action.time_signature.numerator == 0)
@@ -150,36 +134,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-
-                auto index = typed_action.index;
-                index = (index == -1) ? (int)state.aux.selected.measure : index;
-                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
-                {
-                    return merror("Invalid Sequence Index");
-                }
-
-                state.sequencer.sequence_bank[(std::size_t)index].time_signature =
-                    typed_action.time_signature;
+                state.sequencer.measure.time_signature = typed_action.time_signature;
                 ps.timeline.stage(std::move(state));
-                return minfo("TimeSignature Set: " +
+                return minfo("Measure TimeSignature Set: " +
                              std::to_string(typed_action.time_signature.numerator) +
                              "/" +
                              std::to_string(typed_action.time_signature.denominator));
-            }
-            else if constexpr (std::is_same_v<ActionType, SelectSequenceAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-
-                if (state.aux.selected.measure == (std::size_t)typed_action.index)
-                {
-                    return mdebug("Already Selected");
-                }
-
-                state.aux = action::set_selected_sequence(state.aux, typed_action.index);
-                ps.timeline.stage(std::move(state));
-                return mdebug("Sequence " + std::to_string(typed_action.index) +
-                              " Selected");
             }
             else if constexpr (std::is_same_v<ActionType, SetInputModeAction>)
             {
@@ -191,7 +151,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 return minfo("Input Mode Set to " +
                              single_quote(to_string(typed_action.mode)));
             }
-            else if constexpr (std::is_same_v<ActionType, LoadSequenceBankAction>)
+            else if constexpr (std::is_same_v<ActionType, LoadMeasureAction>)
             {
                 auto const cd = ps.config.current_sequence_directory;
                 if (!cd.isDirectory())
@@ -209,13 +169,10 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-
-                auto [sb, names] = action::load_sequence_bank(filepath);
-                state.sequencer.sequence_bank = std::move(sb);
-                state.sequencer.sequence_names = std::move(names);
+                state.sequencer.measure = action::load_measure(filepath);
 
                 ps.timeline.stage(std::move(state));
-                return minfo("Sequence Bank Loaded");
+                return minfo("Measure Loaded");
             }
             else if constexpr (std::is_same_v<ActionType, LoadTuningAction>)
             {
@@ -359,7 +316,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 ps.timeline.stage(std::move(state));
                 return minfo("Base Frequency Set");
             }
-            else if constexpr (std::is_same_v<ActionType, SaveSequenceBankAction>)
+            else if constexpr (std::is_same_v<ActionType, SaveMeasureAction>)
             {
                 auto const cd = ps.config.current_sequence_directory;
                 if (!cd.isDirectory())
@@ -370,10 +327,8 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 auto const filepath =
                     cd.getChildFile(typed_action.filename + ".xss");
                 auto const state = ps.timeline.get_state();
-                action::save_sequence_bank(state.sequencer.sequence_bank,
-                                           state.sequencer.sequence_names,
-                                           filepath);
-                return minfo("Sequence Bank Saved to " +
+                action::save_measure(filepath, state.sequencer.measure);
+                return minfo("Measure Saved to " +
                              single_quote(filepath.getFullPathName().toStdString()));
             }
             else if constexpr (std::is_same_v<ActionType, LibraryDirectoryAction>)
@@ -710,21 +665,6 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 ps.timeline.stage(std::move(state));
                 return minfo("Gate Shifted");
             }
-            else if constexpr (std::is_same_v<ActionType,
-                                               ShiftSelectedSequenceAction>)
-            {
-                auto state = ps.timeline.get_state();
-                state.aux = context;
-                auto const size = (int)state.sequencer.sequence_bank.size();
-                auto const index = (((int)state.aux.selected.measure +
-                                     typed_action.amount) %
-                                        size +
-                                    size) %
-                                   size;
-                state.aux = action::set_selected_sequence(state.aux, index);
-                ps.timeline.stage(std::move(state));
-                return mdebug("Selected Sequence Shifted");
-            }
             else if constexpr (std::is_same_v<ActionType, ShiftScaleAction>)
             {
                 auto state = ps.timeline.get_state();
@@ -826,20 +766,11 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 return minfo("Entire Scale Shifted");
             }
             else if constexpr (std::is_same_v<ActionType,
-                                               DoubleSequenceTimeSignatureAction>)
+                                               DoubleMeasureTimeSignatureAction>)
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-
-                auto index = typed_action.index;
-                index = (index == -1) ? (int)state.aux.selected.measure : index;
-                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
-                {
-                    return merror("Invalid Sequence Index");
-                }
-
-                auto &ts =
-                    state.sequencer.sequence_bank[(std::size_t)index].time_signature;
+                auto &ts = state.sequencer.measure.time_signature;
                 ts.numerator *= 2;
 
                 if ((float)ts.numerator / (float)ts.denominator > 64.f)
@@ -854,23 +785,14 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 }
 
                 ps.timeline.stage(std::move(state));
-                return minfo("TimeSignature Doubled.");
+                return minfo("Measure TimeSignature Doubled.");
             }
             else if constexpr (std::is_same_v<ActionType,
-                                               HalveSequenceTimeSignatureAction>)
+                                               HalveMeasureTimeSignatureAction>)
             {
                 auto state = ps.timeline.get_state();
                 state.aux = context;
-
-                auto index = typed_action.index;
-                index = (index == -1) ? (int)state.aux.selected.measure : index;
-                if (index < 0 || index >= (int)state.sequencer.sequence_bank.size())
-                {
-                    return merror("Invalid Sequence Index");
-                }
-
-                auto &ts =
-                    state.sequencer.sequence_bank[(std::size_t)index].time_signature;
+                auto &ts = state.sequencer.measure.time_signature;
                 if (ts.numerator % 2 == 0)
                 {
                     ts.numerator /= 2;
@@ -886,7 +808,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 }
 
                 ps.timeline.stage(std::move(state));
-                return minfo("TimeSignature Halved.");
+                return minfo("Measure TimeSignature Halved.");
             }
             else if constexpr (std::is_same_v<ActionType, RandomizePitchAction>)
             {

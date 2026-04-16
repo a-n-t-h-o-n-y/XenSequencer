@@ -122,21 +122,10 @@ type Tuning = { intervals: number[]; octave: number };
 type Scale = { name: string; tuning_length: number; intervals: number[]; mode: number };
 type Chord = { name: string; intervals: number[] };
 
-type SelectedState = { measure: number; cell: number[] };
+type SelectedState = { cell: number[]; element_index: number | null };
 
 type EngineState = {
-  sequence_bank: [
-    Measure, Measure, Measure, Measure,
-    Measure, Measure, Measure, Measure,
-    Measure, Measure, Measure, Measure,
-    Measure, Measure, Measure, Measure
-  ];
-  sequence_names: [
-    string, string, string, string,
-    string, string, string, string,
-    string, string, string, string,
-    string, string, string, string
-  ];
+  measure: Measure;
   tuning: Tuning;
   tuning_name: string;
   scale: Scale | null;

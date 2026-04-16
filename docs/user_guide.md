@@ -21,7 +21,7 @@ Buckle up, this is the most complicated part of the process. XenSequencer is a V
 
 ## Brief Tutorial
 
-Set up an instance of the plugin along with a synth as detailed above. Create a new MIDI clip in your DAW to feed into the XenSequencer instance with the C1 note held for a measure. Loop it.
+Set up an instance of the plugin along with a synth as detailed above. Start your DAW transport and loop the region you want XenSequencer to follow.
 
 Open the plugin and you'll see a blank timeline. Click on the middle element of the sequencer to give it focus, then press the colon key `:` to open the command bar at the bottom. Type 'note' and press enter. This will fill the sequence with a single note of pitch '0'. Press play, you should hear an A4 playing in your synth.
 
@@ -43,9 +43,7 @@ Press `Shift` and the down arrow to 'drop down' one layer into the sequence. Thi
 
 Try copy and pasting any selection with the common `ctrl+c` and `ctrl+v` keybindings. You'll notice that copying a sequence and pasting it into a shorter or longer selection will stretch or compress the sequence to fit the new length. This copy and paste buffer works across instances as well, allowing you to share sequences amongst instances of the plugin.
 
-Open the __Sequence Bank__ by clicking on the arrow icon at the top right. You will see 16 available sequences. Click on the `0x1` square to select that sequence, then create a new sequence. Go back to your DAW track and add the C# note just above the previous C note. The new sequence should start playing back along with the original.
-
-From here try the __Library__ view by pressing `w`. This will show you the saved sequences, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that these scales only make sense for a subset of 12 note tunings.
+From here try the __Library__ view by pressing `w`. This will show you the saved measures, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that these scales only make sense for a subset of 12 note tunings.
 
 Check out the [command reference](command_reference.md) and the [keybindings reference](keybindings_reference.md) for more ideas.
 
@@ -76,10 +74,8 @@ The `offset` is used to shift the pattern to the right by the given number of st
 
 The command reference can be found [here](command_reference.md).
 
-## Sequence Bank
-Contains 16 monophonic sequences, each activated by a different MIDI note (starting at `C1`). Can be played simultaneously, up to 15 note polyphony. Shift the current selection with the `Ctrl` + `Shift` + `Arrow` keys.
-
-![Sequence Bank](img/guide-sequence-bank.png)
+## Playback
+The plugin now plays one top-level measure locked to DAW transport. Playback loops automatically based on the current measure time signature, so there is no separate sequence bank or MIDI trigger-note layer to manage.
 
 ## Top Bar
 Along the top of the plugin window you'll find a listing of some settings, these are all editable by double clicking and typing unless otherwise noted.
@@ -88,16 +84,14 @@ Along the top of the plugin window you'll find a listing of some settings, these
 
 | Element | Description |
 | ------- | ----------- |
-| Time Signature | The time signature of the current sequence in view. |
+| Time Signature | The time signature of the current top-level measure. |
 | Zero Frequency | The frequency in Hertz of the zero-th pitch. |
 | Key | A transposition parameter, applied to all notes, only useful for EDO tunings. |
 | Scale | The scale applied to all notes. |
 | Scale Mode | The mode of the scale, if any; range of [1, scale size]. |
 | Tuning | The current tuning name, not editable. |
-| Sequence Name | The current sequence index and name. |
-
 ## Library
 Press `w` to toggle the Library view. This view contains the following sections:
-- Saved Sequences
+- Saved Measures
 - Tunings
 - Scales

@@ -54,15 +54,6 @@ SequenceView:
   "Shift + k": "move up"
   "Shift + ArrowUp": "move up"
 
-  "Cmd + Shift + ArrowRight": "shift selectedSequence +1"
-  "Cmd + Shift + l": "shift selectedSequence +1"
-  "Cmd + Shift + ArrowLeft": "shift selectedSequence -1"
-  "Cmd + Shift + h": "shift selectedSequence -1"
-  "Cmd + Shift + ArrowUp": "shift selectedSequence +4"
-  "Cmd + Shift + k": "shift selectedSequence +4"
-  "Cmd + Shift + ArrowDown": "shift selectedSequence -4"
-  "Cmd + Shift + j": "shift selectedSequence -4"
-
   # ShiftPitch
   "[p] + j": "shift Pitch -1"
   "[p] + ArrowDown": "shift Pitch -1"
@@ -118,8 +109,8 @@ SequenceView:
   "[c] + Cmd + ArrowUp": "shift scale +1"
 
   # TimeSignature
-  "Shift + plus": "double sequence timeSignature"
-  "-": "halve sequence timeSignature"
+  "Shift + plus": "double measure timeSignature"
+  "-": "halve measure timeSignature"
 
   # Misc
   "delete": "delete"

@@ -139,13 +139,14 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
     auto processor = XenProcessor{};
 
     auto const [level, message] = processor.execute_command_string(
-        "set sequence name \"semi;colon\" 0; version");
+        "load measure \"semi;colon\"; version");
 
-    CHECK(level == MessageLevel::Info);
-    CHECK(message == "v0.3.1");
-
-    auto const after = processor.get_engine_snapshot();
-    CHECK(after.engine.sequence_names[0] == "semi;colon");
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "File Not Found: " +
+                     processor.plugin_state.config.current_sequence_directory
+                         .getChildFile("semi;colon.xss")
+                         .getFullPathName()
+                         .toStdString());
 }
 
 TEST_CASE("Processor command-chain splitting ignores semicolons in structured args",
@@ -154,13 +155,14 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in structured ar
     auto processor = XenProcessor{};
 
     auto const [level, message] = processor.execute_command_string(
-        "set sequence name {\"label\":\"semi;colon\"} 1; version");
+        "load measure {\"label\":\"semi;colon\"}; version");
 
-    CHECK(level == MessageLevel::Info);
-    CHECK(message == "v0.3.1");
-
-    auto const after = processor.get_engine_snapshot();
-    CHECK(after.engine.sequence_names[1] == "{\"label\":\"semi;colon\"}");
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "File Not Found: " +
+                     processor.plugin_state.config.current_sequence_directory
+                         .getChildFile("{\"label\":\"semi;colon\"}.xss")
+                         .getFullPathName()
+                         .toStdString());
 }
 
 TEST_CASE("Processor carries selection context across chained commands",
@@ -180,25 +182,25 @@ TEST_CASE("Processor carries selection context across chained commands",
     CHECK(after.editor.selected.cell == std::vector<std::size_t>{1});
 
     auto const &selected =
-        get_selected_cell_const(after.engine.sequence_bank, after.editor.selected);
+        get_selected_cell_const(after.engine.measure, after.editor.selected);
     REQUIRE(selected.elements.size() == 1);
     REQUIRE(std::holds_alternative<sequence::Note>(selected.elements.front()));
     CHECK(std::get<sequence::Note>(selected.elements.front()).pitch == 7);
 }
 
-TEST_CASE("Processor sequence defaults use updated chain context", "[processor][commands]")
+TEST_CASE("Processor measure defaults use updated chain context", "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
     auto const [level, message] = processor.execute_command_string(
-        "select sequence 5; set sequence name \"lead\"");
+        "set measure timeSignature 7/8");
 
     CHECK(level == MessageLevel::Info);
-    CHECK(message == "Sequence Name Set");
+    CHECK(message == "Measure TimeSignature Set: 7/8");
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.editor.selected.measure == 5);
-    CHECK(after.engine.sequence_names[5] == "lead");
+    CHECK(after.engine.measure.time_signature.numerator == 7);
+    CHECK(after.engine.measure.time_signature.denominator == 8);
 }
 
 TEST_CASE("Processor rejects unknown commands", "[processor][commands]")

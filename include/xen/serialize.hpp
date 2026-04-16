@@ -1,8 +1,6 @@
 #pragma once
 
-#include <array>
 #include <string>
-#include <utility>
 
 #include <xen/copy_paste.hpp>
 #include <xen/measure.hpp>
@@ -42,27 +40,6 @@ namespace xen
  * @throw std::invalid_argument If the JSON string is invalid.
  */
 [[nodiscard]] auto deserialize_measure(std::string const &json_str) -> Measure;
-
-/**
- * Serialize a SequenceBank object to a JSON string.
- *
- * @param bank The SequenceBank object to serialize.
- * @param sequence_names The names of the sequences in the bank.
- * @return std::string The JSON string.
- */
-[[nodiscard]] auto serialize_sequence_bank(
-    SequenceBank const &bank, std::array<std::string, 16> const &sequence_names)
-    -> std::string;
-
-/**
- * Deserialize a JSON string to a SequenceBank object.
- *
- * @param json_str The JSON string to deserialize.
- * @return SequenceBank The deserialized SequenceBank object.
- * @throw std::invalid_argument If the JSON string is invalid.
- */
-[[nodiscard]] auto deserialize_sequence_bank(std::string const &json_str)
-    -> std::pair<SequenceBank, std::array<std::string, 16>>;
 
 /**
  * Serialize the full plugin state to a JSON string.

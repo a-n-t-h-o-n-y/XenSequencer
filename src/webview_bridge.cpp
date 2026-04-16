@@ -457,9 +457,9 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
               normalize_utf8(config.current_tuning_directory.getFullPathName()
                                  .toStdString())},
          }},
-        {"sequence_banks",
+        {"measures",
          make_file_entries(config.current_sequence_directory, "*.xss",
-                           "load sequenceBank ")},
+                           "load measure ")},
         {"tunings", make_tuning_entries(config.current_tuning_directory)},
         {"scales", std::move(scales)},
         {"chords", std::move(chords)},
@@ -611,32 +611,12 @@ auto WebviewBridge::make_state_changed_event_json() const -> std::string
     return make_envelope("event", "state.changed", std::nullopt, payload).dump();
 }
 
-auto WebviewBridge::make_trigger_note_event_json(std::size_t sequence_index,
-                                                 bool active) const -> std::string
+auto WebviewBridge::make_phase_sync_event_json(MeasurePhase phase, float bpm) const
+    -> std::string
 {
-    auto const payload = nlohmann::json{
-        {"sequence_index", sequence_index},
-    };
-    auto const name = active ? "transport.trigger.noteOn"
-                             : "transport.trigger.noteOff";
-    return make_envelope("event", name, std::nullopt, payload).dump();
-}
-
-auto WebviewBridge::make_phase_sync_event_json(
-    std::vector<SequencePhase> const &phases, float bpm) const -> std::string
-{
-    auto payload_phases = nlohmann::json::array();
-    for (auto const &phase : phases)
-    {
-        payload_phases.push_back({
-            {"sequence_index", phase.sequence_index},
-            {"phase", phase.phase},
-        });
-    }
-
     auto const payload = nlohmann::json{
         {"bpm", bpm},
-        {"phases", std::move(payload_phases)},
+        {"phase", phase.phase},
     };
     return make_envelope("event", "transport.phase.sync", std::nullopt, payload).dump();
 }

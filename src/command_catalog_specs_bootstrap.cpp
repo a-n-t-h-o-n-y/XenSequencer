@@ -61,11 +61,11 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
-        {"load", "sequenceBank"}, false,
-        "Load the sequence bank from the current sequence directory.",
+        {"load", "measure"}, false,
+        "Load a measure from the current sequence directory.",
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandInvocation const &, std::string filename) {
-            return LoadSequenceBankAction{.filename = std::move(filename)};
+            return LoadMeasureAction{.filename = std::move(filename)};
         }));
 
     specs.push_back(make_spec(
@@ -89,11 +89,11 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(), [](CommandInvocation const &) { return LoadChordsAction{}; }));
 
     specs.push_back(make_spec(
-        {"save", "sequenceBank"}, false,
-        "Save the current sequence bank to file.",
+        {"save", "measure"}, false,
+        "Save the current measure to file.",
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandInvocation const &, std::string filename) {
-            return SaveSequenceBankAction{.filename = std::move(filename)};
+            return SaveMeasureAction{.filename = std::move(filename)};
         }));
 
     specs.push_back(make_spec(

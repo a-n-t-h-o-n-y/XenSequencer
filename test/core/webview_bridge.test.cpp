@@ -162,11 +162,11 @@ TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
     REQUIRE(payload.at("paths").contains("sequences"));
     REQUIRE(payload.at("paths").contains("tunings"));
 
-    REQUIRE(payload.contains("sequence_banks"));
-    REQUIRE(payload.at("sequence_banks").is_array());
-    CHECK_FALSE(payload.at("sequence_banks").empty());
-    REQUIRE(payload.at("sequence_banks").at(0).contains("relative_path"));
-    REQUIRE(payload.at("sequence_banks").at(0).contains("command"));
+    REQUIRE(payload.contains("measures"));
+    REQUIRE(payload.at("measures").is_array());
+    CHECK_FALSE(payload.at("measures").empty());
+    REQUIRE(payload.at("measures").at(0).contains("relative_path"));
+    REQUIRE(payload.at("measures").at(0).contains("command"));
     REQUIRE(payload.contains("tunings"));
     REQUIRE(payload.at("tunings").is_array());
     for (auto const &tuning : payload.at("tunings"))
@@ -198,7 +198,7 @@ TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
     REQUIRE(payload.at("active").contains("scale_name"));
 
     auto has_directory_segment = false;
-    for (auto const &entry : payload.at("sequence_banks"))
+    for (auto const &entry : payload.at("measures"))
     {
         auto const rel = entry.at("relative_path").get<std::string>();
         if (rel.find('/') != std::string::npos)
@@ -216,26 +216,11 @@ TEST_CASE("WebviewBridge transport event helpers produce bridge envelopes",
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
 
-    auto const note_on = nlohmann::json::parse(
-        bridge.make_trigger_note_event_json(3, true));
-    CHECK(note_on.at("type") == "event");
-    CHECK(note_on.at("name") == "transport.trigger.noteOn");
-    CHECK(note_on.at("payload").at("sequence_index") == 3);
-
-    auto const note_off = nlohmann::json::parse(
-        bridge.make_trigger_note_event_json(3, false));
-    CHECK(note_off.at("name") == "transport.trigger.noteOff");
-    CHECK(note_off.at("payload").at("sequence_index") == 3);
-
     auto const phase_sync = nlohmann::json::parse(bridge.make_phase_sync_event_json(
-        std::vector<WebviewBridge::SequencePhase>{
-            {.sequence_index = 1, .phase = 0.25},
-            {.sequence_index = 9, .phase = 0.75},
-        },
+        WebviewBridge::MeasurePhase{.phase = 0.25},
         120.f));
     CHECK(phase_sync.at("type") == "event");
     CHECK(phase_sync.at("name") == "transport.phase.sync");
     CHECK(phase_sync.at("payload").at("bpm") == 120.f);
-    REQUIRE(phase_sync.at("payload").at("phases").is_array());
-    CHECK(phase_sync.at("payload").at("phases").size() == 2);
+    CHECK(phase_sync.at("payload").at("phase") == 0.25);
 }

@@ -69,13 +69,6 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
         {"lift"}, false, "Lift the current selection up one level.",
         std::make_tuple(), [](CommandInvocation const &) { return LiftSelectionAction{}; }));
 
-    specs.push_back(make_spec(
-        {"select", "sequence"}, false,
-        "Select a sequence index from the sequence bank.",
-        std::make_tuple(required_arg<int>("Int", "index")),
-        [](CommandInvocation const &, int index) {
-            return SelectSequenceAction{.index = index};
-        }));
 }
 
 } // namespace xen::catalog_detail

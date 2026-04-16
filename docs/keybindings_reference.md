@@ -33,14 +33,6 @@
 | --- | `Shift + ArrowDown` | `move down` |
 | --- | `Shift + k` | `move up` |
 | --- | `Shift + ArrowUp` | `move up` |
-| --- | `Cmd + Shift + ArrowRight` | `shift selectedSequence +1` |
-| --- | `Cmd + Shift + l` | `shift selectedSequence +1` |
-| --- | `Cmd + Shift + ArrowLeft` | `shift selectedSequence -1` |
-| --- | `Cmd + Shift + h` | `shift selectedSequence -1` |
-| --- | `Cmd + Shift + ArrowUp` | `shift selectedSequence +4` |
-| --- | `Cmd + Shift + k` | `shift selectedSequence +4` |
-| --- | `Cmd + Shift + ArrowDown` | `shift selectedSequence -4` |
-| --- | `Cmd + Shift + j` | `shift selectedSequence -4` |
 | Pitch | `j` | `shift Pitch -1` |
 | Pitch | `ArrowDown` | `shift Pitch -1` |
 | Pitch | `k` | `shift Pitch +1` |
@@ -79,8 +71,8 @@
 | Scale Mode | `ArrowDown` | `shift scaleMode -1` |
 | Scale Mode | `k` | `shift scaleMode +1` |
 | Scale Mode | `ArrowUp` | `shift scaleMode +1` |
-| --- | `Shift + plus` | `double sequence timeSignature` |
-| --- | `-` | `halve sequence timeSignature` |
+| --- | `Shift + plus` | `double measure timeSignature` |
+| --- | `-` | `halve measure timeSignature` |
 | --- | `delete` | `delete` |
 | --- | `s` | `split :N=2:` |
 | --- | `n` | `note :N=0:` |

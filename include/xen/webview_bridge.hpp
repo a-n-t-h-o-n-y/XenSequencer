@@ -15,9 +15,8 @@ namespace xen
 class WebviewBridge
 {
   public:
-    struct SequencePhase
+    struct MeasurePhase
     {
-        std::size_t sequence_index{0};
         double phase{0.0};
     };
 
@@ -28,11 +27,8 @@ class WebviewBridge
         -> std::string;
 
     [[nodiscard]] auto make_state_changed_event_json() const -> std::string;
-    [[nodiscard]] auto make_trigger_note_event_json(std::size_t sequence_index,
-                                                    bool active) const
+    [[nodiscard]] auto make_phase_sync_event_json(MeasurePhase phase, float bpm) const
         -> std::string;
-    [[nodiscard]] auto make_phase_sync_event_json(
-        std::vector<SequencePhase> const &phases, float bpm) const -> std::string;
 
   private:
     XenProcessor &processor_;
