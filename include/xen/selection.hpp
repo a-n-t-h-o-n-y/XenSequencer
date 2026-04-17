@@ -141,18 +141,28 @@ enum class SelectionKind
                               std::size_t amount = 1) -> SelectedState;
 
 /**
- * Move the selection up one typed step if possible.
+ * Move the selection up one logical level if possible.
  *
+ * @details If the selection is inside a cell whose only element is a Sequence,
+ * this skips back to the containing Cell instead of stopping on the Sequence
+ * element.
+ *
+ * @param measure The root Measure to work with.
  * @param selected The current selection state.
  * @param amount The number of steps to move up.
  * @return The new selection path after moving up.
  */
-[[nodiscard]] auto move_up(SelectedState selected,
+[[nodiscard]] auto move_up(Measure const &measure, SelectedState selected,
                            std::size_t amount = 1) -> SelectedState;
 
 /**
  * Move the selection down into the first element of the current Cell, then into
  * child Cells of selected Sequence elements if possible.
+ *
+ * @details If the current Cell contains exactly one element and that element is a
+ * Sequence, this skips directly into the Sequence's first child Cell. If the
+ * current Cell contains exactly one non-Sequence element, the selection stays
+ * on the current Cell.
  *
  * @param measure The root Measure to work with.
  * @param selected The current selection state.

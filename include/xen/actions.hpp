@@ -91,7 +91,8 @@ namespace xen::action
 [[nodiscard]] auto move_right(EngineState const &state, ExecutionContext context,
                               std::size_t amount) -> ExecutionContext;
 
-[[nodiscard]] auto move_up(ExecutionContext context, std::size_t amount)
+[[nodiscard]] auto move_up(EngineState const &state, ExecutionContext context,
+                           std::size_t amount)
     -> ExecutionContext;
 
 [[nodiscard]] auto move_down(EngineState const &state, ExecutionContext context,

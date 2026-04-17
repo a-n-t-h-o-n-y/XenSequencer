@@ -181,17 +181,37 @@ TEST_CASE("Invalid typed selection paths fail clearly", "[core][selection]")
 
 TEST_CASE("Move up pops one logical selection level", "[core][selection]")
 {
+    auto const measure = make_nested_measure();
+
     auto const cell_selection = SelectedState{
         .path = {element_step(2), cell_step(3), element_step(1), cell_step(1)},
     };
-    CHECK(move_up(cell_selection) ==
+    CHECK(move_up(measure, cell_selection) ==
           SelectedState{.path = {element_step(2), cell_step(3), element_step(1)}});
 
     auto const element_selection = SelectedState{
         .path = {element_step(2), cell_step(3), element_step(1)},
     };
-    CHECK(move_up(element_selection) ==
+    CHECK(move_up(measure, element_selection) ==
           SelectedState{.path = {element_step(2), cell_step(3)}});
+
+    auto const sequence_child_selection = SelectedState{
+        .path = {
+            element_step(2),
+            cell_step(3),
+            element_step(1),
+            cell_step(1),
+            element_step(0),
+            cell_step(0),
+        },
+    };
+    CHECK(move_up(measure, sequence_child_selection) ==
+          SelectedState{.path = {
+              element_step(2),
+              cell_step(3),
+              element_step(1),
+              cell_step(1),
+          }});
 }
 
 TEST_CASE("Move down enters the first element of a selected Cell",
@@ -211,16 +231,45 @@ TEST_CASE("Move down enters the first element of a selected Cell",
     CHECK(move_down(measure, cell_selection) ==
           SelectedState{.path = {element_step(2), cell_step(3), element_step(0)}});
 
-    auto const sequence_first_cell = SelectedState{
-        .path = {element_step(2), cell_step(3), element_step(1), cell_step(1)},
+    auto const singleton_note_cell = SelectedState{
+        .path = {element_step(2), cell_step(0)},
     };
-    CHECK(move_down(measure, sequence_first_cell) ==
+    CHECK(move_down(measure, singleton_note_cell) == singleton_note_cell);
+
+    auto const singleton_sequence_cell = SelectedState{
+        .path = {
+            element_step(2),
+            cell_step(3),
+            element_step(1),
+            cell_step(1),
+        },
+    };
+    CHECK(move_down(measure, singleton_sequence_cell) ==
           SelectedState{.path = {
               element_step(2),
               cell_step(3),
               element_step(1),
               cell_step(1),
               element_step(0),
+              cell_step(0),
+          }});
+
+    auto const sequence_first_child = SelectedState{
+        .path = {
+            element_step(2),
+            cell_step(3),
+            element_step(1),
+            cell_step(1),
+            element_step(0),
+            cell_step(0),
+        },
+    };
+    CHECK(move_up(measure, sequence_first_child) ==
+          SelectedState{.path = {
+              element_step(2),
+              cell_step(3),
+              element_step(1),
+              cell_step(1),
           }});
 
     auto const note_element = SelectedState{

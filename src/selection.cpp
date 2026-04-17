@@ -381,10 +381,26 @@ auto move_right(Measure const &measure, SelectedState selected, std::size_t amou
     return selected;
 }
 
-auto move_up(SelectedState selected, std::size_t amount) -> SelectedState
+auto move_up(Measure const &measure, SelectedState selected, std::size_t amount)
+    -> SelectedState
 {
     for (auto i = std::size_t{0}; i < amount && !selected.path.empty(); ++i)
     {
+        if (selection_kind(selected) == SelectionKind::Element)
+        {
+            selected.path.pop_back();
+            continue;
+        }
+
+        auto const *parent_cell = get_parent_cell_of_selection_const(measure, selected);
+        if (parent_cell != nullptr && parent_cell->elements.size() == 1 &&
+            std::holds_alternative<sequence::Sequence>(parent_cell->elements.front()))
+        {
+            selected.path.pop_back();
+            selected.path.pop_back();
+            continue;
+        }
+
         selected.path.pop_back();
     }
     return selected;
@@ -400,6 +416,20 @@ auto move_down(Measure const &measure, SelectedState selected, std::size_t amoun
             auto const &cell = get_selected_cell_const(measure, selected);
             if (cell.elements.empty())
             {
+                break;
+            }
+
+            if (cell.elements.size() == 1)
+            {
+                auto const &element = cell.elements.front();
+                if (auto const *sequence = std::get_if<sequence::Sequence>(&element);
+                    sequence != nullptr && !sequence->cells.empty())
+                {
+                    selected = select_element_in_cell(std::move(selected), 0);
+                    selected = select_sequence_cell(std::move(selected), 0);
+                    continue;
+                }
+
                 break;
             }
 

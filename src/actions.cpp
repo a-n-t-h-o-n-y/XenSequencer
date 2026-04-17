@@ -76,9 +76,10 @@ auto move_right(EngineState const &state, ExecutionContext context,
     return context;
 }
 
-auto move_up(ExecutionContext context, std::size_t amount) -> ExecutionContext
+auto move_up(EngineState const &state, ExecutionContext context, std::size_t amount)
+    -> ExecutionContext
 {
-    context.selected = xen::move_up(context.selected, amount);
+    context.selected = xen::move_up(state.measure, context.selected, amount);
     return context;
 }
 

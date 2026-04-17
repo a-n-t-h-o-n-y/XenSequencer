@@ -83,8 +83,11 @@ Current implementation direction:
 - empty path means the root `Measure.cell` is selected
 - a path ending in `Element` selects a `MusicElement`
 - a path ending in `SequenceCell` selects a `Cell`
-- `move down` from a selected `Cell` enters element `0` of that cell, regardless of
-  element type
+- `move down` from a selected `Cell` enters element `0` of that cell, and if that
+  cell contains only a single `Sequence`, it skips directly into the Sequence's
+  first child `Cell`
+- `move up` mirrors that singleton-Sequence skip and returns to the containing
+  `Cell`
 - if that element is a `Sequence`, additional `move down` steps enter its first
   child `Cell`
 

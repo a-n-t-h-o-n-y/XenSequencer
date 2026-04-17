@@ -68,8 +68,9 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                     return mdebug("Moved Right " +
                                   std::to_string(typed_action.amount) + " Times");
                 case MoveDirection::Up:
-                    state.aux =
-                        action::move_up(std::move(state.aux), typed_action.amount);
+                    state.aux = action::move_up(state.sequencer,
+                                                 std::move(state.aux),
+                                                 typed_action.amount);
                     ps.timeline.stage(std::move(state));
                     return mdebug("Moved Up " +
                                   std::to_string(typed_action.amount) + " Times");

@@ -1,4 +1,8 @@
 #include <string>
+#include <vector>
+#include <variant>
+
+#include <sequence/sequence.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
@@ -30,6 +34,21 @@ auto singleton_sequence_cell_selection(
             {.kind = SelectionStepKind::SequenceCell, .index = index});
     }
     return selected;
+}
+
+auto singleton_sequence_measure(std::vector<std::size_t> const &indices) -> Measure
+{
+    auto measure = Measure{};
+    auto *cell = &measure.cell;
+    for (auto const index : indices)
+    {
+        cell->elements = {
+            sequence::Sequence{.cells = std::vector<sequence::Cell>(index + 1)},
+        };
+        auto &sequence = std::get<sequence::Sequence>(cell->elements.front());
+        cell = &sequence.cells[index];
+    }
+    return measure;
 }
 
 } // namespace
@@ -68,7 +87,8 @@ TEST_CASE("Move up changes selection path and clears nested cell selection",
 {
     auto processor = XenProcessor{};
     auto state = processor.plugin_state.timeline.get_state();
-    state.aux.selected = singleton_sequence_cell_selection({1, 2, 3});
+    state.sequencer.measure = singleton_sequence_measure({0, 0});
+    state.aux.selected = singleton_sequence_cell_selection({0, 0});
     processor.plugin_state.timeline.stage(std::move(state));
 
     auto before = processor.get_engine_snapshot();
@@ -79,13 +99,7 @@ TEST_CASE("Move up changes selection path and clears nested cell selection",
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.editor.selected ==
-          SelectedState{.path = {
-              {.kind = SelectionStepKind::Element, .index = 0},
-              {.kind = SelectionStepKind::SequenceCell, .index = 1},
-              {.kind = SelectionStepKind::Element, .index = 0},
-              {.kind = SelectionStepKind::SequenceCell, .index = 2},
-              {.kind = SelectionStepKind::Element, .index = 0},
-          }});
+          singleton_sequence_cell_selection({0}));
 }
 
 TEST_CASE("Base frequency command clamps to supported range", "[core][actions]")
