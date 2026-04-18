@@ -521,6 +521,15 @@ struct ArpAction
 };
 
 /**
+ * Typed action for `chord`.
+ */
+struct ChordAction
+{
+    std::string chord{"cycle"};
+    int inversion{-1};
+};
+
+/**
  * Canonical command action variant.
  */
 using CommandAction =
@@ -546,7 +555,7 @@ using CommandAction =
                  RandomizeVelocityAction, RandomizeDelayAction,
                  RandomizeGateAction, StretchAction, CompressAction,
                  ShuffleAction, RotateAction, ReverseAction, MirrorAction,
-                 StepAction, DrumsAction, ArpAction>;
+                 StepAction, DrumsAction, ArpAction, ChordAction>;
 
 /**
  * Result of applying one typed command action.

@@ -65,4 +65,5 @@ reverse | `reverse` | Reverse selected content.
 mirror | `[pattern] mirror [Int: centerPitch=0]` | Mirror selected notes around center pitch.
 step | `[pattern] step [Int: pitchDistance=1] [Float: velocityDistance=0]` | Apply incremental pitch/velocity offsets to selected content.
 arp | `[pattern] arp [String: chord="cycle"] [Int: inversion=-1]` | Apply chord arpeggiation to selection.
+chord | `chord [String: chord="cycle"] [Int: inversion=-1]` | Apply chord offsets across elements in the selected cell.
 drums | `drums [Unsigned: octaveSize=16] [Int: offset=1]` | Switch to drum-oriented tuning.

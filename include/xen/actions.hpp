@@ -151,6 +151,9 @@ void flip_translate_direction(TranslateDirection &td);
 [[nodiscard]] auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
                        std::vector<int> const &intervals) -> sequence::Cell;
 
+[[nodiscard]] auto chord(sequence::Cell cell, std::vector<int> const &intervals,
+                         std::size_t tuning_size) -> sequence::Cell;
+
 [[nodiscard]]
 auto set_pitches(sequence::MusicElement element, sequence::Pattern const &pattern,
                  Modulator const &mod) -> sequence::MusicElement;

@@ -85,18 +85,18 @@ struct SelectedState
 };
 
 /**
- * The state of the arpeggiator held for cycling through chords.
+ * Saved baseline and chord-cycle parameters for repeatable chord transforms.
  */
-struct ArpState
+struct ChordCycleState
 {
-    // The state of the sequencer when the arpeggiator was first used in a chain.
+    // The state of the sequencer when the command was first used in a chain.
     EngineState sequencer{};
     SelectedState selected{};
 
-    // The commit ID from just before the last arp call.
+    // The commit ID from just before the last command call.
     int previous_commit_id{-1};
 
-    // parameters for the arpeggiator
+    // Parameters for the chord cycle.
     std::string previous_chord_name{""};
     int previous_inversion{-1};
 };
@@ -108,7 +108,8 @@ struct EditorSessionState
 {
     SelectedState selected{};
     InputMode input_mode = InputMode::Pitch;
-    ArpState arp_state{};
+    ChordCycleState arp_state{};
+    ChordCycleState chord_state{};
 };
 
 /**

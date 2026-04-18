@@ -75,6 +75,18 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(make_spec(
+        {"chord"}, false, "Apply chord offsets across elements in the selected cell.",
+        std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
+                                                  std::string{"\"cycle\""}),
+                        optional_arg<int>("Int", "inversion", -1)),
+        [](CommandInvocation const &, std::string chord, int inversion) {
+            return ChordAction{
+                .chord = std::move(chord),
+                .inversion = inversion,
+            };
+        }));
+
+    specs.push_back(make_spec(
         {"drums"}, false, "Switch to drum-oriented tuning.",
         std::make_tuple(optional_arg<std::size_t>("Unsigned", "octaveSize", 16),
                         optional_arg<int>("Int", "offset", 1)),

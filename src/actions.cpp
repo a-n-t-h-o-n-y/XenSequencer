@@ -418,6 +418,25 @@ auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
     });
 }
 
+auto chord(sequence::Cell cell, std::vector<int> const &intervals,
+           std::size_t tuning_size) -> sequence::Cell
+{
+    if (intervals.empty())
+    {
+        throw std::runtime_error{"Chord intervals must not be empty."};
+    }
+
+    for (auto i = std::size_t{0}; i < cell.elements.size(); ++i)
+    {
+        auto const base_interval = intervals[i % intervals.size()];
+        auto const octave_lift = (int)(i / intervals.size()) * (int)tuning_size;
+        cell.elements[i] = sequence::modify::shift_pitch(
+            std::move(cell.elements[i]), {0, {1}}, base_interval + octave_lift);
+    }
+
+    return cell;
+}
+
 auto set_pitches(sequence::MusicElement element, sequence::Pattern const &pattern,
                  Modulator const &mod) -> sequence::MusicElement
 {

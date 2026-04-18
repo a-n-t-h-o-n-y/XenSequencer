@@ -167,6 +167,7 @@ TEST_CASE("Official command catalog maps to typed actions",
         "+0 step 1 0.1",
         "drums",
         "+0 arp major 1",
+        "chord major 1",
     };
 
     for (auto const &command : samples)
@@ -507,14 +508,14 @@ TEST_CASE(
     CHECK(set_ts.time_signature.denominator == 4);
 }
 
-TEST_CASE("Command adapter maps misc and arp commands to typed actions",
+TEST_CASE("Command adapter maps misc, arp, and chord commands to typed actions",
           "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
-        "welcome; version; reset; +1 2 arp major 1");
+        "welcome; version; reset; +1 2 arp major 1; chord minor 2");
     auto const actions = to_command_actions(invocations);
 
-    REQUIRE(actions.size() == 4);
+    REQUIRE(actions.size() == 5);
     REQUIRE(std::holds_alternative<WelcomeAction>(actions[0]));
     REQUIRE(std::holds_alternative<VersionAction>(actions[1]));
     REQUIRE(std::holds_alternative<ResetAction>(actions[2]));
@@ -522,6 +523,9 @@ TEST_CASE("Command adapter maps misc and arp commands to typed actions",
     CHECK(std::get<ArpAction>(actions[3]).pattern == sequence::Pattern{1, {2}});
     CHECK(std::get<ArpAction>(actions[3]).chord == "major");
     CHECK(std::get<ArpAction>(actions[3]).inversion == 1);
+    REQUIRE(std::holds_alternative<ChordAction>(actions[4]));
+    CHECK(std::get<ChordAction>(actions[4]).chord == "minor");
+    CHECK(std::get<ChordAction>(actions[4]).inversion == 2);
 }
 
 TEST_CASE("Command adapter preserves arp defaults", "[core][command][action]")
@@ -539,6 +543,20 @@ TEST_CASE("Command adapter preserves arp defaults", "[core][command][action]")
     CHECK(std::get<ArpAction>(actions[2]).pattern == sequence::Pattern{3, {1}});
     CHECK(std::get<ArpAction>(actions[2]).chord == "major");
     CHECK(std::get<ArpAction>(actions[2]).inversion == -1);
+}
+
+TEST_CASE("Command adapter preserves chord defaults", "[core][command][action]")
+{
+    auto const invocations = parse_command_chain("chord; chord cycle; chord major");
+    auto const actions = to_command_actions(invocations);
+
+    REQUIRE(actions.size() == 3);
+    CHECK(std::get<ChordAction>(actions[0]).chord == "cycle");
+    CHECK(std::get<ChordAction>(actions[0]).inversion == -1);
+    CHECK(std::get<ChordAction>(actions[1]).chord == "cycle");
+    CHECK(std::get<ChordAction>(actions[1]).inversion == -1);
+    CHECK(std::get<ChordAction>(actions[2]).chord == "major");
+    CHECK(std::get<ChordAction>(actions[2]).inversion == -1);
 }
 
 TEST_CASE("Command adapter maps load/save/libraryDirectory commands to typed actions",
@@ -650,6 +668,118 @@ TEST_CASE("Typed randomize and transform actions execute deterministically",
     CHECK(run_action("rotate -1").status.first == MessageLevel::Info);
     CHECK(run_action("reverse").status.first == MessageLevel::Info);
     CHECK(run_action("+0 mirror 10").status.first == MessageLevel::Info);
+}
+
+TEST_CASE("Typed chord action applies chord intervals across cell elements",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    ps.library.chords = {
+        Chord{.name = "major", .intervals = {0, 4, 7}},
+        Chord{.name = "minor", .intervals = {0, 3, 7}},
+    };
+
+    auto state = ps.timeline.get_state();
+    state.sequencer.measure.cell.elements = {
+        sequence::Note{10, 0.5f, 0.1f, 0.8f},
+        sequence::Sequence{.cells = {sequence::Cell{
+            .elements = {sequence::Note{10, 0.5f, 0.1f, 0.8f}},
+            .weight = 1.f,
+        }}},
+        sequence::Note{10, 0.5f, 0.1f, 0.8f},
+        sequence::Note{10, 0.5f, 0.1f, 0.8f},
+    };
+    state.aux.arp_state.previous_chord_name = "sentinel";
+    state.aux.arp_state.previous_inversion = 7;
+    ps.timeline.stage(std::move(state));
+
+    auto context = ExecutionContext{ps.timeline.get_state().aux};
+    auto run_action = [&](std::string const &command) -> CommandActionResult {
+        auto const actions = to_command_actions(parse_command_chain(command));
+        REQUIRE(actions.size() == 1);
+        auto const result = execute_command_action(ps, context, actions.front());
+        context = result.context;
+        return result;
+    };
+
+    auto const first_result = run_action("chord major 0");
+    CHECK(first_result.status.first == MessageLevel::Info);
+    CHECK(first_result.status.second == "Chorded with major inversion: 0");
+    CHECK(first_result.engine_mutated);
+
+    auto const &after_major = ps.timeline.get_state().sequencer.measure.cell.elements;
+    REQUIRE(after_major.size() == 4);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_major[0]));
+    CHECK(std::get<sequence::Note>(after_major[0]).pitch == 10);
+    REQUIRE(std::holds_alternative<sequence::Sequence>(after_major[1]));
+    auto const &sequence = std::get<sequence::Sequence>(after_major[1]);
+    REQUIRE(sequence.cells.size() == 1);
+    REQUIRE(sequence.cells[0].elements.size() == 1);
+    REQUIRE(std::holds_alternative<sequence::Note>(sequence.cells[0].elements[0]));
+    CHECK(std::get<sequence::Note>(sequence.cells[0].elements[0]).pitch == 14);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_major[2]));
+    CHECK(std::get<sequence::Note>(after_major[2]).pitch == 17);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_major[3]));
+    CHECK(std::get<sequence::Note>(after_major[3]).pitch == 22);
+
+    auto const repeat_result = run_action("chord");
+    CHECK(repeat_result.status.first == MessageLevel::Info);
+    CHECK(repeat_result.status.second == "Chorded with major inversion: 1");
+
+    auto const &after_repeat = ps.timeline.get_state().sequencer.measure.cell.elements;
+    REQUIRE(std::holds_alternative<sequence::Note>(after_repeat[0]));
+    CHECK(std::get<sequence::Note>(after_repeat[0]).pitch == 14);
+    REQUIRE(std::holds_alternative<sequence::Sequence>(after_repeat[1]));
+    auto const &repeated_sequence = std::get<sequence::Sequence>(after_repeat[1]);
+    REQUIRE(repeated_sequence.cells[0].elements.size() == 1);
+    CHECK(std::get<sequence::Note>(repeated_sequence.cells[0].elements[0]).pitch == 17);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_repeat[2]));
+    CHECK(std::get<sequence::Note>(after_repeat[2]).pitch == 22);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_repeat[3]));
+    CHECK(std::get<sequence::Note>(after_repeat[3]).pitch == 26);
+
+    auto const cycle_result = run_action("chord cycle 0");
+    CHECK(cycle_result.status.first == MessageLevel::Info);
+    CHECK(cycle_result.status.second == "Chorded with minor inversion: 0");
+
+    auto const &after_cycle = ps.timeline.get_state().sequencer.measure.cell.elements;
+    REQUIRE(std::holds_alternative<sequence::Note>(after_cycle[0]));
+    CHECK(std::get<sequence::Note>(after_cycle[0]).pitch == 10);
+    REQUIRE(std::holds_alternative<sequence::Sequence>(after_cycle[1]));
+    auto const &cycled_sequence = std::get<sequence::Sequence>(after_cycle[1]);
+    REQUIRE(cycled_sequence.cells[0].elements.size() == 1);
+    CHECK(std::get<sequence::Note>(cycled_sequence.cells[0].elements[0]).pitch == 13);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_cycle[2]));
+    CHECK(std::get<sequence::Note>(after_cycle[2]).pitch == 17);
+    REQUIRE(std::holds_alternative<sequence::Note>(after_cycle[3]));
+    CHECK(std::get<sequence::Note>(after_cycle[3]).pitch == 22);
+
+    auto const &aux = ps.timeline.get_state().aux;
+    CHECK(aux.arp_state.previous_chord_name == "sentinel");
+    CHECK(aux.arp_state.previous_inversion == 7);
+    CHECK(aux.chord_state.previous_chord_name == "minor");
+    CHECK(aux.chord_state.previous_inversion == 0);
+}
+
+TEST_CASE("Typed chord action requires a whole-cell selection",
+          "[core][command][action]")
+{
+    auto ps = make_plugin_state();
+    ps.library.chords = {
+        Chord{.name = "major", .intervals = {0, 4, 7}},
+    };
+
+    auto state = ps.timeline.get_state();
+    state.sequencer.measure.cell.elements = {
+        sequence::Note{10, 0.5f, 0.1f, 0.8f},
+        sequence::Note{10, 0.5f, 0.1f, 0.8f},
+    };
+    state.aux.selected = select_element_in_cell({}, 0);
+    ps.timeline.stage(std::move(state));
+
+    auto const context = ExecutionContext{ps.timeline.get_state().aux};
+    auto const action = to_command_actions(parse_command_chain("chord major 0"))[0];
+    CHECK_THROWS_AS(execute_command_action(ps, context, action), std::runtime_error);
 }
 
 TEST_CASE("Typed note and delete actions update selected cell",

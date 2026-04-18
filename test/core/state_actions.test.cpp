@@ -60,6 +60,8 @@ TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]"
     editor.input_mode = InputMode::Gate;
     editor.arp_state.previous_chord_name = "major";
     editor.arp_state.previous_inversion = 2;
+    editor.chord_state.previous_chord_name = "minor";
+    editor.chord_state.previous_inversion = 1;
 
     auto const context = ExecutionContext{editor};
     CHECK(context.selected == editor.selected);
@@ -70,6 +72,13 @@ TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]"
     CHECK(context.arp_state.previous_chord_name ==
           editor.arp_state.previous_chord_name);
     CHECK(context.arp_state.previous_inversion == editor.arp_state.previous_inversion);
+    CHECK(context.chord_state.selected == editor.chord_state.selected);
+    CHECK(context.chord_state.previous_commit_id ==
+          editor.chord_state.previous_commit_id);
+    CHECK(context.chord_state.previous_chord_name ==
+          editor.chord_state.previous_chord_name);
+    CHECK(context.chord_state.previous_inversion ==
+          editor.chord_state.previous_inversion);
 
     auto const applied = EditorSessionState{context};
     CHECK(applied.selected == editor.selected);
@@ -80,6 +89,13 @@ TEST_CASE("ExecutionContext round-trips editor session state", "[core][actions]"
     CHECK(applied.arp_state.previous_chord_name ==
           editor.arp_state.previous_chord_name);
     CHECK(applied.arp_state.previous_inversion == editor.arp_state.previous_inversion);
+    CHECK(applied.chord_state.selected == editor.chord_state.selected);
+    CHECK(applied.chord_state.previous_commit_id ==
+          editor.chord_state.previous_commit_id);
+    CHECK(applied.chord_state.previous_chord_name ==
+          editor.chord_state.previous_chord_name);
+    CHECK(applied.chord_state.previous_inversion ==
+          editor.chord_state.previous_inversion);
 }
 
 TEST_CASE("Move up changes selection path and clears nested cell selection",

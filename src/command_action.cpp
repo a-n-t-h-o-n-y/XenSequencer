@@ -4,6 +4,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -26,6 +27,43 @@ namespace
 
 template <class>
 inline constexpr bool always_false_v = false;
+
+auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycle_state,
+                         std::string chord_name, int inversion)
+    -> std::pair<std::string, int>
+{
+    if (chord_name == "cycle" && inversion != -1)
+    {
+        chord_name = find_next_chord(chords, cycle_state.previous_chord_name).name;
+        auto const chord = find_chord(chords, chord_name);
+        inversion = std::min(inversion, (int)chord.intervals.size() - 1);
+    }
+    else if (chord_name != "cycle" && inversion == -1)
+    {
+        auto const chord = find_chord(chords, chord_name);
+        inversion = increment_inversion(chord, cycle_state.previous_inversion);
+    }
+    else if (chord_name == "cycle" && inversion == -1)
+    {
+        chord_name = cycle_state.previous_chord_name;
+        if (chord_name.empty())
+        {
+            inversion = 0;
+        }
+        else
+        {
+            auto const chord = find_chord(chords, chord_name);
+            inversion = increment_inversion(chord, cycle_state.previous_inversion);
+        }
+
+        if (inversion == 0)
+        {
+            chord_name = find_next_chord(chords, chord_name).name;
+        }
+    }
+
+    return {std::move(chord_name), inversion};
+}
 
 } // namespace
 
@@ -1019,42 +1057,9 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                     state.aux.arp_state.selected = state.aux.selected;
                 }
 
-                if (chord_name == "cycle" && inversion != -1)
-                {
-                    chord_name = find_next_chord(
-                                     ps.library.chords,
-                                     state.aux.arp_state.previous_chord_name)
-                                     .name;
-                    auto const chord = find_chord(ps.library.chords, chord_name);
-                    inversion =
-                        std::min(inversion, (int)chord.intervals.size() - 1);
-                }
-                else if (chord_name != "cycle" && inversion == -1)
-                {
-                    auto const chord = find_chord(ps.library.chords, chord_name);
-                    inversion = increment_inversion(
-                        chord, state.aux.arp_state.previous_inversion);
-                }
-                else if (chord_name == "cycle" && inversion == -1)
-                {
-                    chord_name = state.aux.arp_state.previous_chord_name;
-                    if (chord_name.empty())
-                    {
-                        inversion = 0;
-                    }
-                    else
-                    {
-                        auto const chord = find_chord(ps.library.chords, chord_name);
-                        inversion = increment_inversion(
-                            chord, state.aux.arp_state.previous_inversion);
-                    }
-
-                    if (inversion == 0)
-                    {
-                        chord_name =
-                            find_next_chord(ps.library.chords, chord_name).name;
-                    }
-                }
+                std::tie(chord_name, inversion) = resolve_chord_cycle(
+                    ps.library.chords, state.aux.arp_state, std::move(chord_name),
+                    inversion);
 
                 state.aux.arp_state.previous_chord_name = chord_name;
                 state.aux.arp_state.previous_inversion = inversion;
@@ -1077,6 +1082,52 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
 
                 ps.timeline.stage(std::move(state));
                 return minfo("Arpeggiated with " + chord_name +
+                             " inversion: " + std::to_string(inversion));
+            }
+            else if constexpr (std::is_same_v<ActionType, ChordAction>)
+            {
+                auto state = ps.timeline.get_state();
+                state.aux = context;
+
+                auto chord_name = typed_action.chord;
+                auto inversion = typed_action.inversion;
+
+                bool const starting_new_chain =
+                    state.aux.selected != state.aux.chord_state.selected ||
+                    state.aux.chord_state.previous_commit_id !=
+                        ps.timeline.get_current_commit_id();
+
+                if (starting_new_chain)
+                {
+                    state.aux.chord_state.sequencer = state.sequencer;
+                    state.aux.chord_state.selected = state.aux.selected;
+                }
+
+                std::tie(chord_name, inversion) = resolve_chord_cycle(
+                    ps.library.chords, state.aux.chord_state, std::move(chord_name),
+                    inversion);
+
+                state.aux.chord_state.previous_chord_name = chord_name;
+                state.aux.chord_state.previous_inversion = inversion;
+                state.aux.chord_state.previous_commit_id =
+                    ps.timeline.get_next_commit_id();
+
+                state.sequencer = state.aux.chord_state.sequencer;
+                state.aux.selected = state.aux.chord_state.selected;
+
+                auto const chord = find_chord(ps.library.chords, chord_name);
+                auto const tuning_size = state.sequencer.tuning.intervals.size();
+                auto const intervals = invert_chord(chord, inversion, tuning_size);
+                state = increment_state(
+                    std::move(state),
+                    [](sequence::Cell cell, std::vector<int> const &intervals,
+                       std::size_t tuning_size) {
+                        return action::chord(std::move(cell), intervals, tuning_size);
+                    },
+                    intervals, tuning_size);
+
+                ps.timeline.stage(std::move(state));
+                return minfo("Chorded with " + chord_name +
                              " inversion: " + std::to_string(inversion));
             }
             else
