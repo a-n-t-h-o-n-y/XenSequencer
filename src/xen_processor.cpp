@@ -126,15 +126,15 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }
 
-    if (pending_engine_state_update.try_consume_latest(
-            audio_thread_state_.sequencer, audio_last_engine_version_))
+    if (auto const snapshot = pending_engine_state_update.try_consume_latest())
     {
+        audio_thread_state_.sequencer = &snapshot->state();
         update_needed = true;
     }
 
-    if (update_needed)
+    if (update_needed && audio_thread_state_.sequencer != nullptr)
     {
-        audio_thread_state_.midi_engine.update(audio_thread_state_.sequencer,
+        audio_thread_state_.midi_engine.update(*audio_thread_state_.sequencer,
                                                audio_thread_state_.daw);
     }
 

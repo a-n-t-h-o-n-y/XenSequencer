@@ -87,13 +87,12 @@ class XenProcessor : public juce::AudioProcessor
     struct AudioThreadState
     {
         DAWState daw;
-        EngineState sequencer{};
+        EngineState const *sequencer{};
         MidiEngine midi_engine;
     } audio_thread_state_;
 
     int previous_commit_id_{-1};
     std::vector<CommandAction> previous_action_chain_{};
-    std::uint64_t audio_last_engine_version_{0};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
 
   private:

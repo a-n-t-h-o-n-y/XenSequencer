@@ -1,8 +1,11 @@
 #pragma once
 
+#include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <optional>
+#include <stdexcept>
 
 #include <xen/state.hpp>
 
@@ -12,18 +15,81 @@ namespace xen
 /**
  * Single-producer/single-consumer mailbox for latest EngineState snapshots.
  *
- * Producer thread publishes immutable snapshots. Consumer thread only reads the latest
- * coherent snapshot and can skip intermediate updates.
+ * Publishing copies into a producer-owned slot and may allocate for dynamic state.
+ * Consuming only exchanges slot ownership and returns a view into the consumer-owned
+ * slot. Intermediate publications may be skipped.
  */
 class EngineStateMailbox
 {
+  private:
+    using ControlWord = std::uint8_t;
+
+    static constexpr auto DIRTY_MASK = ControlWord{0x04};
+    static constexpr auto INDEX_MASK = ControlWord{0x03};
+
+    static_assert(std::atomic<ControlWord>::is_always_lock_free,
+                  "EngineStateMailbox control word must always be lock-free");
+
+    struct Snapshot
+    {
+        EngineState state{};
+        std::uint64_t version{0};
+    };
+
   public:
+    static constexpr bool control_is_always_lock_free =
+        std::atomic<ControlWord>::is_always_lock_free;
+
+    class ReadView
+    {
+      public:
+        [[nodiscard]] auto state() const noexcept -> EngineState const &
+        {
+            return snapshot_->state;
+        }
+
+        [[nodiscard]] auto version() const noexcept -> std::uint64_t
+        {
+            return snapshot_->version;
+        }
+
+      private:
+        friend class EngineStateMailbox;
+
+        explicit ReadView(Snapshot const *snapshot) noexcept : snapshot_{snapshot}
+        {
+        }
+
+        Snapshot const *snapshot_;
+    };
+
     void publish(EngineState const &state)
     {
-        auto snapshot = std::make_shared<EngineState const>(state);
-        std::atomic_store_explicit(&latest_, std::move(snapshot),
-                                   std::memory_order_release);
-        version_.fetch_add(1, std::memory_order_release);
+        if (producer_active_.test_and_set(std::memory_order_acquire))
+        {
+            throw std::logic_error{
+                "EngineStateMailbox::publish() called concurrently"};
+        }
+
+        struct ProducerGuard
+        {
+            std::atomic_flag &active;
+
+            ~ProducerGuard()
+            {
+                active.clear(std::memory_order_release);
+            }
+        } guard{producer_active_};
+
+        auto const next_version = version_.load(std::memory_order_relaxed) + 1;
+        auto &snapshot = snapshots_[producer_slot_];
+        snapshot.state = state;
+        snapshot.version = next_version;
+
+        auto const previous_control = control_.exchange(
+            encode(producer_slot_, true), std::memory_order_acq_rel);
+        producer_slot_ = decode_index(previous_control);
+        version_.store(next_version, std::memory_order_release);
     }
 
     [[nodiscard]] auto version() const noexcept -> std::uint64_t
@@ -32,43 +98,50 @@ class EngineStateMailbox
     }
 
     /**
-     * Try consuming the most recent snapshot if it is newer than `last_seen_version`.
+     * Consume the latest published snapshot, if one is pending.
      *
-     * Returns true when `out` has been updated.
+     * The returned view remains valid and unchanged until this consumer's next
+     * successful call.
      */
-    auto try_consume_latest(EngineState &out,
-                            std::uint64_t &last_seen_version) const -> bool
+    [[nodiscard]] auto try_consume_latest() noexcept -> std::optional<ReadView>
     {
-        for (auto i = 0; i < 4; ++i)
+        auto const observed = control_.load(std::memory_order_acquire);
+        if (!is_dirty(observed))
         {
-            auto const begin_version = version_.load(std::memory_order_acquire);
-            if (begin_version == 0 || begin_version == last_seen_version)
-            {
-                return false;
-            }
-
-            auto ptr = std::atomic_load_explicit(&latest_, std::memory_order_acquire);
-            auto const end_version = version_.load(std::memory_order_acquire);
-            if (begin_version != end_version)
-            {
-                continue;
-            }
-
-            if (!ptr)
-            {
-                return false;
-            }
-
-            out = *ptr;
-            last_seen_version = end_version;
-            return true;
+            return std::nullopt;
         }
 
-        return false;
+        auto const previous_control =
+            control_.exchange(encode(consumer_slot_, false),
+                              std::memory_order_acq_rel);
+        consumer_slot_ = decode_index(previous_control);
+        return ReadView{&snapshots_[consumer_slot_]};
     }
 
   private:
-    mutable std::shared_ptr<EngineState const> latest_{};
+    [[nodiscard]] static constexpr auto encode(std::size_t index,
+                                               bool dirty) noexcept -> ControlWord
+    {
+        return static_cast<ControlWord>(
+            static_cast<ControlWord>(index) | (dirty ? DIRTY_MASK : 0));
+    }
+
+    [[nodiscard]] static constexpr auto decode_index(ControlWord control) noexcept
+        -> std::size_t
+    {
+        return static_cast<std::size_t>(control & INDEX_MASK);
+    }
+
+    [[nodiscard]] static constexpr auto is_dirty(ControlWord control) noexcept -> bool
+    {
+        return (control & DIRTY_MASK) != 0;
+    }
+
+    std::array<Snapshot, 3> snapshots_{};
+    std::size_t producer_slot_{1};
+    std::size_t consumer_slot_{0};
+    alignas(64) std::atomic<ControlWord> control_{encode(2, false)};
+    alignas(64) std::atomic_flag producer_active_ = ATOMIC_FLAG_INIT;
     std::atomic<std::uint64_t> version_{0};
 };
 
