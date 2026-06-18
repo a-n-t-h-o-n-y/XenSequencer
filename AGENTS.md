@@ -19,6 +19,15 @@
 
 - Do not run builds, tests, or other compile commands unless the user explicitly asks for them.
 - If build, test, or executable-run verification would be useful, list the exact commands at the end of the final message so the user can run them manually.
+- Use the canonical dev build directory unless the user asks otherwise:
+  - Configure: `./configure.sh`
+  - Build: `cmake --build build`
+  - Test: `ctest --test-dir build`
+- Use the release build only when the user asks for a release/plugin build:
+  - Configure: `./configure.sh release`
+  - Build: `cmake --build build-release --target XenSequencer_VST3`
+- Local compiler or path customizations should be passed as CMake/env overrides, for example `CC=clang CXX=clang++ ./configure.sh` or `./configure.sh -DNAME=VALUE`.
+- Do not create alternate build directories unless explicitly needed.
 - Do not pass explicit `-j` options to ninja/cmake build commands.
 
 ## C++ Style (Beyond clang-format)

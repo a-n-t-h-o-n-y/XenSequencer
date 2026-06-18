@@ -16,19 +16,43 @@
 - A C++20 Compiler
 - CMake
 - Git
+- Ninja
 
-### Build
+### Development Build
 ```bash
 git clone https://github.com/a-n-t-h-o-n-y/XenSequencer.git
 cd XenSequencer
 git submodule update --init --recursive
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --target XenSequencer_VST3
+./configure.sh
+cmake --build build
+ctest --test-dir build
+```
+
+The development build uses `build/`, `Debug`, and the frontend dev server by default.
+
+### Release VST Build
+Build the frontend first so `../xen-frontend/dist/index.html` exists, then run:
+
+```bash
+./configure.sh release
+cmake --build build-release --target XenSequencer_VST3
+```
+
+To use a different frontend dist directory:
+
+```bash
+./configure.sh release -DXEN_WEB_UI_DIST_DIR=/path/to/xen-frontend/dist
+```
+
+Compiler overrides can be passed through the environment or as CMake cache values:
+
+```bash
+CC=clang CXX=clang++ ./configure.sh
+./configure.sh -DCMAKE_C_COMPILER=/path/to/clang -DCMAKE_CXX_COMPILER=/path/to/clang++
 ```
 
 ## Installation
-Move the XenSequencer VST to your system's VST3 folder. If building from source, the VST can be found in `XenSequencer/build/XenSequencer_artefacts/Release/VST3/`.
+Move the XenSequencer VST to your system's VST3 folder. If building from source, the release VST can be found in `XenSequencer/build-release/XenSequencer_artefacts/Release/VST3/`.
 
 ## License
 This project is licensed under the AGLPv3 License - see the [LICENSE](LICENSE) file for details.

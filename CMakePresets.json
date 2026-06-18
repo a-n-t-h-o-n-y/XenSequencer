@@ -1,0 +1,56 @@
+{
+  "version": 5,
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Dev",
+      "description": "Debug build using the frontend dev server.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "XEN_WEB_UI_MODE": "DEV_SERVER",
+        "XEN_BUILD_TESTS": "ON",
+        "XEN_BUILD_AUDIO_PLUGIN_HOST": "ON",
+        "XEN_BUILD_TOOLS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Release VST build using embedded frontend assets.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "XEN_WEB_UI_MODE": "EMBEDDED",
+        "XEN_WEB_UI_DIST_DIR": "${sourceDir}/../xen-frontend/dist",
+        "XEN_BUILD_TESTS": "OFF",
+        "XEN_BUILD_AUDIO_PLUGIN_HOST": "OFF",
+        "XEN_BUILD_TOOLS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "targets": [
+        "XenSequencer_VST3"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

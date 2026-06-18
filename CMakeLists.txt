@@ -198,6 +198,7 @@ set(XEN_CORE_SOURCES
     src/copy_paste.cpp
     src/guide_text.cpp
     src/input_mode.cpp
+    src/key_core.cpp
     src/message_level.cpp
     src/midi.cpp
     src/midi_engine.cpp
@@ -214,7 +215,6 @@ set(XEN_CORE_SOURCES
 )
 
 set(XEN_UI_SOURCES
-    src/key_core.cpp
     src/xen_editor.cpp
     src/gui/webview_host.cpp
 )
@@ -252,7 +252,7 @@ target_link_libraries(XenCore
         EmbedChords
         EmbedDemos
 )
-xen_apply_compile_settings(XenCore PRIVATE)
+xen_apply_compile_settings(XenCore PUBLIC)
 
 add_library(XenUI STATIC ${XEN_UI_SOURCES})
 target_include_directories(XenUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -264,6 +264,10 @@ target_link_libraries(XenUI
         juce::juce_gui_basics
         juce::juce_gui_extra
 )
+
+if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
+    target_link_libraries(XenUI PUBLIC juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+endif()
 
 if (TARGET EmbedWebUI)
     target_link_libraries(XenUI PUBLIC EmbedWebUI)
@@ -343,6 +347,11 @@ if (XEN_BUILD_TESTS)
                 XenSequencer
                 Catch2::Catch2WithMain
         )
+
+        if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR
+            (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
+            juce_link_with_embedded_linux_subprocess(XenTests)
+        endif()
 
         add_test(NAME XenTests COMMAND $<TARGET_FILE:XenTests>)
     else()
