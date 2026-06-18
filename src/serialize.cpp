@@ -1,6 +1,7 @@
 #include <xen/serialize.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -194,8 +195,26 @@ static void from_json(nlohmann::json const &j, Scale &scale)
 {
     scale.name = j.at("name").get<std::string>();
     scale.tuning_length = j.at("tuning_length").get<std::size_t>();
-    scale.intervals = j.at("intervals").get<std::vector<std::uint8_t>>();
-    scale.mode = j.at("mode").get<std::uint8_t>();
+    auto const intervals = j.at("intervals").get<std::vector<unsigned>>();
+    scale.intervals.clear();
+    scale.intervals.reserve(intervals.size());
+    for (auto const interval : intervals)
+    {
+        if (interval == 0 ||
+            interval > std::numeric_limits<std::uint8_t>::max())
+        {
+            throw std::invalid_argument{
+                "Scale intervals must be in the range [1, 255]."};
+        }
+        scale.intervals.push_back(static_cast<std::uint8_t>(interval));
+    }
+    auto const mode = j.at("mode").get<unsigned>();
+    if (mode > std::numeric_limits<std::uint8_t>::max())
+    {
+        throw std::invalid_argument{"Scale mode is out of range."};
+    }
+    scale.mode = static_cast<std::uint8_t>(mode);
+    validate_scale(scale);
 }
 
 static void to_json(nlohmann::json &j, EngineState const &state)

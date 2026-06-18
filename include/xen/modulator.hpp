@@ -137,6 +137,8 @@ namespace xen
  * @param mod The modulator to evaluate.
  * @param t The time/input value.
  * @return The modulated output value.
+ * @throws std::invalid_argument if a waveform generator receives non-finite input.
+ * @throws std::overflow_error if waveform phase calculation overflows.
  */
 [[nodiscard]]
 auto evaluate(Modulator const &mod, float t) -> float;

@@ -67,9 +67,23 @@ auto const sawtooth_down_table = []() {
 auto sample_table(std::array<float, TABLE_SIZE> const &table, float frequency,
                   float amplitude, float phase, float t) -> float
 {
+    if (!std::isfinite(frequency) || !std::isfinite(amplitude) ||
+        !std::isfinite(phase) || !std::isfinite(t))
+    {
+        throw std::invalid_argument{"Wavetable inputs must be finite."};
+    }
     auto const position_raw = t * frequency + phase;
+    if (!std::isfinite(position_raw))
+    {
+        throw std::overflow_error{"Wavetable position must be finite."};
+    }
     auto const position = position_raw - std::floor(position_raw);
     auto const scaled_position = position * static_cast<float>(TABLE_SIZE);
+    if (!std::isfinite(scaled_position) || scaled_position < 0.f ||
+        scaled_position >= static_cast<float>(TABLE_SIZE))
+    {
+        throw std::overflow_error{"Wavetable position is out of range."};
+    }
     auto const index = static_cast<std::size_t>(scaled_position);
     auto const frac = scaled_position - static_cast<float>(index);
     auto const index0 = index % TABLE_SIZE;
@@ -93,8 +107,19 @@ auto sample_table(std::array<float, TABLE_SIZE> const &table, float frequency,
 auto square_wave(float frequency, float amplitude, float phase, float pulse_width,
                  float t) -> float
 {
+    if (!std::isfinite(frequency) || !std::isfinite(amplitude) ||
+        !std::isfinite(phase) || !std::isfinite(pulse_width) ||
+        !std::isfinite(t))
+    {
+        throw std::invalid_argument{"Square wave inputs must be finite."};
+    }
     auto const normalized_phase = std::fmod(std::fmod(phase, 1.f) + 1.f, 1.f);
-    auto const x = std::fmod(t * frequency + normalized_phase, 1.f);
+    auto const position = t * frequency + normalized_phase;
+    if (!std::isfinite(position))
+    {
+        throw std::overflow_error{"Square wave position must be finite."};
+    }
+    auto const x = std::fmod(position, 1.f);
     auto const square = (x < pulse_width) ? 1.f : -1.f;
     return amplitude * square;
 }

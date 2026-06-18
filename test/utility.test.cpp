@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <limits>
+
 #include <xen/utility.hpp>
 
 TEST_CASE("normalize_pitch", "[utility]")
@@ -23,6 +25,16 @@ TEST_CASE("normalize_pitch", "[utility]")
     CHECK(xen::utility::normalize_pitch(-23, 12) == 1);
     CHECK(xen::utility::normalize_pitch(-24, 12) == 0);
     CHECK(xen::utility::normalize_pitch(-25, 12) == 11);
+
+    CHECK_THROWS_AS(xen::utility::normalize_pitch(0, 0),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::utility::normalize_pitch(
+            0, static_cast<std::size_t>(std::numeric_limits<int>::max()) + 1),
+        std::invalid_argument);
+    CHECK(xen::utility::normalize_pitch(std::numeric_limits<int>::min(),
+                                       std::numeric_limits<int>::max()) ==
+          static_cast<std::size_t>(std::numeric_limits<int>::max() - 1));
 }
 
 TEST_CASE("get_octave", "[utility]")
@@ -42,4 +54,12 @@ TEST_CASE("get_octave", "[utility]")
     CHECK(xen::utility::get_octave(-23, 12) == -2);
     CHECK(xen::utility::get_octave(-24, 12) == -2);
     CHECK(xen::utility::get_octave(-25, 12) == -3);
+
+    CHECK_THROWS_AS(xen::utility::get_octave(0, 0), std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::utility::get_octave(
+            0, static_cast<std::size_t>(std::numeric_limits<int>::max()) + 1),
+        std::invalid_argument);
+    CHECK(xen::utility::get_octave(std::numeric_limits<int>::min(),
+                                  std::numeric_limits<int>::max()) == -2);
 }

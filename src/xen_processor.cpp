@@ -1,10 +1,12 @@
 #include <xen/xen_processor.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,6 +24,47 @@
 #include <xen/utility.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/xen_editor.hpp>
+
+namespace
+{
+
+[[nodiscard]] auto valid_bpm(double value) -> bool
+{
+    return std::isfinite(value) &&
+           value >= static_cast<double>(std::numeric_limits<float>::denorm_min()) &&
+           value <= static_cast<double>(std::numeric_limits<float>::max());
+}
+
+[[nodiscard]] auto valid_sample_rate(double value) -> bool
+{
+    return std::isfinite(value) && value >= 1.0 &&
+           value <=
+               static_cast<double>(std::numeric_limits<std::uint32_t>::max());
+}
+
+[[nodiscard]] auto ppq_to_samples(double ppq, float bpm,
+                                  std::uint32_t sample_rate)
+    -> xen::SampleIndex
+{
+    if (!std::isfinite(ppq) || ppq < 0.0)
+    {
+        return 0;
+    }
+
+    auto const samples =
+        static_cast<long double>(ppq) * 60.0L /
+        static_cast<long double>(bpm) * static_cast<long double>(sample_rate);
+    if (!std::isfinite(samples) || samples < 0.0L ||
+        samples >
+            static_cast<long double>(
+                std::numeric_limits<xen::SampleIndex>::max()))
+    {
+        return 0;
+    }
+    return static_cast<xen::SampleIndex>(samples);
+}
+
+} // namespace
 
 namespace xen
 {
@@ -79,18 +122,21 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             {
                 if (auto const bpm_opt = position->getBpm(); bpm_opt)
                 {
-                    bpm = static_cast<float>(*bpm_opt);
+                    if (valid_bpm(*bpm_opt))
+                    {
+                        bpm = static_cast<float>(*bpm_opt);
+                    }
                 }
                 is_playing = position->getIsPlaying();
             }
         }
 
-        auto sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-        if (sample_rate == 0)
+        auto sample_rate = audio_thread_state_.daw.sample_rate > 0
+                               ? audio_thread_state_.daw.sample_rate
+                               : std::uint32_t{44'100};
+        if (valid_sample_rate(this->getSampleRate()))
         {
-            sample_rate = audio_thread_state_.daw.sample_rate > 0
-                              ? audio_thread_state_.daw.sample_rate
-                              : 44'100;
+            sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
         }
 
         update_needed = !utility::compare_within_tolerance(audio_thread_state_.daw.bpm,
@@ -106,15 +152,17 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 if (auto const samples_opt = position->getTimeInSamples();
                     samples_opt.hasValue())
                 {
-                    transport_offset =
-                        (SampleIndex)std::max<std::int64_t>(*samples_opt, 0);
+                    if (*samples_opt >= 0)
+                    {
+                        transport_offset =
+                            static_cast<SampleIndex>(*samples_opt);
+                    }
                 }
                 else if (auto const ppq_opt = position->getPpqPosition();
                          ppq_opt.hasValue() && bpm > 0.f && sample_rate > 0)
                 {
-                    auto const samples =
-                        *ppq_opt * (60.0 / (double)bpm) * (double)sample_rate;
-                    transport_offset = (SampleIndex)std::max<double>(samples, 0.0);
+                    transport_offset =
+                        ppq_to_samples(*ppq_opt, bpm, sample_rate);
                 }
             }
         }
@@ -139,9 +187,11 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     }
 
     // Calculate MIDI buffer slice
+    auto const block_size = buffer.getNumSamples();
+    auto const sample_count =
+        block_size >= 0 ? static_cast<SampleCount>(block_size) : SampleCount{0};
     auto next_slice = audio_thread_state_.midi_engine.step(
-        midi_buffer, transport_offset,
-        (SampleCount)buffer.getNumSamples(), audio_thread_state_.daw);
+        midi_buffer, transport_offset, sample_count, audio_thread_state_.daw);
 
     midi_buffer.swapWith(next_slice);
 

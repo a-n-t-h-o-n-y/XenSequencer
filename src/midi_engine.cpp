@@ -1,6 +1,8 @@
 #include <xen/midi_engine.hpp>
 
 #include <algorithm>
+#include <limits>
+#include <stdexcept>
 #include <tuple>
 #include <utility>
 
@@ -232,14 +234,20 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
                        offset);
     reconcile_live_voices(out_buffer, active_live_voices_, desired_start_live);
 
+    if (length > std::numeric_limits<SampleIndex>::max() - offset)
+    {
+        throw std::overflow_error{"MIDI processing window exceeds uint64."};
+    }
+    auto const window_end = offset + length;
+
     auto const looped =
         extract_window(rendered_midi_.midi, rendered_midi_.sample_count, offset,
-                       offset + length);
+                       window_end);
     out_buffer.addEvents(looped, 0, -1, 0);
 
     auto desired_end_live =
         live_voices_at(rendered_midi_.assigned_notes, rendered_midi_.sample_count,
-                       offset + length);
+                       window_end);
     auto const desired_end_live_sorted =
         normalize_live_voice_continuations(std::move(desired_end_live));
     auto active_live_voices_sorted =
@@ -289,9 +297,8 @@ void MidiEngine::update(EngineState const &sequencer, DAWState const &daw)
     rendered_midi_ = {
         .midi = midi_internal::render_assigned_notes(assigned_notes),
         .assigned_notes = std::move(assigned_notes),
-        .sample_count =
-            sequence::samples_count(sequencer.measure.time_signature,
-                                    daw.sample_rate, daw.bpm),
+        .sample_count = midi_internal::checked_measure_sample_count(
+            sequencer.measure.time_signature, daw.sample_rate, daw.bpm),
     };
 }
 

@@ -25,6 +25,15 @@ struct Scale
 };
 
 /**
+ * Validate the invariants required for scale mapping.
+ *
+ * @throws std::invalid_argument if tuning_length is zero or not representable as int,
+ * intervals has fewer than 1 or more than 255 entries, an interval is zero, or mode
+ * is outside [1, intervals.size()].
+ */
+void validate_scale(Scale const &scale);
+
+/**
  * Loads in Scales from library directory's scales.yml and user_scales.yml files.
  */
 [[nodiscard]] auto load_scales_from_files() -> std::vector<Scale>;
@@ -46,6 +55,8 @@ enum class TranslateDirection
  * nearest neighbor pitch that is valid, or unchanged if already valid.
  *
  * @param direction The tiebreak direction if nearest neightbor is a tie.
+ * @throws std::invalid_argument if valid_pitches is empty or tuning_length is invalid.
+ * @throws std::overflow_error if the mapped pitch is not representable as int.
  */
 [[nodiscard]] auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
                                       std::size_t tuning_length,

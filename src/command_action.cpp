@@ -1,6 +1,7 @@
 #include <xen/command_action.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -20,6 +21,9 @@
 #include <xen/selection.hpp>
 #include <xen/string_manip.hpp>
 
+#include "actions_internal.hpp"
+#include "numeric.hpp"
+
 namespace xen
 {
 namespace
@@ -27,6 +31,20 @@ namespace
 
 template <class>
 inline constexpr bool always_false_v = false;
+
+[[nodiscard]] auto exceeds_max_measure_length(
+    sequence::TimeSignature const &time_signature) -> bool
+{
+    if (time_signature.denominator == 0)
+    {
+        return true;
+    }
+    auto const quotient =
+        time_signature.numerator / time_signature.denominator;
+    auto const remainder =
+        time_signature.numerator % time_signature.denominator;
+    return quotient > 64 || (quotient == 64 && remainder != 0);
+}
 
 auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycle_state,
                          std::string chord_name, int inversion)
@@ -36,7 +54,13 @@ auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycl
     {
         chord_name = find_next_chord(chords, cycle_state.previous_chord_name).name;
         auto const chord = find_chord(chords, chord_name);
-        inversion = std::min(inversion, (int)chord.intervals.size() - 1);
+        if (chord.intervals.empty())
+        {
+            throw std::invalid_argument{"Chord intervals must not be empty."};
+        }
+        auto const last_inversion = numeric::checked_cast<int>(
+            chord.intervals.size() - 1, "Chord interval count exceeds int.");
+        inversion = std::min(inversion, last_inversion);
     }
     else if (chord_name != "cycle" && inversion == -1)
     {
@@ -163,9 +187,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 {
                     return merror("Invalid TimeSignature");
                 }
-                if ((float)typed_action.time_signature.numerator /
-                        (float)typed_action.time_signature.denominator >
-                    64.f)
+                if (exceeds_max_measure_length(typed_action.time_signature))
                 {
                     return merror(
                         "TimeSignature Too Large, Max length is 64 Whole Notes.");
@@ -589,6 +611,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                     [](Scale const &scale) { return scale.name; });
                 if (at != std::end(ps.library.scales))
                 {
+                    validate_scale(*at);
                     state.sequencer.scale = *at;
                     ps.timeline.stage(std::move(state));
                     return minfo("Scale Set to " + scale_name + ".");
@@ -611,7 +634,8 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 }
 
                 state.sequencer.scale->mode =
-                    (std::uint8_t)typed_action.mode_index;
+                    static_cast<std::uint8_t>(typed_action.mode_index);
+                validate_scale(*state.sequencer.scale);
                 ps.timeline.stage(std::move(state));
                 return minfo("Scale Mode Set");
             }
@@ -646,7 +670,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 state = increment_state(
                     std::move(state),
                     [](auto target, sequence::Pattern const &pattern, int amount) {
-                        return sequence::modify::shift_pitch(target, pattern, amount);
+                        return action::shift_pitch(std::move(target), pattern, amount);
                     },
                     typed_action.pattern, typed_action.amount);
                 ps.timeline.stage(std::move(state));
@@ -809,18 +833,20 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 auto state = ps.timeline.get_state();
                 state.aux = context;
                 auto &ts = state.sequencer.measure.time_signature;
-                ts.numerator *= 2;
-
-                if ((float)ts.numerator / (float)ts.denominator > 64.f)
+                if (ts.numerator >
+                    std::numeric_limits<decltype(ts.numerator)>::max() / 2)
+                {
+                    return merror("Cannot Double the TimeSignature.");
+                }
+                auto const doubled = ts.numerator * 2;
+                auto const candidate =
+                    sequence::TimeSignature{doubled, ts.denominator};
+                if (exceeds_max_measure_length(candidate))
                 {
                     return merror(
                         "TimeSignature Too Large, Max length is 64 Whole Notes.");
                 }
-
-                if (ts.numerator == 0)
-                {
-                    return merror("Cannot Double the TimeSignature.");
-                }
+                ts.numerator = doubled;
 
                 ps.timeline.stage(std::move(state));
                 return minfo("Measure TimeSignature Doubled.");
@@ -837,12 +863,12 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 }
                 else
                 {
+                    if (ts.denominator >
+                        std::numeric_limits<decltype(ts.denominator)>::max() / 2)
+                    {
+                        return merror("Cannot Halve the TimeSignature.");
+                    }
                     ts.denominator *= 2;
-                }
-
-                if (ts.denominator == 0)
-                {
-                    return merror("Cannot Halve the TimeSignature.");
                 }
 
                 ps.timeline.stage(std::move(state));
@@ -1049,7 +1075,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 bool const starting_new_chain =
                     state.aux.selected != state.aux.arp_state.selected ||
                     state.aux.arp_state.previous_commit_id !=
-                        ps.timeline.get_current_commit_id();
+                        ps.timeline.get_next_commit_id();
 
                 if (starting_new_chain)
                 {
@@ -1095,7 +1121,7 @@ auto execute_command_action(PluginState &ps, ExecutionContext context,
                 bool const starting_new_chain =
                     state.aux.selected != state.aux.chord_state.selected ||
                     state.aux.chord_state.previous_commit_id !=
-                        ps.timeline.get_current_commit_id();
+                        ps.timeline.get_next_commit_id();
 
                 if (starting_new_chain)
                 {

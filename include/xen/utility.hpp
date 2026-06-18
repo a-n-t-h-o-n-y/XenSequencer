@@ -102,9 +102,15 @@ auto apply_if(PredicateFn const &predicate, ApplyFn const &apply,
 /**
  * Normalizes a pitch to the range [0, length).
  * @details -1 wraps around to length - 1.
+ * @throws std::invalid_argument if length is zero or is not representable as int.
  */
 [[nodiscard]] auto normalize_pitch(int pitch, std::size_t length) -> std::size_t;
 
+/**
+ * Returns the octave containing pitch using floor division.
+ * @throws std::invalid_argument if tuning_length is zero or is not representable as
+ * int.
+ */
 [[nodiscard]] auto get_octave(int pitch, std::size_t tuning_length) -> int;
 
 /**

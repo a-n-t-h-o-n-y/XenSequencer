@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -14,15 +16,7 @@
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 
-namespace
-{
-
-[[nodiscard]] auto euclid_mod(int a, int b) -> int
-{
-    return (a % b + b) % b;
-}
-
-} // namespace
+#include "numeric.hpp"
 
 namespace YAML
 {
@@ -37,15 +31,33 @@ struct convert<::xen::Scale>
         }
         scale.name = ::xen::to_lower(node["name"].as<std::string>());
         scale.tuning_length = node["tuning_length"].as<std::size_t>();
-        scale.intervals = node["intervals"].as<std::vector<std::uint8_t>>();
+        auto const intervals = node["intervals"].as<std::vector<unsigned>>();
+        scale.intervals.clear();
+        scale.intervals.reserve(intervals.size());
+        for (auto const interval : intervals)
+        {
+            if (interval == 0 ||
+                interval > std::numeric_limits<std::uint8_t>::max())
+            {
+                throw std::invalid_argument{
+                    "Scale intervals must be in the range [1, 255]."};
+            }
+            scale.intervals.push_back(static_cast<std::uint8_t>(interval));
+        }
         if (node["mode"])
         {
-            scale.mode = node["mode"].as<std::uint8_t>();
+            auto const mode = node["mode"].as<unsigned>();
+            if (mode > std::numeric_limits<std::uint8_t>::max())
+            {
+                throw std::invalid_argument{"Scale mode is out of range."};
+            }
+            scale.mode = static_cast<std::uint8_t>(mode);
         }
         else
         {
             scale.mode = 1;
         }
+        ::xen::validate_scale(scale);
         return true;
     }
 };
@@ -63,6 +75,28 @@ auto Scale::operator==(Scale const &other) const -> bool
 auto Scale::operator!=(Scale const &other) const -> bool
 {
     return !(*this == other);
+}
+
+void validate_scale(Scale const &scale)
+{
+    if (scale.tuning_length == 0 || !std::in_range<int>(scale.tuning_length))
+    {
+        throw std::invalid_argument{
+            "Scale tuning_length must be representable as a positive int."};
+    }
+    if (scale.intervals.empty() || scale.intervals.size() > 255)
+    {
+        throw std::invalid_argument{"Scale must contain between 1 and 255 intervals."};
+    }
+    if (std::ranges::find(scale.intervals, std::uint8_t{0}) !=
+        std::end(scale.intervals))
+    {
+        throw std::invalid_argument{"Scale intervals must be in the range [1, 255]."};
+    }
+    if (scale.mode == 0 || scale.mode > scale.intervals.size())
+    {
+        throw std::invalid_argument{"Scale mode must be in the interval range."};
+    }
 }
 
 auto load_scales_from_files() -> std::vector<Scale>
@@ -86,6 +120,7 @@ auto load_scales_from_files() -> std::vector<Scale>
 
 auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>
 {
+    validate_scale(scale);
     auto intervals = scale.intervals;
     std::ranges::rotate(intervals, std::next(std::begin(intervals), scale.mode - 1));
 
@@ -93,7 +128,8 @@ auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>
 
     for (int interval : intervals)
     {
-        result.push_back(result.back() + interval);
+        result.push_back(numeric::checked_add(result.back(), interval,
+                                              "Scale interval sum exceeds int."));
     }
     return result;
 }
@@ -101,8 +137,20 @@ auto generate_valid_pitches(xen::Scale const &scale) -> std::vector<int>
 auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
                         std::size_t tuning_length, TranslateDirection direction) -> int
 {
-    auto octave_shift = (int)std::floor((double)pitch / (double)tuning_length);
-    auto normalized_pitch = euclid_mod(pitch, (int)tuning_length);
+    if (valid_pitches.empty())
+    {
+        throw std::invalid_argument{"Valid pitches must not be empty."};
+    }
+    if (tuning_length == 0 || !std::in_range<int>(tuning_length))
+    {
+        throw std::invalid_argument{
+            "Scale mapping tuning length must be representable as a positive int."};
+    }
+
+    auto const int_tuning_length = static_cast<int>(tuning_length);
+    auto octave_shift = utility::get_octave(pitch, tuning_length);
+    auto const normalized_pitch =
+        static_cast<int>(utility::normalize_pitch(pitch, tuning_length));
 
     auto it = std::ranges::lower_bound(valid_pitches, normalized_pitch);
 
@@ -113,7 +161,8 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
             if (it == std::begin(valid_pitches))
             {
                 it = std::prev(std::end(valid_pitches));
-                octave_shift--;
+                octave_shift = numeric::checked_add(
+                    octave_shift, -1, "Scale mapping octave shift exceeds int.");
             }
             else
             {
@@ -125,12 +174,17 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
             if (it == std::end(valid_pitches))
             {
                 it = std::begin(valid_pitches);
-                octave_shift++;
+                octave_shift = numeric::checked_add(
+                    octave_shift, 1, "Scale mapping octave shift exceeds int.");
             }
         }
     }
 
-    return *it + octave_shift * (int)tuning_length;
+    auto const octave_offset =
+        numeric::checked_mul(octave_shift, int_tuning_length,
+                             "Scale mapping octave offset exceeds int.");
+    return numeric::checked_add(*it, octave_offset,
+                                "Mapped pitch exceeds int.");
 }
 
 } // namespace xen

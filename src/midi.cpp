@@ -1,11 +1,14 @@
 #include <xen/midi.hpp>
 
 #include <algorithm>
-#include <cstdint>
 #include <cstddef>
+#include <cmath>
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <queue>
+#include <stdexcept>
 #include <tuple>
 #include <vector>
 
@@ -20,6 +23,8 @@
 #include <xen/midi_internal.hpp>
 #include <xen/scale.hpp>
 #include <xen/state.hpp>
+
+#include "numeric.hpp"
 
 namespace
 {
@@ -101,7 +106,8 @@ struct MidiEvent
     return std::visit(
         sequence::utility::overload{
             [&](sequence::Note note) -> sequence::MusicElement {
-                note.pitch += key;
+                note.pitch = xen::numeric::checked_add(
+                    note.pitch, key, "Key transposition exceeds int.");
                 return note;
             },
             [&](sequence::Sequence sequence) -> sequence::MusicElement {
@@ -130,6 +136,47 @@ struct ActiveChannel
 };
 
 } // namespace
+
+auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
+                                  std::uint32_t sample_rate, float bpm)
+    -> std::uint32_t
+{
+    if (time_signature.numerator == 0 || time_signature.denominator == 0)
+    {
+        throw std::invalid_argument{
+            "time signature values must be greater than zero"};
+    }
+    if (sample_rate == 0)
+    {
+        throw std::invalid_argument{"sample rate must be greater than zero"};
+    }
+    if (!std::isfinite(bpm) || bpm <= 0.f)
+    {
+        throw std::invalid_argument{"BPM must be finite and greater than zero"};
+    }
+
+    auto const duration =
+        static_cast<long double>(sample_rate) * 60.0L *
+        static_cast<long double>(time_signature.numerator) * 4.0L /
+        (static_cast<long double>(bpm) *
+         static_cast<long double>(time_signature.denominator));
+    if (!std::isfinite(duration) || duration < 1.0L ||
+        duration > static_cast<long double>(std::numeric_limits<int>::max()))
+    {
+        throw std::overflow_error{
+            "Measure duration must fit in a positive JUCE sample position."};
+    }
+
+    auto const sample_count =
+        sequence::samples_count(time_signature, sample_rate, bpm);
+    if (sample_count == 0 ||
+        sample_count > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
+    {
+        throw std::overflow_error{
+            "Measure duration must fit in a positive JUCE sample position."};
+    }
+    return sample_count;
+}
 
 auto assign_mpe_channels(std::vector<sequence::midi::TimedMidiNote> const &timeline)
     -> std::vector<AssignedMidiNote>
@@ -198,16 +245,20 @@ auto render_assigned_notes(std::vector<AssignedMidiNote> const &assigned_notes)
     {
         auto const &note = assigned.note;
         auto const channel = assigned.channel;
+        auto const begin = numeric::checked_cast<int>(
+            note.begin, "MIDI note begin position exceeds JUCE int.");
+        auto const end = numeric::checked_cast<int>(
+            note.end, "MIDI note end position exceeds JUCE int.");
 
         events.push_back({
-            .sample_position = (int)note.begin,
+            .sample_position = begin,
             .priority = 1,
             .channel = channel,
             .note_number = note.note,
             .message = juce::MidiMessage::pitchWheel(channel, note.pitch_bend),
         });
         events.push_back({
-            .sample_position = (int)note.begin,
+            .sample_position = begin,
             .priority = 2,
             .channel = channel,
             .note_number = note.note,
@@ -215,7 +266,7 @@ auto render_assigned_notes(std::vector<AssignedMidiNote> const &assigned_notes)
                                                  (juce::uint8)note.velocity),
         });
         events.push_back({
-            .sample_position = (int)note.end,
+            .sample_position = end,
             .priority = 0,
             .channel = channel,
             .note_number = note.note,
@@ -231,7 +282,7 @@ auto render_assigned_notes(std::vector<AssignedMidiNote> const &assigned_notes)
     });
 
     auto buffer = juce::MidiBuffer{};
-    buffer.ensureSize((int)events.size());
+    buffer.ensureSize(events.size());
     for (auto const &event : events)
     {
         buffer.addEvent(event.message, event.sample_position);
@@ -260,6 +311,12 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
 {
     if (scale)
     {
+        validate_scale(*scale);
+        if (scale->tuning_length != tuning.intervals.size())
+        {
+            throw std::invalid_argument{
+                "Scale tuning length must match the active tuning."};
+        }
         measure.cell = scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
                                             tuning.intervals.size(),
                                             scale_translate_direction);
@@ -267,9 +324,8 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
 
     measure.cell = key_transpose_cell(measure.cell, key);
 
-    auto const sample_count = sequence::samples_count(measure.time_signature,
-                                                      daw_state.sample_rate,
-                                                      daw_state.bpm);
+    auto const sample_count = midi_internal::checked_measure_sample_count(
+        measure.time_signature, daw_state.sample_rate, daw_state.bpm);
 
     return sequence::midi::flatten_to_midi(measure.cell.elements, 0, sample_count,
                                            tuning, base_frequency, 48.f);
@@ -285,6 +341,23 @@ auto render_to_midi(std::vector<sequence::midi::TimedMidiNote> const &timeline)
 auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
                     SampleIndex begin, SampleIndex end) -> juce::MidiBuffer
 {
+    if (buffer_length == 0 ||
+        buffer_length >
+            static_cast<SampleCount>(std::numeric_limits<int>::max()))
+    {
+        throw std::invalid_argument{
+            "MIDI loop length must fit in a positive JUCE sample position."};
+    }
+    if (end < begin)
+    {
+        throw std::invalid_argument{"MIDI window end must not precede begin."};
+    }
+    if (end - begin >
+        static_cast<SampleCount>(std::numeric_limits<int>::max()))
+    {
+        throw std::overflow_error{"MIDI window length exceeds JUCE int."};
+    }
+
     auto out_buffer = juce::MidiBuffer{};
     auto current_sample = begin;
 
@@ -292,23 +365,48 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
     {
         auto const wrapped_position = current_sample % buffer_length;
 
-        for (auto at = buffer.findNextSamplePosition((int)wrapped_position);
+        for (auto at = buffer.findNextSamplePosition(
+                 numeric::checked_cast<int>(
+                     wrapped_position, "Wrapped MIDI position exceeds JUCE int."));
              at != buffer.cend(); ++at)
         {
             auto const &event = *at;
-            auto const absolute_position =
-                current_sample + (SampleIndex)event.samplePosition - wrapped_position;
+            if (event.samplePosition < 0)
+            {
+                throw std::invalid_argument{
+                    "MIDI event position must not be negative."};
+            }
+            auto const event_position =
+                static_cast<SampleIndex>(event.samplePosition);
+            auto const cycle_start = current_sample - wrapped_position;
+            if (event_position >
+                std::numeric_limits<SampleIndex>::max() - cycle_start)
+            {
+                throw std::overflow_error{"Absolute MIDI position exceeds uint64."};
+            }
+            auto const absolute_position = cycle_start + event_position;
 
             if (absolute_position >= end)
             {
                 break;
             }
 
-            auto const relative_position = (int)(absolute_position - begin);
+            auto const relative_position = numeric::checked_cast<int>(
+                absolute_position - begin,
+                "Relative MIDI position exceeds JUCE int.");
             out_buffer.addEvent(event.data, event.numBytes, relative_position);
         }
 
-        current_sample += buffer_length - wrapped_position;
+        auto const advance = buffer_length - wrapped_position;
+        if (advance >= end - current_sample)
+        {
+            break;
+        }
+        if (advance > std::numeric_limits<SampleIndex>::max() - current_sample)
+        {
+            throw std::overflow_error{"MIDI window iteration exceeds uint64."};
+        }
+        current_sample += advance;
     }
 
     return out_buffer;
