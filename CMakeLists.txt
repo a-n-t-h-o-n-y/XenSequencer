@@ -9,7 +9,7 @@ include(FetchContent)
 
 # DEPENDENCIES -------------------------------------------------------------------------
 
-add_subdirectory(external/MicrotonalStepSequencer)
+add_subdirectory(external/MicrotonalStepSequencer SYSTEM)
 
 option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
@@ -80,6 +80,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG ${XEN_JUCE_TAG}
     GIT_SHALLOW TRUE
+    SYSTEM
 )
 
 FetchContent_Declare(
@@ -87,6 +88,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
     GIT_TAG ${XEN_YAML_CPP_TAG}
     GIT_SHALLOW TRUE
+    SYSTEM
 )
 
 FetchContent_Declare(
@@ -94,6 +96,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG ${XEN_JSON_TAG}
     GIT_SHALLOW TRUE
+    SYSTEM
 )
 
 FetchContent_Declare(
@@ -101,6 +104,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/a-n-t-h-o-n-y/signals-light.git
     GIT_TAG ${XEN_SIGNALS_LIGHT_TAG}
     GIT_SHALLOW TRUE
+    SYSTEM
 )
 
 FetchContent_MakeAvailable(juce yaml_cpp json signals_light)
@@ -111,6 +115,7 @@ if (XEN_BUILD_TESTS)
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
         GIT_TAG ${XEN_CATCH2_TAG}
         GIT_SHALLOW TRUE
+        SYSTEM
     )
     FetchContent_MakeAvailable(catch2)
 endif()
@@ -233,7 +238,12 @@ function(xen_apply_compile_settings target_name definitions_scope)
 
     target_compile_options(${target_name} PRIVATE
       $<$<CXX_COMPILER_ID:MSVC>:/W1>
-      $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+      $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wsign-conversion
+      >
     )
 endfunction()
 
@@ -314,7 +324,6 @@ target_link_libraries(XenSequencer
         XenUI
         juce::juce_recommended_lto_flags
         juce::juce_recommended_config_flags
-        juce::juce_recommended_warning_flags
 )
 xen_apply_compile_settings(XenSequencer PUBLIC)
 
@@ -347,6 +356,7 @@ if (XEN_BUILD_TESTS)
                 XenSequencer
                 Catch2::Catch2WithMain
         )
+        xen_apply_compile_settings(XenTests PRIVATE)
 
         if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR
             (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
