@@ -197,6 +197,18 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
         });
     REQUIRE(entire_scale != metadata.end());
     CHECK(entire_scale->accepts_pattern_prefix == false);
+
+    auto const load_keys = std::find_if(
+        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
+            return entry.path == std::vector<std::string>{"load", "keys"};
+        });
+    CHECK(load_keys == metadata.end());
+
+    auto const load_keys_result =
+        bind_invocation(parse_command_chain("load keys").front());
+    REQUIRE(std::holds_alternative<CatalogBindError>(load_keys_result));
+    CHECK(std::get<CatalogBindError>(load_keys_result).kind ==
+          CatalogBindErrorKind::UnknownCommand);
 }
 
 TEST_CASE("Catalog completion is driven from catalog metadata",
@@ -229,6 +241,15 @@ TEST_CASE("Catalog structured completion returns all matching command tokens",
     CHECK(std::find(displays.begin(), displays.end(), "pitch") != displays.end());
     CHECK(std::find(displays.begin(), displays.end(), "velocity") != displays.end());
     CHECK(std::find(displays.begin(), displays.end(), "key") != displays.end());
+}
+
+TEST_CASE("Catalog completion tolerates incomplete quoted and structured input",
+          "[core][command][catalog]")
+{
+    auto const catalog = create_command_catalog();
+
+    CHECK_NOTHROW(catalog.complete("load measure \"unfinished"));
+    CHECK_NOTHROW(catalog.complete_text("load measure {\"nested\": {"));
 }
 
 TEST_CASE("Catalog docs are generated from catalog metadata",

@@ -169,7 +169,7 @@ auto CommandCatalog::complete(std::string const &partial_command) const
         return result;
     }
 
-    auto const split = split_input(partial_command);
+    auto const split = parse_command_input(partial_command, CommandParseMode::Tolerant);
     auto const tree = build_completion_tree(metadata_);
     auto node_index = std::size_t{0};
     auto word_index = std::size_t{0};
@@ -273,7 +273,7 @@ auto CommandCatalog::complete_text(std::string const &partial_command) const
         return "";
     }
 
-    auto const split = split_input(partial_command);
+    auto const split = parse_command_input(partial_command, CommandParseMode::Tolerant);
     auto const tree = build_completion_tree(metadata_);
     return complete_from_node(tree, metadata_, 0, split.words, 0);
 }

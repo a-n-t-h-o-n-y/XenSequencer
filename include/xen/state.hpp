@@ -12,7 +12,6 @@
 
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
-#include <xen/command_history.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/measure.hpp>
 #include <xen/scale.hpp>
@@ -155,7 +154,6 @@ struct PluginState
 {
     AppConfigState config{};
     ContentLibraryState library{};
-    CommandHistory command_history{};
     CommitIntent commit_intent{CommitIntent::Auto};
     XenTimeline timeline;
 };

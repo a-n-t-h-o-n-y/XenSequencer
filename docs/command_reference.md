@@ -16,7 +16,6 @@ duplicate | `duplicate` | Duplicate the current selection.
 inputMode | `inputMode [InputMode: mode]` | Change the input mode used by editing commands.
 load measure | `load measure [String: filename]` | Load a measure from the current sequence directory.
 load tuning | `load tuning [String: filename]` | Load a tuning from the current tuning directory.
-load keys | `load keys` | Deprecated command.
 load scales | `load scales` | Load scales from library files.
 load chords | `load chords` | Load chords from library files.
 save measure | `save measure [String: filename]` | Save the current measure to file.

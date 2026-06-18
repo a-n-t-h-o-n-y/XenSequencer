@@ -11,7 +11,6 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
-#include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/engine_state_mailbox.hpp>
 #include <xen/message_level.hpp>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -11,11 +12,24 @@ namespace xen
  * A slightly more structured version of the input string.
  * @details Quoted strings are not split, they are a single 'word'.
  */
-struct SplitInput
+struct SourceSpan
+{
+    std::size_t begin{0};
+    std::size_t end{0};
+};
+
+struct ParsedCommandInput
 {
     sequence::Pattern pattern;
     bool has_pattern_prefix{false};
     std::vector<std::string> words;
+    std::vector<SourceSpan> word_spans;
+};
+
+enum class CommandParseMode
+{
+    Strict,
+    Tolerant,
 };
 
 /**
@@ -29,19 +43,26 @@ struct CommandInvocation
     std::string canonical_segment{};
 
     /**
+     * Source range occupied by the command segment in the original input.
+     */
+    SourceSpan source_span{};
+
+    /**
      * Parsed command tokens and optional pattern prefix for catalog binding.
      */
-    SplitInput input{};
+    ParsedCommandInput input{};
 };
 
 /**
- * Split the input string into a Pattern and a vector of words.
- * @param input The input string to split.
- * @return SplitInput The split input.
- * @exception std::invalid_argument Thrown when the input string is not valid, such as
- * having an invalid pattern or unterminated quotes.
+ * Parse the final command segment into a Pattern and a vector of words.
+ *
+ * @param input The input string to parse.
+ * @param mode Strict execution parsing or tolerant completion parsing.
+ * @exception std::invalid_argument Thrown in strict mode when syntax is malformed.
  */
-[[nodiscard]] auto split_input(std::string input) -> SplitInput;
+[[nodiscard]] auto parse_command_input(std::string const &input,
+                                       CommandParseMode mode = CommandParseMode::Strict)
+    -> ParsedCommandInput;
 
 /**
  * Parse a raw command string into a canonical command chain.
@@ -51,11 +72,6 @@ struct CommandInvocation
  */
 [[nodiscard]] auto parse_command_chain(std::string const &raw_command_string)
     -> std::vector<CommandInvocation>;
-
-/**
- * Check whether an invocation is the chain-level replay command.
- */
-[[nodiscard]] auto is_again_invocation(CommandInvocation const &invocation) -> bool;
 
 /**
  * Holds display information about a command signature for docs/completion.

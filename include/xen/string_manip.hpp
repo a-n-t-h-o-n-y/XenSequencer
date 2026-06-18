@@ -22,16 +22,6 @@ namespace xen
 [[nodiscard]] auto strip(std::string const &input) -> std::string;
 
 /**
- * Minimizes spaces in a given string, while preserving spaces within double
- * quotes.
- *
- * @details Removes leading, trailing, and adjacent spaces.
- * @param input The input string.
- * @return std::string The modified string with minimized spaces.
- */
-[[nodiscard]] auto minimize_spaces(std::string const &input) -> std::string;
-
-/**
  * Returns the first word from a given string, considering double quotes.
  *
  * @details Words are space delimited, unless within double quotes.
@@ -69,26 +59,6 @@ namespace xen
  * @return Container of strings, without the delimiter.
  */
 [[nodiscard]] auto split(std::string const &input, char delimiter)
-    -> std::vector<std::string>;
-
-/**
- * Splits a string on a delimiter only at top-level syntax scope.
- *
- * @details Delimiters inside double quotes or inside `{ ... }` blocks are ignored.
- * Empty items are preserved.
- */
-[[nodiscard]] auto split_top_level(std::string const &input, char delimiter)
-    -> std::vector<std::string>;
-
-/**
- * Splits a string into a vector of strings based on spaces, unless within double
- * quotes.
- *
- * @details This removes the quotes once split.
- * @param input The string to split.
- * @return std::vector<std::string> The split string.
- */
-[[nodiscard]] auto split_quoted_string(std::string const &input)
     -> std::vector<std::string>;
 
 /**

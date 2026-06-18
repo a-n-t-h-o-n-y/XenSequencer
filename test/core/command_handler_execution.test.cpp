@@ -196,7 +196,6 @@ TEST_CASE("Direct scale, file metadata, undo, and redo handlers execute",
 
     CHECK(execute(state, {}, "set scale major").status.first == MessageLevel::Info);
     CHECK(execute(state, {}, "set mode 2").status.first == MessageLevel::Info);
-    CHECK(execute(state, {}, "load keys").status.first == MessageLevel::Warning);
     CHECK(execute(state, {}, "libraryDirectory").status.first == MessageLevel::Info);
 
     auto timeline_state = state.timeline.get_state();

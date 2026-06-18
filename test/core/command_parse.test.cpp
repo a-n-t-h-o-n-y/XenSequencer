@@ -1,30 +1,55 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <stdexcept>
+#include <string>
+
 #include <xen/command.hpp>
 #include <xen/guide_text.hpp>
 
 using namespace xen;
 
-TEST_CASE("split_input parses quoted arguments with default pattern", "[core][command]")
+namespace
 {
-    auto const split = split_input("load measure \"my seq\"");
 
-    CHECK(split.pattern == sequence::Pattern{0, {1}});
-    REQUIRE(split.words.size() == 3);
-    CHECK(split.words[0] == "load");
-    CHECK(split.words[1] == "measure");
-    CHECK(split.words[2] == "my seq");
+auto parse_error(std::string const &input) -> std::string
+{
+    try
+    {
+        static_cast<void>(parse_command_chain(input));
+    }
+    catch (std::invalid_argument const &error)
+    {
+        return error.what();
+    }
+    return "";
 }
 
-TEST_CASE("split_input parses explicit pattern prefix", "[core][command]")
-{
-    auto const split = split_input("+5 4 set key 7");
+} // namespace
 
-    CHECK(split.pattern == sequence::Pattern{5, {4}});
-    REQUIRE(split.words.size() == 3);
-    CHECK(split.words[0] == "set");
-    CHECK(split.words[1] == "key");
-    CHECK(split.words[2] == "7");
+TEST_CASE("parse_command_input parses quoted arguments with default pattern",
+          "[core][command]")
+{
+    auto const parsed = parse_command_input("load measure \"my seq\"");
+
+    CHECK(parsed.pattern == sequence::Pattern{0, {1}});
+    REQUIRE(parsed.words.size() == 3);
+    CHECK(parsed.words[0] == "load");
+    CHECK(parsed.words[1] == "measure");
+    CHECK(parsed.words[2] == "my seq");
+    CHECK(parsed.word_spans[2].begin == 13);
+    CHECK(parsed.word_spans[2].end == 21);
+}
+
+TEST_CASE("parse_command_input parses explicit pattern prefix", "[core][command]")
+{
+    auto const parsed = parse_command_input("+5 4 set key 7");
+
+    CHECK(parsed.pattern == sequence::Pattern{5, {4}});
+    REQUIRE(parsed.words.size() == 3);
+    CHECK(parsed.words[0] == "set");
+    CHECK(parsed.words[1] == "key");
+    CHECK(parsed.words[2] == "7");
+    CHECK(parsed.word_spans[0].begin == 5);
 }
 
 TEST_CASE("parse_command_chain normalizes segments and drops empty items",
@@ -43,6 +68,8 @@ TEST_CASE("parse_command_chain normalizes segments and drops empty items",
     CHECK(chain[1].canonical_segment == "version");
     REQUIRE(chain[1].input.words.size() == 1);
     CHECK(chain[1].input.words[0] == "version");
+    CHECK(chain[0].source_span.begin == 2);
+    CHECK(chain[0].source_span.end == 11);
 }
 
 TEST_CASE(
@@ -58,8 +85,8 @@ TEST_CASE(
     CHECK(quoted_chain[0].input.words[2] == "semi;colon");
     CHECK(quoted_chain[1].canonical_segment == "version");
 
-    auto const structured_chain = parse_command_chain(
-        "load measure {\"label\":\"semi;colon\"}; version");
+    auto const structured_chain =
+        parse_command_chain("load measure {\"label\":\"semi;colon\"}; version");
 
     REQUIRE(structured_chain.size() == 2);
     CHECK(structured_chain[0].canonical_segment ==
@@ -69,14 +96,38 @@ TEST_CASE(
     CHECK(structured_chain[1].canonical_segment == "version");
 }
 
-TEST_CASE("parse_command_chain marks only exact 'again' invocation as replay",
+TEST_CASE("parse_command_chain preserves quoted and structured token contents",
           "[core][command]")
 {
-    auto const chain = parse_command_chain("again;again 2");
+    auto const chain = parse_command_chain(
+        "custom \"\" \"a\\\"b\" {\"outer\": { \"text\": \"a; b\" }}; version");
 
     REQUIRE(chain.size() == 2);
-    CHECK(is_again_invocation(chain[0]));
-    CHECK_FALSE(is_again_invocation(chain[1]));
+    REQUIRE(chain[0].input.words.size() == 4);
+    CHECK(chain[0].input.words[0] == "custom");
+    CHECK(chain[0].input.words[1].empty());
+    CHECK(chain[0].input.words[2] == "a\\\"b");
+    CHECK(chain[0].input.words[3] == "{\"outer\": { \"text\": \"a; b\" }}");
+    CHECK(chain[0].canonical_segment ==
+          "custom \"\" \"a\\\"b\" {\"outer\": { \"text\": \"a; b\" }}");
+}
+
+TEST_CASE("strict command parsing reports malformed syntax offsets", "[core][command]")
+{
+    CHECK(parse_error("version \"oops") == "Unterminated quoted string at offset 8");
+    CHECK(parse_error("version \"oops\\") ==
+          "Dangling escape in quoted string at offset 13");
+    CHECK(parse_error("load measure {x") == "Unmatched opening brace at offset 13");
+    CHECK(parse_error("version }") == "Unexpected closing brace at offset 8");
+}
+
+TEST_CASE("tolerant command parsing accepts incomplete final syntax", "[core][command]")
+{
+    CHECK_NOTHROW(
+        parse_command_input("load measure \"unfinished", CommandParseMode::Tolerant));
+    CHECK_NOTHROW(
+        parse_command_input("load measure {\"nested\": {", CommandParseMode::Tolerant));
+    CHECK_NOTHROW(parse_command_input("version }", CommandParseMode::Tolerant));
 }
 
 TEST_CASE("guide text and id completion use command catalog", "[core][command]")

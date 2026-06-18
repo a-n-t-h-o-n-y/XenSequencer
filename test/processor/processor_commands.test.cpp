@@ -235,6 +235,37 @@ TEST_CASE("Processor rejects unknown commands", "[processor][commands]")
           MessageLevel::Error);
 }
 
+TEST_CASE("Processor rejects malformed syntax without changing engine state",
+          "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+
+    for (auto const &command : std::vector<std::string>{
+             "set key 22; version \"unfinished", "set key 22; load measure {x",
+             "set key 22; version }", "set key 22; version \"dangling\\"})
+    {
+        auto const before = processor.get_engine_snapshot();
+        auto const [level, message] = processor.execute_command_string(command);
+        auto const after = processor.get_engine_snapshot();
+
+        CHECK(level == MessageLevel::Error);
+        CHECK_FALSE(message.empty());
+        CHECK(after.engine == before.engine);
+        CHECK(after.commit_id == before.commit_id);
+    }
+}
+
+TEST_CASE("Processor treats removed load keys command as unknown",
+          "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+
+    auto const [level, message] = processor.execute_command_string("load keys");
+
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "Command not found: load");
+}
+
 TEST_CASE("Processor executes commands registered at runtime", "[processor][commands]")
 {
     auto processor = XenProcessor{};

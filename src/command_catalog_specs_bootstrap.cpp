@@ -184,12 +184,6 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"load", "keys"}, false, "Deprecated command.", std::make_tuple(),
-        [](PluginState &, ExecutionContext, CommandInvocation const &) {
-            return mwarning("Command 'load keys' is deprecated and has no effect.");
-        }));
-
-    specs.push_back(command(
         {"load", "scales"}, false, "Load scales from library files.", std::make_tuple(),
         [](PluginState &ps, ExecutionContext, CommandInvocation const &) {
             ps.library.scales = load_scales_from_files();
