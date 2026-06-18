@@ -290,6 +290,12 @@ WebviewHost::WebviewHost(XenProcessor &processor)
     this->startTimerHz(30);
 }
 
+WebviewHost::~WebviewHost()
+{
+    this->stopTimer();
+    browser_.reset();
+}
+
 void WebviewHost::resized()
 {
     if (browser_ != nullptr)

@@ -18,7 +18,7 @@ class WebviewHost : public juce::Component, private juce::Timer
 {
   public:
     explicit WebviewHost(XenProcessor &processor);
-    ~WebviewHost() override = default;
+    ~WebviewHost() override;
 
   public:
     void resized() override;
