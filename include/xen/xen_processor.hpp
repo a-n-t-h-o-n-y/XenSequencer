@@ -10,7 +10,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <xen/command.hpp>
-#include <xen/command_action.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>

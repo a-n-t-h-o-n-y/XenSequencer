@@ -8,7 +8,8 @@
 #include <variant>
 #include <vector>
 
-#include <xen/command_action.hpp>
+#include <xen/message_level.hpp>
+#include <xen/state.hpp>
 
 namespace xen
 {
@@ -55,15 +56,22 @@ enum class BoundCommandControl : std::uint8_t
     ReplayPrevious,
 };
 
+struct CommandExecutionResult
+{
+    std::pair<MessageLevel, std::string> status{MessageLevel::Debug, ""};
+    ExecutionContext context{};
+    bool engine_mutated{false};
+    CommitIntent commit_intent{CommitIntent::Auto};
+};
+
 using BoundCommandExecutor =
-    std::function<CommandActionResult(PluginState &, ExecutionContext)>;
+    std::function<CommandExecutionResult(PluginState &, ExecutionContext)>;
 
 struct BoundCommand
 {
     std::string canonical{};
     BoundCommandControl control{BoundCommandControl::Execute};
     BoundCommandExecutor execute{};
-    std::optional<CommandAction> action{};
 };
 
 struct CatalogArgumentMetadata

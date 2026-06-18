@@ -315,63 +315,6 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
     return metadata;
 }
 
-template <typename Binder, typename... Ts>
-auto make_spec(std::vector<std::string> path, bool accepts_pattern_prefix,
-               std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
-               Binder binder) -> CommandDefinition
-{
-    auto metadata = CatalogCommandMetadata{};
-    metadata.path = std::move(path);
-    metadata.accepts_pattern_prefix = accepts_pattern_prefix;
-    metadata.arguments = to_metadata_args(arg_defs);
-    metadata.description = std::move(description);
-
-    auto bind_fn = [arg_defs = std::move(arg_defs), binder = std::move(binder),
-                    accepts_pattern_prefix](CommandInvocation const &invocation,
-                                            std::size_t arg_offset) {
-        if (invocation.input.has_pattern_prefix && !accepts_pattern_prefix)
-        {
-            throw CatalogBindException{
-                CatalogBindErrorKind::PatternPrefixNotAllowed,
-                format_command_path(std::vector<std::string>{
-                    invocation.input.words.begin(),
-                    invocation.input.words.begin() +
-                        static_cast<std::ptrdiff_t>(arg_offset),
-                }),
-                "",
-            };
-        }
-
-        auto const parsed_args =
-            parse_args_tuple(arg_defs, invocation.input.words, arg_offset);
-
-        auto action = std::apply(
-            [&](auto const &...values) { return binder(invocation, values...); },
-            parsed_args);
-
-        auto command_action = CommandAction{std::move(action)};
-        auto const control = std::holds_alternative<AgainAction>(command_action)
-                                 ? BoundCommandControl::ReplayPrevious
-                                 : BoundCommandControl::Execute;
-
-        return BoundCommand{
-            .canonical = invocation.canonical_segment,
-            .control = control,
-            .execute = [command_action](PluginState &state, ExecutionContext context)
-                -> CommandActionResult {
-                return execute_command_action(state, std::move(context),
-                                              command_action);
-            },
-            .action = command_action,
-        };
-    };
-
-    return CommandDefinition{
-        .metadata = std::move(metadata),
-        .bind = std::move(bind_fn),
-    };
-}
-
 template <typename Handler, typename... Ts>
 auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
              std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
@@ -406,7 +349,7 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
             .control = BoundCommandControl::Execute,
             .execute = [handler, invocation, parsed_args = std::move(parsed_args)](
                            PluginState &state,
-                           ExecutionContext context) -> CommandActionResult {
+                           ExecutionContext context) -> CommandExecutionResult {
                 auto staged_state = state.timeline.get_state();
                 staged_state.aux = context;
                 state.timeline.stage(std::move(staged_state));
@@ -426,7 +369,7 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
                               "std::pair<MessageLevel, std::string>.");
 
                 auto const state_after = state.timeline.get_state();
-                return CommandActionResult{
+                return CommandExecutionResult{
                     .status = std::move(result),
                     .context = state_after.aux,
                     .engine_mutated = state_after.sequencer != engine_before,

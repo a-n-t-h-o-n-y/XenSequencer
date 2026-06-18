@@ -1,255 +1,596 @@
 #include "command_catalog_specs_internal.hpp"
+
+#include <algorithm>
+#include <limits>
+#include <optional>
+#include <ranges>
+#include <string>
+#include <utility>
+#include <variant>
+
+#include <sequence/modify.hpp>
+
+#include <xen/actions.hpp>
 #include <xen/command_dsl.hpp>
+#include <xen/message_level.hpp>
+#include <xen/string_manip.hpp>
+
+#include "actions_internal.hpp"
 
 namespace xen::catalog_detail
 {
+namespace
+{
+
+[[nodiscard]] auto exceeds_max_measure_length(
+    sequence::TimeSignature const &time_signature) -> bool
+{
+    if (time_signature.denominator == 0)
+    {
+        return true;
+    }
+    auto const quotient = time_signature.numerator / time_signature.denominator;
+    auto const remainder = time_signature.numerator % time_signature.denominator;
+    return quotient > 64 || (quotient == 64 && remainder != 0);
+}
+
+} // namespace
 
 void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 {
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"set", "pitch"}, true, "Set selected note pitches.",
         std::make_tuple(optional_arg<std::variant<int, Modulator>>(
             "Int|Modulator", "pitch", std::variant<int, Modulator>{0})),
-        [](CommandInvocation const &invocation, std::variant<int, Modulator> pitch) {
-            return SetPitchAction{
-                .pattern = invocation.input.pattern,
-                .pitch = std::move(pitch),
-            };
+        [](PluginState &ps, ExecutionContext context,
+           CommandInvocation const &invocation,
+           std::variant<int, Modulator> const &pitch) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (std::holds_alternative<int>(pitch))
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, int value) {
+                        return sequence::modify::set_pitch(target, pattern, value);
+                    },
+                    invocation.input.pattern, std::get<int>(pitch));
+            }
+            else
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_pitches(target, pattern, modulator);
+                    },
+                    invocation.input.pattern, std::get<Modulator>(pitch));
+                ps.commit_intent = CommitIntent::Defer;
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo("Note Set");
         }));
 
-    specs.push_back(make_spec({"set", "octave"}, true, "Set selected note octaves.",
-                              std::make_tuple(optional_arg<int>("Int", "octave", 0)),
-                              [](CommandInvocation const &invocation, int octave) {
-                                  return SetOctaveAction{
-                                      .pattern = invocation.input.pattern,
-                                      .octave = octave,
-                                  };
-                              }));
+    specs.push_back(command({"set", "octave"}, true, "Set selected note octaves.",
+                            std::make_tuple(optional_arg<int>("Int", "octave", 0)),
+                            [](PluginState &ps, ExecutionContext context,
+                               CommandInvocation const &invocation, int octave) {
+                                auto state = ps.timeline.get_state();
+                                state.aux = context;
+                                state.sequencer = action::set_note_octave(
+                                    std::move(state.sequencer), state.aux,
+                                    invocation.input.pattern, octave);
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Octave Set");
+                            }));
+
+    specs.push_back(command(
+        {"set", "velocity"}, true, "Set selected note velocities.",
+        std::make_tuple(optional_arg<std::variant<float, Modulator>>(
+            "Float|Modulator", "velocity",
+            std::variant<float, Modulator>{100.f / 127.f})),
+        [](PluginState &ps, ExecutionContext context,
+           CommandInvocation const &invocation,
+           std::variant<float, Modulator> const &velocity) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (std::holds_alternative<float>(velocity))
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float value) {
+                        return sequence::modify::set_velocity(target, pattern, value);
+                    },
+                    invocation.input.pattern, std::get<float>(velocity));
+            }
+            else
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_velocities(target, pattern, modulator);
+                    },
+                    invocation.input.pattern, std::get<Modulator>(velocity));
+                ps.commit_intent = CommitIntent::Defer;
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo("Velocity Set");
+        }));
+
+    auto const set_fractional = [](auto scalar_fn, auto modulator_fn,
+                                   std::string message) {
+        return [scalar_fn, modulator_fn, message = std::move(message)](
+                   PluginState &ps, ExecutionContext context,
+                   CommandInvocation const &invocation,
+                   std::variant<float, Modulator> const &value) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (std::holds_alternative<float>(value))
+            {
+                state =
+                    increment_state(std::move(state), scalar_fn,
+                                    invocation.input.pattern, std::get<float>(value));
+            }
+            else
+            {
+                state = increment_state(std::move(state), modulator_fn,
+                                        invocation.input.pattern,
+                                        std::get<Modulator>(value));
+                ps.commit_intent = CommitIntent::Defer;
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo(message);
+        };
+    };
 
     specs.push_back(
-        make_spec({"set", "velocity"}, true, "Set selected note velocities.",
-                  std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-                      "Float|Modulator", "velocity",
-                      std::variant<float, Modulator>{100.f / 127.f})),
-                  [](CommandInvocation const &invocation,
-                     std::variant<float, Modulator> velocity) {
-                      return SetVelocityAction{
-                          .pattern = invocation.input.pattern,
-                          .velocity = std::move(velocity),
-                      };
-                  }));
+        command({"set", "delay"}, true, "Set selected note delays.",
+                std::make_tuple(optional_arg<std::variant<float, Modulator>>(
+                    "Float|Modulator", "delay", std::variant<float, Modulator>{0.f})),
+                set_fractional(
+                    [](auto target, sequence::Pattern const &pattern, float value) {
+                        return sequence::modify::set_delay(target, pattern, value);
+                    },
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_delays(target, pattern, modulator);
+                    },
+                    "Delay Set")));
+    specs.push_back(
+        command({"set", "gate"}, true, "Set selected note gates.",
+                std::make_tuple(optional_arg<std::variant<float, Modulator>>(
+                    "Float|Modulator", "gate", std::variant<float, Modulator>{1.f})),
+                set_fractional(
+                    [](auto target, sequence::Pattern const &pattern, float value) {
+                        return sequence::modify::set_gate(target, pattern, value);
+                    },
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_gates(target, pattern, modulator);
+                    },
+                    "Gate Set")));
 
-    specs.push_back(make_spec(
-        {"set", "delay"}, true, "Set selected note delays.",
-        std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-            "Float|Modulator", "delay", std::variant<float, Modulator>{0.f})),
-        [](CommandInvocation const &invocation, std::variant<float, Modulator> delay) {
-            return SetDelayAction{
-                .pattern = invocation.input.pattern,
-                .delay = std::move(delay),
-            };
-        }));
-
-    specs.push_back(make_spec(
-        {"set", "gate"}, true, "Set selected note gates.",
-        std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-            "Float|Modulator", "gate", std::variant<float, Modulator>{1.f})),
-        [](CommandInvocation const &invocation, std::variant<float, Modulator> gate) {
-            return SetGateAction{
-                .pattern = invocation.input.pattern,
-                .gate = std::move(gate),
-            };
-        }));
-
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"set", "measure", "timeSignature"}, false, "Set measure time signature.",
         std::make_tuple(optional_arg<sequence::TimeSignature>(
             "TimeSignature", "timesignature", sequence::TimeSignature{4, 4})),
-        [](CommandInvocation const &, sequence::TimeSignature timesignature) {
-            return SetMeasureTimeSignatureAction{
-                .time_signature = timesignature,
-            };
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           sequence::TimeSignature time_signature) {
+            if (time_signature.denominator == 0 || time_signature.numerator == 0)
+            {
+                return merror("Invalid TimeSignature");
+            }
+            if (exceeds_max_measure_length(time_signature))
+            {
+                return merror("TimeSignature Too Large, Max length is 64 Whole Notes.");
+            }
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            state.sequencer.measure.time_signature = time_signature;
+            ps.timeline.stage(std::move(state));
+            return minfo("Measure TimeSignature Set: " +
+                         std::to_string(time_signature.numerator) + "/" +
+                         std::to_string(time_signature.denominator));
         }));
 
-    specs.push_back(
-        make_spec({"set", "baseFrequency"}, false, "Set base frequency in Hz.",
-                  std::make_tuple(optional_arg<float>("Float", "freq", 440.f)),
-                  [](CommandInvocation const &, float freq) {
-                      return SetBaseFrequencyAction{.freq = freq};
-                  }));
+    specs.push_back(command(
+        {"set", "baseFrequency"}, false, "Set base frequency in Hz.",
+        std::make_tuple(optional_arg<float>("Float", "freq", 440.f)),
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           float frequency) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            state.sequencer =
+                action::set_base_frequency(std::move(state.sequencer), frequency);
+            ps.timeline.stage(std::move(state));
+            return minfo("Base Frequency Set");
+        }));
 
-    specs.push_back(
-        make_spec({"set", "scale"}, false, "Set the active scale by name.",
-                  std::make_tuple(required_arg<std::string>("String", "name")),
-                  [](CommandInvocation const &, std::string name) {
-                      return SetScaleAction{.name = std::move(name)};
-                  }));
+    specs.push_back(command(
+        {"set", "scale"}, false, "Set the active scale by name.",
+        std::make_tuple(required_arg<std::string>("String", "name")),
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           std::string const &name) {
+            auto const scale_name = to_lower(name);
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (scale_name == "chromatic")
+            {
+                state.sequencer.scale = std::nullopt;
+                ps.timeline.stage(std::move(state));
+                return minfo("Scale Set to " + scale_name + ".");
+            }
+            auto const at =
+                std::ranges::find(ps.library.scales, scale_name,
+                                  [](Scale const &scale) { return scale.name; });
+            if (at == std::end(ps.library.scales))
+            {
+                return merror("No Scale Found: " + scale_name + ".");
+            }
+            validate_scale(*at);
+            state.sequencer.scale = *at;
+            ps.timeline.stage(std::move(state));
+            return minfo("Scale Set to " + scale_name + ".");
+        }));
 
-    specs.push_back(
-        make_spec({"set", "mode"}, false, "Set the active scale mode index.",
-                  std::make_tuple(required_arg<std::size_t>("Unsigned", "mode_index")),
-                  [](CommandInvocation const &, std::size_t mode_index) {
-                      return SetScaleModeAction{.mode_index = mode_index};
-                  }));
+    specs.push_back(command(
+        {"set", "mode"}, false, "Set the active scale mode index.",
+        std::make_tuple(required_arg<std::size_t>("Unsigned", "mode_index")),
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           std::size_t mode_index) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (mode_index == 0 || !state.sequencer.scale.has_value() ||
+                mode_index > state.sequencer.scale->intervals.size())
+            {
+                return merror("Invalid Mode Index. Must be in range [1, scale size).");
+            }
+            state.sequencer.scale->mode = static_cast<std::uint8_t>(mode_index);
+            validate_scale(*state.sequencer.scale);
+            ps.timeline.stage(std::move(state));
+            return minfo("Scale Mode Set");
+        }));
 
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"set", "translateDirection"}, false, "Set scale translate direction.",
         std::make_tuple(required_arg<std::string>("String", "direction")),
-        [](CommandInvocation const &, std::string direction) {
-            return SetTranslateDirectionAction{.direction = std::move(direction)};
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           std::string const &value) {
+            auto const direction = to_lower(value);
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (direction == "up")
+            {
+                state.sequencer.scale_translate_direction = TranslateDirection::Up;
+            }
+            else if (direction == "down")
+            {
+                state.sequencer.scale_translate_direction = TranslateDirection::Down;
+            }
+            else
+            {
+                return merror("Invalid TranslateDirection: " + direction);
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo("Translate Direction Set");
         }));
 
-    specs.push_back(make_spec(
-        {"set", "key"}, false, "Set transposition key.",
-        std::make_tuple(optional_arg<int>("Int", "key", 0)),
-        [](CommandInvocation const &, int key) { return SetKeyAction{.key = key}; }));
+    specs.push_back(command({"set", "key"}, false, "Set transposition key.",
+                            std::make_tuple(optional_arg<int>("Int", "key", 0)),
+                            [](PluginState &ps, ExecutionContext context,
+                               CommandInvocation const &, int key) {
+                                if (key > 127 || key < -127)
+                                {
+                                    return merror(
+                                        "Invalid Key Value: " + std::to_string(key) +
+                                        ". Must be in range [-127, 127].");
+                                }
+                                auto state = ps.timeline.get_state();
+                                state.aux = context;
+                                state.sequencer.key = key;
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Key Set to " + std::to_string(key) + ".");
+                            }));
 
-    specs.push_back(make_spec({"set", "weight"}, false, "Set selected cell weight.",
-                              std::make_tuple(required_arg<float>("Float", "value")),
-                              [](CommandInvocation const &, float value) {
-                                  return SetWeightAction{.value = value};
-                              }));
+    specs.push_back(command({"set", "weight"}, false, "Set selected cell weight.",
+                            std::make_tuple(required_arg<float>("Float", "value")),
+                            [](PluginState &ps, ExecutionContext context,
+                               CommandInvocation const &, float value) {
+                                auto state = ps.timeline.get_state();
+                                state.aux = context;
+                                state = increment_state(std::move(state),
+                                                        &action::set_weight, value);
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Weight Set");
+                            }));
 
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"set", "weights"}, true, "Set child weights in selected cell.",
         std::make_tuple(
             required_arg<std::variant<float, Modulator>>("Float|Modulator", "weight")),
-        [](CommandInvocation const &invocation, std::variant<float, Modulator> weight) {
-            return SetWeightsAction{
-                .pattern = invocation.input.pattern,
-                .weight = std::move(weight),
-            };
+        [](PluginState &ps, ExecutionContext context,
+           CommandInvocation const &invocation,
+           std::variant<float, Modulator> const &weight) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            if (std::holds_alternative<float>(weight))
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern, float value) {
+                        return action::set_weights(target, pattern, value);
+                    },
+                    invocation.input.pattern, std::get<float>(weight));
+            }
+            else
+            {
+                state = increment_state(
+                    std::move(state),
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_weights(target, pattern, modulator);
+                    },
+                    invocation.input.pattern, std::get<Modulator>(weight));
+            }
+            ps.timeline.stage(std::move(state));
+            ps.commit_intent = CommitIntent::Defer;
+            return minfo("Weights Set");
         }));
 
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"double", "measure", "timeSignature"}, false, "Double measure time signature.",
         std::make_tuple(),
-        [](CommandInvocation const &) { return DoubleMeasureTimeSignatureAction{}; }));
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            auto &time_signature = state.sequencer.measure.time_signature;
+            if (time_signature.numerator >
+                std::numeric_limits<decltype(time_signature.numerator)>::max() / 2)
+            {
+                return merror("Cannot Double the TimeSignature.");
+            }
+            auto const doubled = time_signature.numerator * 2;
+            auto const candidate =
+                sequence::TimeSignature{doubled, time_signature.denominator};
+            if (exceeds_max_measure_length(candidate))
+            {
+                return merror("TimeSignature Too Large, Max length is 64 Whole Notes.");
+            }
+            time_signature.numerator = doubled;
+            ps.timeline.stage(std::move(state));
+            return minfo("Measure TimeSignature Doubled.");
+        }));
 
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"halve", "measure", "timeSignature"}, false, "Halve measure time signature.",
         std::make_tuple(),
-        [](CommandInvocation const &) { return HalveMeasureTimeSignatureAction{}; }));
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            auto &time_signature = state.sequencer.measure.time_signature;
+            if (time_signature.numerator % 2 == 0)
+            {
+                time_signature.numerator /= 2;
+            }
+            else
+            {
+                if (time_signature.denominator >
+                    std::numeric_limits<decltype(time_signature.denominator)>::max() /
+                        2)
+                {
+                    return merror("Cannot Halve the TimeSignature.");
+                }
+                time_signature.denominator *= 2;
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo("Measure TimeSignature Halved.");
+        }));
 
-    specs.push_back(make_spec({"shift", "pitch"}, true, "Shift selected note pitches.",
-                              std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                              [](CommandInvocation const &invocation, int amount) {
-                                  return ShiftPitchAction{
-                                      .pattern = invocation.input.pattern,
-                                      .amount = amount,
-                                  };
-                              }));
-
-    specs.push_back(make_spec({"shift", "octave"}, true, "Shift selected note octaves.",
-                              std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                              [](CommandInvocation const &invocation, int amount) {
-                                  return ShiftOctaveAction{
-                                      .pattern = invocation.input.pattern,
-                                      .amount = amount,
-                                  };
-                              }));
-
-    specs.push_back(
-        make_spec({"shift", "velocity"}, true, "Shift selected note velocities.",
-                  std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-                  [](CommandInvocation const &invocation, float amount) {
-                      return ShiftVelocityAction{
-                          .pattern = invocation.input.pattern,
-                          .amount = amount,
-                      };
-                  }));
-
-    specs.push_back(
-        make_spec({"shift", "delay"}, true, "Shift selected note delays.",
-                  std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-                  [](CommandInvocation const &invocation, float amount) {
-                      return ShiftDelayAction{
-                          .pattern = invocation.input.pattern,
-                          .amount = amount,
-                      };
-                  }));
+    auto const shift_pattern = [](auto shift_fn, std::string message) {
+        return [shift_fn, message = std::move(message)](
+                   PluginState &ps, ExecutionContext context,
+                   CommandInvocation const &invocation, auto amount) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            state = increment_state(std::move(state), shift_fn,
+                                    invocation.input.pattern, amount);
+            ps.timeline.stage(std::move(state));
+            return minfo(message);
+        };
+    };
 
     specs.push_back(
-        make_spec({"shift", "gate"}, true, "Shift selected note gates.",
-                  std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-                  [](CommandInvocation const &invocation, float amount) {
-                      return ShiftGateAction{
-                          .pattern = invocation.input.pattern,
-                          .amount = amount,
-                      };
-                  }));
+        command({"shift", "pitch"}, true, "Shift selected note pitches.",
+                std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, int amount) {
+                        return action::shift_pitch(std::move(target), pattern, amount);
+                    },
+                    "Pitch Shifted")));
+    specs.push_back(command({"shift", "octave"}, true, "Shift selected note octaves.",
+                            std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+                            [](PluginState &ps, ExecutionContext context,
+                               CommandInvocation const &invocation, int amount) {
+                                auto state = ps.timeline.get_state();
+                                state.aux = context;
+                                state.sequencer = action::shift_octave(
+                                    std::move(state.sequencer), state.aux,
+                                    invocation.input.pattern, amount);
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Octave Shifted");
+                            }));
+    specs.push_back(command(
+        {"shift", "velocity"}, true, "Shift selected note velocities.",
+        std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
+        shift_pattern(
+            [](auto target, sequence::Pattern const &pattern, float amount) {
+                return sequence::modify::shift_velocity(target, pattern, amount);
+            },
+            "Velocity Shifted")));
+    specs.push_back(
+        command({"shift", "delay"}, true, "Shift selected note delays.",
+                std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_delay(target, pattern, amount);
+                    },
+                    "Delay Shifted")));
+    specs.push_back(
+        command({"shift", "gate"}, true, "Shift selected note gates.",
+                std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_gate(target, pattern, amount);
+                    },
+                    "Gate Shifted")));
 
-    specs.push_back(make_spec({"shift", "scale"}, false, "Shift loaded scale index.",
-                              std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                              [](CommandInvocation const &, int amount) {
-                                  return ShiftScaleAction{.amount = amount};
-                              }));
+    specs.push_back(
+        command({"shift", "scale"}, false, "Shift loaded scale index.",
+                std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+                [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+                   int amount) {
+                    auto state = ps.timeline.get_state();
+                    state.aux = context;
+                    auto const index = action::shift_scale_index(
+                        ps.library.scale_shift_index, amount, ps.library.scales.size());
+                    ps.library.scale_shift_index = index;
+                    state.sequencer.scale =
+                        index.has_value() && *index < ps.library.scales.size()
+                            ? std::optional<Scale>{ps.library.scales[*index]}
+                            : std::nullopt;
+                    ps.timeline.stage(std::move(state));
+                    return minfo("Scale Shifted");
+                }));
 
-    specs.push_back(make_spec({"shift", "scaleMode"}, false, "Shift scale mode.",
-                              std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                              [](CommandInvocation const &, int amount) {
-                                  return ShiftScaleModeAction{.amount = amount};
-                              }));
+    specs.push_back(command({"shift", "scaleMode"}, false, "Shift scale mode.",
+                            std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+                            [](PluginState &ps, ExecutionContext context,
+                               CommandInvocation const &, int amount) {
+                                auto state = ps.timeline.get_state();
+                                state.aux = context;
+                                if (state.sequencer.scale.has_value())
+                                {
+                                    state.sequencer.scale = action::shift_scale_mode(
+                                        *state.sequencer.scale, amount);
+                                    ps.timeline.stage(std::move(state));
+                                }
+                                return minfo("Scale Mode Shifted");
+                            }));
 
-    specs.push_back(make_spec(
+    specs.push_back(command(
         {"shift", "translateDirection"}, false, "Flip translate direction.",
         std::make_tuple(),
-        [](CommandInvocation const &) { return ShiftTranslateDirectionAction{}; }));
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            action::flip_translate_direction(state.sequencer.scale_translate_direction);
+            ps.timeline.stage(std::move(state));
+            return minfo("Translate Direction Shifted");
+        }));
 
-    specs.push_back(make_spec({"shift", "entireScale"}, false,
-                              "Shift direction, mode, and scale together.",
-                              std::make_tuple(optional_arg<int>("Int", "direction", 1)),
-                              [](CommandInvocation const &, int direction) {
-                                  return ShiftEntireScaleAction{.direction = direction};
-                              }));
+    specs.push_back(command(
+        {"shift", "entireScale"}, false, "Shift direction, mode, and scale together.",
+        std::make_tuple(optional_arg<int>("Int", "direction", 1)),
+        [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
+           int direction) {
+            if (direction != 1 && direction != -1)
+            {
+                return merror("Invalid direction, must be 1 or -1");
+            }
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            auto &translate_direction = state.sequencer.scale_translate_direction;
+            if (state.sequencer.scale.has_value())
+            {
+                action::flip_translate_direction(translate_direction);
+                if (translate_direction == TranslateDirection::Up)
+                {
+                    state.sequencer.scale =
+                        action::shift_scale_mode(*state.sequencer.scale, direction);
+                    if ((state.sequencer.scale->mode == 1 && direction == 1) ||
+                        (state.sequencer.scale->mode ==
+                             state.sequencer.scale->intervals.size() &&
+                         direction == -1))
+                    {
+                        auto const index = action::shift_scale_index(
+                            ps.library.scale_shift_index, direction,
+                            ps.library.scales.size());
+                        ps.library.scale_shift_index = index;
+                        if (index.has_value() && *index < ps.library.scales.size())
+                        {
+                            state.sequencer.scale = ps.library.scales[*index];
+                            if (direction == -1)
+                            {
+                                state.sequencer.scale->mode =
+                                    state.sequencer.scale->intervals.size();
+                            }
+                        }
+                        else
+                        {
+                            state.sequencer.scale = std::nullopt;
+                        }
+                    }
+                }
+            }
+            else if (!ps.library.scales.empty())
+            {
+                auto const index = direction == 1 ? 0 : ps.library.scales.size() - 1;
+                state.sequencer.scale = ps.library.scales[index];
+                translate_direction = TranslateDirection::Up;
+            }
+            ps.timeline.stage(std::move(state));
+            return minfo("Entire Scale Shifted");
+        }));
 
-    specs.push_back(
-        make_spec({"randomize", "pitch"}, true, "Randomize note pitches.",
-                  std::make_tuple(optional_arg<int>("Int", "min", -12),
-                                  optional_arg<int>("Int", "max", 12)),
-                  [](CommandInvocation const &invocation, int min, int max) {
-                      return RandomizePitchAction{
-                          .pattern = invocation.input.pattern,
-                          .min = min,
-                          .max = max,
-                      };
-                  }));
-
-    specs.push_back(
-        make_spec({"randomize", "velocity"}, true, "Randomize note velocities.",
-                  std::make_tuple(optional_arg<float>("Float", "min", 0.01f),
-                                  optional_arg<float>("Float", "max", 1.f)),
-                  [](CommandInvocation const &invocation, float min, float max) {
-                      return RandomizeVelocityAction{
-                          .pattern = invocation.input.pattern,
-                          .min = min,
-                          .max = max,
-                      };
-                  }));
-
-    specs.push_back(
-        make_spec({"randomize", "delay"}, true, "Randomize note delays.",
-                  std::make_tuple(optional_arg<float>("Float", "min", 0.f),
-                                  optional_arg<float>("Float", "max", 0.95f)),
-                  [](CommandInvocation const &invocation, float min, float max) {
-                      return RandomizeDelayAction{
-                          .pattern = invocation.input.pattern,
-                          .min = min,
-                          .max = max,
-                      };
-                  }));
-
-    specs.push_back(
-        make_spec({"randomize", "gate"}, true, "Randomize note gates.",
-                  std::make_tuple(optional_arg<float>("Float", "min", 0.f),
-                                  optional_arg<float>("Float", "max", 0.95f)),
-                  [](CommandInvocation const &invocation, float min, float max) {
-                      return RandomizeGateAction{
-                          .pattern = invocation.input.pattern,
-                          .min = min,
-                          .max = max,
-                      };
-                  }));
+    auto const randomize = [](auto randomize_fn, std::string message) {
+        return [randomize_fn, message = std::move(message)](
+                   PluginState &ps, ExecutionContext context,
+                   CommandInvocation const &invocation, auto min, auto max) {
+            auto state = ps.timeline.get_state();
+            state.aux = context;
+            state = increment_state(std::move(state), randomize_fn,
+                                    invocation.input.pattern, min, max);
+            ps.timeline.stage(std::move(state));
+            return minfo(message);
+        };
+    };
+    specs.push_back(command(
+        {"randomize", "pitch"}, true, "Randomize note pitches.",
+        std::make_tuple(optional_arg<int>("Int", "min", -12),
+                        optional_arg<int>("Int", "max", 12)),
+        randomize(
+            [](auto target, sequence::Pattern const &pattern, int min, int max) {
+                return sequence::modify::randomize_pitch(target, pattern, min, max);
+            },
+            "Randomized Pitch")));
+    specs.push_back(command(
+        {"randomize", "velocity"}, true, "Randomize note velocities.",
+        std::make_tuple(optional_arg<float>("Float", "min", 0.01f),
+                        optional_arg<float>("Float", "max", 1.f)),
+        randomize(
+            [](auto target, sequence::Pattern const &pattern, float min, float max) {
+                return sequence::modify::randomize_velocity(target, pattern, min, max);
+            },
+            "Randomized Velocity")));
+    specs.push_back(command(
+        {"randomize", "delay"}, true, "Randomize note delays.",
+        std::make_tuple(optional_arg<float>("Float", "min", 0.f),
+                        optional_arg<float>("Float", "max", 0.95f)),
+        randomize(
+            [](auto target, sequence::Pattern const &pattern, float min, float max) {
+                return sequence::modify::randomize_delay(target, pattern, min, max);
+            },
+            "Randomized Delay")));
+    specs.push_back(command(
+        {"randomize", "gate"}, true, "Randomize note gates.",
+        std::make_tuple(optional_arg<float>("Float", "min", 0.f),
+                        optional_arg<float>("Float", "max", 0.95f)),
+        randomize(
+            [](auto target, sequence::Pattern const &pattern, float min, float max) {
+                return sequence::modify::randomize_gate(target, pattern, min, max);
+            },
+            "Randomized Gate")));
 }
 
 } // namespace xen::catalog_detail

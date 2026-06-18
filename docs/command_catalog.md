@@ -43,6 +43,6 @@ active argument. The existing `complete_text` and `complete_id` methods remain
 as compatibility projections. The webview bridge exposes structured results
 through `command.complete`.
 
-The existing built-in commands currently use the typed-action adapter supplied
-by the same DSL. New commands do not need to add a type to `CommandAction` or
-modify the central action visitor.
+Built-in and extension commands use the same direct-handler path. Each handler
+receives parsed arguments and updates `PluginState` directly; there is no
+separate action variant or central visitor to extend.

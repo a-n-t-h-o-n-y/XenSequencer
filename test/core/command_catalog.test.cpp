@@ -6,13 +6,13 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <xen/command.hpp>
-#include <xen/command_action.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/command_dsl.hpp>
 
 using namespace xen;
 
-TEST_CASE("Catalog binds command chain to typed actions", "[core][command][catalog]")
+TEST_CASE("Catalog binds command chain to executable handlers",
+          "[core][command][catalog]")
 {
     auto const chain = parse_command_chain("version; again; set key 7; move left 3");
     auto const result = bind_chain(chain);
@@ -21,20 +21,16 @@ TEST_CASE("Catalog binds command chain to typed actions", "[core][command][catal
     auto const &bound = std::get<std::vector<BoundCommand>>(result);
     REQUIRE(bound.size() == 4);
 
-    REQUIRE(bound[0].action.has_value());
-    REQUIRE(bound[2].action.has_value());
-    REQUIRE(bound[3].action.has_value());
-    CHECK(std::holds_alternative<VersionAction>(*bound[0].action));
+    CHECK(bound[0].control == BoundCommandControl::Execute);
     CHECK(bound[1].control == BoundCommandControl::ReplayPrevious);
-    CHECK_FALSE(bound[1].action.has_value());
-    CHECK(std::holds_alternative<SetKeyAction>(*bound[2].action));
-    CHECK(std::holds_alternative<MoveSelectionAction>(*bound[3].action));
-
     CHECK(bound[0].canonical == "version");
-    CHECK(std::get<SetKeyAction>(*bound[2].action).key == 7);
-    CHECK(std::get<MoveSelectionAction>(*bound[3].action).direction ==
-          MoveDirection::Left);
-    CHECK(std::get<MoveSelectionAction>(*bound[3].action).amount == 3);
+    CHECK(bound[1].canonical == "again");
+    CHECK(bound[2].canonical == "set key 7");
+    CHECK(bound[3].canonical == "move left 3");
+    REQUIRE(bound[0].execute);
+    CHECK_FALSE(bound[1].execute);
+    REQUIRE(bound[2].execute);
+    REQUIRE(bound[3].execute);
 }
 
 TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catalog]")
@@ -43,17 +39,21 @@ TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catal
     auto const set_key_result = bind_invocation(set_key_invocation);
     REQUIRE(std::holds_alternative<BoundCommand>(set_key_result));
     auto const &set_key_command = std::get<BoundCommand>(set_key_result);
-    REQUIRE(set_key_command.action.has_value());
-    CHECK(std::get<SetKeyAction>(*set_key_command.action).key == 0);
+    REQUIRE(set_key_command.execute);
 
     auto const move_invocation = parse_command_chain("move right")[0];
     auto const move_result = bind_invocation(move_invocation);
     REQUIRE(std::holds_alternative<BoundCommand>(move_result));
     auto const &move_command = std::get<BoundCommand>(move_result);
-    REQUIRE(move_command.action.has_value());
-    auto const move_action = std::get<MoveSelectionAction>(*move_command.action);
-    CHECK(move_action.direction == MoveDirection::Right);
-    CHECK(move_action.amount == 1);
+    REQUIRE(move_command.execute);
+
+    auto state = PluginState{
+        .timeline = XenTimeline{TimelineState{.sequencer = {}, .aux = {}}},
+    };
+    auto const key_result = set_key_command.execute(state, ExecutionContext{});
+    CHECK(key_result.status.second == "Key Set to 0.");
+    auto const move_result_value = move_command.execute(state, key_result.context);
+    CHECK(move_result_value.status.second == "Moved Right 1 Times");
 }
 
 TEST_CASE("Catalog binder reports unknown command", "[core][command][catalog]")
@@ -124,7 +124,6 @@ TEST_CASE("Catalog supports runtime typed command registration",
     REQUIRE(std::holds_alternative<BoundCommand>(result));
     auto const &command = std::get<BoundCommand>(result);
     REQUIRE(command.execute);
-    CHECK_FALSE(command.action.has_value());
 
     auto state = PluginState{
         .timeline =
@@ -149,7 +148,7 @@ TEST_CASE("Catalog supports runtime typed command registration",
           CatalogBindErrorKind::InvalidArgument);
 }
 
-TEST_CASE("Catalog binds non-bootstrap commands without adapter gaps",
+TEST_CASE("Catalog binds non-bootstrap commands to executors",
           "[core][command][catalog]")
 {
     auto const chain =
@@ -159,12 +158,9 @@ TEST_CASE("Catalog binds non-bootstrap commands without adapter gaps",
     REQUIRE(std::holds_alternative<std::vector<BoundCommand>>(result));
     auto const &bound = std::get<std::vector<BoundCommand>>(result);
     REQUIRE(bound.size() == 3);
-    REQUIRE(bound[0].action.has_value());
-    REQUIRE(bound[1].action.has_value());
-    REQUIRE(bound[2].action.has_value());
-    CHECK(std::holds_alternative<SetBaseFrequencyAction>(*bound[0].action));
-    CHECK(std::holds_alternative<LoadScalesAction>(*bound[1].action));
-    CHECK(std::holds_alternative<SaveMeasureAction>(*bound[2].action));
+    CHECK(bound[0].execute);
+    CHECK(bound[1].execute);
+    CHECK(bound[2].execute);
 }
 
 TEST_CASE("Catalog bind_chain stops at first bind error", "[core][command][catalog]")

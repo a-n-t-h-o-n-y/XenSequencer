@@ -269,7 +269,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         try
         {
             auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-            auto executed_any_action = false;
+            auto executed_any_command = false;
             auto auto_commit_candidate = false;
             auto force_commit_requested = false;
             auto context = ExecutionContext{ps.timeline.get_state().aux};
@@ -277,25 +277,25 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             auto const invocations = parse_command_chain(command_string);
             auto expansion_count = std::size_t{0};
 
-            auto const apply_action_result =
-                [&](CommandActionResult const &action_result) {
-                    status = action_result.status;
+            auto const apply_execution_result =
+                [&](CommandExecutionResult const &execution_result) {
+                    status = execution_result.status;
 
-                    if (action_result.commit_intent == CommitIntent::Force)
+                    if (execution_result.commit_intent == CommitIntent::Force)
                     {
                         force_commit_requested = true;
                     }
-                    if (action_result.engine_mutated &&
-                        action_result.commit_intent != CommitIntent::Defer)
+                    if (execution_result.engine_mutated &&
+                        execution_result.commit_intent != CommitIntent::Defer)
                     {
                         auto_commit_candidate = true;
                     }
 
-                    context = action_result.context;
+                    context = execution_result.context;
                 };
 
             auto const apply_command = [&](BoundCommand const &command) {
-                executed_any_action = true;
+                executed_any_command = true;
                 executed_chain.push_back(command);
 
                 if (!command.execute)
@@ -303,8 +303,8 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                     throw std::runtime_error(
                         "Bound command does not have an executor.");
                 }
-                auto const action_result = command.execute(ps, context);
-                apply_action_result(action_result);
+                auto const execution_result = command.execute(ps, context);
+                apply_execution_result(execution_result);
             };
 
             for (auto const &invocation : invocations)
@@ -372,14 +372,14 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 }
             }
 
-            if (executed_any_action)
+            if (executed_any_command)
             {
                 auto final_state = ps.timeline.get_state();
                 final_state.aux = context;
                 ps.timeline.stage(std::move(final_state));
             }
 
-            if (executed_any_action)
+            if (executed_any_command)
             {
                 previous_command_chain_ = executed_chain;
             }
@@ -400,7 +400,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 previous_commit_id_ = id;
                 pending_engine_state_update.publish(ps.timeline.get_state().sequencer);
             }
-            if (executed_any_action)
+            if (executed_any_command)
             {
                 notify_ui_state_changed();
             }

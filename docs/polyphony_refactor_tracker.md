@@ -60,7 +60,7 @@ Primary files already known to be affected:
 - `src/midi.cpp`
 - `src/serialize.cpp`
 - `src/bridge_serialize.cpp`
-- `src/command_action.cpp`
+- direct handlers in the command catalog spec modules
 - `src/midi_engine.cpp`
 - `include/xen/measure.hpp`
 
@@ -102,7 +102,7 @@ Current implementation direction:
 
 ### 4. Command surface cleanup
 
-- [x] Remove deleted commands from typed actions, parsing, execution, docs, and metadata:
+- [x] Remove deleted commands from parsing, execution, docs, and metadata:
   - `rest`
   - `flip`
   - `fill note`

@@ -188,7 +188,6 @@ set(XEN_CORE_SOURCES
     src/actions.cpp
     src/chord.cpp
     src/command.cpp
-    src/command_action.cpp
     src/command_catalog.cpp
     src/command_catalog_bind.cpp
     src/command_catalog_complete.cpp
@@ -333,7 +332,7 @@ if (XEN_BUILD_TESTS)
     enable_testing()
 
     set(XEN_TEST_SOURCES
-        test/core/command_action.test.cpp
+        test/core/command_handler_execution.test.cpp
         test/core/command_catalog.test.cpp
         test/core/command_parse.test.cpp
         test/core/state_actions.test.cpp
