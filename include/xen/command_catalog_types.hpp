@@ -8,13 +8,14 @@
 #include <variant>
 #include <vector>
 
+#include <xen/command.hpp>
 #include <xen/message_level.hpp>
 #include <xen/state.hpp>
 
 namespace xen
 {
 
-struct CommandInvocation;
+class SubmissionEffects;
 
 enum class CatalogBindErrorKind : std::uint8_t
 {
@@ -50,29 +51,36 @@ class CatalogBindException final : public std::exception
     std::string message_;
 };
 
-enum class BoundCommandControl : std::uint8_t
+enum class ExecutionRole : std::uint8_t
 {
-    Execute,
-    ReplayPrevious,
+    Normal,
+    Undo,
+    Redo,
 };
 
-struct CommandExecutionResult
+enum class RepeatPolicy : std::uint8_t
 {
-    std::pair<MessageLevel, std::string> status{MessageLevel::Debug, ""};
-    ExecutionContext context{};
-    bool engine_mutated{false};
-    CommitIntent commit_intent{CommitIntent::Auto};
+    Never,
+    EngineEdit,
 };
 
-using BoundCommandExecutor =
-    std::function<CommandExecutionResult(PluginState &, ExecutionContext)>;
+using CommandExecutor = std::function<std::pair<MessageLevel, std::string>(
+    PluginState &, SubmissionEffects &)>;
 
-struct BoundCommand
+struct ExecutableCommand
 {
     std::string canonical{};
-    BoundCommandControl control{BoundCommandControl::Execute};
-    BoundCommandExecutor execute{};
+    CommandInvocation invocation{};
+    ExecutionRole execution_role{ExecutionRole::Normal};
+    RepeatPolicy repeat_policy{RepeatPolicy::EngineEdit};
+    CommandExecutor execute;
 };
+
+struct RepeatPrevious
+{
+};
+
+using BoundStep = std::variant<ExecutableCommand, RepeatPrevious>;
 
 struct CatalogArgumentMetadata
 {
@@ -112,10 +120,10 @@ struct CompletionResult
 struct CommandDefinition
 {
     CatalogCommandMetadata metadata{};
-    std::function<BoundCommand(CommandInvocation const &, std::size_t)> bind{};
+    std::function<BoundStep(CommandInvocation const &, std::size_t)> bind{};
 };
 
-using BindInvocationResult = std::variant<BoundCommand, CatalogBindError>;
-using BindChainResult = std::variant<std::vector<BoundCommand>, CatalogBindError>;
+using BindInvocationResult = std::variant<BoundStep, CatalogBindError>;
+using BindChainResult = std::variant<std::vector<BoundStep>, CatalogBindError>;
 
 } // namespace xen

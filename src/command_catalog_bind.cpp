@@ -100,7 +100,7 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
 auto CommandCatalog::bind_chain(std::vector<CommandInvocation> const &invocations) const
     -> BindChainResult
 {
-    auto bound = std::vector<BoundCommand>{};
+    auto bound = std::vector<BoundStep>{};
     bound.reserve(invocations.size());
 
     for (auto const &invocation : invocations)
@@ -110,7 +110,7 @@ auto CommandCatalog::bind_chain(std::vector<CommandInvocation> const &invocation
         {
             return std::get<CatalogBindError>(result);
         }
-        bound.push_back(std::get<BoundCommand>(result));
+        bound.push_back(std::get<BoundStep>(result));
     }
 
     return bound;

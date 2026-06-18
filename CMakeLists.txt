@@ -211,6 +211,7 @@ set(XEN_CORE_SOURCES
     src/selection.cpp
     src/serialize.cpp
     src/string_manip.cpp
+    src/submission_effects.cpp
     src/user_directory.cpp
     src/utility.cpp
     src/bridge_serialize.cpp

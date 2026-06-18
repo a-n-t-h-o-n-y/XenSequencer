@@ -5,7 +5,6 @@ name | signature | description
 welcome | `welcome` | Display welcome message.
 version | `version` | Print the current XenSequencer version.
 again | `again` | Replay the previously executed command chain.
-commit | `commit` | Force a commit on the current command chain.
 reset | `reset` | Reset XenSequencer to its initial state.
 undo | `undo` | Revert state to before the last action.
 redo | `redo` | Reapply the last undone action.

@@ -7,12 +7,11 @@
 #include <type_traits>
 #include <utility>
 
-#include <juce_core/juce_core.h>
-
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
+#include <xen/copy_paste.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/measure.hpp>
 #include <xen/modulator.hpp>
@@ -26,37 +25,35 @@ namespace xen
  * Increment the state by applying a function to the selected Cell.
  *
  * @details This is a convinience function for Command implementations. It will create a
- * copy of the current state, call the given function with either the selected cell or
- * selected element as first parameter, then stage this state to the timeline. Does
- * not flag the Timeline for commit.
+ * copy of the current engine, then call the given function with either the selected
+ * cell or selected element as first parameter.
  *
  * @param state The state to mutate.
  * @param fn The function to apply to the selected Cell or MusicElement.
  * @param args The arguments to pass to the function.
- * @return TimelineState The updated state.
+ * @return EngineState The updated state.
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-[[nodiscard]] auto increment_state(TimelineState state, Fn &&fn, Args &&...args)
-    -> TimelineState
+[[nodiscard]] auto increment_state(EngineState state, EditorSessionState const &editor,
+                                   Fn &&fn, Args &&...args) -> EngineState
 {
     constexpr bool supports_cell =
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>;
-    constexpr bool supports_element = std::is_invocable_r_v<
-        sequence::MusicElement, Fn, sequence::MusicElement, Args...>;
+    constexpr bool supports_element =
+        std::is_invocable_r_v<sequence::MusicElement, Fn, sequence::MusicElement,
+                              Args...>;
 
-    static_assert(
-        supports_cell || supports_element,
-        "Function must be invocable with a Cell or MusicElement and return the same type.");
+    static_assert(supports_cell || supports_element,
+                  "Function must be invocable with a Cell or MusicElement and return "
+                  "the same type.");
 
-    if (selection_kind(state.aux.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
         if constexpr (supports_element)
         {
-            auto &selected =
-                get_selected_element(state.sequencer.measure, state.aux.selected);
-            selected =
-                std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
+            auto &selected = get_selected_element(state.measure, editor.selected);
+            selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
         {
@@ -67,8 +64,7 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_cell)
         {
-            auto &selected =
-                get_selected_cell(state.sequencer.measure, state.aux.selected);
+            auto &selected = get_selected_cell(state.measure, editor.selected);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -85,49 +81,42 @@ template <typename Fn, typename... Args>
 namespace xen::action
 {
 
-[[nodiscard]] auto move_left(EngineState const &state, ExecutionContext context,
-                             std::size_t amount) -> ExecutionContext;
+[[nodiscard]] auto move_left(EngineState const &state, EditorSessionState editor,
+                             std::size_t amount) -> EditorSessionState;
 
-[[nodiscard]] auto move_right(EngineState const &state, ExecutionContext context,
-                              std::size_t amount) -> ExecutionContext;
+[[nodiscard]] auto move_right(EngineState const &state, EditorSessionState editor,
+                              std::size_t amount) -> EditorSessionState;
 
-[[nodiscard]] auto move_up(EngineState const &state, ExecutionContext context,
-                           std::size_t amount)
-    -> ExecutionContext;
+[[nodiscard]] auto move_up(EngineState const &state, EditorSessionState editor,
+                           std::size_t amount) -> EditorSessionState;
 
-[[nodiscard]] auto move_down(EngineState const &state, ExecutionContext context,
-                             std::size_t amount) -> ExecutionContext;
+[[nodiscard]] auto move_down(EngineState const &state, EditorSessionState editor,
+                             std::size_t amount) -> EditorSessionState;
 
-void copy(EngineState const &state, ExecutionContext const &context);
+[[nodiscard]] auto copy(EngineState const &state, EditorSessionState const &editor)
+    -> CopyBufferContent;
 
-[[nodiscard]] auto paste(EngineState state, ExecutionContext const &context)
-    -> EngineState;
+[[nodiscard]] auto paste(EngineState state, EditorSessionState const &editor,
+                         CopyBufferContent const &content) -> EngineState;
 
-[[nodiscard]] auto duplicate(TimelineState state) -> TimelineState;
+void duplicate(EngineState &state, EditorSessionState &editor);
 
-[[nodiscard]] auto set_input_mode(ExecutionContext context, InputMode mode)
-    -> ExecutionContext;
+[[nodiscard]] auto set_input_mode(EditorSessionState editor, InputMode mode)
+    -> EditorSessionState;
 
-[[nodiscard]] auto lift(TimelineState state) -> TimelineState;
+void lift(EngineState &state, EditorSessionState &editor);
 
-[[nodiscard]] auto shift_octave(EngineState state,
-                                ExecutionContext const &context,
+[[nodiscard]] auto shift_octave(EngineState state, EditorSessionState const &editor,
                                 sequence::Pattern const &pattern, int amount)
     -> EngineState;
 
-[[nodiscard]] auto set_note_octave(EngineState state,
-                                   ExecutionContext const &context,
+[[nodiscard]] auto set_note_octave(EngineState state, EditorSessionState const &editor,
                                    sequence::Pattern const &pattern, int octave)
     -> EngineState;
 
-[[nodiscard]] auto delete_cell(TimelineState state) -> TimelineState;
+void delete_cell(EngineState &state, EditorSessionState &editor);
 
-void save_measure(juce::File const &filepath, Measure const &measure);
-
-[[nodiscard]] auto load_measure(juce::File const &filepath) -> Measure;
-
-[[nodiscard]] auto set_base_frequency(EngineState state, float freq)
-    -> EngineState;
+[[nodiscard]] auto set_base_frequency(EngineState state, float freq) -> EngineState;
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 
@@ -144,8 +133,7 @@ void flip_translate_direction(TranslateDirection &td);
 [[nodiscard]] auto step(sequence::Cell cell, sequence::Pattern const &pattern,
                         int pitch_distance, float velocity_distance) -> sequence::Cell;
 
-[[nodiscard]] auto arp(sequence::MusicElement element,
-                       sequence::Pattern const &pattern,
+[[nodiscard]] auto arp(sequence::MusicElement element, sequence::Pattern const &pattern,
                        std::vector<int> const &intervals) -> sequence::MusicElement;
 
 [[nodiscard]] auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
@@ -182,8 +170,7 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
     -> sequence::Cell;
 
 [[nodiscard]]
-auto set_velocities(sequence::MusicElement element,
-                    sequence::Pattern const &pattern,
+auto set_velocities(sequence::MusicElement element, sequence::Pattern const &pattern,
                     Modulator const &mod) -> sequence::MusicElement;
 
 [[nodiscard]]

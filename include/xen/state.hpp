@@ -112,23 +112,9 @@ struct EditorSessionState
 };
 
 /**
- * Explicit command execution context.
- *
- * @details Currently this is identical to EditorSessionState. Keep the alias so
- * command execution APIs can use context-centric naming without conversion overhead.
- */
-using ExecutionContext = EditorSessionState;
-
-struct TimelineState
-{
-    EngineState sequencer;
-    EditorSessionState aux;
-};
-
-/**
  * The specific Timeline type for the Xen plugin.
  */
-using XenTimeline = Timeline<TimelineState>;
+using XenTimeline = Timeline<EngineState>;
 
 struct AppConfigState
 {
@@ -143,18 +129,11 @@ struct ContentLibraryState
     std::vector<Chord> chords{};
 };
 
-enum class CommitIntent
-{
-    Auto,
-    Defer,
-    Force,
-};
-
 struct PluginState
 {
     AppConfigState config{};
     ContentLibraryState library{};
-    CommitIntent commit_intent{CommitIntent::Auto};
+    EditorSessionState editor{};
     XenTimeline timeline;
 };
 

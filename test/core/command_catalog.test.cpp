@@ -8,6 +8,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/command_dsl.hpp>
+#include <xen/submission_effects.hpp>
 
 using namespace xen;
 
@@ -17,43 +18,45 @@ TEST_CASE("Catalog binds command chain to executable handlers",
     auto const chain = parse_command_chain("version; again; set key 7; move left 3");
     auto const result = bind_chain(chain);
 
-    REQUIRE(std::holds_alternative<std::vector<BoundCommand>>(result));
-    auto const &bound = std::get<std::vector<BoundCommand>>(result);
+    REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
+    auto const &bound = std::get<std::vector<BoundStep>>(result);
     REQUIRE(bound.size() == 4);
 
-    CHECK(bound[0].control == BoundCommandControl::Execute);
-    CHECK(bound[1].control == BoundCommandControl::ReplayPrevious);
-    CHECK(bound[0].canonical == "version");
-    CHECK(bound[1].canonical == "again");
-    CHECK(bound[2].canonical == "set key 7");
-    CHECK(bound[3].canonical == "move left 3");
-    REQUIRE(bound[0].execute);
-    CHECK_FALSE(bound[1].execute);
-    REQUIRE(bound[2].execute);
-    REQUIRE(bound[3].execute);
+    REQUIRE(std::holds_alternative<ExecutableCommand>(bound[0]));
+    CHECK(std::holds_alternative<RepeatPrevious>(bound[1]));
+    REQUIRE(std::holds_alternative<ExecutableCommand>(bound[2]));
+    REQUIRE(std::holds_alternative<ExecutableCommand>(bound[3]));
+    CHECK(std::get<ExecutableCommand>(bound[0]).canonical == "version");
+    CHECK(std::get<ExecutableCommand>(bound[2]).canonical == "set key 7");
+    CHECK(std::get<ExecutableCommand>(bound[3]).canonical == "move left 3");
 }
 
 TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catalog]")
 {
     auto const set_key_invocation = parse_command_chain("set key")[0];
     auto const set_key_result = bind_invocation(set_key_invocation);
-    REQUIRE(std::holds_alternative<BoundCommand>(set_key_result));
-    auto const &set_key_command = std::get<BoundCommand>(set_key_result);
+    REQUIRE(std::holds_alternative<BoundStep>(set_key_result));
+    auto const &set_key_step = std::get<BoundStep>(set_key_result);
+    REQUIRE(std::holds_alternative<ExecutableCommand>(set_key_step));
+    auto const &set_key_command = std::get<ExecutableCommand>(set_key_step);
     REQUIRE(set_key_command.execute);
 
     auto const move_invocation = parse_command_chain("move right")[0];
     auto const move_result = bind_invocation(move_invocation);
-    REQUIRE(std::holds_alternative<BoundCommand>(move_result));
-    auto const &move_command = std::get<BoundCommand>(move_result);
+    REQUIRE(std::holds_alternative<BoundStep>(move_result));
+    auto const &move_step = std::get<BoundStep>(move_result);
+    REQUIRE(std::holds_alternative<ExecutableCommand>(move_step));
+    auto const &move_command = std::get<ExecutableCommand>(move_step);
     REQUIRE(move_command.execute);
 
     auto state = PluginState{
-        .timeline = XenTimeline{TimelineState{.sequencer = {}, .aux = {}}},
+        .timeline = XenTimeline{EngineState{}},
     };
-    auto const key_result = set_key_command.execute(state, ExecutionContext{});
-    CHECK(key_result.status.second == "Key Set to 0.");
-    auto const move_result_value = move_command.execute(state, key_result.context);
-    CHECK(move_result_value.status.second == "Moved Right 1 Times");
+    auto effects = SubmissionEffects{};
+    auto const key_result = set_key_command.execute(state, effects);
+    CHECK(key_result.second == "Key Set to 0.");
+    auto const move_result_value = move_command.execute(state, effects);
+    CHECK(move_result_value.second == "Moved Right 1 Times");
 }
 
 TEST_CASE("Catalog binder reports unknown command", "[core][command][catalog]")
@@ -100,7 +103,8 @@ TEST_CASE("Catalog binder rejects trailing arguments and unsupported patterns",
 
     auto const accepted =
         bind_invocation(parse_command_chain("+2 set velocity 0.5")[0]);
-    CHECK(std::holds_alternative<BoundCommand>(accepted));
+    REQUIRE(std::holds_alternative<BoundStep>(accepted));
+    CHECK(std::holds_alternative<ExecutableCommand>(std::get<BoundStep>(accepted)));
 }
 
 TEST_CASE("Catalog supports runtime typed command registration",
@@ -113,30 +117,23 @@ TEST_CASE("Catalog supports runtime typed command registration",
             command_dsl::optional_arg<int>("value", 7),
             [](int value) { return value >= 0 && value <= 100; },
             "value must be in range [0, 100]")),
-        [](PluginState &, ExecutionContext context, CommandInvocation const &,
-           int value) {
-            static_cast<void>(context);
+        [](PluginState &, CommandInvocation const &, int value) {
             return std::pair{MessageLevel::Info, std::to_string(value)};
         }));
 
     auto const result =
         catalog.bind_invocation(parse_command_chain("inspect value 42")[0]);
-    REQUIRE(std::holds_alternative<BoundCommand>(result));
-    auto const &command = std::get<BoundCommand>(result);
+    REQUIRE(std::holds_alternative<BoundStep>(result));
+    auto const &step = std::get<BoundStep>(result);
+    REQUIRE(std::holds_alternative<ExecutableCommand>(step));
+    auto const &command = std::get<ExecutableCommand>(step);
     REQUIRE(command.execute);
 
-    auto state = PluginState{
-        .timeline =
-            XenTimeline{
-                TimelineState{
-                    .sequencer = {},
-                    .aux = {},
-                },
-            },
-    };
-    auto const execution = command.execute(state, ExecutionContext{});
-    CHECK(execution.status.first == MessageLevel::Info);
-    CHECK(execution.status.second == "42");
+    auto state = PluginState{.timeline = XenTimeline{EngineState{}}};
+    auto effects = SubmissionEffects{};
+    auto const execution = command.execute(state, effects);
+    CHECK(execution.first == MessageLevel::Info);
+    CHECK(execution.second == "42");
 
     REQUIRE(catalog.metadata().size() == 1);
     CHECK(catalog.metadata()[0].arguments[0].type == "Int");
@@ -155,12 +152,12 @@ TEST_CASE("Catalog binds non-bootstrap commands to executors",
         parse_command_chain("set baseFrequency 333; load scales; save measure foo");
     auto const result = bind_chain(chain);
 
-    REQUIRE(std::holds_alternative<std::vector<BoundCommand>>(result));
-    auto const &bound = std::get<std::vector<BoundCommand>>(result);
+    REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
+    auto const &bound = std::get<std::vector<BoundStep>>(result);
     REQUIRE(bound.size() == 3);
-    CHECK(bound[0].execute);
-    CHECK(bound[1].execute);
-    CHECK(bound[2].execute);
+    CHECK(std::holds_alternative<ExecutableCommand>(bound[0]));
+    CHECK(std::holds_alternative<ExecutableCommand>(bound[1]));
+    CHECK(std::holds_alternative<ExecutableCommand>(bound[2]));
 }
 
 TEST_CASE("Catalog bind_chain stops at first bind error", "[core][command][catalog]")

@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include <xen/selection.hpp>
 #include <xen/input_mode.hpp>
 #include <xen/message_level.hpp>
+#include <xen/selection.hpp>
 #include <xen/xen_processor.hpp>
 
 using namespace xen;
@@ -12,14 +12,13 @@ using namespace xen;
 namespace
 {
 
-auto singleton_sequence_cell_selection(
-    std::vector<std::size_t> const &indices) -> SelectedState
+auto singleton_sequence_cell_selection(std::vector<std::size_t> const &indices)
+    -> SelectedState
 {
     auto selected = SelectedState{};
     for (auto const index : indices)
     {
-        selected.path.push_back(
-            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back({.kind = SelectionStepKind::Element, .index = 0});
         selected.path.push_back(
             {.kind = SelectionStepKind::SequenceCell, .index = index});
     }
@@ -54,21 +53,19 @@ TEST_CASE("Mutating commands advance commit id while non-mutating commands do no
     CHECK(after.engine.key == 12);
 }
 
-TEST_CASE("Undo reverts engine commit while preserving current selection and input mode",
-          "[core][timeline][commit]")
+TEST_CASE(
+    "Undo reverts engine commit while preserving current selection and input mode",
+    "[core][timeline][commit]")
 {
     auto processor = XenProcessor{};
 
     REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
-    auto state = processor.plugin_state.timeline.get_state();
-    state.aux.selected = singleton_sequence_cell_selection({0});
-    processor.plugin_state.timeline.stage(std::move(state));
+    processor.plugin_state.editor.selected = singleton_sequence_cell_selection({0});
     REQUIRE(processor.execute_command_string("inputMode gate").first ==
             MessageLevel::Info);
     REQUIRE(processor.execute_command_string("set key 9").first == MessageLevel::Info);
     auto const previous_commit = processor.get_engine_snapshot();
-    REQUIRE(previous_commit.editor.selected ==
-            singleton_sequence_cell_selection({0}));
+    REQUIRE(previous_commit.editor.selected == singleton_sequence_cell_selection({0}));
     REQUIRE(previous_commit.editor.input_mode == InputMode::Gate);
 
     REQUIRE(processor.execute_command_string("set key 11").first == MessageLevel::Info);
@@ -76,7 +73,7 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     REQUIRE(current.engine.key == 11);
     REQUIRE(current.commit_id != previous_commit.commit_id);
 
-    // Stage aux changes that should be discarded by undo's reset_stage().
+    // Editor changes are session state and survive engine history movement.
     REQUIRE(processor.execute_command_string("move right").first ==
             MessageLevel::Debug);
     REQUIRE(processor.execute_command_string("inputMode pitch").first ==
@@ -88,8 +85,8 @@ TEST_CASE("Undo reverts engine commit while preserving current selection and inp
     auto const after_undo = processor.get_engine_snapshot();
     CHECK(after_undo.commit_id == previous_commit.commit_id);
     CHECK(after_undo.engine.key == previous_commit.engine.key);
-    CHECK(after_undo.editor.selected == singleton_sequence_cell_selection({0}));
-    CHECK(after_undo.editor.input_mode == InputMode::Gate);
+    CHECK(after_undo.editor.selected != singleton_sequence_cell_selection({0}));
+    CHECK(after_undo.editor.input_mode == InputMode::Pitch);
 }
 
 TEST_CASE("New commit after undo truncates redo history", "[core][timeline][commit]")
@@ -120,7 +117,25 @@ TEST_CASE("New commit after undo truncates redo history", "[core][timeline][comm
     CHECK(after_redo.commit_id == after_new_commit.commit_id);
 }
 
-TEST_CASE("Deferred mutation commands do not auto-commit without explicit commit",
+TEST_CASE("No-op commit after undo preserves redo history", "[core][timeline][commit]")
+{
+    auto timeline = XenTimeline{EngineState{}};
+    auto engine = timeline.get_state();
+    engine.key = 1;
+    timeline.stage(engine);
+    REQUIRE(timeline.commit());
+    engine.key = 2;
+    timeline.stage(engine);
+    REQUIRE(timeline.commit());
+    REQUIRE(timeline.undo());
+
+    timeline.stage(timeline.get_state());
+    CHECK_FALSE(timeline.commit());
+    CHECK(timeline.redo());
+    CHECK(timeline.get_state().key == 2);
+}
+
+TEST_CASE("Modulator and weight mutations commit immediately",
           "[core][timeline][commit]")
 {
     auto processor = XenProcessor{};
@@ -128,24 +143,15 @@ TEST_CASE("Deferred mutation commands do not auto-commit without explicit commit
     REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
     auto const before = processor.get_engine_snapshot();
 
-    auto const [deferred_level, deferred_message] =
-        processor.execute_command_string("set weights 0.5");
-    CHECK(deferred_level == MessageLevel::Info);
-    CHECK(deferred_message == "Weights Set");
+    auto const [level, message] = processor.execute_command_string("set weights 0.5");
+    CHECK(level == MessageLevel::Info);
+    CHECK(message == "Weights Set");
 
-    auto const after_deferred = processor.get_engine_snapshot();
-    CHECK(after_deferred.commit_id == before.commit_id);
-
-    auto const [commit_level, commit_message] =
-        processor.execute_command_string("commit");
-    CHECK(commit_level == MessageLevel::Debug);
-    CHECK(commit_message == "commit made");
-
-    auto const after_commit = processor.get_engine_snapshot();
-    CHECK(after_commit.commit_id > before.commit_id);
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.commit_id > before.commit_id);
 }
 
-TEST_CASE("Deferred mutation with later command error does not commit",
+TEST_CASE("Atomic mutation with later bind error does not commit",
           "[core][timeline][commit]")
 {
     auto processor = XenProcessor{};

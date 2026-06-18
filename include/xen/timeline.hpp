@@ -46,15 +46,20 @@ class Timeline
     /**
      * Commit previously staged state to the timeline.
      *
-     * @details This always appends the staged state to the timeline, which is a copy of
-     * the previous state if nothing has been staged since the previous commit. If the
-     * timeline is in the past, the future is truncated.
+     * @details Appends only when the staged state differs from the current commit. If
+     * the timeline is in the past, a changed commit truncates the future. A no-op
+     * preserves redo history.
      */
-    auto commit() -> void
+    auto commit() -> bool
     {
+        if (stage_ == timeline_[at_].first)
+        {
+            return false;
+        }
         at_ = at_ + 1;
         timeline_.resize(at_);
         timeline_.push_back({stage_, id_origin_++});
+        return true;
     }
 
     /**

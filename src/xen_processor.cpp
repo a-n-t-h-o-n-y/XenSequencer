@@ -7,6 +7,7 @@
 #include <cstring>
 #include <exception>
 #include <limits>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -21,6 +22,7 @@
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
+#include <xen/submission_effects.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
@@ -66,14 +68,14 @@ namespace
 namespace xen
 {
 
-XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
-      command_catalog_{create_command_catalog()}
+XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure)
+    : plugin_state{.timeline = XenTimeline{EngineState{}}},
+      command_catalog_{create_command_catalog()}, effect_failure_{effect_failure}
 {
     initialize_demo_files();
 
     // Send initial state to Audio Thread
-    pending_engine_state_update.publish(plugin_state.timeline.get_state().sequencer);
+    pending_engine_state_update.publish(plugin_state.timeline.get_state());
     notify_ui_state_changed();
 
     this->execute_command_string("load scales");
@@ -92,10 +94,9 @@ auto XenProcessor::command_catalog() const noexcept -> CommandCatalog const &
 
 auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
 {
-    auto const tracked = plugin_state.timeline.get_state();
     return EngineSnapshot{
-        .engine = tracked.sequencer,
-        .editor = tracked.aux,
+        .engine = plugin_state.timeline.get_state(),
+        .editor = plugin_state.editor,
         .commit_id = plugin_state.timeline.get_current_commit_id(),
         .snapshot_version = ui_snapshot_version_.load(std::memory_order_acquire),
     };
@@ -227,8 +228,7 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str =
-            serialize_plugin(plugin_state.timeline.get_state().sequencer);
+        auto const json_str = serialize_plugin(plugin_state.timeline.get_state());
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -247,10 +247,9 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
         auto state = deserialize_plugin(json_str);
-        plugin_state.timeline.stage({std::move(state), {}});
+        plugin_state.timeline.stage(std::move(state));
         plugin_state.timeline.commit();
-        pending_engine_state_update.publish(
-            plugin_state.timeline.get_state().sequencer);
+        pending_engine_state_update.publish(plugin_state.timeline.get_state());
         notify_ui_state_changed();
     }
     catch (std::exception const &e)
@@ -265,152 +264,134 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
 {
     try
     {
-        auto &ps = plugin_state;
+        auto const parsed = parse_command_chain(command_string);
+        auto expanded = std::vector<CommandInvocation>{};
+        for (auto const &invocation : parsed)
+        {
+            auto const result = command_catalog_.bind_invocation(invocation);
+            if (std::holds_alternative<CatalogBindError>(result))
+            {
+                return {MessageLevel::Error,
+                        std::get<CatalogBindError>(result).message};
+            }
+            auto const &step = std::get<BoundStep>(result);
+            if (std::holds_alternative<RepeatPrevious>(step))
+            {
+                if (previous_command_chain_.empty())
+                {
+                    return {MessageLevel::Error, "No previous command to repeat."};
+                }
+                expanded.insert(expanded.end(), previous_command_chain_.begin(),
+                                previous_command_chain_.end());
+            }
+            else
+            {
+                expanded.push_back(invocation);
+            }
+        }
+
+        auto const bind_result = command_catalog_.bind_chain(expanded);
+        if (std::holds_alternative<CatalogBindError>(bind_result))
+        {
+            return {MessageLevel::Error,
+                    std::get<CatalogBindError>(bind_result).message};
+        }
+        auto const &steps = std::get<std::vector<BoundStep>>(bind_result);
+        auto commands = std::vector<ExecutableCommand>{};
+        commands.reserve(steps.size());
+        for (auto const &step : steps)
+        {
+            if (std::holds_alternative<RepeatPrevious>(step))
+            {
+                return {MessageLevel::Error,
+                        "Recursive 'again' expansion is not allowed."};
+            }
+            commands.push_back(std::get<ExecutableCommand>(step));
+        }
+
+        auto const history_count =
+            std::ranges::count_if(commands, [](ExecutableCommand const &command) {
+                return command.execution_role != ExecutionRole::Normal;
+            });
+        if (history_count > 0 && commands.size() != 1)
+        {
+            return {MessageLevel::Error, "undo and redo must be submitted alone."};
+        }
+
+        auto working = plugin_state;
+        auto effects = SubmissionEffects{effect_failure_};
+        auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+        auto repeat_target = std::vector<CommandInvocation>{};
+        auto const initial_engine = working.timeline.get_state();
+        auto const initial_commit_id = working.timeline.get_current_commit_id();
+
+        for (auto const &command : commands)
+        {
+            auto const before = working.timeline.get_state();
+            status = command.execute(working, effects);
+            if (status.first == MessageLevel::Error)
+            {
+                return status;
+            }
+            auto const changed = working.timeline.get_state() != before;
+            if (changed && command.repeat_policy == RepeatPolicy::EngineEdit)
+            {
+                repeat_target.push_back(command.invocation);
+            }
+        }
+
+        if (history_count == 0 && working.timeline.get_state() != initial_engine)
+        {
+            working.timeline.commit();
+        }
+
+        auto const final_engine = working.timeline.get_state();
+        auto const final_commit_id = working.timeline.get_current_commit_id();
+        effects.prepare();
+        auto const original_state = plugin_state;
         try
         {
-            auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
-            auto executed_any_command = false;
-            auto auto_commit_candidate = false;
-            auto force_commit_requested = false;
-            auto context = ExecutionContext{ps.timeline.get_state().aux};
-            auto executed_chain = std::vector<BoundCommand>{};
-            auto const invocations = parse_command_chain(command_string);
-            auto expansion_count = std::size_t{0};
-
-            auto const apply_execution_result =
-                [&](CommandExecutionResult const &execution_result) {
-                    status = execution_result.status;
-
-                    if (execution_result.commit_intent == CommitIntent::Force)
-                    {
-                        force_commit_requested = true;
-                    }
-                    if (execution_result.engine_mutated &&
-                        execution_result.commit_intent != CommitIntent::Defer)
-                    {
-                        auto_commit_candidate = true;
-                    }
-
-                    context = execution_result.context;
-                };
-
-            auto const apply_command = [&](BoundCommand const &command) {
-                executed_any_command = true;
-                executed_chain.push_back(command);
-
-                if (!command.execute)
-                {
-                    throw std::runtime_error(
-                        "Bound command does not have an executor.");
-                }
-                auto const execution_result = command.execute(ps, context);
-                apply_execution_result(execution_result);
-            };
-
-            for (auto const &invocation : invocations)
-            {
-                auto const bound_result = command_catalog_.bind_invocation(invocation);
-                if (std::holds_alternative<CatalogBindError>(bound_result))
-                {
-                    auto const &bind_error = std::get<CatalogBindError>(bound_result);
-                    if (bind_error.kind == CatalogBindErrorKind::UnknownCommand)
-                    {
-                        if (!bind_error.token.empty())
-                        {
-                            status = {MessageLevel::Error,
-                                      "Command not found: " + bind_error.token};
-                        }
-                        else
-                        {
-                            status = {MessageLevel::Error, "Command not found"};
-                        }
-                    }
-                    else
-                    {
-                        status = {MessageLevel::Error, bind_error.message};
-                    }
-                    break;
-                }
-
-                auto const &bound_command = std::get<BoundCommand>(bound_result);
-
-                if (bound_command.control == BoundCommandControl::ReplayPrevious)
-                {
-                    if (previous_command_chain_.empty())
-                    {
-                        status = {MessageLevel::Error,
-                                  "No previous command to repeat."};
-                        break;
-                    }
-
-                    if (++expansion_count > 64)
-                    {
-                        status = {MessageLevel::Error,
-                                  "Recursive 'again' expansion exceeded safe "
-                                  "limit."};
-                        break;
-                    }
-
-                    auto const replay_chain = previous_command_chain_;
-                    for (auto const &replay_command : replay_chain)
-                    {
-                        apply_command(replay_command);
-                        if (status.first == MessageLevel::Error)
-                        {
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    apply_command(bound_command);
-                }
-
-                if (status.first == MessageLevel::Error)
-                {
-                    break;
-                }
-            }
-
-            if (executed_any_command)
-            {
-                auto final_state = ps.timeline.get_state();
-                final_state.aux = context;
-                ps.timeline.stage(std::move(final_state));
-            }
-
-            if (executed_any_command)
-            {
-                previous_command_chain_ = executed_chain;
-            }
-
-            auto const stage_engine = ps.timeline.get_state().sequencer;
-            auto const committed_engine = ps.timeline.get_committed_state().sequencer;
-            auto const staged_engine_differs_from_commit =
-                stage_engine != committed_engine;
-
-            if (force_commit_requested ||
-                (staged_engine_differs_from_commit && auto_commit_candidate))
-            {
-                ps.timeline.commit();
-            }
-            if (auto const id = ps.timeline.get_current_commit_id();
-                id != previous_commit_id_)
-            {
-                previous_commit_id_ = id;
-                pending_engine_state_update.publish(ps.timeline.get_state().sequencer);
-            }
-            if (executed_any_command)
-            {
-                notify_ui_state_changed();
-            }
-            return status;
+            effects.apply();
+            plugin_state = std::move(working);
         }
-        catch (...)
+        catch (std::exception const &e)
         {
-            ps.timeline.reset_stage();
-            throw; // rethrow so you can return proper message without duplicating above
+            auto const rollback_failures = effects.rollback();
+            auto state_rollback_failed = false;
+            try
+            {
+                plugin_state = original_state;
+            }
+            catch (...)
+            {
+                state_rollback_failed = true;
+            }
+            auto message = std::string{e.what()};
+            if (!rollback_failures.empty())
+            {
+                message += "; rollback failed for: " + rollback_failures;
+            }
+            if (state_rollback_failed)
+            {
+                message += "; backend state rollback failed";
+            }
+            return {MessageLevel::Error, std::move(message)};
         }
+
+        effects.finalize();
+        if (!repeat_target.empty())
+        {
+            previous_command_chain_ = std::move(repeat_target);
+        }
+        if (final_commit_id != initial_commit_id || final_engine != initial_engine)
+        {
+            pending_engine_state_update.publish(final_engine);
+        }
+        if (!commands.empty())
+        {
+            notify_ui_state_changed();
+        }
+        return status;
     }
     catch (std::exception const &e)
     {

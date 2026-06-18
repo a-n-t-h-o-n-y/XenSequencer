@@ -1,48 +1,21 @@
-# Command Catalog
+# Command catalog
 
-The command bar is backed by an owned `xen::CommandCatalog`. Each
-`XenProcessor` has its own catalog, and additional commands can be registered
-before or during the processor lifetime.
+Commands are parsed into `CommandInvocation` values and bound through
+`CommandCatalog` before any handler executes. Binding produces either an
+`ExecutableCommand` with a required executor or a `RepeatPrevious` marker.
 
-Use the typed embedded DSL from `<xen/command_dsl.hpp>`:
+Each executable command declares an execution role and repeat policy. Runtime
+commands default to repeat-eligible, but only commands that actually change the
+engine become part of the next `again` target.
 
-```cpp
-processor.command_catalog().add(xen::command_dsl::command(
-    {"set", "customValue"},
-    false,
-    "Set an application-defined value.",
-    std::make_tuple(
-        xen::command_dsl::required_arg<int>("value")),
-    [](xen::PluginState &plugin_state,
-       xen::ExecutionContext,
-       xen::CommandInvocation const &,
-       int value) {
-        auto state = plugin_state.timeline.get_state();
-        state.sequencer.key = value;
-        plugin_state.timeline.stage(std::move(state));
-        return std::pair{
-            xen::MessageLevel::Info,
-            std::string{"Custom value set"},
-        };
-    }));
-```
+A submitted chain executes against a copied `PluginState`. Returned errors,
+exceptions, bind failures, and external-effect failures discard that copy.
+Successful engine changes create one timeline entry for the complete
+submission; editor and library changes persist without creating engine history.
 
-The definition supplies command-path hierarchy, documentation, typed argument
-parsing, defaults, completion metadata, and executable behavior. The catalog
-rejects duplicate paths, trailing arguments, pattern prefixes on commands that
-do not accept them, duplicate argument names, and required positional
-arguments following optional arguments.
+Clipboard and measure writes are collected per submission. Pending writes are
+visible to later commands in the same chain, then prepared and applied before
+the copied backend state is installed.
 
-Handlers receive already parsed arguments. Before invoking a handler, the DSL
-stages the current execution context and resets commit intent. Afterward it
-derives the resulting context, engine-mutation flag, and commit intent for the
-processor's chain orchestrator.
-
-`CommandCatalog::complete` returns all matching structured candidates and the
-active argument. The existing `complete_text` and `complete_id` methods remain
-as compatibility projections. The webview bridge exposes structured results
-through `command.complete`.
-
-Built-in and extension commands use the same direct-handler path. Each handler
-receives parsed arguments and updates `PluginState` directly; there is no
-separate action variant or central visitor to extend.
+`complete_text` and `complete_id` remain as compatibility projections for the
+webview bridge. Structured completion is the current catalog API.

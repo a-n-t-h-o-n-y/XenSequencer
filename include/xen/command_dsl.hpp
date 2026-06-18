@@ -16,6 +16,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
+#include <xen/submission_effects.hpp>
 
 namespace xen::catalog_detail
 {
@@ -316,9 +317,10 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
 }
 
 template <typename Handler, typename... Ts>
-auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
-             std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
-             Handler handler) -> CommandDefinition
+auto command_with_options(std::vector<std::string> path, bool accepts_pattern_prefix,
+                          std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
+                          Handler handler, ExecutionRole execution_role,
+                          RepeatPolicy repeat_policy) -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
@@ -329,9 +331,9 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
 
     auto const command_path = format_command_path(metadata.path);
     auto bind = [arg_defs = std::move(arg_defs), handler = std::move(handler),
-                 accepts_pattern_prefix,
+                 accepts_pattern_prefix, execution_role, repeat_policy,
                  command_path](CommandInvocation const &invocation,
-                               std::size_t arg_offset) -> BoundCommand {
+                               std::size_t arg_offset) -> BoundStep {
         if (invocation.input.has_pattern_prefix && !accepts_pattern_prefix)
         {
             throw CatalogBindException{
@@ -344,38 +346,32 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
         auto parsed_args =
             parse_args_tuple(arg_defs, invocation.input.words, arg_offset);
 
-        return BoundCommand{
+        return ExecutableCommand{
             .canonical = invocation.canonical_segment,
-            .control = BoundCommandControl::Execute,
-            .execute = [handler, invocation, parsed_args = std::move(parsed_args)](
-                           PluginState &state,
-                           ExecutionContext context) -> CommandExecutionResult {
-                auto staged_state = state.timeline.get_state();
-                staged_state.aux = context;
-                state.timeline.stage(std::move(staged_state));
-                auto const engine_before = state.timeline.get_state().sequencer;
-                state.commit_intent = CommitIntent::Auto;
-
-                auto result = std::apply(
-                    [&](auto const &...values) {
-                        return handler(state, std::move(context), invocation,
-                                       values...);
-                    },
-                    parsed_args);
-
-                static_assert(std::is_same_v<decltype(result),
-                                             std::pair<MessageLevel, std::string>>,
-                              "Command handlers must return "
-                              "std::pair<MessageLevel, std::string>.");
-
-                auto const state_after = state.timeline.get_state();
-                return CommandExecutionResult{
-                    .status = std::move(result),
-                    .context = state_after.aux,
-                    .engine_mutated = state_after.sequencer != engine_before,
-                    .commit_intent = state.commit_intent,
-                };
-            },
+            .invocation = invocation,
+            .execution_role = execution_role,
+            .repeat_policy = repeat_policy,
+            .execute =
+                [handler, invocation, parsed_args = std::move(parsed_args)](
+                    PluginState &state, SubmissionEffects &effects) {
+                    return std::apply(
+                        [&](auto const &...values)
+                            -> std::pair<MessageLevel, std::string> {
+                            if constexpr (std::is_invocable_r_v<
+                                              std::pair<MessageLevel, std::string>,
+                                              Handler, PluginState &,
+                                              SubmissionEffects &,
+                                              CommandInvocation const &, Ts const &...>)
+                            {
+                                return handler(state, effects, invocation, values...);
+                            }
+                            else
+                            {
+                                return handler(state, invocation, values...);
+                            }
+                        },
+                        parsed_args);
+                },
         };
     };
 
@@ -383,6 +379,38 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
         .metadata = std::move(metadata),
         .bind = std::move(bind),
     };
+}
+
+template <typename Handler, typename... Ts>
+auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
+             std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
+             Handler handler) -> CommandDefinition
+{
+    return command_with_options(std::move(path), accepts_pattern_prefix,
+                                std::move(description), std::move(arg_defs),
+                                std::move(handler), ExecutionRole::Normal,
+                                RepeatPolicy::EngineEdit);
+}
+
+template <typename Handler, typename... Ts>
+auto non_repeatable_command(std::vector<std::string> path, bool accepts_pattern_prefix,
+                            std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
+                            Handler handler) -> CommandDefinition
+{
+    return command_with_options(std::move(path), accepts_pattern_prefix,
+                                std::move(description), std::move(arg_defs),
+                                std::move(handler), ExecutionRole::Normal,
+                                RepeatPolicy::Never);
+}
+
+template <typename Handler, typename... Ts>
+auto history_command(std::vector<std::string> path, std::string description,
+                     ExecutionRole execution_role, std::tuple<ArgDef<Ts>...> arg_defs,
+                     Handler handler) -> CommandDefinition
+{
+    return command_with_options(std::move(path), false, std::move(description),
+                                std::move(arg_defs), std::move(handler), execution_role,
+                                RepeatPolicy::Never);
 }
 
 inline auto replay_command(std::vector<std::string> path, std::string description)
@@ -394,7 +422,7 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
     };
 
     auto bind = [](CommandInvocation const &invocation,
-                   std::size_t arg_offset) -> BoundCommand {
+                   std::size_t arg_offset) -> BoundStep {
         if (invocation.input.has_pattern_prefix)
         {
             throw CatalogBindException{
@@ -411,10 +439,7 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
                 "",
             };
         }
-        return BoundCommand{
-            .canonical = invocation.canonical_segment,
-            .control = BoundCommandControl::ReplayPrevious,
-        };
+        return RepeatPrevious{};
     };
 
     return CommandDefinition{

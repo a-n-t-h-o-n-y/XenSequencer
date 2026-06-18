@@ -12,15 +12,12 @@
 #include <utility>
 #include <vector>
 
-#include <juce_core/juce_core.h>
-
 #include <sequence/modify.hpp>
 #include <sequence/pattern.hpp>
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
 #include <xen/copy_paste.hpp>
-#include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
 
@@ -58,9 +55,9 @@ auto visit_sequence(sequence::Cell cell, Fn &&fn) -> sequence::Cell
 
 auto erase_selected_element(sequence::Cell &cell, std::size_t element_index) -> void
 {
-    cell.elements.erase(std::next(std::begin(cell.elements),
-                                  (std::vector<sequence::MusicElement>::difference_type)
-                                      element_index));
+    cell.elements.erase(
+        std::next(std::begin(cell.elements),
+                  (std::vector<sequence::MusicElement>::difference_type)element_index));
 }
 
 [[nodiscard]] auto checked_shift_pitch(sequence::MusicElement element,
@@ -74,8 +71,8 @@ void validate_octave(sequence::MusicElement const &element,
                      sequence::Pattern const &pattern, int octave,
                      std::size_t tuning_length);
 
-void validate_pitch_shift(sequence::Cell const &cell,
-                          sequence::Pattern const &pattern, int amount)
+void validate_pitch_shift(sequence::Cell const &cell, sequence::Pattern const &pattern,
+                          int amount)
 {
     for (auto const &element : cell.elements)
     {
@@ -182,87 +179,79 @@ void validate_octave(sequence::MusicElement const &element,
 
 } // namespace
 
-auto move_left(EngineState const &state, ExecutionContext context, std::size_t amount)
-    -> ExecutionContext
+auto move_left(EngineState const &state, EditorSessionState editor, std::size_t amount)
+    -> EditorSessionState
 {
-    context.selected = xen::move_left(state.measure, context.selected, amount);
-    return context;
+    editor.selected = xen::move_left(state.measure, editor.selected, amount);
+    return editor;
 }
 
-auto move_right(EngineState const &state, ExecutionContext context,
-                std::size_t amount) -> ExecutionContext
+auto move_right(EngineState const &state, EditorSessionState editor, std::size_t amount)
+    -> EditorSessionState
 {
-    context.selected = xen::move_right(state.measure, context.selected, amount);
-    return context;
+    editor.selected = xen::move_right(state.measure, editor.selected, amount);
+    return editor;
 }
 
-auto move_up(EngineState const &state, ExecutionContext context, std::size_t amount)
-    -> ExecutionContext
+auto move_up(EngineState const &state, EditorSessionState editor, std::size_t amount)
+    -> EditorSessionState
 {
-    context.selected = xen::move_up(state.measure, context.selected, amount);
-    return context;
+    editor.selected = xen::move_up(state.measure, editor.selected, amount);
+    return editor;
 }
 
-auto move_down(EngineState const &state, ExecutionContext context,
-               std::size_t amount) -> ExecutionContext
+auto move_down(EngineState const &state, EditorSessionState editor, std::size_t amount)
+    -> EditorSessionState
 {
-    context.selected = xen::move_down(state.measure, context.selected, amount);
-    return context;
+    editor.selected = xen::move_down(state.measure, editor.selected, amount);
+    return editor;
 }
 
-void copy(EngineState const &state, ExecutionContext const &context)
+auto copy(EngineState const &state, EditorSessionState const &editor)
+    -> CopyBufferContent
 {
-    if (selection_kind(context.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
-        write_copy_buffer(get_selected_element_const(state.measure, context.selected));
+        return get_selected_element_const(state.measure, editor.selected);
     }
-    else
-    {
-        write_copy_buffer(get_selected_cell_const(state.measure, context.selected));
-    }
+    return get_selected_cell_const(state.measure, editor.selected);
 }
 
-auto paste(EngineState state, ExecutionContext const &context) -> EngineState
+auto paste(EngineState state, EditorSessionState const &editor,
+           CopyBufferContent const &content) -> EngineState
 {
-    auto const content = read_copy_buffer();
-
-    if (!content.has_value())
+    if (std::holds_alternative<sequence::Cell>(content))
     {
-        throw std::runtime_error{"Copy Buffer Is Empty"};
-    }
-
-    if (std::holds_alternative<sequence::Cell>(*content))
-    {
-        auto replacement = std::get<sequence::Cell>(*content);
-        if (selection_kind(context.selected) == SelectionKind::Element)
+        auto replacement = std::get<sequence::Cell>(content);
+        if (selection_kind(editor.selected) == SelectionKind::Element)
         {
             auto *parent_cell =
-                get_parent_cell_of_selection(state.measure, context.selected);
+                get_parent_cell_of_selection(state.measure, editor.selected);
             *parent_cell = std::move(replacement);
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, context.selected);
+            auto &selected = get_selected_cell(state.measure, editor.selected);
             selected = std::move(replacement);
         }
     }
     else
     {
-        auto element = std::get<sequence::MusicElement>(*content);
-        if (selection_kind(context.selected) == SelectionKind::Element)
+        auto element = std::get<sequence::MusicElement>(content);
+        if (selection_kind(editor.selected) == SelectionKind::Element)
         {
             auto &parent_cell =
-                *get_parent_cell_of_selection(state.measure, context.selected);
-            auto const index = get_selected_element_index(context.selected);
+                *get_parent_cell_of_selection(state.measure, editor.selected);
+            auto const index = get_selected_element_index(editor.selected);
             parent_cell.elements.insert(
-                std::next(std::begin(parent_cell.elements),
-                          (std::vector<sequence::MusicElement>::difference_type)
-                              (index + 1)),
+                std::next(
+                    std::begin(parent_cell.elements),
+                    (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
                 std::move(element));
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, context.selected);
+            auto &selected = get_selected_cell(state.measure, editor.selected);
             selected.elements.push_back(std::move(element));
         }
     }
@@ -270,148 +259,128 @@ auto paste(EngineState state, ExecutionContext const &context) -> EngineState
     return state;
 }
 
-auto duplicate(TimelineState state) -> TimelineState
+void duplicate(EngineState &state, EditorSessionState &editor)
 {
-    if (selection_kind(state.aux.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
-        auto const index = get_selected_element_index(state.aux.selected);
+        auto &cell = get_selected_cell(state.measure, editor.selected);
+        auto const index = get_selected_element_index(editor.selected);
         auto copy = cell.elements.at(index);
         cell.elements.insert(
-            std::next(std::begin(cell.elements),
-                      (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
+            std::next(
+                std::begin(cell.elements),
+                (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
             copy);
-        state.aux.selected = select_element_in_cell(
-            select_parent_cell(state.aux.selected), index + 1);
-        return state;
+        editor.selected =
+            select_element_in_cell(select_parent_cell(editor.selected), index + 1);
+        return;
     }
 
-    auto selected_copy = get_selected_cell(state.sequencer.measure, state.aux.selected);
+    auto selected_copy = get_selected_cell(state.measure, editor.selected);
 
-    auto new_selection = ::xen::move_right(state.sequencer.measure,
-                                           state.aux.selected, 1);
-    auto &selected = get_selected_cell(state.sequencer.measure, new_selection);
+    auto new_selection = ::xen::move_right(state.measure, editor.selected, 1);
+    auto &selected = get_selected_cell(state.measure, new_selection);
     selected = selected_copy;
-    state.aux.selected = new_selection;
-
-    return state;
+    editor.selected = new_selection;
 }
 
-auto set_input_mode(ExecutionContext context, InputMode mode) -> ExecutionContext
+auto set_input_mode(EditorSessionState editor, InputMode mode) -> EditorSessionState
 {
-    context.input_mode = mode;
-    return context;
+    editor.input_mode = mode;
+    return editor;
 }
 
-auto lift(TimelineState state) -> TimelineState
+void lift(EngineState &state, EditorSessionState &editor)
 {
-    if (selection_kind(state.aux.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.sequencer.measure, state.aux.selected);
+        auto &cell = get_selected_cell(state.measure, editor.selected);
         auto element =
-            std::move(cell.elements.at(get_selected_element_index(state.aux.selected)));
+            std::move(cell.elements.at(get_selected_element_index(editor.selected)));
         cell.elements.clear();
         cell.elements.push_back(std::move(element));
-        state.aux.selected = select_parent_cell(state.aux.selected);
-        return state;
+        editor.selected = select_parent_cell(editor.selected);
+        return;
     }
 
-    sequence::Cell *parent =
-        get_parent_of_selected(state.sequencer.measure, state.aux.selected);
+    sequence::Cell *parent = get_parent_of_selected(state.measure, editor.selected);
     if (parent == nullptr)
     {
         throw std::runtime_error{"Can't lift top level Cell."};
     }
 
-    auto &cell =
-        get_selected_cell(state.sequencer.measure, state.aux.selected);
+    auto &cell = get_selected_cell(state.measure, editor.selected);
 
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
 
-    state.aux.selected = select_parent_cell(state.aux.selected);
-    return state;
+    editor.selected = select_parent_cell(editor.selected);
 }
 
-auto shift_octave(EngineState state, ExecutionContext const &context,
+auto shift_octave(EngineState state, EditorSessionState const &editor,
                   sequence::Pattern const &pattern, int amount) -> EngineState
 {
-    auto const tuning_length = numeric::checked_cast<int>(
-        state.tuning.intervals.size(), "Tuning length exceeds int.");
-    auto const shift = numeric::checked_mul(
-        amount, tuning_length, "Octave shift exceeds int.");
-    if (selection_kind(context.selected) == SelectionKind::Element)
+    auto const tuning_length = numeric::checked_cast<int>(state.tuning.intervals.size(),
+                                                          "Tuning length exceeds int.");
+    auto const shift =
+        numeric::checked_mul(amount, tuning_length, "Octave shift exceeds int.");
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, context.selected);
+        auto &element = get_selected_element(state.measure, editor.selected);
         element = checked_shift_pitch(std::move(element), pattern, shift);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, context.selected);
+        auto &cell = get_selected_cell(state.measure, editor.selected);
         cell = checked_shift_pitch(std::move(cell), pattern, shift);
     }
     return state;
 }
 
-auto set_note_octave(EngineState state, ExecutionContext const &context,
+auto set_note_octave(EngineState state, EditorSessionState const &editor,
                      sequence::Pattern const &pattern, int octave) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
-    if (selection_kind(context.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, context.selected);
+        auto &element = get_selected_element(state.measure, editor.selected);
         validate_octave(element, pattern, octave, tuning_length);
         element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, context.selected);
+        auto &cell = get_selected_cell(state.measure, editor.selected);
         validate_octave(cell, pattern, octave, tuning_length);
         cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
     }
     return state;
 }
 
-auto delete_cell(TimelineState ts) -> TimelineState
+void delete_cell(EngineState &state, EditorSessionState &editor)
 {
-    if (selection_kind(ts.aux.selected) == SelectionKind::Element)
+    if (selection_kind(editor.selected) == SelectionKind::Element)
     {
         auto &selected_cell =
-            *get_parent_cell_of_selection(ts.sequencer.measure, ts.aux.selected);
-        auto const index = get_selected_element_index(ts.aux.selected);
+            *get_parent_cell_of_selection(state.measure, editor.selected);
+        auto const index = get_selected_element_index(editor.selected);
         erase_selected_element(selected_cell, index);
 
         if (selected_cell.elements.empty())
         {
-            ts.aux.selected = select_parent_cell(ts.aux.selected);
+            editor.selected = select_parent_cell(editor.selected);
         }
         else
         {
-            ts.aux.selected = select_element_in_cell(
-                select_parent_cell(ts.aux.selected),
+            editor.selected = select_element_in_cell(
+                select_parent_cell(editor.selected),
                 std::min(index, selected_cell.elements.size() - 1));
         }
 
-        return ts;
+        return;
     }
 
-    auto &selected_cell = get_selected_cell(ts.sequencer.measure, ts.aux.selected);
+    auto &selected_cell = get_selected_cell(state.measure, editor.selected);
     selected_cell.elements.clear();
-    return ts;
-}
-
-auto save_measure(juce::File const &filepath, Measure const &measure) -> void
-{
-    filepath.replaceWithText(serialize_measure(measure));
-}
-
-auto load_measure(juce::File const &filepath) -> Measure
-{
-    if (filepath.getSize() > (128 * 1'024 * 1'024))
-    {
-        throw std::runtime_error{"Measure file size exceeds 128MB"};
-    }
-    return deserialize_measure(filepath.loadFileAsString().toStdString());
 }
 
 auto set_base_frequency(EngineState state, float freq) -> EngineState
@@ -474,10 +443,10 @@ auto shift_scale_index(std::optional<std::size_t> current, int shift_amount,
 
     auto const cycle_size = scale_count + 1;
     auto position = current.value_or(scale_count);
-    auto const magnitude = shift_amount >= 0
-                               ? static_cast<std::uint64_t>(shift_amount)
-                               : static_cast<std::uint64_t>(
-                                     -static_cast<std::int64_t>(shift_amount));
+    auto const magnitude =
+        shift_amount >= 0
+            ? static_cast<std::uint64_t>(shift_amount)
+            : static_cast<std::uint64_t>(-static_cast<std::int64_t>(shift_amount));
     auto const distance =
         static_cast<std::size_t>(magnitude % static_cast<std::uint64_t>(cycle_size));
 
@@ -515,8 +484,7 @@ auto step(sequence::MusicElement element, sequence::Pattern const &pattern,
         auto i = std::size_t{0};
         for (auto &cell : view)
         {
-            auto const index = numeric::checked_cast<int>(
-                i, "Step index exceeds int.");
+            auto const index = numeric::checked_cast<int>(i, "Step index exceeds int.");
             cell = checked_shift_pitch(
                 std::move(cell), {0, {1}},
                 numeric::checked_mul(index, pitch_distance,
@@ -542,8 +510,7 @@ auto step(sequence::Cell cell, sequence::Pattern const &pattern, int pitch_dista
         auto i = std::size_t{0};
         for (auto &target_cell : view)
         {
-            auto const index = numeric::checked_cast<int>(
-                i, "Step index exceeds int.");
+            auto const index = numeric::checked_cast<int>(i, "Step index exceeds int.");
             target_cell = checked_shift_pitch(
                 std::move(target_cell), {0, {1}},
                 numeric::checked_mul(index, pitch_distance,
@@ -586,9 +553,8 @@ auto arp(sequence::Cell cell, sequence::Pattern const &pattern,
         auto i = std::size_t{0};
         for (auto &target_cell : view)
         {
-            target_cell = checked_shift_pitch(
-                std::move(target_cell), {0, {1}},
-                intervals[i % intervals.size()]);
+            target_cell = checked_shift_pitch(std::move(target_cell), {0, {1}},
+                                              intervals[i % intervals.size()]);
             ++i;
         }
     });
@@ -605,14 +571,14 @@ auto chord(sequence::Cell cell, std::vector<int> const &intervals,
     for (auto i = std::size_t{0}; i < cell.elements.size(); ++i)
     {
         auto const base_interval = intervals[i % intervals.size()];
-        auto const octave = numeric::checked_cast<int>(
-            i / intervals.size(), "Chord octave exceeds int.");
+        auto const octave = numeric::checked_cast<int>(i / intervals.size(),
+                                                       "Chord octave exceeds int.");
         auto const tuning_length =
             numeric::checked_cast<int>(tuning_size, "Tuning size exceeds int.");
-        auto const octave_lift = numeric::checked_mul(
-            octave, tuning_length, "Chord octave lift exceeds int.");
-        auto const shift = numeric::checked_add(
-            base_interval, octave_lift, "Chord pitch shift exceeds int.");
+        auto const octave_lift = numeric::checked_mul(octave, tuning_length,
+                                                      "Chord octave lift exceeds int.");
+        auto const shift = numeric::checked_add(base_interval, octave_lift,
+                                                "Chord pitch shift exceeds int.");
         cell.elements[i] =
             checked_shift_pitch(std::move(cell.elements[i]), {0, {1}}, shift);
     }
@@ -679,8 +645,8 @@ auto set_weights(sequence::MusicElement element, sequence::Pattern const &patter
             {
                 auto &cell = sequence.cells[i];
                 cell.weight = checked_modulator_weight(
-                    mod, static_cast<float>(i) /
-                             static_cast<float>(sequence.cells.size()));
+                    mod,
+                    static_cast<float>(i) / static_cast<float>(sequence.cells.size()));
             }
         }
     });
@@ -696,8 +662,8 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
             {
                 auto &target_cell = sequence.cells[i];
                 target_cell.weight = checked_modulator_weight(
-                    mod, static_cast<float>(i) /
-                             static_cast<float>(sequence.cells.size()));
+                    mod,
+                    static_cast<float>(i) / static_cast<float>(sequence.cells.size()));
             }
         }
     });
@@ -737,8 +703,7 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
     });
 }
 
-auto set_velocities(sequence::MusicElement element,
-                    sequence::Pattern const &pattern,
+auto set_velocities(sequence::MusicElement element, sequence::Pattern const &pattern,
                     Modulator const &mod) -> sequence::MusicElement
 {
     return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
@@ -748,7 +713,8 @@ auto set_velocities(sequence::MusicElement element,
             {
                 auto &cell = sequence.cells[i];
                 cell = sequence::modify::set_velocity(
-                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+                    cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
     });
@@ -781,7 +747,8 @@ auto set_delays(sequence::MusicElement element, sequence::Pattern const &pattern
             {
                 auto &cell = sequence.cells[i];
                 cell = sequence::modify::set_delay(
-                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+                    cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
     });
@@ -814,7 +781,8 @@ auto set_gates(sequence::MusicElement element, sequence::Pattern const &pattern,
             {
                 auto &cell = sequence.cells[i];
                 cell = sequence::modify::set_gate(
-                    cell, pattern, evaluate(mod, (float)i / (float)sequence.cells.size()));
+                    cell, pattern,
+                    evaluate(mod, (float)i / (float)sequence.cells.size()));
             }
         }
     });

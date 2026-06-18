@@ -81,9 +81,8 @@ TEST_CASE("Processor returns command-not-found error for invalid command",
     CHECK(after.commit_id == before.commit_id);
 }
 
-TEST_CASE(
-    "Processor multi-command commits prior mutations even if a later command errors",
-    "[processor][commands]")
+TEST_CASE("Processor bind failure rolls back the complete command chain",
+          "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
@@ -95,11 +94,11 @@ TEST_CASE(
     CHECK(message == "Command not found: notARealCommand");
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.commit_id > before.commit_id);
-    CHECK(after.engine.key == 22);
+    CHECK(after.commit_id == before.commit_id);
+    CHECK(after.engine.key == before.engine.key);
 }
 
-TEST_CASE("Processor stops chain execution at first command error",
+TEST_CASE("Processor binds the complete chain before execution",
           "[processor][commands]")
 {
     auto processor = XenProcessor{};
@@ -111,10 +110,41 @@ TEST_CASE("Processor stops chain execution at first command error",
     CHECK(message == "Command not found: notARealCommand");
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.engine.key == 22);
+    CHECK(after.engine.key == 0);
 }
 
-TEST_CASE("Processor 'again' replays most recent non-empty non-mutating chain",
+TEST_CASE("Processor returned errors roll back prior commands",
+          "[processor][commands][atomic]")
+{
+    auto processor = XenProcessor{};
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [level, _message] =
+        processor.execute_command_string("set key 22; set key 128");
+
+    CHECK(level == MessageLevel::Error);
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.engine == before.engine);
+    CHECK(after.editor.selected == before.editor.selected);
+    CHECK(after.commit_id == before.commit_id);
+}
+
+TEST_CASE("Processor rejects undo and redo in mixed chains",
+          "[processor][commands][atomic]")
+{
+    auto processor = XenProcessor{};
+    REQUIRE(processor.execute_command_string("set key 4").first == MessageLevel::Info);
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [level, message] = processor.execute_command_string("undo; set key 2");
+
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "undo and redo must be submitted alone.");
+    CHECK(processor.get_engine_snapshot().engine == before.engine);
+    CHECK(processor.get_engine_snapshot().commit_id == before.commit_id);
+}
+
+TEST_CASE("Processor informational commands do not become replay targets",
           "[processor][commands]")
 {
     auto processor = XenProcessor{};
@@ -125,8 +155,8 @@ TEST_CASE("Processor 'again' replays most recent non-empty non-mutating chain",
     CHECK(version_message == "v0.3.1");
 
     auto const [again_level, again_message] = processor.execute_command_string("again");
-    CHECK(again_level == MessageLevel::Info);
-    CHECK(again_message == "v0.3.1");
+    CHECK(again_level == MessageLevel::Error);
+    CHECK(again_message == "No previous command to repeat.");
 }
 
 TEST_CASE("Processor 'again' replays full multi-command chain", "[processor][commands]")
@@ -190,9 +220,7 @@ TEST_CASE("Processor carries selection context across chained commands",
     auto processor = XenProcessor{};
 
     REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
-    auto state = processor.plugin_state.timeline.get_state();
-    state.aux.selected = singleton_sequence_cell_selection({0});
-    processor.plugin_state.timeline.stage(std::move(state));
+    processor.plugin_state.editor.selected = singleton_sequence_cell_selection({0});
 
     auto const [level, message] =
         processor.execute_command_string("move right; note 7");
@@ -272,10 +300,9 @@ TEST_CASE("Processor executes commands registered at runtime", "[processor][comm
     processor.command_catalog().add(command_dsl::command(
         {"custom", "key"}, false, "Set key through an extension command.",
         std::make_tuple(command_dsl::required_arg<int>("key")),
-        [](PluginState &plugin_state, ExecutionContext, CommandInvocation const &,
-           int key) {
+        [](PluginState &plugin_state, CommandInvocation const &, int key) {
             auto state = plugin_state.timeline.get_state();
-            state.sequencer.key = key;
+            state.key = key;
             plugin_state.timeline.stage(std::move(state));
             return std::pair{MessageLevel::Info, std::string{"Custom Key Set"}};
         }));
@@ -285,4 +312,89 @@ TEST_CASE("Processor executes commands registered at runtime", "[processor][comm
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Custom Key Set");
     CHECK(processor.get_engine_snapshot().engine.key == 23);
+}
+
+TEST_CASE("Processor rebinds runtime commands when replaying",
+          "[processor][commands][again]")
+{
+    auto processor = XenProcessor{};
+    auto increment = 2;
+    processor.command_catalog().add(command_dsl::command(
+        {"custom", "increment"}, false, "Increment key.", std::make_tuple(),
+        [&increment](PluginState &state, CommandInvocation const &) {
+            auto engine = state.timeline.get_state();
+            engine.key += increment;
+            state.timeline.stage(std::move(engine));
+            return minfo("Incremented");
+        }));
+
+    REQUIRE(processor.execute_command_string("custom increment").first ==
+            MessageLevel::Info);
+    CHECK(processor.execute_command_string("version").first == MessageLevel::Info);
+    CHECK(processor.execute_command_string("set key 128").first == MessageLevel::Error);
+    increment = 5;
+    REQUIRE(processor.execute_command_string("again").first == MessageLevel::Info);
+    CHECK(processor.get_engine_snapshot().engine.key == 7);
+}
+
+TEST_CASE("Measure effects are atomic and provide read-your-writes",
+          "[processor][commands][effects]")
+{
+    auto directory = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                         .getNonexistentChildFile("xen-command-effects", "", true);
+    REQUIRE(directory.createDirectory());
+    auto const file = directory.getChildFile("atomic.xss");
+    REQUIRE(file.replaceWithText("original"));
+
+    auto processor = XenProcessor{};
+    processor.plugin_state.config.current_sequence_directory = directory;
+
+    auto const [failed_level, _failed_message] =
+        processor.execute_command_string("save measure atomic; set key 128");
+    CHECK(failed_level == MessageLevel::Error);
+    CHECK(file.loadFileAsString().toStdString() == "original");
+
+    auto const [level, _message] = processor.execute_command_string(
+        "set measure timeSignature 7/8; save measure atomic; "
+        "set measure timeSignature 4/4; load measure atomic");
+    CHECK(level == MessageLevel::Info);
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.engine.measure.time_signature.numerator == 7);
+    CHECK(after.engine.measure.time_signature.denominator == 8);
+
+    CHECK(directory.deleteRecursively());
+}
+
+TEST_CASE("Effect prepare and apply failures roll back state and files",
+          "[processor][commands][effects]")
+{
+    auto directory =
+        juce::File::getSpecialLocation(juce::File::tempDirectory)
+            .getNonexistentChildFile("xen-command-effect-failures", "", true);
+    REQUIRE(directory.createDirectory());
+    auto const file = directory.getChildFile("atomic.xss");
+
+    for (auto const failure : {
+             SubmissionEffects::FailurePoint::Prepare,
+             SubmissionEffects::FailurePoint::Apply,
+         })
+    {
+        REQUIRE(file.replaceWithText("original"));
+        auto processor = XenProcessor{failure};
+        processor.plugin_state.config.current_sequence_directory = directory;
+        auto const before = processor.get_engine_snapshot();
+
+        auto const [level, message] =
+            processor.execute_command_string("set key 22; save measure atomic");
+
+        CHECK(level == MessageLevel::Error);
+        CHECK_FALSE(message.empty());
+        CHECK(file.loadFileAsString().toStdString() == "original");
+        auto const after = processor.get_engine_snapshot();
+        CHECK(after.engine == before.engine);
+        CHECK(after.editor.selected == before.editor.selected);
+        CHECK(after.commit_id == before.commit_id);
+    }
+
+    CHECK(directory.deleteRecursively());
 }

@@ -27,30 +27,25 @@ enum class MoveDirection
 
 auto move_handler(MoveDirection direction)
 {
-    return [direction](PluginState &ps, ExecutionContext context,
-                       CommandInvocation const &, std::size_t amount) {
+    return [direction](PluginState &ps, CommandInvocation const &, std::size_t amount) {
         auto state = ps.timeline.get_state();
-        state.aux = context;
         auto label = std::string{};
         switch (direction)
         {
         case MoveDirection::Left:
-            state.aux =
-                action::move_left(state.sequencer, std::move(state.aux), amount);
+            ps.editor = action::move_left(state, std::move(ps.editor), amount);
             label = "Left";
             break;
         case MoveDirection::Right:
-            state.aux =
-                action::move_right(state.sequencer, std::move(state.aux), amount);
+            ps.editor = action::move_right(state, std::move(ps.editor), amount);
             label = "Right";
             break;
         case MoveDirection::Up:
-            state.aux = action::move_up(state.sequencer, std::move(state.aux), amount);
+            ps.editor = action::move_up(state, std::move(ps.editor), amount);
             label = "Up";
             break;
         case MoveDirection::Down:
-            state.aux =
-                action::move_down(state.sequencer, std::move(state.aux), amount);
+            ps.editor = action::move_down(state, std::move(ps.editor), amount);
             label = "Down";
             break;
         }
@@ -80,12 +75,11 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                                 optional_arg<float>("Float", "velocity", 100.f / 127.f),
                                 optional_arg<float>("Float", "delay", 0.f),
                                 optional_arg<float>("Float", "gate", 1.f)),
-                [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
-                   int pitch, float velocity, float delay, float gate) {
+                [](PluginState &ps, CommandInvocation const &, int pitch,
+                   float velocity, float delay, float gate) {
                     auto state = ps.timeline.get_state();
-                    state.aux = context;
                     state = increment_state(
-                        std::move(state),
+                        std::move(state), ps.editor,
                         [](auto selected, int note_pitch, float note_velocity,
                            float note_delay, float note_gate) {
                             auto note = sequence::modify::note(
@@ -106,22 +100,22 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                     return minfo("Note Created");
                 }));
 
-    specs.push_back(
-        command({"delete"}, false, "Delete the current selection.", std::make_tuple(),
-                [](PluginState &ps, ExecutionContext, CommandInvocation const &) {
-                    ps.timeline.stage(action::delete_cell(ps.timeline.get_state()));
-                    return minfo("Deleted Selection");
-                }));
+    specs.push_back(command({"delete"}, false, "Delete the current selection.",
+                            std::make_tuple(),
+                            [](PluginState &ps, CommandInvocation const &) {
+                                auto state = ps.timeline.get_state();
+                                action::delete_cell(state, ps.editor);
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Deleted Selection");
+                            }));
 
     specs.push_back(
         command({"split"}, false, "Split the current selection.",
                 std::make_tuple(optional_arg<std::size_t>("Unsigned", "count", 2)),
-                [](PluginState &ps, ExecutionContext context, CommandInvocation const &,
-                   std::size_t count) {
+                [](PluginState &ps, CommandInvocation const &, std::size_t count) {
                     auto state = ps.timeline.get_state();
-                    state.aux = context;
                     state = increment_state(
-                        std::move(state),
+                        std::move(state), ps.editor,
                         [](auto target, std::size_t repeat_count) {
                             return sequence::modify::repeat(target, repeat_count);
                         },
@@ -130,12 +124,14 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                     return minfo("Split Selection " + std::to_string(count) + " Times");
                 }));
 
-    specs.push_back(command(
-        {"lift"}, false, "Lift the current selection up one level.", std::make_tuple(),
-        [](PluginState &ps, ExecutionContext, CommandInvocation const &) {
-            ps.timeline.stage(action::lift(ps.timeline.get_state()));
-            return minfo("Selection Lifted One Layer");
-        }));
+    specs.push_back(command({"lift"}, false, "Lift the current selection up one level.",
+                            std::make_tuple(),
+                            [](PluginState &ps, CommandInvocation const &) {
+                                auto state = ps.timeline.get_state();
+                                action::lift(state, ps.editor);
+                                ps.timeline.stage(std::move(state));
+                                return minfo("Selection Lifted One Layer");
+                            }));
 }
 
 } // namespace xen::catalog_detail

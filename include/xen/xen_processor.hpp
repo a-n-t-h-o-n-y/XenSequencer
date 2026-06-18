@@ -16,6 +16,7 @@
 #include <xen/message_level.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
+#include <xen/submission_effects.hpp>
 
 namespace xen
 {
@@ -32,7 +33,8 @@ class XenProcessor : public juce::AudioProcessor
     EngineStateMailbox pending_engine_state_update;
 
   public:
-    XenProcessor();
+    explicit XenProcessor(SubmissionEffects::FailurePoint effect_failure =
+                              SubmissionEffects::FailurePoint::None);
 
     ~XenProcessor() override = default;
 
@@ -92,9 +94,9 @@ class XenProcessor : public juce::AudioProcessor
         MidiEngine midi_engine;
     } audio_thread_state_;
 
-    int previous_commit_id_{-1};
     CommandCatalog command_catalog_;
-    std::vector<BoundCommand> previous_command_chain_{};
+    std::vector<CommandInvocation> previous_command_chain_{};
+    SubmissionEffects::FailurePoint effect_failure_;
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
 
   private:
