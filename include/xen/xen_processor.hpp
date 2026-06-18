@@ -9,8 +9,9 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <xen/command_action.hpp>
 #include <xen/command.hpp>
+#include <xen/command_action.hpp>
+#include <xen/command_catalog.hpp>
 #include <xen/command_history.hpp>
 #include <xen/double_buffer.hpp>
 #include <xen/engine_state_mailbox.hpp>
@@ -39,8 +40,7 @@ class XenProcessor : public juce::AudioProcessor
 
   public:
     [[nodiscard]] auto get_engine_snapshot() const -> EngineSnapshot;
-    [[nodiscard]] auto get_ui_snapshot_version() const noexcept
-        -> std::uint64_t;
+    [[nodiscard]] auto get_ui_snapshot_version() const noexcept -> std::uint64_t;
 
   public:
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
@@ -54,7 +54,7 @@ class XenProcessor : public juce::AudioProcessor
     void setStateInformation(void const *data, int sizeInBytes) override;
 
     /**
-     * Execute a string as a command using typed action dispatch.
+     * Execute a string through this processor's command catalog.
      *
      * @details This will normalize the input string, execute it on plugin_state and
      * return the resulting status.
@@ -62,6 +62,9 @@ class XenProcessor : public juce::AudioProcessor
      */
     auto execute_command_string(std::string const &command_string)
         -> std::pair<MessageLevel, std::string>;
+
+    [[nodiscard]] auto command_catalog() noexcept -> CommandCatalog &;
+    [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
 
   public:
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
@@ -92,7 +95,8 @@ class XenProcessor : public juce::AudioProcessor
     } audio_thread_state_;
 
     int previous_commit_id_{-1};
-    std::vector<CommandAction> previous_action_chain_{};
+    CommandCatalog command_catalog_;
+    std::vector<BoundCommand> previous_command_chain_{};
     std::atomic<std::uint64_t> ui_snapshot_version_{0};
 
   private:

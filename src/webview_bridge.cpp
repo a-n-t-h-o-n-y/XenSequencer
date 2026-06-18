@@ -35,9 +35,8 @@ class BridgeError : public std::runtime_error
     BridgeError(std::string code_in, std::string message_in,
                 std::string name_in = "bridge.error",
                 std::optional<std::string> request_id_in = std::nullopt)
-        : std::runtime_error(std::move(message_in)),
-          code{std::move(code_in)}, name{std::move(name_in)},
-          request_id{std::move(request_id_in)}
+        : std::runtime_error(std::move(message_in)), code{std::move(code_in)},
+          name{std::move(name_in)}, request_id{std::move(request_id_in)}
     {
     }
 
@@ -52,8 +51,7 @@ auto require_object(nlohmann::json const &json, std::string_view field_name)
     auto const key = std::string{field_name};
     if (!json.contains(key) || !json.at(key).is_object())
     {
-        throw BridgeError{"invalid_request",
-                          "Field must be an object: " + key};
+        throw BridgeError{"invalid_request", "Field must be an object: " + key};
     }
     return json.at(key);
 }
@@ -64,8 +62,7 @@ auto require_string(nlohmann::json const &json, std::string_view field_name)
     auto const key = std::string{field_name};
     if (!json.contains(key) || !json.at(key).is_string())
     {
-        throw BridgeError{"invalid_request",
-                          "Field must be a string: " + key};
+        throw BridgeError{"invalid_request", "Field must be a string: " + key};
     }
     return json.at(key).get<std::string>();
 }
@@ -76,13 +73,11 @@ void require_integer_equals(nlohmann::json const &json, std::string_view field_n
     auto const key = std::string{field_name};
     if (!json.contains(key) || !json.at(key).is_number_integer())
     {
-        throw BridgeError{"invalid_request",
-                          "Field must be an integer: " + key};
+        throw BridgeError{"invalid_request", "Field must be an integer: " + key};
     }
     if (json.at(key).get<int>() != expected)
     {
-        throw BridgeError{"unsupported_protocol",
-                          "Unsupported " + key};
+        throw BridgeError{"unsupported_protocol", "Unsupported " + key};
     }
 }
 
@@ -137,8 +132,8 @@ auto parse_request(std::string const &request_json) -> ParsedRequest
 }
 
 auto make_envelope(std::string_view type, std::string const &name,
-                   std::optional<std::string> const &request_id,
-                   nlohmann::json payload) -> nlohmann::json
+                   std::optional<std::string> const &request_id, nlohmann::json payload)
+    -> nlohmann::json
 {
     auto out = nlohmann::json{
         {"protocol", xen::bridge::protocol},
@@ -307,10 +302,8 @@ auto normalize_utf8(std::string_view input) -> std::string
             continue;
         }
 
-        if ((need == 3 && codepoint < 0x800) ||
-            (need == 4 && codepoint < 0x10000) ||
-            (codepoint >= 0xD800 && codepoint <= 0xDFFF) ||
-            codepoint > 0x10FFFF)
+        if ((need == 3 && codepoint < 0x800) || (need == 4 && codepoint < 0x10000) ||
+            (codepoint >= 0xD800 && codepoint <= 0xDFFF) || codepoint > 0x10FFFF)
         {
             append_replacement();
             ++i;
@@ -333,8 +326,8 @@ auto make_file_entries(juce::File const &directory, std::string const &glob,
                                  directory.getFullPathName().toStdString());
     }
 
-    auto const files = to_sorted_files(
-        directory.findChildFiles(juce::File::findFiles, true, glob));
+    auto const files =
+        to_sorted_files(directory.findChildFiles(juce::File::findFiles, true, glob));
 
     auto out = nlohmann::json::array();
     for (auto const &file : files)
@@ -342,8 +335,7 @@ auto make_file_entries(juce::File const &directory, std::string const &glob,
         auto relative_path =
             file.getRelativePathFrom(directory).replaceCharacter('\\', '/');
         auto stem_path = relative_path.toStdString();
-        if (auto const dot = stem_path.find_last_of('.');
-            dot != std::string::npos)
+        if (auto const dot = stem_path.find_last_of('.'); dot != std::string::npos)
         {
             stem_path.erase(dot);
         }
@@ -353,8 +345,7 @@ auto make_file_entries(juce::File const &directory, std::string const &glob,
             {"relative_path", normalize_utf8(relative_path.toStdString())},
             {"stem", normalize_utf8(stem_path)},
             {"path", normalize_utf8(file.getFullPathName().toStdString())},
-            {"command",
-             normalize_utf8(command_prefix + quote_command_arg(stem_path))},
+            {"command", normalize_utf8(command_prefix + quote_command_arg(stem_path))},
         });
     }
     return out;
@@ -368,8 +359,8 @@ auto make_tuning_entries(juce::File const &directory) -> nlohmann::json
                                  directory.getFullPathName().toStdString());
     }
 
-    auto const files = to_sorted_files(
-        directory.findChildFiles(juce::File::findFiles, true, "*.scl"));
+    auto const files =
+        to_sorted_files(directory.findChildFiles(juce::File::findFiles, true, "*.scl"));
 
     auto out = nlohmann::json::array();
     for (auto const &file : files)
@@ -377,22 +368,19 @@ auto make_tuning_entries(juce::File const &directory) -> nlohmann::json
         auto relative_path =
             file.getRelativePathFrom(directory).replaceCharacter('\\', '/');
         auto stem_path = relative_path.toStdString();
-        if (auto const dot = stem_path.find_last_of('.');
-            dot != std::string::npos)
+        if (auto const dot = stem_path.find_last_of('.'); dot != std::string::npos)
         {
             stem_path.erase(dot);
         }
 
-        auto const tuning = sequence::from_scala(
-            file.getFullPathName().toStdString());
+        auto const tuning = sequence::from_scala(file.getFullPathName().toStdString());
 
         out.push_back(nlohmann::json{
             {"name", normalize_utf8(file.getFileName().toStdString())},
             {"relative_path", normalize_utf8(relative_path.toStdString())},
             {"stem", normalize_utf8(stem_path)},
             {"path", normalize_utf8(file.getFullPathName().toStdString())},
-            {"command",
-             normalize_utf8("load tuning " + quote_command_arg(stem_path))},
+            {"command", normalize_utf8("load tuning " + quote_command_arg(stem_path))},
             {"description", normalize_utf8(tuning.description)},
             {"intervals", tuning.intervals},
             {"octave", tuning.octave},
@@ -412,8 +400,7 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
     scales.push_back(nlohmann::json{
         {"name", normalize_utf8("chromatic")},
         {"intervals", nlohmann::json::array()},
-        {"command",
-         normalize_utf8("set scale " + quote_command_arg("chromatic"))},
+        {"command", normalize_utf8("set scale " + quote_command_arg("chromatic"))},
     });
     for (auto const &scale : library.scales)
     {
@@ -451,15 +438,14 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
               normalize_utf8(
                   xen::get_user_library_directory().getFullPathName().toStdString())},
              {"sequences",
-              normalize_utf8(config.current_sequence_directory.getFullPathName()
-                                 .toStdString())},
+              normalize_utf8(
+                  config.current_sequence_directory.getFullPathName().toStdString())},
              {"tunings",
-              normalize_utf8(config.current_tuning_directory.getFullPathName()
-                                 .toStdString())},
+              normalize_utf8(
+                  config.current_tuning_directory.getFullPathName().toStdString())},
          }},
-        {"measures",
-         make_file_entries(config.current_sequence_directory, "*.xss",
-                           "load measure ")},
+        {"measures", make_file_entries(config.current_sequence_directory, "*.xss",
+                                       "load measure ")},
         {"tunings", make_tuning_entries(config.current_tuning_directory)},
         {"scales", std::move(scales)},
         {"chords", std::move(chords)},
@@ -506,14 +492,15 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                 {"snapshot_schema_version", bridge::snapshot_schema_version},
                 {"plugin_version", VERSION},
                 {"reference",
-                 bridge::make_reference_payload(catalog_docs(), keymap)},
+                 bridge::make_reference_payload(
+                     processor_.command_catalog().generate_docs(), keymap)},
             };
         }
         else if (request.name == "state.get")
         {
             validate_empty_object_payload(request.payload, request);
-            payload = bridge::make_ui_state_snapshot(
-                processor_.get_engine_snapshot(), processor_.plugin_state.library);
+            payload = bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
+                                                     processor_.plugin_state.library);
         }
         else if (request.name == "command.execute")
         {
@@ -534,20 +521,54 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
         {
             auto const partial = require_string(request.payload, "partial");
             payload = nlohmann::json{
-                {"suffix", catalog_complete_text(partial)},
+                {"suffix", processor_.command_catalog().complete_text(partial)},
             };
         }
         else if (request.name == "command.completeId")
         {
             auto const partial = require_string(request.payload, "partial");
             payload = nlohmann::json{
-                {"id_suffix", catalog_complete_id(partial)},
+                {"id_suffix", processor_.command_catalog().complete_id(partial)},
             };
+        }
+        else if (request.name == "command.complete")
+        {
+            auto const partial = require_string(request.payload, "partial");
+            auto const completion = processor_.command_catalog().complete(partial);
+            auto candidates = nlohmann::json::array();
+            for (auto const &candidate : completion.candidates)
+            {
+                candidates.push_back({
+                    {"insertion", candidate.insertion},
+                    {"display", candidate.display},
+                    {"description", candidate.description},
+                    {"kind", candidate.kind == CompletionCandidateKind::CommandToken
+                                 ? "command"
+                                 : "argument"},
+                });
+            }
+
+            payload = nlohmann::json{
+                {"candidates", std::move(candidates)},
+                {"active_argument", nullptr},
+            };
+            if (completion.active_argument.has_value())
+            {
+                payload["active_argument"] = {
+                    {"type", completion.active_argument->type},
+                    {"name", completion.active_argument->name},
+                    {"default_value",
+                     completion.active_argument->default_value.has_value()
+                         ? nlohmann::json{*completion.active_argument->default_value}
+                         : nlohmann::json{nullptr}},
+                };
+            }
         }
         else if (request.name == "catalog.get")
         {
             validate_empty_object_payload(request.payload, request);
-            payload = bridge::make_catalog_payload(command_metadata());
+            payload =
+                bridge::make_catalog_payload(processor_.command_catalog().metadata());
         }
         else if (request.name == "keymap.get")
         {
@@ -570,7 +591,8 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
             };
         }
 
-        return make_envelope("response", request.name, request.request_id, payload).dump();
+        return make_envelope("response", request.name, request.request_id, payload)
+            .dump();
     }
     catch (BridgeError const &error)
     {
@@ -606,8 +628,8 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
 
 auto WebviewBridge::make_state_changed_event_json() const -> std::string
 {
-    auto const payload = bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
-                                                        processor_.plugin_state.library);
+    auto const payload = bridge::make_ui_state_snapshot(
+        processor_.get_engine_snapshot(), processor_.plugin_state.library);
     return make_envelope("event", "state.changed", std::nullopt, payload).dump();
 }
 

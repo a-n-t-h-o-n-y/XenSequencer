@@ -14,6 +14,7 @@ namespace xen
 struct SplitInput
 {
     sequence::Pattern pattern;
+    bool has_pattern_prefix{false};
     std::vector<std::string> words;
 };
 

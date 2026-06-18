@@ -1,20 +1,20 @@
 #include <stdexcept>
-#include <vector>
 #include <variant>
+#include <vector>
 
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
+#include <sequence/sequence.hpp>
+#include <sequence/tuning.hpp>
 #include <xen/actions.hpp>
+#include <xen/command.hpp>
 #include <xen/command_action.hpp>
 #include <xen/command_catalog.hpp>
-#include <xen/command.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
 #include <xen/utility.hpp>
-#include <sequence/sequence.hpp>
-#include <sequence/tuning.hpp>
 
 using namespace xen;
 
@@ -24,12 +24,13 @@ namespace
 auto make_plugin_state() -> PluginState
 {
     return PluginState{
-        .timeline = XenTimeline{
-            TimelineState{
-                .sequencer = {},
-                .aux = {},
+        .timeline =
+            XenTimeline{
+                TimelineState{
+                    .sequencer = {},
+                    .aux = {},
+                },
             },
-        },
     };
 }
 
@@ -52,19 +53,24 @@ auto to_command_actions(std::vector<CommandInvocation> const &invocations)
     actions.reserve(bound_commands.size());
     for (auto const &bound : bound_commands)
     {
-        actions.push_back(bound.action);
+        if (bound.control == BoundCommandControl::ReplayPrevious)
+        {
+            actions.push_back(AgainAction{});
+            continue;
+        }
+        REQUIRE(bound.action.has_value());
+        actions.push_back(*bound.action);
     }
     return actions;
 }
 
-auto singleton_sequence_cell_selection(
-    std::vector<std::size_t> const &indices) -> SelectedState
+auto singleton_sequence_cell_selection(std::vector<std::size_t> const &indices)
+    -> SelectedState
 {
     auto selected = SelectedState{};
     for (auto const index : indices)
     {
-        selected.path.push_back(
-            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back({.kind = SelectionStepKind::Element, .index = 0});
         selected.path.push_back(
             {.kind = SelectionStepKind::SequenceCell, .index = index});
     }
@@ -100,8 +106,7 @@ TEST_CASE("Unknown command invocation fails typed-action conversion",
     CHECK_THROWS_AS(to_command_actions(invocations), utility::ErrorNoMatch);
 }
 
-TEST_CASE("Official command catalog maps to typed actions",
-          "[core][command][action]")
+TEST_CASE("Official command catalog maps to typed actions", "[core][command][action]")
 {
     auto const samples = std::vector<std::string>{
         "welcome",
@@ -231,8 +236,7 @@ TEST_CASE("Command adapter maps migrated commands to typed action variants",
 TEST_CASE("Command adapter preserves migrated command defaults",
           "[core][command][action]")
 {
-    auto const invocations = parse_command_chain(
-        "set key; note; set baseFrequency");
+    auto const invocations = parse_command_chain("set key; note; set baseFrequency");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 3);
@@ -288,8 +292,7 @@ TEST_CASE("Typed action execution applies explicit context and reports updated c
     auto context = ExecutionContext{};
     context.selected = singleton_sequence_cell_selection({0});
 
-    auto const actions =
-        to_command_actions(parse_command_chain("set key 12"));
+    auto const actions = to_command_actions(parse_command_chain("set key 12"));
     REQUIRE(actions.size() == 1);
 
     auto const result = execute_command_action(ps, context, actions[0]);
@@ -306,8 +309,7 @@ TEST_CASE("Typed action execution exposes commit intent and mutation metadata",
 
     auto const set_key_actions = to_command_actions(parse_command_chain("set key 7"));
     REQUIRE(set_key_actions.size() == 1);
-    auto const set_key_result =
-        execute_command_action(ps, context, set_key_actions[0]);
+    auto const set_key_result = execute_command_action(ps, context, set_key_actions[0]);
     CHECK(set_key_result.status.first == MessageLevel::Info);
     CHECK(set_key_result.engine_mutated);
     CHECK(set_key_result.commit_intent == CommitIntent::Auto);
@@ -316,19 +318,18 @@ TEST_CASE("Typed action execution exposes commit intent and mutation metadata",
 
     auto const commit_actions = to_command_actions(parse_command_chain("commit"));
     REQUIRE(commit_actions.size() == 1);
-    auto const commit_result =
-        execute_command_action(ps, context, commit_actions[0]);
+    auto const commit_result = execute_command_action(ps, context, commit_actions[0]);
     CHECK(commit_result.status.first == MessageLevel::Debug);
     CHECK_FALSE(commit_result.engine_mutated);
     CHECK(commit_result.commit_intent == CommitIntent::Force);
 
     auto const split_actions = to_command_actions(parse_command_chain("split 2"));
     REQUIRE(split_actions.size() == 1);
-    auto const split_result =
-        execute_command_action(ps, context, split_actions[0]);
+    auto const split_result = execute_command_action(ps, context, split_actions[0]);
     REQUIRE(split_result.status.first == MessageLevel::Info);
 
-    auto const defer_actions = to_command_actions(parse_command_chain("set weights 0.5"));
+    auto const defer_actions =
+        to_command_actions(parse_command_chain("set weights 0.5"));
     REQUIRE(defer_actions.size() == 1);
     auto const defer_result =
         execute_command_action(ps, split_result.context, defer_actions[0]);
@@ -348,13 +349,11 @@ TEST_CASE("Typed move action updates context without mutating engine",
 
     CHECK(result.status.first == MessageLevel::Debug);
     CHECK_FALSE(result.engine_mutated);
-    CHECK(result.context.selected == action::move_right(ps.timeline.get_state().sequencer,
-                                                        context, 1)
-                                 .selected);
+    CHECK(result.context.selected ==
+          action::move_right(ps.timeline.get_state().sequencer, context, 1).selected);
 }
 
-TEST_CASE("Typed input mode update context-only state",
-          "[core][command][action]")
+TEST_CASE("Typed input mode update context-only state", "[core][command][action]")
 {
     auto ps = make_plugin_state();
 
@@ -388,8 +387,7 @@ TEST_CASE("Typed baseFrequency action clamps value", "[core][command][action]")
     CHECK(result.status.first == MessageLevel::Info);
     CHECK(result.status.second == "Base Frequency Set");
     CHECK(result.engine_mutated);
-    CHECK(ps.timeline.get_state().sequencer.base_frequency ==
-          Catch::Approx(20'000.f));
+    CHECK(ps.timeline.get_state().sequencer.base_frequency == Catch::Approx(20'000.f));
 }
 
 TEST_CASE(
@@ -424,13 +422,11 @@ TEST_CASE(
 
     CHECK(std::get<SplitSelectionAction>(actions[1]).count == 3);
     CHECK(std::get<SetWeightAction>(actions[8]).value == Catch::Approx(0.6f));
-    CHECK(std::get<SetWeightsAction>(actions[9]).pattern ==
-          sequence::Pattern{4, {1}});
+    CHECK(std::get<SetWeightsAction>(actions[9]).pattern == sequence::Pattern{4, {1}});
     CHECK(std::get<ShiftGateAction>(actions[14]).pattern == sequence::Pattern{9, {1}});
     CHECK(std::get<StepAction>(actions[15]).pattern == sequence::Pattern{10, {1}});
     CHECK(std::get<StepAction>(actions[15]).pitch_distance == 3);
-    CHECK(std::get<StepAction>(actions[15]).velocity_distance ==
-          Catch::Approx(0.4f));
+    CHECK(std::get<StepAction>(actions[15]).velocity_distance == Catch::Approx(0.4f));
     CHECK(std::get<DrumsAction>(actions[16]).octave_size == 24);
     CHECK(std::get<DrumsAction>(actions[16]).offset == -2);
 }
@@ -470,9 +466,9 @@ TEST_CASE("Command adapter preserves edit/set/shift/step/drums defaults",
     CHECK(std::get<DrumsAction>(actions[12]).offset == 1);
 }
 
-TEST_CASE(
-    "Command adapter maps clipboard and measure time-signature commands to typed actions",
-    "[core][command][action]")
+TEST_CASE("Command adapter maps clipboard and measure time-signature commands to typed "
+          "actions",
+          "[core][command][action]")
 {
     auto const invocations = parse_command_chain(
         "copy; cut; paste; duplicate; set measure timeSignature 7/8; "
@@ -493,13 +489,12 @@ TEST_CASE(
     CHECK(set_ts.time_signature.denominator == 8);
 }
 
-TEST_CASE(
-    "Command adapter preserves clipboard and measure time-signature defaults",
-    "[core][command][action]")
+TEST_CASE("Command adapter preserves clipboard and measure time-signature defaults",
+          "[core][command][action]")
 {
-    auto const invocations = parse_command_chain(
-        "set measure timeSignature; double measure timeSignature; "
-        "halve measure timeSignature");
+    auto const invocations =
+        parse_command_chain("set measure timeSignature; double measure timeSignature; "
+                            "halve measure timeSignature");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 3);
@@ -511,8 +506,8 @@ TEST_CASE(
 TEST_CASE("Command adapter maps misc, arp, and chord commands to typed actions",
           "[core][command][action]")
 {
-    auto const invocations = parse_command_chain(
-        "welcome; version; reset; +1 2 arp major 1; chord minor 2");
+    auto const invocations =
+        parse_command_chain("welcome; version; reset; +1 2 arp major 1; chord minor 2");
     auto const actions = to_command_actions(invocations);
 
     REQUIRE(actions.size() == 5);
@@ -658,10 +653,8 @@ TEST_CASE("Typed randomize and transform actions execute deterministically",
     CHECK(run_action("+0 randomize pitch 4 4").status.first == MessageLevel::Info);
     CHECK(run_action("+0 randomize velocity 0.3 0.3").status.first ==
           MessageLevel::Info);
-    CHECK(run_action("+0 randomize delay 0.4 0.4").status.first ==
-          MessageLevel::Info);
-    CHECK(run_action("+0 randomize gate 0.5 0.5").status.first ==
-          MessageLevel::Info);
+    CHECK(run_action("+0 randomize delay 0.4 0.4").status.first == MessageLevel::Info);
+    CHECK(run_action("+0 randomize gate 0.5 0.5").status.first == MessageLevel::Info);
     CHECK(run_action("+0 stretch 2").status.first == MessageLevel::Info);
     CHECK(run_action("+1 compress").status.first == MessageLevel::Info);
     CHECK(run_action("shuffle").status.first == MessageLevel::Info);
@@ -683,9 +676,9 @@ TEST_CASE("Typed chord action applies chord intervals across cell elements",
     state.sequencer.measure.cell.elements = {
         sequence::Note{10, 0.5f, 0.1f, 0.8f},
         sequence::Sequence{.cells = {sequence::Cell{
-            .elements = {sequence::Note{10, 0.5f, 0.1f, 0.8f}},
-            .weight = 1.f,
-        }}},
+                               .elements = {sequence::Note{10, 0.5f, 0.1f, 0.8f}},
+                               .weight = 1.f,
+                           }}},
         sequence::Note{10, 0.5f, 0.1f, 0.8f},
         sequence::Note{10, 0.5f, 0.1f, 0.8f},
     };
@@ -790,12 +783,13 @@ TEST_CASE("Typed note and delete actions update selected cell",
     state.aux.selected = singleton_sequence_cell_selection({0});
     state.sequencer.measure.cell = {
         .elements = {sequence::Sequence{
-            .cells = {
-                sequence::Cell{
-                    .elements = {sequence::Note{3, 0.2f, 0.1f, 0.4f}},
-                    .weight = 0.37f,
+            .cells =
+                {
+                    sequence::Cell{
+                        .elements = {sequence::Note{3, 0.2f, 0.1f, 0.4f}},
+                        .weight = 0.37f,
+                    },
                 },
-            },
         }},
         .weight = 1.f,
     };
@@ -804,7 +798,8 @@ TEST_CASE("Typed note and delete actions update selected cell",
     auto context = ExecutionContext{ps.timeline.get_state().aux};
     auto const note_target = context.selected;
 
-    auto note_action = to_command_actions(parse_command_chain("note 12 0.5 0.25 0.75"))[0];
+    auto note_action =
+        to_command_actions(parse_command_chain("note 12 0.5 0.25 0.75"))[0];
     auto note_result = execute_command_action(ps, context, note_action);
     CHECK(note_result.status.first == MessageLevel::Info);
     CHECK(note_result.status.second == "Note Created");
@@ -858,8 +853,7 @@ TEST_CASE("Typed delete action on the last selected element returns to the paren
     CHECK(root_cell.elements.empty());
 }
 
-TEST_CASE("Typed note action replaces selected element only",
-          "[core][command][action]")
+TEST_CASE("Typed note action replaces selected element only", "[core][command][action]")
 {
     auto ps = make_plugin_state();
     auto state = ps.timeline.get_state();
@@ -952,10 +946,8 @@ TEST_CASE("Typed scale and deprecated/library commands execute via catalog",
     CHECK(run_action("set mode 2").status.first == MessageLevel::Info);
     CHECK(run_action("shift scale").status.first == MessageLevel::Info);
     CHECK(run_action("shift scaleMode -1").status.first == MessageLevel::Info);
-    CHECK(run_action("set translateDirection down").status.first ==
-          MessageLevel::Info);
-    CHECK(run_action("shift translateDirection").status.first ==
-          MessageLevel::Info);
+    CHECK(run_action("set translateDirection down").status.first == MessageLevel::Info);
+    CHECK(run_action("shift translateDirection").status.first == MessageLevel::Info);
     CHECK(run_action("shift entireScale -1").status.first == MessageLevel::Info);
     CHECK(run_action("load keys").status.first == MessageLevel::Warning);
     CHECK(run_action("libraryDirectory").status.first == MessageLevel::Info);

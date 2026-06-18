@@ -12,8 +12,11 @@ namespace xen
 class CommandCatalog
 {
   public:
-    [[nodiscard]] auto metadata() const
-        -> std::vector<CatalogCommandMetadata> const &;
+    CommandCatalog() = default;
+
+    void add(CommandDefinition definition);
+
+    [[nodiscard]] auto metadata() const -> std::vector<CatalogCommandMetadata> const &;
 
     [[nodiscard]] auto bind_invocation(CommandInvocation const &invocation) const
         -> BindInvocationResult;
@@ -27,7 +30,14 @@ class CommandCatalog
     [[nodiscard]] auto complete_id(std::string const &partial_command) const
         -> std::string;
 
+    [[nodiscard]] auto complete(std::string const &partial_command) const
+        -> CompletionResult;
+
     [[nodiscard]] auto generate_docs() const -> std::vector<Documentation>;
+
+  private:
+    std::vector<CommandDefinition> definitions_{};
+    std::vector<CatalogCommandMetadata> metadata_{};
 };
 
 [[nodiscard]] auto create_command_catalog() -> CommandCatalog;
@@ -40,8 +50,7 @@ class CommandCatalog
 [[nodiscard]] auto bind_chain(std::vector<CommandInvocation> const &invocations)
     -> BindChainResult;
 
-[[nodiscard]] auto command_metadata()
-    -> std::vector<CatalogCommandMetadata> const &;
+[[nodiscard]] auto command_metadata() -> std::vector<CatalogCommandMetadata> const &;
 
 [[nodiscard]] auto catalog_complete_text(std::string const &partial_command)
     -> std::string;

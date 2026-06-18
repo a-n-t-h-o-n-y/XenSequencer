@@ -16,13 +16,13 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <xen/command.hpp>
+#include <xen/command_catalog.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
-#include <xen/command_catalog.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace
@@ -38,12 +38,10 @@ namespace
 [[nodiscard]] auto valid_sample_rate(double value) -> bool
 {
     return std::isfinite(value) && value >= 1.0 &&
-           value <=
-               static_cast<double>(std::numeric_limits<std::uint32_t>::max());
+           value <= static_cast<double>(std::numeric_limits<std::uint32_t>::max());
 }
 
-[[nodiscard]] auto ppq_to_samples(double ppq, float bpm,
-                                  std::uint32_t sample_rate)
+[[nodiscard]] auto ppq_to_samples(double ppq, float bpm, std::uint32_t sample_rate)
     -> xen::SampleIndex
 {
     if (!std::isfinite(ppq) || ppq < 0.0)
@@ -51,13 +49,12 @@ namespace
         return 0;
     }
 
-    auto const samples =
-        static_cast<long double>(ppq) * 60.0L /
-        static_cast<long double>(bpm) * static_cast<long double>(sample_rate);
+    auto const samples = static_cast<long double>(ppq) * 60.0L /
+                         static_cast<long double>(bpm) *
+                         static_cast<long double>(sample_rate);
     if (!std::isfinite(samples) || samples < 0.0L ||
         samples >
-            static_cast<long double>(
-                std::numeric_limits<xen::SampleIndex>::max()))
+            static_cast<long double>(std::numeric_limits<xen::SampleIndex>::max()))
     {
         return 0;
     }
@@ -70,7 +67,8 @@ namespace xen
 {
 
 XenProcessor::XenProcessor()
-    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}}
+    : plugin_state{.timeline = XenTimeline{{.sequencer = {}, .aux = {}}}},
+      command_catalog_{create_command_catalog()}
 {
     initialize_demo_files();
 
@@ -80,6 +78,16 @@ XenProcessor::XenProcessor()
 
     this->execute_command_string("load scales");
     this->execute_command_string("load chords");
+}
+
+auto XenProcessor::command_catalog() noexcept -> CommandCatalog &
+{
+    return command_catalog_;
+}
+
+auto XenProcessor::command_catalog() const noexcept -> CommandCatalog const &
+{
+    return command_catalog_;
 }
 
 auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
@@ -112,8 +120,8 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     auto transport_offset = SampleIndex{0};
 
     { // Update DAWState
-        auto bpm = audio_thread_state_.daw.bpm > 0.f ? audio_thread_state_.daw.bpm
-                                                      : 120.f;
+        auto bpm =
+            audio_thread_state_.daw.bpm > 0.f ? audio_thread_state_.daw.bpm : 120.f;
         auto is_playing = false;
         if (auto *playhead = this->getPlayHead(); playhead != nullptr)
         {
@@ -154,15 +162,13 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 {
                     if (*samples_opt >= 0)
                     {
-                        transport_offset =
-                            static_cast<SampleIndex>(*samples_opt);
+                        transport_offset = static_cast<SampleIndex>(*samples_opt);
                     }
                 }
                 else if (auto const ppq_opt = position->getPpqPosition();
                          ppq_opt.hasValue() && bpm > 0.f && sample_rate > 0)
                 {
-                    transport_offset =
-                        ppq_to_samples(*ppq_opt, bpm, sample_rate);
+                    transport_offset = ppq_to_samples(*ppq_opt, bpm, sample_rate);
                 }
             }
         }
@@ -243,7 +249,8 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto state = deserialize_plugin(json_str);
         plugin_state.timeline.stage({std::move(state), {}});
         plugin_state.timeline.commit();
-        pending_engine_state_update.publish(plugin_state.timeline.get_state().sequencer);
+        pending_engine_state_update.publish(
+            plugin_state.timeline.get_state().sequencer);
         notify_ui_state_changed();
     }
     catch (std::exception const &e)
@@ -266,48 +273,52 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             auto auto_commit_candidate = false;
             auto force_commit_requested = false;
             auto context = ExecutionContext{ps.timeline.get_state().aux};
-            auto executed_chain = std::vector<CommandAction>{};
+            auto executed_chain = std::vector<BoundCommand>{};
             auto const invocations = parse_command_chain(command_string);
             auto expansion_count = std::size_t{0};
 
-            auto const apply_action_result = [&](CommandActionResult const &action_result) {
-                status = action_result.status;
+            auto const apply_action_result =
+                [&](CommandActionResult const &action_result) {
+                    status = action_result.status;
 
-                if (action_result.commit_intent == CommitIntent::Force)
-                {
-                    force_commit_requested = true;
-                }
-                if (action_result.engine_mutated &&
-                    action_result.commit_intent != CommitIntent::Defer)
-                {
-                    auto_commit_candidate = true;
-                }
+                    if (action_result.commit_intent == CommitIntent::Force)
+                    {
+                        force_commit_requested = true;
+                    }
+                    if (action_result.engine_mutated &&
+                        action_result.commit_intent != CommitIntent::Defer)
+                    {
+                        auto_commit_candidate = true;
+                    }
 
-                context = action_result.context;
-            };
+                    context = action_result.context;
+                };
 
-            auto const apply_action = [&](CommandAction const &action) {
+            auto const apply_command = [&](BoundCommand const &command) {
                 executed_any_action = true;
-                executed_chain.push_back(action);
+                executed_chain.push_back(command);
 
-                auto const action_result = execute_command_action(ps, context, action);
+                if (!command.execute)
+                {
+                    throw std::runtime_error(
+                        "Bound command does not have an executor.");
+                }
+                auto const action_result = command.execute(ps, context);
                 apply_action_result(action_result);
             };
 
             for (auto const &invocation : invocations)
             {
-                auto const bound_result = bind_invocation(invocation);
+                auto const bound_result = command_catalog_.bind_invocation(invocation);
                 if (std::holds_alternative<CatalogBindError>(bound_result))
                 {
-                    auto const &bind_error =
-                        std::get<CatalogBindError>(bound_result);
+                    auto const &bind_error = std::get<CatalogBindError>(bound_result);
                     if (bind_error.kind == CatalogBindErrorKind::UnknownCommand)
                     {
                         if (!bind_error.token.empty())
                         {
                             status = {MessageLevel::Error,
-                                      "Command not found: " +
-                                          bind_error.token};
+                                      "Command not found: " + bind_error.token};
                         }
                         else
                         {
@@ -321,12 +332,11 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                     break;
                 }
 
-                auto const &typed_action =
-                    std::get<BoundCommand>(bound_result).action;
+                auto const &bound_command = std::get<BoundCommand>(bound_result);
 
-                if (is_again_action(typed_action))
+                if (bound_command.control == BoundCommandControl::ReplayPrevious)
                 {
-                    if (previous_action_chain_.empty())
+                    if (previous_command_chain_.empty())
                     {
                         status = {MessageLevel::Error,
                                   "No previous command to repeat."};
@@ -341,10 +351,10 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                         break;
                     }
 
-                    auto const replay_chain = previous_action_chain_;
-                    for (auto const &replay_action : replay_chain)
+                    auto const replay_chain = previous_command_chain_;
+                    for (auto const &replay_command : replay_chain)
                     {
-                        apply_action(replay_action);
+                        apply_command(replay_command);
                         if (status.first == MessageLevel::Error)
                         {
                             break;
@@ -353,7 +363,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 }
                 else
                 {
-                    apply_action(typed_action);
+                    apply_command(bound_command);
                 }
 
                 if (status.first == MessageLevel::Error)
@@ -371,7 +381,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
 
             if (executed_any_action)
             {
-                previous_action_chain_ = executed_chain;
+                previous_command_chain_ = executed_chain;
             }
 
             auto const stage_engine = ps.timeline.get_state().sequencer;

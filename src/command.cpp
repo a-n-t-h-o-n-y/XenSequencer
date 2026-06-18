@@ -11,13 +11,16 @@ auto split_input(std::string input) -> SplitInput
 {
     auto split_input = SplitInput{
         .pattern = {0, {1}},
+        .has_pattern_prefix = false,
         .words = {},
     };
 
     if (sequence::contains_valid_pattern(input))
     {
+        auto const input_without_pattern = sequence::pop_pattern_chars(input);
+        split_input.has_pattern_prefix = input_without_pattern != input;
         split_input.pattern = sequence::parse_pattern(input);
-        input = sequence::pop_pattern_chars(input);
+        input = input_without_pattern;
     }
 
     split_input.words = split_quoted_string(input);

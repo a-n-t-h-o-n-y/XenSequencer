@@ -4,6 +4,8 @@
 #include <utility>
 #include <vector>
 
+#include <xen/string_manip.hpp>
+
 #include "command_catalog_metadata_internal.hpp"
 
 namespace xen
@@ -43,7 +45,33 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
         return to_unknown_command_error(invocation);
     }
 
-    auto const *spec = find_command_spec(invocation);
+    auto const *spec = static_cast<CommandDefinition const *>(nullptr);
+    auto best_length = std::size_t{0};
+    for (auto const &candidate : definitions_)
+    {
+        auto const &path = candidate.metadata.path;
+        if (path.empty() || path.size() > invocation.input.words.size())
+        {
+            continue;
+        }
+
+        auto matches = true;
+        for (auto i = std::size_t{0}; i < path.size(); ++i)
+        {
+            if (to_lower(path[i]) != to_lower(invocation.input.words[i]))
+            {
+                matches = false;
+                break;
+            }
+        }
+
+        if (matches && path.size() > best_length)
+        {
+            spec = &candidate;
+            best_length = path.size();
+        }
+    }
+
     if (spec == nullptr)
     {
         return to_unknown_command_error(invocation);
@@ -51,10 +79,7 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
 
     try
     {
-        return BoundCommand{
-            .action = spec->bind(invocation, spec->metadata.path.size()),
-            .canonical = invocation.canonical_segment,
-        };
+        return spec->bind(invocation, spec->metadata.path.size());
     }
     catch (CatalogBindException const &e)
     {
@@ -72,8 +97,8 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
     }
 }
 
-auto CommandCatalog::bind_chain(
-    std::vector<CommandInvocation> const &invocations) const -> BindChainResult
+auto CommandCatalog::bind_chain(std::vector<CommandInvocation> const &invocations) const
+    -> BindChainResult
 {
     auto bound = std::vector<BoundCommand>{};
     bound.reserve(invocations.size());

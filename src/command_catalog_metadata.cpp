@@ -8,22 +8,6 @@
 namespace xen
 {
 
-auto command_catalog_metadata_storage() -> std::vector<CatalogCommandMetadata> const &
-{
-    static auto const metadata = [] {
-        auto result = std::vector<CatalogCommandMetadata>{};
-        auto const &specs = command_specs_storage();
-        result.reserve(specs.size());
-        for (auto const &spec : specs)
-        {
-            result.push_back(spec.metadata);
-        }
-        return result;
-    }();
-
-    return metadata;
-}
-
 auto format_metadata_argument(CatalogArgumentMetadata const &argument) -> std::string
 {
     auto result = std::string{"["};
@@ -51,7 +35,7 @@ auto format_metadata_path(CatalogCommandMetadata const &metadata) -> std::string
 
 auto CommandCatalog::metadata() const -> std::vector<CatalogCommandMetadata> const &
 {
-    return command_catalog_metadata_storage();
+    return metadata_;
 }
 
 auto command_metadata() -> std::vector<CatalogCommandMetadata> const &

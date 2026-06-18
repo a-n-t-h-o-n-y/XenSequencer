@@ -53,11 +53,8 @@ auto build_specs() -> std::vector<CommandSpec>
 } // namespace
 
 CatalogBindException::CatalogBindException(CatalogBindErrorKind kind,
-                                           std::string argument,
-                                           std::string detail)
-    : kind_{kind}
-    , argument_{std::move(argument)}
-    , detail_{std::move(detail)}
+                                           std::string argument, std::string detail)
+    : kind_{kind}, argument_{std::move(argument)}, detail_{std::move(detail)}
 {
     if (kind_ == CatalogBindErrorKind::MissingArgument)
     {
@@ -70,6 +67,14 @@ CatalogBindException::CatalogBindException(CatalogBindErrorKind kind,
         {
             message_ += ": " + detail_;
         }
+    }
+    else if (kind_ == CatalogBindErrorKind::UnexpectedArgument)
+    {
+        message_ = "Unexpected argument: " + argument_;
+    }
+    else if (kind_ == CatalogBindErrorKind::PatternPrefixNotAllowed)
+    {
+        message_ = "Pattern prefix is not accepted by command: " + argument_;
     }
     else
     {
@@ -97,55 +102,12 @@ auto CatalogBindException::what() const noexcept -> char const *
     return message_.c_str();
 }
 
-auto command_specs_storage() -> std::vector<CommandSpec> const &
+void append_default_command_definitions(CommandCatalog &catalog)
 {
-    static auto const specs = build_specs();
-    return specs;
-}
-
-auto find_command_spec(CommandInvocation const &invocation) -> CommandSpec const *
-{
-    auto const &words = invocation.input.words;
-    if (words.empty())
+    for (auto &definition : build_specs())
     {
-        return nullptr;
+        catalog.add(std::move(definition));
     }
-
-    auto const &specs = command_specs_storage();
-    auto best = static_cast<CommandSpec const *>(nullptr);
-    auto best_len = std::size_t{0};
-
-    for (auto const &spec : specs)
-    {
-        auto const &path = spec.metadata.path;
-        if (path.empty() || path.size() > words.size())
-        {
-            continue;
-        }
-
-        auto matched = true;
-        for (auto i = std::size_t{0}; i < path.size(); ++i)
-        {
-            if (to_lower(words[i]) != to_lower(path[i]))
-            {
-                matched = false;
-                break;
-            }
-        }
-
-        if (!matched)
-        {
-            continue;
-        }
-
-        if (path.size() > best_len)
-        {
-            best = &spec;
-            best_len = path.size();
-        }
-    }
-
-    return best;
 }
 
 } // namespace xen

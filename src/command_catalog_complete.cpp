@@ -82,12 +82,6 @@ auto build_completion_tree(std::vector<CatalogCommandMetadata> const &metadata)
     return tree;
 }
 
-auto completion_tree() -> CompletionTree const &
-{
-    static auto const tree = build_completion_tree(command_catalog_metadata_storage());
-    return tree;
-}
-
 auto format_remaining_arguments(CatalogCommandMetadata const &metadata,
                                 std::size_t supplied_count) -> std::string
 {
@@ -109,14 +103,14 @@ auto format_remaining_arguments(CatalogCommandMetadata const &metadata,
     return text;
 }
 
-auto complete_from_node(std::size_t node_index, std::vector<std::string> const &words,
+auto complete_from_node(CompletionTree const &tree,
+                        std::vector<CatalogCommandMetadata> const &metadata,
+                        std::size_t node_index, std::vector<std::string> const &words,
                         std::size_t word_index) -> std::string
 {
-    auto const &metadata = command_catalog_metadata_storage();
-    auto const &tree = completion_tree();
     auto const &node = tree.nodes[node_index];
-    auto const leaf = node.metadata_index.has_value() ? &metadata[*node.metadata_index]
-                                                      : nullptr;
+    auto const leaf =
+        node.metadata_index.has_value() ? &metadata[*node.metadata_index] : nullptr;
 
     if (word_index >= words.size())
     {
@@ -133,7 +127,8 @@ auto complete_from_node(std::size_t node_index, std::vector<std::string> const &
     {
         if (iequals(tree.nodes[child_index].token, word))
         {
-            return complete_from_node(child_index, words, word_index + 1);
+            return complete_from_node(tree, metadata, child_index, words,
+                                      word_index + 1);
         }
     }
 
@@ -156,6 +151,120 @@ auto complete_from_node(std::size_t node_index, std::vector<std::string> const &
 
 } // namespace
 
+auto CommandCatalog::complete(std::string const &partial_command) const
+    -> CompletionResult
+{
+    auto result = CompletionResult{};
+    if (strip(partial_command).empty())
+    {
+        auto const tree = build_completion_tree(metadata_);
+        for (auto const node : tree.nodes[0].children)
+        {
+            auto const &child = tree.nodes[node];
+            result.candidates.push_back(CompletionCandidate{
+                .insertion = child.token,
+                .display = child.token,
+            });
+        }
+        return result;
+    }
+
+    auto const split = split_input(partial_command);
+    auto const tree = build_completion_tree(metadata_);
+    auto node_index = std::size_t{0};
+    auto word_index = std::size_t{0};
+
+    while (word_index < split.words.size())
+    {
+        auto const &word = split.words[word_index];
+        auto exact = std::optional<std::size_t>{};
+        for (auto const child_index : tree.nodes[node_index].children)
+        {
+            if (iequals(tree.nodes[child_index].token, word))
+            {
+                exact = child_index;
+                break;
+            }
+        }
+
+        if (exact.has_value())
+        {
+            node_index = *exact;
+            ++word_index;
+            continue;
+        }
+
+        auto const &node = tree.nodes[node_index];
+        if (node.metadata_index.has_value())
+        {
+            auto const &command = metadata_[*node.metadata_index];
+            auto const argument_index = word_index - command.path.size();
+            if (argument_index < command.arguments.size())
+            {
+                result.active_argument = command.arguments[argument_index];
+                result.candidates.push_back(CompletionCandidate{
+                    .display =
+                        format_metadata_argument(command.arguments[argument_index]),
+                    .description = command.description,
+                    .kind = CompletionCandidateKind::Argument,
+                });
+            }
+            return result;
+        }
+
+        for (auto const child_index : node.children)
+        {
+            auto const &child = tree.nodes[child_index];
+            if (istarts_with(child.token, word))
+            {
+                auto description = std::string{};
+                if (child.metadata_index.has_value())
+                {
+                    description = metadata_[*child.metadata_index].description;
+                }
+                result.candidates.push_back(CompletionCandidate{
+                    .insertion = child.token.substr(word.size()),
+                    .display = child.token,
+                    .description = std::move(description),
+                });
+            }
+        }
+        return result;
+    }
+
+    auto const &node = tree.nodes[node_index];
+    for (auto const child_index : node.children)
+    {
+        auto const &child = tree.nodes[child_index];
+        auto description = std::string{};
+        if (child.metadata_index.has_value())
+        {
+            description = metadata_[*child.metadata_index].description;
+        }
+        result.candidates.push_back(CompletionCandidate{
+            .insertion = child.token,
+            .display = child.token,
+            .description = std::move(description),
+        });
+    }
+
+    if (node.metadata_index.has_value())
+    {
+        auto const &command = metadata_[*node.metadata_index];
+        if (!command.arguments.empty())
+        {
+            result.active_argument = command.arguments.front();
+            result.candidates.push_back(CompletionCandidate{
+                .display = format_metadata_argument(command.arguments.front()),
+                .description = command.description,
+                .kind = CompletionCandidateKind::Argument,
+            });
+        }
+    }
+
+    return result;
+}
+
 auto CommandCatalog::complete_text(std::string const &partial_command) const
     -> std::string
 {
@@ -165,7 +274,8 @@ auto CommandCatalog::complete_text(std::string const &partial_command) const
     }
 
     auto const split = split_input(partial_command);
-    return complete_from_node(0, split.words, 0);
+    auto const tree = build_completion_tree(metadata_);
+    return complete_from_node(tree, metadata_, 0, split.words, 0);
 }
 
 auto CommandCatalog::complete_id(std::string const &partial_command) const

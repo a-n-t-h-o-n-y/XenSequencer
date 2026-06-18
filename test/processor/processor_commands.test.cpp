@@ -1,11 +1,12 @@
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <string>
 #include <vector>
 
 #include <sequence/sequence.hpp>
 
+#include <xen/command_dsl.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/xen_processor.hpp>
@@ -15,14 +16,13 @@ using namespace xen;
 namespace
 {
 
-auto singleton_sequence_cell_selection(
-    std::vector<std::size_t> const &indices) -> SelectedState
+auto singleton_sequence_cell_selection(std::vector<std::size_t> const &indices)
+    -> SelectedState
 {
     auto selected = SelectedState{};
     for (auto const index : indices)
     {
-        selected.path.push_back(
-            {.kind = SelectionStepKind::Element, .index = 0});
+        selected.path.push_back({.kind = SelectionStepKind::Element, .index = 0});
         selected.path.push_back(
             {.kind = SelectionStepKind::SequenceCell, .index = index});
     }
@@ -55,8 +55,8 @@ TEST_CASE("Processor multi-command executes in order and returns last command st
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string(
-        "set key 3; set baseFrequency 300; version");
+    auto const [level, message] =
+        processor.execute_command_string("set key 3; set baseFrequency 300; version");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "v0.3.1");
@@ -81,8 +81,9 @@ TEST_CASE("Processor returns command-not-found error for invalid command",
     CHECK(after.commit_id == before.commit_id);
 }
 
-TEST_CASE("Processor multi-command commits prior mutations even if a later command errors",
-          "[processor][commands]")
+TEST_CASE(
+    "Processor multi-command commits prior mutations even if a later command errors",
+    "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
@@ -103,8 +104,8 @@ TEST_CASE("Processor stops chain execution at first command error",
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string(
-        "set key 22; notARealCommand; set key 5");
+    auto const [level, message] =
+        processor.execute_command_string("set key 22; notARealCommand; set key 5");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: notARealCommand");
@@ -128,13 +129,12 @@ TEST_CASE("Processor 'again' replays most recent non-empty non-mutating chain",
     CHECK(again_message == "v0.3.1");
 }
 
-TEST_CASE("Processor 'again' replays full multi-command chain",
-          "[processor][commands]")
+TEST_CASE("Processor 'again' replays full multi-command chain", "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    auto const [first_level, _first_message] = processor.execute_command_string(
-        "set key 3; set baseFrequency 300");
+    auto const [first_level, _first_message] =
+        processor.execute_command_string("set key 3; set baseFrequency 300");
     CHECK(first_level == MessageLevel::Info);
 
     auto const after_first = processor.get_engine_snapshot();
@@ -157,15 +157,15 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string(
-        "load measure \"semi;colon\"; version");
+    auto const [level, message] =
+        processor.execute_command_string("load measure \"semi;colon\"; version");
 
     CHECK(level == MessageLevel::Error);
-    CHECK(message == "File Not Found: " +
-                     processor.plugin_state.config.current_sequence_directory
-                         .getChildFile("semi;colon.xss")
-                         .getFullPathName()
-                         .toStdString());
+    CHECK(message ==
+          "File Not Found: " + processor.plugin_state.config.current_sequence_directory
+                                   .getChildFile("semi;colon.xss")
+                                   .getFullPathName()
+                                   .toStdString());
 }
 
 TEST_CASE("Processor command-chain splitting ignores semicolons in structured args",
@@ -177,11 +177,11 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in structured ar
         "load measure {\"label\":\"semi;colon\"}; version");
 
     CHECK(level == MessageLevel::Error);
-    CHECK(message == "File Not Found: " +
-                     processor.plugin_state.config.current_sequence_directory
-                         .getChildFile("{\"label\":\"semi;colon\"}.xss")
-                         .getFullPathName()
-                         .toStdString());
+    CHECK(message ==
+          "File Not Found: " + processor.plugin_state.config.current_sequence_directory
+                                   .getChildFile("{\"label\":\"semi;colon\"}.xss")
+                                   .getFullPathName()
+                                   .toStdString());
 }
 
 TEST_CASE("Processor carries selection context across chained commands",
@@ -210,12 +210,13 @@ TEST_CASE("Processor carries selection context across chained commands",
     CHECK(std::get<sequence::Note>(selected.elements.front()).pitch == 7);
 }
 
-TEST_CASE("Processor measure defaults use updated chain context", "[processor][commands]")
+TEST_CASE("Processor measure defaults use updated chain context",
+          "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string(
-        "set measure timeSignature 7/8");
+    auto const [level, message] =
+        processor.execute_command_string("set measure timeSignature 7/8");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Measure TimeSignature Set: 7/8");
@@ -229,8 +230,28 @@ TEST_CASE("Processor rejects unknown commands", "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    CHECK(processor.execute_command_string("notACommand").first ==
-          MessageLevel::Error);
+    CHECK(processor.execute_command_string("notACommand").first == MessageLevel::Error);
     CHECK(processor.execute_command_string("notACommand 123").first ==
           MessageLevel::Error);
+}
+
+TEST_CASE("Processor executes commands registered at runtime", "[processor][commands]")
+{
+    auto processor = XenProcessor{};
+    processor.command_catalog().add(command_dsl::command(
+        {"custom", "key"}, false, "Set key through an extension command.",
+        std::make_tuple(command_dsl::required_arg<int>("key")),
+        [](PluginState &plugin_state, ExecutionContext, CommandInvocation const &,
+           int key) {
+            auto state = plugin_state.timeline.get_state();
+            state.sequencer.key = key;
+            plugin_state.timeline.stage(std::move(state));
+            return std::pair{MessageLevel::Info, std::string{"Custom Key Set"}};
+        }));
+
+    auto const [level, message] = processor.execute_command_string("custom key 23");
+
+    CHECK(level == MessageLevel::Info);
+    CHECK(message == "Custom Key Set");
+    CHECK(processor.get_engine_snapshot().engine.key == 23);
 }

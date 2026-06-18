@@ -59,14 +59,14 @@ TEST_CASE("WebviewBridge handles session hello with fixed contract",
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
 
-    auto const hello = request(
-        "session.hello",
-        nlohmann::json{
-            {"protocol", bridge::protocol},
-            {"snapshot_schema_version", bridge::snapshot_schema_version},
-            {"frontend_app", "xen-web-ui"},
-            {"frontend_version", "0.1.0"},
-        });
+    auto const hello =
+        request("session.hello",
+                nlohmann::json{
+                    {"protocol", bridge::protocol},
+                    {"snapshot_schema_version", bridge::snapshot_schema_version},
+                    {"frontend_app", "xen-web-ui"},
+                    {"frontend_version", "0.1.0"},
+                });
 
     auto const response = parse_response(bridge.handle_request_json(hello.dump()));
     CHECK(response["type"] == "response");
@@ -87,8 +87,8 @@ TEST_CASE("WebviewBridge state.get returns snapshot payload", "[core][webview-br
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
 
-    auto const response = parse_response(
-        bridge.handle_request_json(request("state.get", nlohmann::json::object()).dump()));
+    auto const response = parse_response(bridge.handle_request_json(
+        request("state.get", nlohmann::json::object()).dump()));
 
     auto const &payload = response.at("payload");
     CHECK(payload.at("schema_version") == bridge::snapshot_schema_version);
@@ -131,6 +131,11 @@ TEST_CASE("WebviewBridge catalog and completion endpoints respond",
         request("command.completeId", nlohmann::json{{"partial", "set ba"}}).dump()));
     CHECK(complete_id.at("payload").contains("id_suffix"));
 
+    auto const structured = parse_response(bridge.handle_request_json(
+        request("command.complete", nlohmann::json{{"partial", "set "}}).dump()));
+    REQUIRE(structured.at("payload").contains("candidates"));
+    CHECK_FALSE(structured.at("payload").at("candidates").empty());
+
     auto const catalog = parse_response(bridge.handle_request_json(
         request("catalog.get", nlohmann::json::object()).dump()));
     REQUIRE(catalog.at("payload").contains("commands"));
@@ -143,8 +148,8 @@ TEST_CASE("WebviewBridge keymap.get returns merged raw keymap",
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
 
-    auto const response = parse_response(
-        bridge.handle_request_json(request("keymap.get", nlohmann::json::object()).dump()));
+    auto const response = parse_response(bridge.handle_request_json(
+        request("keymap.get", nlohmann::json::object()).dump()));
 
     auto const &keymap = response.at("payload").at("keymap");
     REQUIRE(keymap.contains("SequenceView"));
@@ -158,8 +163,8 @@ TEST_CASE("WebviewBridge library.get returns filesystem-backed library status",
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
 
-    auto const response = parse_response(
-        bridge.handle_request_json(request("library.get", nlohmann::json::object()).dump()));
+    auto const response = parse_response(bridge.handle_request_json(
+        request("library.get", nlohmann::json::object()).dump()));
 
     auto const &payload = response.at("payload");
     REQUIRE(payload.contains("paths"));
@@ -222,8 +227,7 @@ TEST_CASE("WebviewBridge transport event helpers produce bridge envelopes",
     auto bridge = WebviewBridge{processor};
 
     auto const phase_sync = nlohmann::json::parse(bridge.make_phase_sync_event_json(
-        WebviewBridge::MeasurePhase{.phase = 0.25},
-        120.f));
+        WebviewBridge::MeasurePhase{.phase = 0.25}, 120.f));
     CHECK(phase_sync.at("type") == "event");
     CHECK(phase_sync.at("name") == "transport.phase.sync");
     CHECK(phase_sync.at("payload").at("bpm") == 120.f);
