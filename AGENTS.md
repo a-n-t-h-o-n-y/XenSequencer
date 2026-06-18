@@ -1,43 +1,52 @@
 # XenSequencer Agent Rules
 
-## Migration And Cleanup
+## Scope And Change Discipline
 
-- Do not add fallback paths, compatibility shims, or dual-path logic to preserve old integration patterns (for example, old CMake submodule/local-path fallbacks).
-- Prefer clean breaks when migrating systems.
-- If a migration requires an environment change, fail fast with a clear error rather than silently falling back.
-- Treat fallback code as technical debt unless it is explicitly requested for a time-boxed transition.
-- This project is in active development and breaking changes are acceptable; prioritize the cleanest current implementation over backward compatibility.
+- Keep changes limited to the requested work; do not fold in unrelated refactors or formatting.
+- Preserve existing user changes and work around a dirty worktree.
+- Public headers live in `include/xen`, implementations in `src`, and tests in `test`; follow the existing module layout.
+- When adding or removing source files, update the explicit source lists in `CMakeLists.txt`.
+- `external/MicrotonalStepSequencer` is a git submodule. Do not edit it or change its pinned commit unless explicitly requested.
+- The frontend is a separate sibling project (`../xen-frontend`). Do not modify it unless the request includes frontend work.
 
-## Clean Code And Debug Changes
+## Migrations And Cleanup
 
-- Keep code extremely clean and minimal; avoid speculative or defensive additions unless they are clearly required.
-- Any debugging/instrumentation/workaround change that does not directly fix the issue must be removed before finishing.
-- After attempted fixes, prune leftover mitigation code, temporary conditionals, and extra branches that are no longer necessary.
-- Do not leave fallback paths or legacy behavior “just in case.” If a fix requires a behavior change, implement the new path directly and delete obsolete logic.
+- Breaking changes are acceptable; prefer the cleanest current design over backward compatibility.
+- Do not add fallback paths, compatibility shims, or parallel old/new behavior unless explicitly requested for a time-boxed transition.
+- When requirements or dependencies are missing, fail fast with a clear error instead of silently degrading.
+- Keep implementations minimal and remove obsolete logic, temporary diagnostics, workarounds, and abandoned mitigation code before finishing.
 
-## Build Commands
+## Dependencies And Generated Inputs
 
-- Do not run builds, tests, or other compile commands unless the user explicitly asks for them.
-- If build, test, or executable-run verification would be useful, list the exact commands at the end of the final message so the user can run them manually.
-- Use the canonical dev build directory unless the user asks otherwise:
+- Keep third-party versions pinned in CMake; do not introduce local-path or system-package fallbacks.
+- Treat files under `data` as runtime or embedded inputs. Preserve their formats and update consumers/tests when schemas or semantics change.
+- Do not commit build outputs, fetched dependencies, or generated artifacts from `build` or `build-release`.
+
+## Build And Verification
+
+- Builds and tests may take a while; run them when they provide useful verification, not as a reflex after every change.
+- Use the canonical dev workflow:
   - Configure: `./configure.sh`
   - Build: `cmake --build build`
   - Test: `ctest --test-dir build`
-- Use the release build only when the user asks for a release/plugin build:
+- Use the release workflow only for a requested release/plugin build:
   - Configure: `./configure.sh release`
   - Build: `cmake --build build-release --target XenSequencer_VST3`
-- Local compiler or path customizations should be passed as CMake/env overrides, for example `CC=clang CXX=clang++ ./configure.sh` or `./configure.sh -DNAME=VALUE`.
-- Do not create alternate build directories unless explicitly needed.
-- Do not pass explicit `-j` options to ninja/cmake build commands.
+- Pass local compiler or path changes as environment/CMake overrides, for example `CC=clang CXX=clang++ ./configure.sh` or `./configure.sh -DNAME=VALUE`.
+- Do not invoke raw configure commands or create alternate build directories unless explicitly needed; use `configure.sh` and the existing preset directories.
+- Do not pass explicit `-j` options to Ninja or CMake build commands.
 
 ## C++ Style (Beyond clang-format)
 
-- Use east const consistently (`Type const &value`, `auto const x = ...`), including pointers/references.
-- Prefer `auto` for local variables when the type is obvious from the initializer or would be noisy to repeat; avoid `auto` when it hurts readability.
-- Prefer trailing return types for non-trivial function signatures (`auto fn(...) -> ReturnType`), matching existing headers/sources.
-- Use `snake_case` for variables, functions, parameters, and file names.
-- Use `PascalCase` for type names (`struct`, `class`, `enum class`, aliases).
-- Use `UPPER_SNAKE_CASE` for compile-time constants/macros that are intended as constants (for example `VERSION`).
+- Use east const consistently, including pointers and references: `Type const &value`, `auto const x = ...`.
+- Prefer `auto` when the type is obvious or noisy to repeat; use an explicit type when it improves readability.
+- Prefer trailing return types for non-trivial signatures: `auto fn(...) -> ReturnType`.
+- Use `snake_case` for variables, functions, parameters, and files; `PascalCase` for types; and `UPPER_SNAKE_CASE` for constant-like macros and compile-time constants.
 - Keep private member fields with a trailing underscore (`processor_`, `webview_host_`).
-- Keep namespaces explicit and consistent with folder/module layout (for example `namespace xen` and `namespace xen::gui`).
-- In production code, avoid `using namespace`; keep qualified names explicit. (Using-directives are acceptable in tests when they improve readability.)
+- Keep namespaces aligned with the module layout (`xen`, `xen::gui`) and avoid `using namespace` in production code.
+- Match nearby code when these rules do not settle a style choice.
+
+## Completion
+
+- Review the final diff for accidental scope growth, stale comments, and temporary code.
+- State what changed and what verification was or was not performed.
