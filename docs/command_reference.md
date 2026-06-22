@@ -1,4 +1,4 @@
-# Command Reference (v0.3.0)
+# Command Reference (v0.3.1)
 
 name | signature | description
 ---- | --------- | -----------
@@ -12,17 +12,14 @@ copy | `copy` | Copy the current selection.
 cut | `cut` | Cut the current selection.
 paste | `paste` | Paste over the current selection.
 duplicate | `duplicate` | Duplicate the current selection.
-inputMode | `inputMode [InputMode: mode]` | Change the input mode used by editing commands.
 load measure | `load measure [String: filename]` | Load a measure from the current sequence directory.
 load tuning | `load tuning [String: filename]` | Load a tuning from the current tuning directory.
 load scales | `load scales` | Load scales from library files.
 load chords | `load chords` | Load chords from library files.
 save measure | `save measure [String: filename]` | Save the current measure to file.
 libraryDirectory | `libraryDirectory` | Display the user library directory path.
-move left | `move left [Unsigned: amount=1]` | Move selection left.
-move right | `move right [Unsigned: amount=1]` | Move selection right.
-move up | `move up [Unsigned: amount=1]` | Move selection up one level.
-move down | `move down [Unsigned: amount=1]` | Move selection down one level.
+set sequenceDirectory | `set sequenceDirectory [String: path]` | Set the sequence library directory.
+set tuningDirectory | `set tuningDirectory [String: path]` | Set the tuning library directory.
 note | `note [Int: pitch=0] [Float: velocity=0.787402] [Float: delay=0] [Float: gate=1]` | Create a note at the current selection.
 delete | `delete` | Delete the current selection.
 split | `split [Unsigned: count=2]` | Split the current selection.
