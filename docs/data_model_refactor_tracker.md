@@ -50,7 +50,8 @@ These are migration anchors, not intended final component boundaries.
 - Chord and arpeggio transform-cycle baselines.
 - Command replay state used by `again`.
 - Library and file access.
-- Workspace settings such as current sequence and tuning directories.
+- Application-wide workspace preferences such as current sequence and tuning
+  directories.
 - Publishing validated project snapshots to the audio thread.
 
 ### Frontend-owned
@@ -73,12 +74,14 @@ frontend remains the owner of the active selection.
   cursor, history-entry IDs, and project revisions. It does not perform command
   parsing or file IO and does not own UI state.
 - `CommandSessionState` models transform baseline/cycle state and `again` replay state.
-  It does not contain persisted project data or frontend focus/navigation.
+  It does not contain persisted project data or frontend focus/navigation. It resets
+  when a project is loaded, host state is restored, or the project is reset.
 - `ContentLibrary` models available scales, chords, measures, and tunings plus a
   library revision. It does not own active project choices, history, or frontend
   indexes.
 - `WorkspaceSettings` models current library directories and other non-project backend
-  preferences. It is not musical document data or undoable project state.
+  preferences. It is initialized from and persisted to application-wide preferences;
+  it is not musical document data or undoable project state.
 - `CommandCatalog` models immutable command syntax, semantic metadata, and binder
   definitions. It does not contain mutable execution/session state.
 - `CommandTransaction` models one working project, transaction-local context, a
@@ -397,8 +400,21 @@ Start a new transform session when:
 - undo, redo, load, reset, or another project edit intervenes.
 
 The binder should classify a transform as either `Start` or `Cycle`; handlers should
-not infer lifecycle from raw command text. The exact treatment of explicit chord names
-is retained as an open product decision at the end of this document.
+not infer lifecycle from raw command text.
+
+An explicit chord name for the same target and transform kind replaces the active
+preview using the original baseline. It selects another candidate in the current
+transform session; it does not finalize the current candidate or apply the new chord
+to already transformed notes. For example:
+
+```text
+baseline:          0, 0, 0
+preview major:     0, 4, 7
+explicit minor:    0, 3, 7
+```
+
+A different project-editing operation still finalizes the active candidate before
+applying its own change.
 
 ### History semantics
 
@@ -494,7 +510,8 @@ validate the transform baseline.
 - [ ] Test undo/redo/load/reset invalidate the active session.
 - [ ] Test informational and failed commands preserve an active preview.
 - [ ] Test a different project edit finalizes the candidate before its own commit.
-- [ ] Test the chosen explicit chord/arp start policy.
+- [ ] Test explicit chord/arp names replace the active preview from its original
+      baseline.
 - [ ] Move cycle state from `EditorSessionState` to `CommandSessionState`.
 - [ ] Store only the selected target baseline where practical.
 - [ ] Replace prospective commit-ID checks with actual project result revisions.
@@ -799,18 +816,36 @@ struct ActiveScale
 The embedded definition preserves project reproducibility if library files change.
 `source_id` identifies the library entry from which the active definition was chosen;
 it is provenance, not a second source of musical truth. Mode shifts and other project
-edits update `definition` without changing the source identity. Scale-list cycling
-locates `source_id` in the current library and fails clearly if it is absent; it must
-not silently switch to an entry that merely has equal contents.
+edits update `definition` without changing the source identity.
 
-If library identity is not needed, remove the index and derive it from the active scale
-definition every time. Do not keep both identity-based and definition-matching
-behavior.
+Library scales should have explicit stable IDs in YAML:
 
-- [ ] Choose stable library scale identity or pure definition matching.
+```yaml
+- id: xen.major-diatonic
+  name: Major Diatonic
+  tuning_length: 12
+  intervals: [2, 2, 1, 2, 2, 2, 1]
+```
+
+IDs must be unique across the combined library. They remain stable when a scale is
+renamed, reordered, or moved between files. Source-file-plus-entry identities are too
+sensitive to file organization, and normalized names make display-name changes and
+collisions part of persistent identity.
+
+Scale-list cycling locates `source_id` in the current library and fails clearly if it
+is absent. The embedded definition remains valid and playable, but cycling must not
+silently select an entry with the same name or similar contents. During migration,
+legacy active scales without a source ID may acquire one only through an exact
+definition match against a unique library entry. If no unique exact match exists,
+cycling fails until the user explicitly selects a library scale.
+
+- [ ] Add explicit stable scale IDs to the YAML schema and loader.
+- [ ] Require scale IDs to be unique across the combined library.
 - [ ] Remove `scale_shift_index`.
-- [ ] Define whether scale cycling requires stable source identity.
-- [ ] Define behavior when the active scale's source is absent from the current library.
+- [ ] Make scale cycling require a present stable source identity.
+- [ ] Fail clearly when the active scale's source is absent from the current library.
+- [ ] Support only unique exact-definition matching for legacy active scales without
+      source IDs.
 - [ ] Test scale cycling after undo, load, set, and library reload.
 
 ## 7. Rename and group project-domain state
@@ -1035,6 +1070,57 @@ snapshot rather than attempting to duplicate backend mutation logic in TypeScrip
 - [ ] Reassess whether full project snapshots remain appropriate after the ownership
       split; retain them initially unless profiling justifies patches.
 
+## 11. Define command-session and workspace lifetimes
+
+`again` replay history belongs to `CommandSessionState`. Clear it, along with active
+transform-cycle state, when:
+
+- a project is loaded;
+- host/plugin state is restored; or
+- the project is reset.
+
+These operations establish a new project context. Retaining replay history could apply
+a command selected for an unrelated project:
+
+```text
+set key 7
+load project song-b
+again
+-> No previous command to repeat.
+```
+
+Undo and redo do not clear replay history merely because the history cursor changes.
+Informational commands and failed submissions also leave the current repeat target
+unchanged. Loading a measure, tuning, or other resource as an ordinary command follows
+that command's declared replay and preview policy; it is not equivalent to replacing
+the complete project.
+
+`WorkspaceSettings`, including current sequence and tuning directories, should persist
+as application-wide preferences outside project serialization. Each processor session
+initializes its workspace settings from those preferences, and explicit workspace
+changes update them. Project files and host state must not capture machine-specific
+paths.
+
+For example, a user may configure:
+
+```text
+sequence directory: ~/Music/Xen/Sequences
+tuning directory:   ~/Music/Scala
+```
+
+Opening a project on another machine uses that machine's configured directories while
+the project continues to use its embedded musical definitions.
+
+- [ ] Move replay history into `CommandSessionState`.
+- [ ] Clear command-session state on project load, host-state restoration, and reset.
+- [ ] Preserve replay history across undo, redo, informational commands, and failed
+      submissions.
+- [ ] Add an application-wide preferences store for workspace settings.
+- [ ] Initialize processor workspace settings from application preferences.
+- [ ] Exclude workspace settings and machine-specific paths from project and host-state
+      serialization.
+- [ ] Test command-session reset boundaries and workspace preference persistence.
+
 ## Suggested implementation sequence
 
 ### Phase 1: establish terminology and protocol guards
@@ -1063,9 +1149,11 @@ snapshot rather than attempting to duplicate backend mutation logic in TypeScrip
 
 ### Phase 4: normalize domain state
 
+- [ ] Add explicit stable scale IDs and active-scale source identity.
 - [ ] Remove `scale_shift_index`.
 - [ ] Rename/group project and pitch-system state.
 - [ ] Separate project and library publication.
+- [ ] Persist workspace settings as application-wide preferences.
 
 ## Current decisions
 
@@ -1083,22 +1171,14 @@ snapshot rather than attempting to duplicate backend mutation logic in TypeScrip
 - Snapshot-based history remains the persistence/undo model; event sourcing is out of
   scope.
 - Chord/arp cycling uses backend-owned target baselines and replaceable history
-  previews, with a fresh project revision for every candidate.
+  previews, with a fresh project revision for every candidate. An explicit chord/arp
+  name replaces the active preview from its original baseline.
 - The active scale definition is persisted with the project; library position is not
-  independent mutable truth.
+  independent mutable truth. Library scales use explicit stable YAML IDs, and cycling
+  fails clearly when the active source is unavailable.
+- `again` replay history belongs to `CommandSessionState` and resets on project load,
+  host-state restoration, and reset.
+- Workspace settings persist as application-wide preferences outside project and host
+  serialization.
 - Project, library, session/catalog, and transport data are published as separate
   resources.
-
-## Remaining questions
-
-1. When an active chord/arp preview receives an explicit chord name, should it replace
-   the current preview using the original baseline, or finalize the current candidate
-   and start a new preview from that candidate?
-2. What stable identity should library scales use across reloads: an explicit ID in
-   YAML, a source-file-plus-entry ID, or normalized unique names? If no stable identity
-   is added, should scale cycling fail when the exact active definition is absent?
-3. Does `again` belong to `CommandSessionState` that resets on load/reset, or should
-   repeat history survive those operations for the lifetime of the processor session?
-4. Should `WorkspaceSettings` such as current library directories live only for the
-   processor session, or persist as application-wide preferences outside project
-   serialization?
