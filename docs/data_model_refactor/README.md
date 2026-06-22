@@ -26,10 +26,10 @@ These files define sequencing, scope, and completion criteria.
 | [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Complete | |
 | [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending | Backend complete in this repo; frontend integration remains pending in the sibling frontend repo. |
 | [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Complete | Package 01 added the final guarded amendment and replacement primitives; package 04 now owns the narrowed public timeline API and processor-owned history navigation. |
-| [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Pending | |
+| [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Complete | |
 | [06](06-transform-and-repeat-sessions.md) | Implement baseline-based chord/arp cycling and `again` | 03, 04, 05 | Pending | |
 | [07](07-project-validation.md) | Establish one authoritative project validation boundary | 05 | Pending | |
-| [08](08-command-catalog-delivery.md) | Deliver immutable catalog metadata at session startup | 02 | Pending | |
+| [08](08-command-catalog-delivery.md) | Deliver immutable catalog metadata at session startup | 02 | Backend complete / frontend pending | Backend contract is complete in this repo; `../xen-frontend` must implement local completion and consume catalog schema 1. |
 | [09](09-resource-publication.md) | Split project, library, session, and transport publication | 03, 05, 08 | Pending | |
 | [10](10-active-scale-identity.md) | Normalize active-scale identity and remove duplicate state | 07 | Pending | |
 | [11](11-project-model-normalization.md) | Introduce `ProjectState` and grouped pitch state | 07, 10 | Pending | |

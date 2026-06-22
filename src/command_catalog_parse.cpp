@@ -102,12 +102,9 @@ auto CatalogBindException::what() const noexcept -> char const *
     return message_.c_str();
 }
 
-void append_default_command_definitions(CommandCatalog &catalog)
+auto make_default_command_definitions() -> std::vector<CommandDefinition>
 {
-    for (auto &definition : build_specs())
-    {
-        catalog.add(std::move(definition));
-    }
+    return build_specs();
 }
 
 } // namespace xen

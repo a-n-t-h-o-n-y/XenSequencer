@@ -15,7 +15,7 @@
 namespace xen
 {
 
-class SubmissionEffects;
+class CommandTransaction;
 
 struct CommandContext
 {
@@ -145,7 +145,7 @@ struct CommandApplicationResult
 };
 
 using CommandExecutor = std::function<CommandApplicationResult(
-    PluginState &, SubmissionEffects &, CommandExecutionContext &)>;
+    CommandTransaction &, CommandExecutionContext &)>;
 
 struct ExecutableCommand
 {
@@ -175,39 +175,30 @@ struct RepeatPrevious
 using BoundStep =
     std::variant<ExecutableCommand, ExecutableHistoryNavigation, RepeatPrevious>;
 
+struct CatalogArgumentConstraint
+{
+    std::string kind{};
+    std::optional<double> minimum{};
+    std::optional<double> maximum{};
+    std::vector<std::string> values{};
+};
+
 struct CatalogArgumentMetadata
 {
-    std::string type{};
-    std::string name{};
+    std::string kind{};
+    std::string display_name{};
+    bool required{true};
     std::optional<std::string> default_value{};
+    std::vector<CatalogArgumentConstraint> constraints{};
 };
 
 struct CatalogCommandMetadata
 {
     std::vector<std::string> path{};
     bool accepts_pattern_prefix{false};
+    TargetRequirement target{TargetRequirement::None};
     std::vector<CatalogArgumentMetadata> arguments{};
     std::string description{};
-};
-
-enum class CompletionCandidateKind : std::uint8_t
-{
-    CommandToken,
-    Argument,
-};
-
-struct CompletionCandidate
-{
-    std::string insertion{};
-    std::string display{};
-    std::string description{};
-    CompletionCandidateKind kind{CompletionCandidateKind::CommandToken};
-};
-
-struct CompletionResult
-{
-    std::vector<CompletionCandidate> candidates{};
-    std::optional<CatalogArgumentMetadata> active_argument{};
 };
 
 struct CommandDefinition

@@ -26,12 +26,6 @@ struct ParsedCommandInput
     std::vector<SourceSpan> word_spans;
 };
 
-enum class CommandParseMode
-{
-    Strict,
-    Tolerant,
-};
-
 /**
  * Parsed command invocation used by the chain executor.
  */
@@ -57,12 +51,9 @@ struct CommandInvocation
  * Parse the final command segment into a Pattern and a vector of words.
  *
  * @param input The input string to parse.
- * @param mode Strict execution parsing or tolerant completion parsing.
- * @exception std::invalid_argument Thrown in strict mode when syntax is malformed.
+ * @exception std::invalid_argument Thrown when syntax is malformed.
  */
-[[nodiscard]] auto parse_command_input(std::string const &input,
-                                       CommandParseMode mode = CommandParseMode::Strict)
-    -> ParsedCommandInput;
+[[nodiscard]] auto parse_command_input(std::string const &input) -> ParsedCommandInput;
 
 /**
  * Parse a raw command string into a canonical command chain.

@@ -25,20 +25,20 @@ Packages 02 and 04.
 
 ## Acceptance criteria
 
-- [ ] Informational commands copy no project, library, workspace, or history state.
-- [ ] A normal project edit copies only the current project.
-- [ ] A library replacement copies only the library aggregate.
-- [ ] Handlers receive only capabilities declared by their command policy.
-- [ ] Handlers cannot access `PluginState`, timeline internals, history planning, or
+- [x] Informational commands copy no project, library, workspace, or history state.
+- [x] A normal project edit copies only the current project.
+- [x] A library replacement copies only the library aggregate.
+- [x] Handlers receive only capabilities declared by their command policy.
+- [x] Handlers cannot access `PluginState`, timeline internals, history planning, or
       command-session authority.
-- [ ] One command chain installs at most one project-history transition.
-- [ ] Mixed file/domain operations retain rollback behavior and report rollback
+- [x] One command chain installs at most one project-history transition.
+- [x] Mixed file/domain operations retain rollback behavior and report rollback
       failures.
-- [ ] All potentially throwing validation/allocation occurs before no-fail backend
+- [x] All potentially throwing validation/allocation occurs before no-fail backend
       installation.
 
 ## Verification
 
-- [ ] Tests cover read-only chains, project-only edits, library-only mutation, mixed
+- [x] Tests cover read-only chains, project-only edits, library-only mutation, mixed
       chains, denied capabilities, effect failure, and rollback failure reporting.
-- [ ] Focused `XenTests` execution and full `ctest` pass, or blockers are recorded.
+- [x] Focused `XenTests` execution and full `ctest` pass, or blockers are recorded.

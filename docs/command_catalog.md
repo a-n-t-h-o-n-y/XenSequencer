@@ -8,14 +8,16 @@ Each executable command declares an execution role and repeat policy. Runtime
 commands default to repeat-eligible, but only commands that actually change the
 engine become part of the next `again` target.
 
-A submitted chain executes against a copied `PluginState`. Returned errors,
-exceptions, bind failures, and external-effect failures discard that copy.
-Successful engine changes create one timeline entry for the complete
-submission; editor and library changes persist without creating engine history.
+A submitted chain executes through `CommandTransaction`. Read-only resources remain
+references to authoritative state; project, library, and workspace candidates are
+copied only on first mutation. Handlers receive policy-scoped capabilities and cannot
+access `PluginState`, timeline history, repeat state, or command sessions.
 
-Clipboard and measure writes are collected per submission. Pending writes are
-visible to later commands in the same chain, then prepared and applied before
-the copied backend state is installed.
+Clipboard and measure writes are collected per submission. Pending writes are visible
+to later commands in the same chain. Candidates and history are prepared first,
+effects are applied with rollback, and backend candidates are installed through the
+no-fail transaction commit path.
 
-`complete_text` and `complete_id` remain as compatibility projections for the
-webview bridge. Structured completion is the current catalog API.
+The immutable presentation catalog is delivered in `session.hello` with catalog schema
+version `1`. Completion and ranking are frontend-local; the backend remains
+authoritative for strict parsing, binding, validation, and execution.

@@ -36,11 +36,15 @@ namespace xen
 
 auto load_chords_from_files() -> std::vector<Chord>
 {
-    auto const system_node =
-        YAML::LoadFile(get_system_chords_file().getFullPathName().toStdString());
-    auto const user_node =
-        YAML::LoadFile(get_user_chords_file().getFullPathName().toStdString());
+    return load_chords(get_system_chords_file().loadFileAsString().toStdString(),
+                       get_user_chords_file().loadFileAsString().toStdString());
+}
 
+auto load_chords(std::string const &system_yaml, std::string const &user_yaml)
+    -> std::vector<Chord>
+{
+    auto const system_node = YAML::Load(system_yaml);
+    auto const user_node = YAML::Load(user_yaml);
     auto system_chords = system_node["chords"].as<std::vector<Chord>>();
     auto user_chords = std::vector<Chord>{};
     if (user_node["chords"])
@@ -117,8 +121,7 @@ auto increment_inversion(Chord const &chord, int inversion) -> int
     {
         throw std::invalid_argument{"Chord intervals must not be empty."};
     }
-    if (inversion < 0 ||
-        static_cast<std::size_t>(inversion) >= chord.intervals.size())
+    if (inversion < 0 || static_cast<std::size_t>(inversion) >= chord.intervals.size())
     {
         throw std::invalid_argument{"Invalid inversion."};
     }

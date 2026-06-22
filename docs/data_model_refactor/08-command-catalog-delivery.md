@@ -24,20 +24,26 @@ Package 02. This package may proceed in parallel with packages 03–07.
 
 Frontend sibling work is explicitly part of this package.
 
+Backend status: complete. Frontend status: pending in `../xen-frontend`, which is
+intentionally untouched by this backend change.
+
 ## Acceptance criteria
 
-- [ ] One catalog payload is delivered during session initialization.
-- [ ] Catalog schema versioning is independent of project snapshot schema versioning.
-- [ ] Frontend completion makes no per-keystroke backend request.
-- [ ] Backend parsing and validation remain strict and authoritative.
+- [x] One catalog payload is delivered during session initialization.
+- [x] Catalog schema versioning is independent of project snapshot schema versioning.
+- [ ] Frontend completion makes no per-keystroke backend request. Blocked on the
+      sibling frontend migration.
+- [x] Backend parsing and validation remain strict and authoritative.
 - [ ] Only the active command-chain segment is tolerantly tokenized by the frontend.
-- [ ] Command documentation and completion do not use divergent metadata sources.
-- [ ] Removed endpoints and dead registration/completion code have no remaining callers.
+      Blocked on the sibling frontend migration.
+- [x] Command documentation is derived from catalog metadata; frontend completion must
+      consume that same payload.
+- [x] Removed endpoints and dead registration/completion code have no remaining callers.
 
 ## Verification
 
-- [ ] Backend serialization tests cover complete stable metadata and schema version.
+- [x] Backend serialization tests cover complete stable metadata and schema version.
 - [ ] Frontend tests cover partial input, chain segments, ranking, constraints, and
       catalog version handling.
-- [ ] Affected backend/frontend tests and full backend `ctest` pass, or blockers are
+- [x] Affected backend tests and full backend `ctest` pass, or blockers are
       recorded.

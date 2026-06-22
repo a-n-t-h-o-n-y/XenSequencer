@@ -9,7 +9,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/command_dsl.hpp>
-#include <xen/submission_effects.hpp>
+#include <xen/command_transaction.hpp>
 
 using namespace xen;
 
@@ -32,17 +32,17 @@ auto policy_for(std::string const &text) -> CommandPolicy
 auto test_definition(CommandPolicy policy, bool uses_submission_effects)
     -> CommandDefinition
 {
-    if (uses_submission_effects)
-    {
-        return command_dsl::command(
-            {"test"}, false, "Test command.", policy, std::make_tuple(),
-            [](PluginState &, SubmissionEffects &, CommandInvocation const &) {
-                return minfo("test");
-            });
-    }
-    return command_dsl::command(
+    auto definition = command_dsl::command(
         {"test"}, false, "Test command.", policy, std::make_tuple(),
-        [](PluginState &, CommandInvocation const &) { return minfo("test"); });
+        [](CommandHandlerContext &, CommandInvocation const &) {
+            return minfo("test");
+        });
+    return CommandDefinition{
+        .metadata = std::move(definition.metadata),
+        .policy = definition.policy,
+        .uses_submission_effects = uses_submission_effects,
+        .bind = std::move(definition.bind),
+    };
 }
 
 } // namespace
@@ -79,9 +79,9 @@ TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catal
     auto state = PluginState{
         .timeline = XenTimeline{EngineState{}},
     };
-    auto effects = SubmissionEffects{};
+    auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto context = CommandExecutionContext{};
-    auto const key_result = set_key_command.execute(state, effects, context);
+    auto const key_result = set_key_command.execute(transaction, context);
     CHECK(key_result.status.second == "Key Set to 0.");
 }
 
@@ -133,48 +133,6 @@ TEST_CASE("Catalog binder rejects trailing arguments and unsupported patterns",
     CHECK(std::holds_alternative<ExecutableCommand>(std::get<BoundStep>(accepted)));
 }
 
-TEST_CASE("Catalog supports runtime typed command registration",
-          "[core][command][catalog]")
-{
-    auto catalog = CommandCatalog{};
-    catalog.add(command_dsl::command(
-        {"inspect", "value"}, false, "Inspect a typed value.",
-        CommandPolicy{ProjectOperation::None, LibraryAccess::None,
-                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
-                      RepeatPolicy::Never, HistoryPolicy::None},
-        std::make_tuple(command_dsl::constrained(
-            command_dsl::optional_arg<int>("value", 7),
-            [](int value) { return value >= 0 && value <= 100; },
-            "value must be in range [0, 100]")),
-        [](PluginState &, CommandInvocation const &, int value) {
-            return std::pair{MessageLevel::Info, std::to_string(value)};
-        }));
-
-    auto const result =
-        catalog.bind_invocation(parse_command_chain("inspect value 42")[0]);
-    REQUIRE(std::holds_alternative<BoundStep>(result));
-    auto const &step = std::get<BoundStep>(result);
-    REQUIRE(std::holds_alternative<ExecutableCommand>(step));
-    auto const &command = std::get<ExecutableCommand>(step);
-    REQUIRE(command.execute);
-
-    auto state = PluginState{.timeline = XenTimeline{EngineState{}}};
-    auto effects = SubmissionEffects{};
-    auto context = CommandExecutionContext{};
-    auto const execution = command.execute(state, effects, context);
-    CHECK(execution.status.first == MessageLevel::Info);
-    CHECK(execution.status.second == "42");
-
-    REQUIRE(catalog.metadata().size() == 1);
-    CHECK(catalog.metadata()[0].arguments[0].type == "Int");
-
-    auto const invalid =
-        catalog.bind_invocation(parse_command_chain("inspect value 101")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(invalid));
-    CHECK(std::get<CatalogBindError>(invalid).kind ==
-          CatalogBindErrorKind::InvalidArgument);
-}
-
 TEST_CASE("Catalog binds non-bootstrap commands to executors",
           "[core][command][catalog]")
 {
@@ -212,45 +170,40 @@ TEST_CASE("Catalog rejects incoherent command policies",
     for (auto const project : {ProjectOperation::None, ProjectOperation::ReplaceHistory,
                                ProjectOperation::NavigateHistory})
     {
-        auto catalog = CommandCatalog{};
         auto policy = none;
         policy.project = project;
         policy.target = TargetRequirement::Cell;
-        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+        CHECK_THROWS_AS(CommandCatalog({test_definition(policy, false)}),
                         std::invalid_argument);
     }
 
     for (auto const history :
          {HistoryPolicy::Commit, HistoryPolicy::AmendCompatibleTransform})
     {
-        auto catalog = CommandCatalog{};
         auto policy = none;
         policy.project = ProjectOperation::Read;
         policy.history = history;
-        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+        CHECK_THROWS_AS(CommandCatalog({test_definition(policy, false)}),
                         std::invalid_argument);
     }
 
     for (auto const project :
          {ProjectOperation::ReplaceHistory, ProjectOperation::NavigateHistory})
     {
-        auto catalog = CommandCatalog{};
         auto policy = none;
         policy.project = project;
         policy.history = HistoryPolicy::Commit;
-        CHECK_THROWS(catalog.add(test_definition(policy, false)));
+        CHECK_THROWS(CommandCatalog({test_definition(policy, false)}));
     }
 
     {
-        auto catalog = CommandCatalog{};
         auto policy = none;
         policy.files = FileAccess::Read;
-        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+        CHECK_THROWS_AS(CommandCatalog({test_definition(policy, false)}),
                         std::invalid_argument);
     }
     {
-        auto catalog = CommandCatalog{};
-        CHECK_THROWS_AS(catalog.add(test_definition(none, true)),
+        CHECK_THROWS_AS(CommandCatalog({test_definition(none, true)}),
                         std::invalid_argument);
     }
 }
@@ -294,8 +247,9 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
         });
     REQUIRE(set_key != metadata.end());
     REQUIRE(set_key->arguments.size() == 1);
-    CHECK(set_key->arguments[0].type == "Int");
-    CHECK(set_key->arguments[0].name == "key");
+    CHECK(set_key->arguments[0].kind == "integer");
+    CHECK(set_key->arguments[0].display_name == "key");
+    CHECK_FALSE(set_key->arguments[0].required);
     REQUIRE(set_key->arguments[0].default_value.has_value());
     CHECK(*set_key->arguments[0].default_value == "0");
     CHECK_FALSE(set_key->description.empty());
@@ -320,47 +274,6 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
           CatalogBindErrorKind::UnknownCommand);
 }
 
-TEST_CASE("Catalog completion is driven from catalog metadata",
-          "[core][command][catalog]")
-{
-    auto const catalog = create_command_catalog();
-
-    CHECK(catalog.complete_text("") == "");
-    CHECK(catalog.complete_text("   ") == "");
-    CHECK(catalog.complete_text("set ba") == "seFrequency");
-    CHECK(catalog.complete_id("set ba") == "seFrequency");
-
-    CHECK(catalog.complete_text("set baseFrequency") == "[Float: freq=440]");
-    CHECK(catalog.complete_text("set baseFrequency ") == "[Float: freq=440]");
-    CHECK(catalog.complete_id("set baseFrequency ") == "");
-}
-
-TEST_CASE("Catalog structured completion returns all matching command tokens",
-          "[core][command][catalog]")
-{
-    auto const catalog = create_command_catalog();
-    auto const result = catalog.complete("set ");
-
-    auto displays = std::vector<std::string>{};
-    for (auto const &candidate : result.candidates)
-    {
-        displays.push_back(candidate.display);
-    }
-
-    CHECK(std::find(displays.begin(), displays.end(), "pitch") != displays.end());
-    CHECK(std::find(displays.begin(), displays.end(), "velocity") != displays.end());
-    CHECK(std::find(displays.begin(), displays.end(), "key") != displays.end());
-}
-
-TEST_CASE("Catalog completion tolerates incomplete quoted and structured input",
-          "[core][command][catalog]")
-{
-    auto const catalog = create_command_catalog();
-
-    CHECK_NOTHROW(catalog.complete("load measure \"unfinished"));
-    CHECK_NOTHROW(catalog.complete_text("load measure {\"nested\": {"));
-}
-
 TEST_CASE("Catalog docs are generated from catalog metadata",
           "[core][command][catalog]")
 {
@@ -381,5 +294,5 @@ TEST_CASE("Catalog docs are generated from catalog metadata",
     REQUIRE(mirror_doc != docs.end());
     CHECK(mirror_doc->signature.pattern_arg == true);
     REQUIRE_FALSE(mirror_doc->signature.arguments.empty());
-    CHECK(mirror_doc->signature.arguments[0] == "[Int: centerPitch=0]");
+    CHECK(mirror_doc->signature.arguments[0] == "[integer: centerPitch=0]");
 }

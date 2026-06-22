@@ -16,7 +16,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
-#include <xen/submission_effects.hpp>
+#include <xen/command_transaction.hpp>
 
 namespace xen::catalog_detail
 {
@@ -42,6 +42,7 @@ struct ArgDef
     std::optional<T> default_value{};
     std::optional<std::string> default_text{};
     std::function<std::optional<std::string>(T const &)> validate{};
+    std::vector<CatalogArgumentConstraint> constraints{};
 };
 
 template <typename T>
@@ -50,55 +51,55 @@ struct ArgTraits;
 template <>
 struct ArgTraits<int>
 {
-    static constexpr auto type_name = "Int";
+    static constexpr auto type_name = "integer";
 };
 
 template <>
 struct ArgTraits<std::size_t>
 {
-    static constexpr auto type_name = "Unsigned";
+    static constexpr auto type_name = "unsigned_integer";
 };
 
 template <>
 struct ArgTraits<float>
 {
-    static constexpr auto type_name = "Float";
+    static constexpr auto type_name = "number";
 };
 
 template <>
 struct ArgTraits<double>
 {
-    static constexpr auto type_name = "Float";
+    static constexpr auto type_name = "number";
 };
 
 template <>
 struct ArgTraits<bool>
 {
-    static constexpr auto type_name = "Bool";
+    static constexpr auto type_name = "boolean";
 };
 
 template <>
 struct ArgTraits<std::string>
 {
-    static constexpr auto type_name = "String";
+    static constexpr auto type_name = "string";
 };
 
 template <>
 struct ArgTraits<sequence::TimeSignature>
 {
-    static constexpr auto type_name = "TimeSignature";
+    static constexpr auto type_name = "time_signature";
 };
 
 template <>
 struct ArgTraits<std::variant<int, Modulator>>
 {
-    static constexpr auto type_name = "Int|Modulator";
+    static constexpr auto type_name = "integer_or_modulator";
 };
 
 template <>
 struct ArgTraits<std::variant<float, Modulator>>
 {
-    static constexpr auto type_name = "Float|Modulator";
+    static constexpr auto type_name = "number_or_modulator";
 };
 
 inline auto format_float(double value) -> std::string
@@ -203,8 +204,8 @@ auto optional_arg(std::string name, T default_value,
 }
 
 template <typename T, typename Validator>
-auto constrained(ArgDef<T> argument, Validator validator, std::string error_message)
-    -> ArgDef<T>
+auto constrained(ArgDef<T> argument, CatalogArgumentConstraint metadata,
+                 Validator validator, std::string error_message) -> ArgDef<T>
 {
     argument.validate = [validator = std::move(validator),
                          error_message = std::move(error_message)](
@@ -215,6 +216,7 @@ auto constrained(ArgDef<T> argument, Validator validator, std::string error_mess
         }
         return error_message;
     };
+    argument.constraints.push_back(std::move(metadata));
     return argument;
 }
 
@@ -295,9 +297,11 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
     std::apply(
         [&](auto const &...defs) {
             (metadata.push_back(CatalogArgumentMetadata{
-                 .type = defs.type,
-                 .name = defs.name,
+                 .kind = ArgTraits<Ts>::type_name,
+                 .display_name = defs.name,
+                 .required = !defs.default_text.has_value(),
                  .default_value = defs.default_text,
+                 .constraints = defs.constraints,
              }),
              ...);
         },
@@ -315,16 +319,12 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
         .accepts_pattern_prefix = accepts_pattern_prefix,
+        .target = policy.target,
         .arguments = to_metadata_args(arg_defs),
         .description = std::move(description),
     };
 
-    constexpr auto uses_submission_effects =
-        std::is_invocable_v<Handler, PluginState &, SubmissionEffects &,
-                            CommandExecutionContext &, CommandInvocation const &,
-                            Ts const &...> ||
-        std::is_invocable_v<Handler, PluginState &, SubmissionEffects &,
-                            CommandInvocation const &, Ts const &...>;
+    auto const uses_submission_effects = policy.files != FileAccess::None;
     auto const command_path = format_command_path(metadata.path);
     auto bind = [arg_defs = std::move(arg_defs), handler = std::move(handler),
                  accepts_pattern_prefix, policy,
@@ -347,107 +347,35 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
             .invocation = invocation,
             .policy = policy,
             .execute =
-                [handler, invocation, parsed_args = std::move(parsed_args)](
-                    PluginState &state, SubmissionEffects &effects,
-                    CommandExecutionContext &execution_context) {
+                [handler, invocation, parsed_args = std::move(parsed_args),
+                 policy](CommandTransaction &transaction,
+                         CommandExecutionContext &execution_context) {
+                    auto context =
+                        transaction.make_handler_context(policy, execution_context);
                     return std::apply(
-                        [&](auto const &...values)
-                            -> CommandApplicationResult {
+                        [&](auto const &...values) -> CommandApplicationResult {
                             if constexpr (std::is_invocable_r_v<
                                               CommandApplicationResult, Handler,
-                                              PluginState &, SubmissionEffects &,
-                                              CommandExecutionContext &,
-                                              CommandInvocation const &,
-                                              Ts const &...>)
+                                              CommandHandlerContext &,
+                                              CommandInvocation const &, Ts const &...>)
                             {
-                                return handler(state, effects, execution_context,
-                                               invocation, values...);
+                                return handler(context, invocation, values...);
                             }
                             else if constexpr (std::is_invocable_r_v<
                                                    CommandStatus, Handler,
-                                                   PluginState &,
-                                                   SubmissionEffects &,
-                                                   CommandExecutionContext &,
+                                                   CommandHandlerContext &,
                                                    CommandInvocation const &,
                                                    Ts const &...>)
                             {
                                 return CommandApplicationResult{
-                                    .status = handler(state, effects,
-                                                      execution_context, invocation,
-                                                      values...),
-                                    .suggested_selection = std::nullopt,
-                                };
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandApplicationResult, Handler,
-                                                   PluginState &,
-                                                   SubmissionEffects &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return handler(state, effects, invocation, values...);
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandStatus, Handler,
-                                                   PluginState &,
-                                                   SubmissionEffects &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return CommandApplicationResult{
-                                    .status =
-                                        handler(state, effects, invocation, values...),
-                                    .suggested_selection = std::nullopt,
-                                };
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandApplicationResult, Handler,
-                                                   PluginState &,
-                                                   CommandExecutionContext &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return handler(state, execution_context, invocation,
-                                               values...);
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandStatus, Handler,
-                                                   PluginState &,
-                                                   CommandExecutionContext &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return CommandApplicationResult{
-                                    .status = handler(state, execution_context,
-                                                      invocation, values...),
-                                    .suggested_selection = std::nullopt,
-                                };
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandApplicationResult, Handler,
-                                                   PluginState &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return handler(state, invocation, values...);
-                            }
-                            else if constexpr (std::is_invocable_r_v<
-                                                   CommandStatus, Handler,
-                                                   PluginState &,
-                                                   CommandInvocation const &,
-                                                   Ts const &...>)
-                            {
-                                return CommandApplicationResult{
-                                    .status =
-                                        handler(state, invocation, values...),
+                                    .status = handler(context, invocation, values...),
                                     .suggested_selection = std::nullopt,
                                 };
                             }
                             else
                             {
-                                static_assert(
-                                    [] { return false; }(),
-                                    "Unsupported command handler signature.");
+                                static_assert([] { return false; }(),
+                                              "Unsupported command handler signature.");
                             }
                         },
                         parsed_args);
@@ -478,6 +406,7 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
+        .target = policy.target,
         .description = std::move(description),
     };
 
@@ -511,13 +440,13 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
 }
 
 inline auto history_navigation_command(std::vector<std::string> path,
-                                       std::string description,
-                                       CommandPolicy policy,
+                                       std::string description, CommandPolicy policy,
                                        HistoryNavigationDirection direction)
     -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
+        .target = policy.target,
         .description = std::move(description),
     };
 

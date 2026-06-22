@@ -16,22 +16,18 @@ namespace xen::bridge
 
 inline constexpr std::string_view protocol = "xen.bridge.v1";
 inline constexpr int snapshot_schema_version = 6;
+inline constexpr int catalog_schema_version = 1;
 
 [[nodiscard]] auto to_string(MessageLevel level) -> std::string;
 
-[[nodiscard]] auto make_ui_state_snapshot(
-    EngineSnapshot const &snapshot, ContentLibraryState const &library)
+[[nodiscard]] auto make_ui_state_snapshot(EngineSnapshot const &snapshot,
+                                          ContentLibraryState const &library)
     -> nlohmann::json;
 
 [[nodiscard]] auto make_catalog_payload(
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 
 [[nodiscard]] auto make_keymap_payload(
-    std::map<std::string, std::map<std::string, std::string>> const &keymap)
-    -> nlohmann::json;
-
-[[nodiscard]] auto make_reference_payload(
-    std::vector<Documentation> const &docs,
     std::map<std::string, std::map<std::string, std::string>> const &keymap)
     -> nlohmann::json;
 

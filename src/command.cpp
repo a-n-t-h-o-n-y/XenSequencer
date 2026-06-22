@@ -35,8 +35,7 @@ auto syntax_error(std::string const &message, std::size_t offset)
     return std::invalid_argument(message + " at offset " + std::to_string(offset));
 }
 
-auto lex_commands(std::string const &input, CommandParseMode mode)
-    -> std::vector<LexedSegment>
+auto lex_commands(std::string const &input) -> std::vector<LexedSegment>
 {
     auto segments = std::vector<LexedSegment>{};
     auto segment = LexedSegment{};
@@ -156,10 +155,7 @@ auto lex_commands(std::string const &input, CommandParseMode mode)
         {
             if (brace_offsets.empty())
             {
-                if (mode == CommandParseMode::Strict)
-                {
-                    throw syntax_error("Unexpected closing brace", offset);
-                }
+                throw syntax_error("Unexpected closing brace", offset);
             }
             else
             {
@@ -190,20 +186,17 @@ auto lex_commands(std::string const &input, CommandParseMode mode)
         token_value.push_back(ch);
     }
 
-    if (mode == CommandParseMode::Strict)
+    if (escaped)
     {
-        if (escaped)
-        {
-            throw syntax_error("Dangling escape in quoted string", input.size() - 1);
-        }
-        if (in_quotes)
-        {
-            throw syntax_error("Unterminated quoted string", quote_offset);
-        }
-        if (!brace_offsets.empty())
-        {
-            throw syntax_error("Unmatched opening brace", brace_offsets.back());
-        }
+        throw syntax_error("Dangling escape in quoted string", input.size() - 1);
+    }
+    if (in_quotes)
+    {
+        throw syntax_error("Unterminated quoted string", quote_offset);
+    }
+    if (!brace_offsets.empty())
+    {
+        throw syntax_error("Unmatched opening brace", brace_offsets.back());
     }
 
     finish_segment(input.size());
@@ -247,10 +240,9 @@ auto parsed_input(LexedSegment const &segment) -> ParsedCommandInput
 
 } // namespace
 
-auto parse_command_input(std::string const &input, CommandParseMode mode)
-    -> ParsedCommandInput
+auto parse_command_input(std::string const &input) -> ParsedCommandInput
 {
-    auto const segments = lex_commands(input, mode);
+    auto const segments = lex_commands(input);
     if (segments.empty())
     {
         return ParsedCommandInput{
@@ -266,7 +258,7 @@ auto parse_command_input(std::string const &input, CommandParseMode mode)
 auto parse_command_chain(std::string const &raw_command_string)
     -> std::vector<CommandInvocation>
 {
-    auto const segments = lex_commands(raw_command_string, CommandParseMode::Strict);
+    auto const segments = lex_commands(raw_command_string);
     auto chain = std::vector<CommandInvocation>{};
     chain.reserve(segments.size());
     for (auto const &segment : segments)

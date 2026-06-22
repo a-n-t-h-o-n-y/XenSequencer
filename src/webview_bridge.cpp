@@ -161,8 +161,7 @@ auto selection_to_json(std::optional<xen::SelectionPath> const &selection)
     for (auto const &step : selection->path)
     {
         path.push_back({
-            {"kind", step.kind == xen::SelectionStepKind::Element ? "element"
-                                                                   : "cell"},
+            {"kind", step.kind == xen::SelectionStepKind::Element ? "element" : "cell"},
             {"index", step.index},
         });
     }
@@ -594,9 +593,9 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                 {"protocol", bridge::protocol},
                 {"snapshot_schema_version", bridge::snapshot_schema_version},
                 {"plugin_version", VERSION},
-                {"reference",
-                 bridge::make_reference_payload(
-                     processor_.command_catalog().generate_docs(), keymap)},
+                {"catalog",
+                 bridge::make_catalog_payload(processor_.command_catalog().metadata())},
+                {"keymap", bridge::make_keymap_payload(keymap).at("keymap")},
             };
         }
         else if (request.name == "state.get")
@@ -616,65 +615,11 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                      {"level", bridge::to_string(result.status.first)},
                      {"message", result.status.second},
                  }},
-                {"suggested_selection",
-                 selection_to_json(result.suggested_selection)},
+                {"suggested_selection", selection_to_json(result.suggested_selection)},
                 {"snapshot",
                  bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
                                                 processor_.plugin_state.library)},
             };
-        }
-        else if (request.name == "command.completeText")
-        {
-            auto const partial = require_string(request.payload, "partial");
-            payload = nlohmann::json{
-                {"suffix", processor_.command_catalog().complete_text(partial)},
-            };
-        }
-        else if (request.name == "command.completeId")
-        {
-            auto const partial = require_string(request.payload, "partial");
-            payload = nlohmann::json{
-                {"id_suffix", processor_.command_catalog().complete_id(partial)},
-            };
-        }
-        else if (request.name == "command.complete")
-        {
-            auto const partial = require_string(request.payload, "partial");
-            auto const completion = processor_.command_catalog().complete(partial);
-            auto candidates = nlohmann::json::array();
-            for (auto const &candidate : completion.candidates)
-            {
-                candidates.push_back({
-                    {"insertion", candidate.insertion},
-                    {"display", candidate.display},
-                    {"description", candidate.description},
-                    {"kind", candidate.kind == CompletionCandidateKind::CommandToken
-                                 ? "command"
-                                 : "argument"},
-                });
-            }
-
-            payload = nlohmann::json{
-                {"candidates", std::move(candidates)},
-                {"active_argument", nullptr},
-            };
-            if (completion.active_argument.has_value())
-            {
-                payload["active_argument"] = {
-                    {"type", completion.active_argument->type},
-                    {"name", completion.active_argument->name},
-                    {"default_value",
-                     completion.active_argument->default_value.has_value()
-                         ? nlohmann::json{*completion.active_argument->default_value}
-                         : nlohmann::json{nullptr}},
-                };
-            }
-        }
-        else if (request.name == "catalog.get")
-        {
-            validate_empty_object_payload(request.payload, request);
-            payload =
-                bridge::make_catalog_payload(processor_.command_catalog().metadata());
         }
         else if (request.name == "keymap.get")
         {

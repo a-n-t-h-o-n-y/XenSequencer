@@ -65,7 +65,6 @@ class XenProcessor : public juce::AudioProcessor
                                 CommandContext const &context)
         -> CommandApplicationResult;
 
-    [[nodiscard]] auto command_catalog() noexcept -> CommandCatalog &;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
 
   public:

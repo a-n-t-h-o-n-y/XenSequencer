@@ -1,4 +1,4 @@
-# Frontend follow-up for backend data model refactor packages 03 and 04
+# Frontend follow-up for backend data model refactor packages 03, 04, 05, and 08
 
 This backend change set is intentionally breaking. `../xen-frontend` was not modified in
 this task. The frontend must adopt the contract below before it can interoperate with
@@ -17,6 +17,54 @@ the updated backend.
 - Undo and redo remain command names, but are now executed as processor-owned
   history navigation steps instead of normal handlers.
 - Timeline commits now use explicit `commit(project)` semantics internally.
+- `session.hello` now includes the immutable command catalog with catalog schema
+  version `1`.
+- `catalog.get`, `command.complete`, `command.completeText`, and
+  `command.completeId` were removed.
+- Command completion, filtering, ranking, and tolerant active-segment tokenization are
+  now frontend-local responsibilities.
+
+### `session.hello`
+
+The response now carries catalog and keymap data directly:
+
+```json
+{
+  "protocol": "xen.bridge.v1",
+  "snapshot_schema_version": 6,
+  "plugin_version": "...",
+  "catalog": {
+    "schema_version": 1,
+    "commands": [
+      {
+        "path": ["set", "key"],
+        "description": "Set transposition key.",
+        "accepts_pattern_prefix": false,
+        "target_requirement": "none",
+        "arguments": [
+          {
+            "kind": "integer",
+            "display_name": "key",
+            "required": false,
+            "default_value": "0",
+            "constraints": []
+          }
+        ]
+      }
+    ]
+  },
+  "keymap": {}
+}
+```
+
+Stable argument kinds are presentation-safe identifiers rather than C++ type names.
+Backend-only command policies and handlers are not serialized. The old duplicate
+`reference.commands` representation is absent; help UI must derive command signatures
+from the catalog.
+
+Removed requests receive the ordinary `invalid_request` response for an unknown
+request name. The frontend should cache the handshake catalog and perform completion
+locally without bridge requests on each keystroke.
 
 ## Bridge protocol changes
 
@@ -159,3 +207,8 @@ history-aware UX, but it is no longer mixed with backend editor session state.
 - Reimplement navigation keybindings locally.
 - Reimplement input-mode keybindings locally.
 - Reconcile invalid frontend selection back to `[]` on snapshot updates.
+- Accept catalog schema version `1` from `session.hello`.
+- Derive command help and completion from `catalog.commands`.
+- Remove calls to `catalog.get` and all `command.complete*` requests.
+- Tolerantly tokenize only the active semicolon-delimited chain segment locally;
+  continue submitting complete command text to the strict backend parser.

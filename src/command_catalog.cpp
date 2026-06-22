@@ -7,7 +7,7 @@
 
 namespace xen
 {
-void append_default_command_definitions(CommandCatalog &catalog);
+auto make_default_command_definitions() -> std::vector<CommandDefinition>;
 
 namespace
 {
@@ -27,102 +27,99 @@ auto path_key(std::vector<std::string> const &path) -> std::string
 
 } // namespace
 
-void CommandCatalog::add(CommandDefinition definition)
+CommandCatalog::CommandCatalog(std::vector<CommandDefinition> definitions)
 {
-    if (definition.metadata.path.empty())
+    definitions_.reserve(definitions.size());
+    metadata_.reserve(definitions.size());
+    for (auto &definition : definitions)
     {
-        throw std::invalid_argument("Command path must not be empty.");
-    }
-    if (!definition.bind)
-    {
-        throw std::invalid_argument("Command definition must have a binder.");
-    }
-    auto const &policy = definition.policy;
-    if (policy.target != TargetRequirement::None &&
-        policy.project != ProjectOperation::Read &&
-        policy.project != ProjectOperation::Edit)
-    {
-        throw std::invalid_argument(
-            "Command targets require project read or edit access.");
-    }
-    if (policy.history != HistoryPolicy::None &&
-        policy.project != ProjectOperation::Edit)
-    {
-        throw std::invalid_argument(
-            "Commit and amend history policies require project edit access.");
-    }
-    if ((policy.project == ProjectOperation::ReplaceHistory ||
-         policy.project == ProjectOperation::NavigateHistory) &&
-        policy.history != HistoryPolicy::None)
-    {
-        throw std::invalid_argument(
-            "History replacement and navigation cannot commit or amend.");
-    }
-    if ((policy.files != FileAccess::None) != definition.uses_submission_effects)
-    {
-        throw std::invalid_argument(
-            "File access policy must match submission-effects handler usage.");
-    }
-
-    for (auto const &token : definition.metadata.path)
-    {
-        if (token.empty())
+        if (definition.metadata.path.empty())
         {
-            throw std::invalid_argument("Command path tokens must not be empty.");
+            throw std::invalid_argument("Command path must not be empty.");
         }
-    }
-
-    auto optional_argument_seen = false;
-    auto argument_names = std::unordered_set<std::string>{};
-    for (auto const &argument : definition.metadata.arguments)
-    {
-        if (argument.name.empty())
+        if (!definition.bind)
         {
-            throw std::invalid_argument("Command argument names must not be empty.");
+            throw std::invalid_argument("Command definition must have a binder.");
         }
-        if (!argument_names.insert(argument.name).second)
-        {
-            throw std::invalid_argument("Duplicate command argument name: " +
-                                        argument.name);
-        }
-        if (argument.default_value.has_value())
-        {
-            optional_argument_seen = true;
-        }
-        else if (optional_argument_seen)
+        auto const &policy = definition.policy;
+        if (policy.target != TargetRequirement::None &&
+            policy.project != ProjectOperation::Read &&
+            policy.project != ProjectOperation::Edit)
         {
             throw std::invalid_argument(
-                "Required command arguments cannot follow optional arguments.");
+                "Command targets require project read or edit access.");
         }
-    }
-
-    auto const key = path_key(definition.metadata.path);
-    for (auto const &existing : definitions_)
-    {
-        if (path_key(existing.metadata.path) == key)
+        if (policy.history != HistoryPolicy::None &&
+            policy.project != ProjectOperation::Edit)
         {
-            throw std::invalid_argument("Duplicate command path in catalog: " + key);
+            throw std::invalid_argument(
+                "Commit and amend history policies require project edit access.");
         }
-    }
+        if ((policy.project == ProjectOperation::ReplaceHistory ||
+             policy.project == ProjectOperation::NavigateHistory) &&
+            policy.history != HistoryPolicy::None)
+        {
+            throw std::invalid_argument(
+                "History replacement and navigation cannot commit or amend.");
+        }
+        if ((policy.files != FileAccess::None) != definition.uses_submission_effects)
+        {
+            throw std::invalid_argument(
+                "File access policy must match handler capability usage.");
+        }
 
-    auto metadata = definition.metadata;
-    definitions_.push_back(std::move(definition));
-    try
-    {
+        for (auto const &token : definition.metadata.path)
+        {
+            if (token.empty())
+            {
+                throw std::invalid_argument("Command path tokens must not be empty.");
+            }
+        }
+
+        auto optional_argument_seen = false;
+        auto argument_names = std::unordered_set<std::string>{};
+        for (auto const &argument : definition.metadata.arguments)
+        {
+            if (argument.display_name.empty())
+            {
+                throw std::invalid_argument(
+                    "Command argument names must not be empty.");
+            }
+            if (!argument_names.insert(argument.display_name).second)
+            {
+                throw std::invalid_argument("Duplicate command argument name: " +
+                                            argument.display_name);
+            }
+            if (argument.default_value.has_value())
+            {
+                optional_argument_seen = true;
+            }
+            else if (optional_argument_seen)
+            {
+                throw std::invalid_argument(
+                    "Required command arguments cannot follow optional arguments.");
+            }
+        }
+
+        auto const key = path_key(definition.metadata.path);
+        for (auto const &existing : definitions_)
+        {
+            if (path_key(existing.metadata.path) == key)
+            {
+                throw std::invalid_argument("Duplicate command path in catalog: " +
+                                            key);
+            }
+        }
+
+        auto metadata = definition.metadata;
+        definitions_.push_back(std::move(definition));
         metadata_.push_back(std::move(metadata));
-    }
-    catch (...)
-    {
-        definitions_.pop_back();
-        throw;
     }
 }
 
 auto create_command_catalog() -> CommandCatalog
 {
-    auto catalog = CommandCatalog{};
-    append_default_command_definitions(catalog);
-    return catalog;
+    return CommandCatalog{make_default_command_definitions()};
 }
 
 auto default_command_catalog() -> CommandCatalog const &

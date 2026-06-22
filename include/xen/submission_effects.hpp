@@ -17,6 +17,7 @@ class SubmissionEffects
         None,
         Prepare,
         Apply,
+        ApplyAndRollback,
     };
 
     explicit SubmissionEffects(FailurePoint failure_point = FailurePoint::None);

@@ -4,7 +4,6 @@
 #include <string>
 
 #include <xen/command.hpp>
-#include <xen/guide_text.hpp>
 
 using namespace xen;
 
@@ -119,25 +118,4 @@ TEST_CASE("strict command parsing reports malformed syntax offsets", "[core][com
           "Dangling escape in quoted string at offset 13");
     CHECK(parse_error("load measure {x") == "Unmatched opening brace at offset 13");
     CHECK(parse_error("version }") == "Unexpected closing brace at offset 8");
-}
-
-TEST_CASE("tolerant command parsing accepts incomplete final syntax", "[core][command]")
-{
-    CHECK_NOTHROW(
-        parse_command_input("load measure \"unfinished", CommandParseMode::Tolerant));
-    CHECK_NOTHROW(
-        parse_command_input("load measure {\"nested\": {", CommandParseMode::Tolerant));
-    CHECK_NOTHROW(parse_command_input("version }", CommandParseMode::Tolerant));
-}
-
-TEST_CASE("guide text and id completion use command catalog", "[core][command]")
-{
-    CHECK(generate_guide_text("") == "");
-    CHECK(generate_guide_text("   ") == "");
-    CHECK(generate_guide_text("set ba") == "seFrequency");
-    CHECK(complete_id("set ba") == "seFrequency");
-
-    CHECK(generate_guide_text("set baseFrequency") == "[Float: freq=440]");
-    CHECK(generate_guide_text("set baseFrequency ") == "[Float: freq=440]");
-    CHECK(complete_id("set baseFrequency ") == "");
 }

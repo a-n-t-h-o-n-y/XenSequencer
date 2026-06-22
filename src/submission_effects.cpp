@@ -99,7 +99,8 @@ void SubmissionEffects::apply()
                 replacement.destination.getFullPathName().toStdString()};
         }
         replacement.applied = replacement.destination_existed;
-        if (failure_point_ == FailurePoint::Apply)
+        if (failure_point_ == FailurePoint::Apply ||
+            failure_point_ == FailurePoint::ApplyAndRollback)
         {
             throw std::runtime_error{"Injected effect apply failure"};
         }
@@ -148,6 +149,14 @@ auto SubmissionEffects::rollback() noexcept -> std::string
             restored = false;
         }
         if (!restored)
+        {
+            if (!failures.empty())
+            {
+                failures += "; ";
+            }
+            failures += at->destination.getFullPathName().toStdString();
+        }
+        else if (failure_point_ == FailurePoint::ApplyAndRollback)
         {
             if (!failures.empty())
             {

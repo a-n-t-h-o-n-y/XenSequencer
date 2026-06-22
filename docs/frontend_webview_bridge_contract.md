@@ -68,7 +68,7 @@ Request payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 5;
+  snapshot_schema_version: 6;
   frontend_app: string;
   frontend_version: string;
 }
@@ -79,29 +79,20 @@ Response payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 5;
+  snapshot_schema_version: 6;
   plugin_version: string;
-  reference: {
-    commands: Array<{
-      id: string;
-      signature: string;
-      description: string;
-    }>;
-    keybindings: Array<{
-      component: string;
-      bindings: Array<{
-        key: string;
-        command: string;
-      }>;
-    }>;
+  catalog: {
+    schema_version: 1;
+    commands: CatalogCommandMetadata[];
   };
+  keymap: Record<string, Record<string, string>>;
 }
 ```
 
 Validation behavior:
 
 1. `protocol` mismatch -> `unsupported_protocol`.
-1. `snapshot_schema_version !== 5` -> `unsupported_protocol`.
+1. `snapshot_schema_version !== 6` -> `unsupported_protocol`.
 
 ### `state.get`
 
@@ -146,57 +137,31 @@ Notes:
 1. `status.level` may be `error` while snapshot still reflects partial/previous state.
 1. Frontend should not send UI navigation commands through the bridge. Handle those locally.
 
-### `command.completeText`
-
-Request payload:
-
-```ts
-{ partial: string }
-```
-
-Response payload:
-
-```ts
-{ suffix: string }
-```
-
-### `command.completeId`
-
-Request payload:
-
-```ts
-{ partial: string }
-```
-
-Response payload:
-
-```ts
-{ id_suffix: string }
-```
-
-### `catalog.get`
-
-Request payload must be an empty object.
-
-Response payload:
+Command completion is frontend-local and uses the catalog supplied by
+`session.hello`. The removed catalog/completion request names return the normal
+unknown-request error.
 
 ```ts
 type CatalogArgumentMetadata = {
-  type: string;
-  name: string;
+  kind: string;
+  display_name: string;
+  required: boolean;
   default_value: string | null;
+  constraints: Array<{
+    kind: string;
+    minimum: number | null;
+    maximum: number | null;
+    values: string[];
+  }>;
 };
 
 type CatalogCommandMetadata = {
   path: string[];
   accepts_pattern_prefix: boolean;
+  target_requirement: "none" | "cell" | "element" | "cell_or_element";
   arguments: CatalogArgumentMetadata[];
   description: string;
 };
-
-{
-  commands: CatalogCommandMetadata[];
-}
 ```
 
 ### `keymap.get`

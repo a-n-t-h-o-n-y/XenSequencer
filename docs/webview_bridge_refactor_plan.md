@@ -39,9 +39,6 @@ Use one JSON envelope format for all bridge traffic.
 1. `session.hello`
 1. `state.get`
 1. `command.execute`
-1. `command.completeText`
-1. `command.completeId`
-1. `catalog.get`
 1. `keymap.get`
 
 ### C++ -> Frontend events
@@ -61,7 +58,7 @@ Each request returns one response with same `request_id`.
 ```json
 {
   "protocol": "xen.bridge.v1",
-  "snapshot_schema_version": 1,
+  "snapshot_schema_version": 6,
   "frontend_app": "xen-web-ui",
   "frontend_version": "0.1.0"
 }
@@ -72,8 +69,13 @@ Each request returns one response with same `request_id`.
 ```json
 {
   "protocol": "xen.bridge.v1",
-  "snapshot_schema_version": 1,
-  "plugin_version": "v0.3.1"
+  "snapshot_schema_version": 6,
+  "plugin_version": "v0.3.1",
+  "catalog": {
+    "schema_version": 1,
+    "commands": []
+  },
+  "keymap": {}
 }
 ```
 
@@ -220,50 +222,25 @@ type UiStateSnapshot = {
 
 ---
 
-## Completion + Catalog Endpoints
+## Frontend-local completion and handshake catalog
 
-### `command.completeText`
-
-Request:
-
-```json
-{ "partial": "set se" }
-```
-
-Response:
-
-```json
-{ "suffix": "quence [String: name] [Int: index=-1]" }
-```
-
-### `command.completeId`
-
-Request:
-
-```json
-{ "partial": "set se" }
-```
-
-Response:
-
-```json
-{ "id_suffix": "quence" }
-```
-
-### `catalog.get`
-
-Response shape:
+Completion requests were removed. The frontend caches
+`session.hello.payload.catalog` and performs active-segment tolerant tokenization,
+filtering, and ranking locally.
 
 ```ts
 type CatalogArgumentMetadata = {
-  type: string;
-  name: string;
+  kind: string;
+  display_name: string;
+  required: boolean;
   default_value: string | null;
+  constraints: unknown[];
 };
 
 type CatalogCommandMetadata = {
   path: string[];
   accepts_pattern_prefix: boolean;
+  target_requirement: "none" | "cell" | "element" | "cell_or_element";
   arguments: CatalogArgumentMetadata[];
   description: string;
 };
@@ -316,7 +293,7 @@ Notes:
 1. Frontend sends `session.hello` with fixed expected protocol/schema.
 1. C++ validates exact protocol/schema match.
 1. C++ returns hello response and immediately sends `state.changed` with full snapshot.
-1. Frontend requests `catalog.get` once and caches result.
+1. Frontend caches the catalog included in the hello response.
 1. User interactions dispatch either:
    - frontend-local UI navigation actions, or
    - `command.execute` for engine/editor state changes.

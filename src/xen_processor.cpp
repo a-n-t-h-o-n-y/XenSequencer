@@ -18,6 +18,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
+#include <xen/command_transaction.hpp>
 #include <xen/midi.hpp>
 #include <xen/selection.hpp>
 #include <xen/serialize.hpp>
@@ -147,11 +148,6 @@ XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure)
 
     this->execute_command_string("load scales", CommandContext{});
     this->execute_command_string("load chords", CommandContext{});
-}
-
-auto XenProcessor::command_catalog() noexcept -> CommandCatalog &
-{
-    return command_catalog_;
 }
 
 auto XenProcessor::command_catalog() const noexcept -> CommandCatalog const &
@@ -363,8 +359,8 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         }
         auto const &steps = std::get<std::vector<BoundStep>>(bind_result);
 
-        auto const project_aware = std::ranges::any_of(
-            steps, [](BoundStep const &step) {
+        auto const project_aware =
+            std::ranges::any_of(steps, [](BoundStep const &step) {
                 return std::visit(
                     [](auto const &typed_step) {
                         using Step = std::decay_t<decltype(typed_step)>;
@@ -374,8 +370,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
                         }
                         else
                         {
-                            return typed_step.policy.project !=
-                                   ProjectOperation::None;
+                            return typed_step.policy.project != ProjectOperation::None;
                         }
                     },
                     step);
@@ -387,11 +382,10 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         auto const current_revision = plugin_state.timeline.get_project_revision();
         if (project_aware && *context.expected_project_revision != current_revision)
         {
-            return error_result("stale project revision: expected " +
-                                std::to_string(
-                                    context.expected_project_revision->value()) +
-                                ", current " +
-                                std::to_string(current_revision.value()));
+            return error_result(
+                "stale project revision: expected " +
+                std::to_string(context.expected_project_revision->value()) +
+                ", current " + std::to_string(current_revision.value()));
         }
 
         auto const history_count =
@@ -403,14 +397,12 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             return error_result("undo and redo must be submitted alone.");
         }
 
-        auto working = plugin_state;
-        auto effects = SubmissionEffects{effect_failure_};
+        auto transaction = CommandTransaction{plugin_state, effect_failure_};
         auto execution_context =
             CommandExecutionContext{.selection = context.selection};
         auto result = CommandApplicationResult{};
-        auto repeat_target = std::vector<CommandInvocation>{};
-        auto const initial_engine = working.timeline.get_state();
-        auto const initial_revision = working.timeline.get_project_revision();
+        auto const initial_engine = plugin_state.timeline.get_state();
+        auto const initial_revision = plugin_state.timeline.get_project_revision();
 
         for (auto const &step : steps)
         {
@@ -421,23 +413,17 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
 
             if (std::holds_alternative<ExecutableHistoryNavigation>(step))
             {
-                auto const &navigation =
-                    std::get<ExecutableHistoryNavigation>(step);
-                auto const changed =
-                    navigation.direction == HistoryNavigationDirection::Undo
-                        ? working.timeline.undo()
-                        : working.timeline.redo();
-                result.status = changed
-                                    ? CommandStatus{MessageLevel::Info,
-                                                    navigation.direction ==
-                                                            HistoryNavigationDirection::Undo
-                                                        ? "Undone"
-                                                        : "Redone"}
-                                    : CommandStatus{MessageLevel::Info,
-                                                    navigation.direction ==
-                                                            HistoryNavigationDirection::Undo
-                                                        ? "Nothing to undo."
-                                                        : "Nothing to redo."};
+                auto const &navigation = std::get<ExecutableHistoryNavigation>(step);
+                transaction.plan_history(HistoryPlan{
+                    .kind = navigation.direction == HistoryNavigationDirection::Undo
+                                ? HistoryPlanKind::NavigateUndo
+                                : HistoryPlanKind::NavigateRedo,
+                });
+                result.status = CommandStatus{MessageLevel::Info,
+                                              navigation.direction ==
+                                                      HistoryNavigationDirection::Undo
+                                                  ? "Undone"
+                                                  : "Redone"};
                 result.suggested_selection = std::nullopt;
                 continue;
             }
@@ -445,14 +431,14 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             auto const &command = std::get<ExecutableCommand>(step);
             if (auto selection_error = validate_selection_target(
                     command.policy.target, execution_context.selection,
-                    working.timeline.get_state().measure);
+                    transaction.project().measure);
                 selection_error.has_value())
             {
                 return *selection_error;
             }
 
-            auto const before = working.timeline.get_state();
-            result = command.execute(working, effects, execution_context);
+            auto const before = transaction.project();
+            result = command.execute(transaction, execution_context);
             if (result.status.first == MessageLevel::Error)
             {
                 return result;
@@ -463,56 +449,59 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
                 execution_context.selection = result.suggested_selection;
             }
 
-            auto const changed = working.timeline.get_state() != before;
+            auto const changed = transaction.project() != before;
+            if ((changed &&
+                 command.policy.history != HistoryPolicy::AmendCompatibleTransform) ||
+                transaction.library_changed())
+            {
+                transaction.invalidate_transform_sessions();
+            }
             if (changed &&
                 command.policy.repeat == RepeatPolicy::OnSuccessfulProjectChange)
             {
-                repeat_target.push_back(command.invocation);
+                transaction.record_repeat(command.invocation);
             }
         }
 
-        if (history_count == 0 && working.timeline.get_state() != initial_engine)
+        if (history_count == 0 && transaction.project_changed())
         {
-            working.timeline.commit(working.timeline.get_state());
+            transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
         }
 
-        auto const final_engine = working.timeline.get_state();
-        auto const final_revision = working.timeline.get_project_revision();
-        effects.prepare();
-        auto const original_state = plugin_state;
+        auto const project_changed = transaction.project_changed();
+        transaction.prepare();
         try
         {
-            effects.apply();
-            plugin_state = std::move(working);
+            transaction.apply_effects();
         }
         catch (std::exception const &e)
         {
-            auto const rollback_failures = effects.rollback();
-            auto state_rollback_failed = false;
-            try
-            {
-                plugin_state = original_state;
-            }
-            catch (...)
-            {
-                state_rollback_failed = true;
-            }
+            auto const rollback_failures = transaction.rollback_effects();
             auto message = std::string{e.what()};
             if (!rollback_failures.empty())
             {
                 message += "; rollback failed for: " + rollback_failures;
             }
-            if (state_rollback_failed)
-            {
-                message += "; backend state rollback failed";
-            }
             return error_result(std::move(message));
         }
 
-        effects.finalize();
-        if (!repeat_target.empty())
+        transaction.install();
+        transaction.finalize_effects();
+        if (transaction.repeat_candidate().has_value() && project_changed)
         {
-            previous_command_chain_ = std::move(repeat_target);
+            previous_command_chain_ = *transaction.repeat_candidate();
+        }
+        auto const &final_engine = plugin_state.timeline.get_state();
+        auto const final_revision = plugin_state.timeline.get_project_revision();
+        if (history_count == 1 && final_revision == initial_revision)
+        {
+            auto const &navigation =
+                std::get<ExecutableHistoryNavigation>(steps.front());
+            result.status =
+                CommandStatus{MessageLevel::Info,
+                              navigation.direction == HistoryNavigationDirection::Undo
+                                  ? "Nothing to undo."
+                                  : "Nothing to redo."};
         }
         if (final_revision != initial_revision || final_engine != initial_engine)
         {

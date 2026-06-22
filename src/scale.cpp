@@ -36,8 +36,7 @@ struct convert<::xen::Scale>
         scale.intervals.reserve(intervals.size());
         for (auto const interval : intervals)
         {
-            if (interval == 0 ||
-                interval > std::numeric_limits<std::uint8_t>::max())
+            if (interval == 0 || interval > std::numeric_limits<std::uint8_t>::max())
             {
                 throw std::invalid_argument{
                     "Scale intervals must be in the range [1, 255]."};
@@ -101,11 +100,15 @@ void validate_scale(Scale const &scale)
 
 auto load_scales_from_files() -> std::vector<Scale>
 {
-    auto const system_node =
-        YAML::LoadFile(get_system_scales_file().getFullPathName().toStdString());
-    auto const user_node =
-        YAML::LoadFile(get_user_scales_file().getFullPathName().toStdString());
+    return load_scales(get_system_scales_file().loadFileAsString().toStdString(),
+                       get_user_scales_file().loadFileAsString().toStdString());
+}
 
+auto load_scales(std::string const &system_yaml, std::string const &user_yaml)
+    -> std::vector<Scale>
+{
+    auto const system_node = YAML::Load(system_yaml);
+    auto const user_node = YAML::Load(user_yaml);
     auto system_scales = system_node["scales"].as<std::vector<Scale>>();
     auto user_scales = std::vector<Scale>{};
     if (user_node["scales"])
@@ -180,11 +183,9 @@ auto map_pitch_to_scale(int pitch, std::vector<int> const &valid_pitches,
         }
     }
 
-    auto const octave_offset =
-        numeric::checked_mul(octave_shift, int_tuning_length,
-                             "Scale mapping octave offset exceeds int.");
-    return numeric::checked_add(*it, octave_offset,
-                                "Mapped pitch exceeds int.");
+    auto const octave_offset = numeric::checked_mul(
+        octave_shift, int_tuning_length, "Scale mapping octave offset exceeds int.");
+    return numeric::checked_add(*it, octave_offset, "Mapped pitch exceeds int.");
 }
 
 } // namespace xen

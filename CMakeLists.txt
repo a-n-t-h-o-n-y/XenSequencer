@@ -190,7 +190,6 @@ set(XEN_CORE_SOURCES
     src/command.cpp
     src/command_catalog.cpp
     src/command_catalog_bind.cpp
-    src/command_catalog_complete.cpp
     src/command_catalog_docs.cpp
     src/command_catalog_metadata.cpp
     src/command_catalog_parse.cpp
@@ -198,8 +197,8 @@ set(XEN_CORE_SOURCES
     src/command_catalog_specs_edit.cpp
     src/command_catalog_specs_set_and_shift.cpp
     src/command_catalog_specs_transform.cpp
+    src/command_transaction.cpp
     src/copy_paste.cpp
-    src/guide_text.cpp
     src/key_core.cpp
     src/message_level.cpp
     src/midi.cpp

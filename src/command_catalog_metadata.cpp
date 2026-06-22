@@ -11,7 +11,7 @@ namespace xen
 auto format_metadata_argument(CatalogArgumentMetadata const &argument) -> std::string
 {
     auto result = std::string{"["};
-    result += argument.type + ": " + argument.name;
+    result += argument.kind + ": " + argument.display_name;
     if (argument.default_value.has_value())
     {
         result += "=" + *argument.default_value;

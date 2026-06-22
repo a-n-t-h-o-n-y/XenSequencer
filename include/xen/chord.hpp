@@ -19,6 +19,8 @@ struct Chord
  * Loads in Chords from library directory's chords.yml and user_chords.yml files.
  */
 [[nodiscard]] auto load_chords_from_files() -> std::vector<Chord>;
+[[nodiscard]] auto load_chords(std::string const &system_yaml,
+                               std::string const &user_yaml) -> std::vector<Chord>;
 
 /**
  * Find a chord in the list of chords with the given name.

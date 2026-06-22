@@ -21,11 +21,8 @@ auto element_to_json(sequence::MusicElement const &element) -> nlohmann::json;
 auto note_to_json(sequence::Note const &note) -> nlohmann::json
 {
     return nlohmann::json{
-        {"type", "Note"},
-        {"pitch", note.pitch},
-        {"velocity", note.velocity},
-        {"delay", note.delay},
-        {"gate", note.gate},
+        {"type", "Note"},      {"pitch", note.pitch}, {"velocity", note.velocity},
+        {"delay", note.delay}, {"gate", note.gate},
     };
 }
 
@@ -132,7 +129,8 @@ auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
         {"tuning_name", engine.tuning_name},
         {"scale", nullptr},
         {"key", engine.key},
-        {"scale_translate_direction", direction_to_json(engine.scale_translate_direction)},
+        {"scale_translate_direction",
+         direction_to_json(engine.scale_translate_direction)},
         {"base_frequency", engine.base_frequency},
     };
 
@@ -147,16 +145,48 @@ auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
 auto catalog_argument_to_json(xen::CatalogArgumentMetadata const &argument)
     -> nlohmann::json
 {
+    auto constraints = nlohmann::json::array();
+    for (auto const &constraint : argument.constraints)
+    {
+        constraints.push_back({
+            {"kind", constraint.kind},
+            {"minimum", constraint.minimum.has_value()
+                            ? nlohmann::json{*constraint.minimum}
+                            : nlohmann::json{nullptr}},
+            {"maximum", constraint.maximum.has_value()
+                            ? nlohmann::json{*constraint.maximum}
+                            : nlohmann::json{nullptr}},
+            {"values", constraint.values},
+        });
+    }
     auto result = nlohmann::json{
-        {"type", argument.type},
-        {"name", argument.name},
+        {"kind", argument.kind},
+        {"display_name", argument.display_name},
+        {"required", argument.required},
         {"default_value", nullptr},
+        {"constraints", std::move(constraints)},
     };
     if (argument.default_value.has_value())
     {
         result["default_value"] = *argument.default_value;
     }
     return result;
+}
+
+auto target_requirement_to_string(xen::TargetRequirement target) -> std::string
+{
+    switch (target)
+    {
+    case xen::TargetRequirement::None:
+        return "none";
+    case xen::TargetRequirement::Cell:
+        return "cell";
+    case xen::TargetRequirement::Element:
+        return "element";
+    case xen::TargetRequirement::CellOrElement:
+        return "cell_or_element";
+    }
+    return "none";
 }
 
 auto catalog_command_to_json(xen::CatalogCommandMetadata const &command)
@@ -171,28 +201,9 @@ auto catalog_command_to_json(xen::CatalogCommandMetadata const &command)
     return nlohmann::json{
         {"path", command.path},
         {"accepts_pattern_prefix", command.accepts_pattern_prefix},
+        {"target_requirement", target_requirement_to_string(command.target)},
         {"arguments", std::move(arguments)},
         {"description", command.description},
-    };
-}
-
-auto command_reference_to_json(xen::Documentation const &doc) -> nlohmann::json
-{
-    auto signature = std::string{};
-    if (doc.signature.pattern_arg)
-    {
-        signature += "[pattern] ";
-    }
-    signature += doc.signature.id;
-    for (auto const &argument : doc.signature.arguments)
-    {
-        signature += " " + argument;
-    }
-
-    return nlohmann::json{
-        {"id", doc.signature.id},
-        {"signature", signature},
-        {"description", doc.description},
     };
 }
 
@@ -256,6 +267,7 @@ auto make_catalog_payload(std::vector<CatalogCommandMetadata> const &commands)
     }
 
     return nlohmann::json{
+        {"schema_version", catalog_schema_version},
         {"commands", std::move(list)},
     };
 }
@@ -277,41 +289,6 @@ auto make_keymap_payload(
 
     return nlohmann::json{
         {"keymap", std::move(out)},
-    };
-}
-
-auto make_reference_payload(
-    std::vector<Documentation> const &docs,
-    std::map<std::string, std::map<std::string, std::string>> const &keymap)
-    -> nlohmann::json
-{
-    auto commands = nlohmann::json::array();
-    for (auto const &doc : docs)
-    {
-        commands.push_back(detail::command_reference_to_json(doc));
-    }
-
-    auto keybindings = nlohmann::json::array();
-    for (auto const &[component, mappings] : keymap)
-    {
-        auto bindings = nlohmann::json::array();
-        for (auto const &[key, command] : mappings)
-        {
-            bindings.push_back(nlohmann::json{
-                {"key", key},
-                {"command", command},
-            });
-        }
-
-        keybindings.push_back(nlohmann::json{
-            {"component", component},
-            {"bindings", std::move(bindings)},
-        });
-    }
-
-    return nlohmann::json{
-        {"commands", std::move(commands)},
-        {"keybindings", std::move(keybindings)},
     };
 }
 
