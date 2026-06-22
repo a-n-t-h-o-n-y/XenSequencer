@@ -3,6 +3,9 @@
 This directory is for developer-facing notes that remain useful after feature work is
 complete. The implementation and tests are authoritative when this summary drifts.
 
+The current frontend migration contract is documented in
+[`frontend_backend_contract.md`](frontend_backend_contract.md).
+
 ## Current architecture
 
 - `CommandCatalog` owns parsing metadata, binding, policy, and handler registration.
