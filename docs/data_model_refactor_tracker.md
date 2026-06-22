@@ -640,6 +640,11 @@ them.
 
 ## Implementation plan
 
+The implementation work is split into ordered, independently assignable packages in
+[`docs/data_model_refactor/`](data_model_refactor/README.md). This document remains the
+architecture source of truth; the package files define implementation scope and
+completion criteria.
+
 ### Phase 1: context and guards
 
 - [ ] Add `ProjectRevision`, `HistoryEntryId`, typed `CommandContext`, and explicit
