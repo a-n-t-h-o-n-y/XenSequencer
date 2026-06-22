@@ -24,17 +24,17 @@ Do not yet move selection ownership or replace handler contexts.
 
 ## Acceptance criteria
 
-- [ ] Every command definition has one complete explicit policy.
-- [ ] Catalog construction fails fast for all incoherent combinations listed in the
+- [x] Every command definition has one complete explicit policy.
+- [x] Catalog construction fails fast for all incoherent combinations listed in the
       tracker.
-- [ ] Every project read, edit, replacement, or history-navigation request requires an
+- [x] Every project read, edit, replacement, or history-navigation request requires an
       expected current revision.
-- [ ] Non-project commands can execute without a project revision.
-- [ ] Policies correctly describe mixed effects such as project edit plus file access.
-- [ ] No single legacy effect enum remains authoritative for capability decisions.
+- [x] Non-project commands can execute without a project revision.
+- [x] Policies correctly describe mixed effects such as project edit plus file access.
+- [x] No single legacy effect enum remains authoritative for capability decisions.
 
 ## Verification
 
-- [ ] Tests cover policy validation and representative command classifications.
-- [ ] Processor tests cover missing, current, and stale revisions.
-- [ ] `XenTests` builds and full `ctest` passes, or the blocker is recorded.
+- [x] Tests cover policy validation and representative command classifications.
+- [x] Processor tests cover missing, current, and stale revisions.
+- [x] `XenTests` builds and full `ctest` passes, or the blocker is recorded.

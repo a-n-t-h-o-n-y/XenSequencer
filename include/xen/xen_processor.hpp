@@ -59,8 +59,10 @@ class XenProcessor : public juce::AudioProcessor
      * @details This will normalize the input string, execute it on plugin_state and
      * return the resulting status.
      * @param command_string The command string to execute
+     * @param context Selection and expected project revision supplied by the caller
      */
-    auto execute_command_string(std::string const &command_string)
+    auto execute_command_string(std::string const &command_string,
+                                CommandContext const &context)
         -> std::pair<MessageLevel, std::string>;
 
     [[nodiscard]] auto command_catalog() noexcept -> CommandCatalog &;

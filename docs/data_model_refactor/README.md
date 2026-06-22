@@ -23,7 +23,7 @@ These files define sequencing, scope, and completion criteria.
 | Package | Outcome | Prerequisites | Status | Notes |
 | --- | --- | --- | --- | --- |
 | [01](01-history-identity-and-revisions.md) | Separate history-entry identity from project revision | None | Complete | |
-| [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Pending | |
+| [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Complete | |
 | [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending | |
 | [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Pending | Package 01 added the final guarded amendment and replacement primitives; package 04 still owns broader history API migration and encapsulation. |
 | [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Pending | |

@@ -67,6 +67,32 @@ auto require_string(nlohmann::json const &json, std::string_view field_name)
     return json.at(key).get<std::string>();
 }
 
+auto parse_command_context(nlohmann::json const &payload) -> xen::CommandContext
+{
+    auto context = xen::CommandContext{};
+    if (!payload.contains("context"))
+    {
+        return context;
+    }
+
+    auto const &json_context = require_object(payload, "context");
+    if (!json_context.contains("expected_project_revision"))
+    {
+        return context;
+    }
+    auto const &revision = json_context.at("expected_project_revision");
+    if (!revision.is_number_unsigned())
+    {
+        throw BridgeError{
+            "invalid_request",
+            "Field must be an unsigned integer: context.expected_project_revision",
+        };
+    }
+    context.expected_project_revision =
+        xen::ProjectRevision{revision.get<std::uint64_t>()};
+    return context;
+}
+
 void require_integer_equals(nlohmann::json const &json, std::string_view field_name,
                             int expected)
 {
@@ -505,7 +531,9 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
         else if (request.name == "command.execute")
         {
             auto const command = require_string(request.payload, "command");
-            auto const [level, message] = processor_.execute_command_string(command);
+            auto const context = parse_command_context(request.payload);
+            auto const [level, message] =
+                processor_.execute_command_string(command, context);
             payload = nlohmann::json{
                 {"status",
                  {

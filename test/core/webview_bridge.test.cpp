@@ -112,13 +112,94 @@ TEST_CASE("WebviewBridge command.execute returns status and snapshot",
 {
     auto processor = XenProcessor{};
     auto bridge = WebviewBridge{processor};
+    auto const revision = processor.get_engine_snapshot().project_revision.value();
 
     auto const response = parse_response(bridge.handle_request_json(
-        request("command.execute", nlohmann::json{{"command", "set key 9"}}).dump()));
+        request("command.execute",
+                nlohmann::json{
+                    {"command", "set key 9"},
+                    {"context", {{"expected_project_revision", revision}}},
+                })
+            .dump()));
 
     auto const &payload = response.at("payload");
     CHECK(payload.at("status").at("level") == "info");
     CHECK(payload.at("snapshot").at("engine").at("key") == 9);
+}
+
+TEST_CASE("WebviewBridge rejects missing and stale command revisions",
+          "[core][webview-bridge][context]")
+{
+    auto processor = XenProcessor{};
+    auto bridge = WebviewBridge{processor};
+    auto const initial = processor.get_engine_snapshot();
+
+    auto const missing = parse_response(bridge.handle_request_json(
+        request("command.execute", nlohmann::json{{"command", "set key 9"}}).dump()));
+    CHECK(missing.at("payload").at("status").at("level") == "error");
+    CHECK(missing.at("payload").at("status").at("message") ==
+          "expected project revision is required");
+    CHECK(missing.at("payload").at("snapshot").at("engine").at("key") == 0);
+
+    auto const accepted = parse_response(bridge.handle_request_json(
+        request("command.execute",
+                nlohmann::json{
+                    {"command", "set key 4"},
+                    {"context",
+                     {{"expected_project_revision", initial.project_revision.value()}}},
+                })
+            .dump()));
+    REQUIRE(accepted.at("payload").at("status").at("level") == "info");
+    auto const before_stale = processor.get_engine_snapshot();
+
+    auto const stale = parse_response(bridge.handle_request_json(
+        request("command.execute",
+                nlohmann::json{
+                    {"command", "set key 9"},
+                    {"context",
+                     {{"expected_project_revision", initial.project_revision.value()}}},
+                })
+            .dump()));
+    CHECK(stale.at("payload").at("status").at("level") == "error");
+    CHECK(stale.at("payload").at("status").at("message") ==
+          "stale project revision: expected " +
+              std::to_string(initial.project_revision.value()) + ", current " +
+              std::to_string(before_stale.project_revision.value()));
+    CHECK(stale.at("payload").at("snapshot").at("engine").at("key") == 4);
+    CHECK(processor.get_engine_snapshot().project_revision ==
+          before_stale.project_revision);
+}
+
+TEST_CASE("WebviewBridge validates command context revision values",
+          "[core][webview-bridge][context]")
+{
+    auto processor = XenProcessor{};
+    auto bridge = WebviewBridge{processor};
+    auto const before = processor.get_engine_snapshot();
+
+    for (auto const &value :
+         std::vector<nlohmann::json>{-1, 1.5, "1", nullptr, nlohmann::json::object()})
+    {
+        auto const response = parse_response(bridge.handle_request_json(
+            request("command.execute",
+                    nlohmann::json{
+                        {"command", "set key 9"},
+                        {"context", {{"expected_project_revision", value}}},
+                    })
+                .dump()));
+        REQUIRE(response.at("payload").contains("error"));
+        CHECK(response.at("payload").at("error").at("code") == "invalid_request");
+        CHECK(processor.get_engine_snapshot().project_revision ==
+              before.project_revision);
+        CHECK(processor.get_engine_snapshot().engine == before.engine);
+    }
+
+    auto const response = parse_response(bridge.handle_request_json(
+        request("command.execute",
+                nlohmann::json{{"command", "set key 9"}, {"context", 1}})
+            .dump()));
+    CHECK(response.at("payload").at("error").at("code") == "invalid_request");
+    CHECK(processor.get_engine_snapshot().project_revision == before.project_revision);
 }
 
 TEST_CASE("WebviewBridge catalog and completion endpoints respond",

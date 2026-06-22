@@ -21,6 +21,33 @@ namespace xen::catalog_detail
 namespace
 {
 
+constexpr auto transform_policy = CommandPolicy{ProjectOperation::Edit,
+                                                LibraryAccess::None,
+                                                WorkspaceAccess::None,
+                                                FileAccess::None,
+                                                TargetRequirement::CellOrElement,
+                                                RepeatPolicy::OnSuccessfulProjectChange,
+                                                HistoryPolicy::Commit};
+constexpr auto arp_policy = CommandPolicy{ProjectOperation::Edit,
+                                          LibraryAccess::Read,
+                                          WorkspaceAccess::None,
+                                          FileAccess::None,
+                                          TargetRequirement::CellOrElement,
+                                          RepeatPolicy::OnSuccessfulProjectChange,
+                                          HistoryPolicy::AmendCompatibleTransform};
+constexpr auto chord_policy = CommandPolicy{ProjectOperation::Edit,
+                                            LibraryAccess::Read,
+                                            WorkspaceAccess::None,
+                                            FileAccess::None,
+                                            TargetRequirement::Cell,
+                                            RepeatPolicy::OnSuccessfulProjectChange,
+                                            HistoryPolicy::AmendCompatibleTransform};
+constexpr auto drums_policy =
+    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::Mutate,
+                  WorkspaceAccess::None,   FileAccess::None,
+                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+                  HistoryPolicy::Commit};
+
 auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycle_state,
                          std::string chord_name, int inversion)
     -> std::pair<std::string, int>
@@ -62,7 +89,7 @@ auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycl
 void append_transform_specs(std::vector<CommandSpec> &specs)
 {
     specs.push_back(command(
-        {"stretch"}, true, "Stretch selected pattern.",
+        {"stretch"}, true, "Stretch selected pattern.", transform_policy,
         std::make_tuple(optional_arg<std::size_t>("Unsigned", "count", 2)),
         [](PluginState &ps, CommandInvocation const &invocation, std::size_t count) {
             auto state = ps.timeline.get_state();
@@ -77,27 +104,27 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             return minfo("Stretched Selection by " + std::to_string(count));
         }));
 
-    specs.push_back(
-        command({"compress"}, true, "Compress selected pattern.", std::make_tuple(),
-                [](PluginState &ps, CommandInvocation const &invocation) {
-                    if (invocation.input.pattern == sequence::Pattern{0, {1}})
-                    {
-                        return mwarning("Use pattern prefix to define compression.");
-                    }
-                    auto state = ps.timeline.get_state();
-                    state = increment_state(
-                        std::move(state), ps.editor,
-                        [](auto target, sequence::Pattern const &pattern) {
-                            return sequence::modify::compress(target, pattern);
-                        },
-                        invocation.input.pattern);
-                    ps.timeline.stage(std::move(state));
-                    return minfo("Compressed Selection");
-                }));
+    specs.push_back(command(
+        {"compress"}, true, "Compress selected pattern.", transform_policy,
+        std::make_tuple(), [](PluginState &ps, CommandInvocation const &invocation) {
+            if (invocation.input.pattern == sequence::Pattern{0, {1}})
+            {
+                return mwarning("Use pattern prefix to define compression.");
+            }
+            auto state = ps.timeline.get_state();
+            state = increment_state(
+                std::move(state), ps.editor,
+                [](auto target, sequence::Pattern const &pattern) {
+                    return sequence::modify::compress(target, pattern);
+                },
+                invocation.input.pattern);
+            ps.timeline.stage(std::move(state));
+            return minfo("Compressed Selection");
+        }));
 
     specs.push_back(command(
-        {"shuffle"}, false, "Shuffle selected content.", std::make_tuple(),
-        [](PluginState &ps, CommandInvocation const &) {
+        {"shuffle"}, false, "Shuffle selected content.", transform_policy,
+        std::make_tuple(), [](PluginState &ps, CommandInvocation const &) {
             auto state = ps.timeline.get_state();
             state = increment_state(std::move(state), ps.editor, [](auto target) {
                 return sequence::modify::shuffle(target);
@@ -106,24 +133,24 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             return minfo("Selection Shuffled");
         }));
 
-    specs.push_back(command({"rotate"}, false, "Rotate selected content.",
-                            std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                            [](PluginState &ps, CommandInvocation const &, int amount) {
-                                auto state = ps.timeline.get_state();
-                                state = increment_state(
-                                    std::move(state), ps.editor,
-                                    [](auto target, int rotation) {
-                                        return sequence::modify::rotate(target,
-                                                                        rotation);
-                                    },
-                                    amount);
-                                ps.timeline.stage(std::move(state));
-                                return minfo("Selection Rotated");
-                            }));
+    specs.push_back(
+        command({"rotate"}, false, "Rotate selected content.", transform_policy,
+                std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+                [](PluginState &ps, CommandInvocation const &, int amount) {
+                    auto state = ps.timeline.get_state();
+                    state = increment_state(
+                        std::move(state), ps.editor,
+                        [](auto target, int rotation) {
+                            return sequence::modify::rotate(target, rotation);
+                        },
+                        amount);
+                    ps.timeline.stage(std::move(state));
+                    return minfo("Selection Rotated");
+                }));
 
     specs.push_back(command(
-        {"reverse"}, false, "Reverse selected content.", std::make_tuple(),
-        [](PluginState &ps, CommandInvocation const &) {
+        {"reverse"}, false, "Reverse selected content.", transform_policy,
+        std::make_tuple(), [](PluginState &ps, CommandInvocation const &) {
             auto state = ps.timeline.get_state();
             state = increment_state(std::move(state), ps.editor, [](auto target) {
                 return sequence::modify::reverse(target);
@@ -134,7 +161,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"mirror"}, true, "Mirror selected notes around center pitch.",
-        std::make_tuple(optional_arg<int>("Int", "centerPitch", 0)),
+        transform_policy, std::make_tuple(optional_arg<int>("Int", "centerPitch", 0)),
         [](PluginState &ps, CommandInvocation const &invocation, int center_pitch) {
             auto state = ps.timeline.get_state();
             state = increment_state(
@@ -150,6 +177,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"step"}, true,
         "Apply incremental pitch/velocity offsets to selected sequence.",
+        transform_policy,
         std::make_tuple(optional_arg<int>("Int", "pitchDistance", 1),
                         optional_arg<float>("Float", "velocityDistance", 0.f)),
         [](PluginState &ps, CommandInvocation const &invocation, int pitch_distance,
@@ -166,49 +194,50 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             return minfo("Stepped");
         }));
 
-    specs.push_back(command(
-        {"arp"}, true, "Apply chord arpeggiation to selection.",
-        std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
-                                                  std::string{"\"cycle\""}),
-                        optional_arg<int>("Int", "inversion", -1)),
-        [](PluginState &ps, CommandInvocation const &invocation, std::string chord_name,
-           int inversion) {
-            auto state = ps.timeline.get_state();
-            bool const starting_new_chain =
-                ps.editor.selected != ps.editor.arp_state.selected ||
-                ps.editor.arp_state.previous_project_revision !=
-                    ps.timeline.get_project_revision();
-            if (starting_new_chain)
-            {
-                ps.editor.arp_state.sequencer = state;
-                ps.editor.arp_state.selected = ps.editor.selected;
-            }
-            std::tie(chord_name, inversion) =
-                resolve_chord_cycle(ps.library.chords, ps.editor.arp_state,
-                                    std::move(chord_name), inversion);
-            ps.editor.arp_state.previous_chord_name = chord_name;
-            ps.editor.arp_state.previous_inversion = inversion;
-            ps.editor.arp_state.previous_project_revision =
-                ps.timeline.get_project_revision();
-            state = ps.editor.arp_state.sequencer;
-            ps.editor.selected = ps.editor.arp_state.selected;
-            auto const chord = find_chord(ps.library.chords, chord_name);
-            auto const intervals =
-                invert_chord(chord, inversion, state.tuning.intervals.size());
-            state = increment_state(
-                std::move(state), ps.editor,
-                [](auto target, sequence::Pattern const &pattern,
-                   std::vector<int> const &chord_intervals) {
-                    return action::arp(target, pattern, chord_intervals);
-                },
-                invocation.input.pattern, intervals);
-            ps.timeline.stage(std::move(state));
-            return minfo("Arpeggiated with " + chord_name +
-                         " inversion: " + std::to_string(inversion));
-        }));
+    specs.push_back(
+        command({"arp"}, true, "Apply chord arpeggiation to selection.", arp_policy,
+                std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
+                                                          std::string{"\"cycle\""}),
+                                optional_arg<int>("Int", "inversion", -1)),
+                [](PluginState &ps, CommandInvocation const &invocation,
+                   std::string chord_name, int inversion) {
+                    auto state = ps.timeline.get_state();
+                    bool const starting_new_chain =
+                        ps.editor.selected != ps.editor.arp_state.selected ||
+                        ps.editor.arp_state.previous_project_revision !=
+                            ps.timeline.get_project_revision();
+                    if (starting_new_chain)
+                    {
+                        ps.editor.arp_state.sequencer = state;
+                        ps.editor.arp_state.selected = ps.editor.selected;
+                    }
+                    std::tie(chord_name, inversion) =
+                        resolve_chord_cycle(ps.library.chords, ps.editor.arp_state,
+                                            std::move(chord_name), inversion);
+                    ps.editor.arp_state.previous_chord_name = chord_name;
+                    ps.editor.arp_state.previous_inversion = inversion;
+                    ps.editor.arp_state.previous_project_revision =
+                        ps.timeline.get_project_revision();
+                    state = ps.editor.arp_state.sequencer;
+                    ps.editor.selected = ps.editor.arp_state.selected;
+                    auto const chord = find_chord(ps.library.chords, chord_name);
+                    auto const intervals =
+                        invert_chord(chord, inversion, state.tuning.intervals.size());
+                    state = increment_state(
+                        std::move(state), ps.editor,
+                        [](auto target, sequence::Pattern const &pattern,
+                           std::vector<int> const &chord_intervals) {
+                            return action::arp(target, pattern, chord_intervals);
+                        },
+                        invocation.input.pattern, intervals);
+                    ps.timeline.stage(std::move(state));
+                    return minfo("Arpeggiated with " + chord_name +
+                                 " inversion: " + std::to_string(inversion));
+                }));
 
     specs.push_back(command(
         {"chord"}, false, "Apply chord offsets across elements in the selected cell.",
+        chord_policy,
         std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
                                                   std::string{"\"cycle\""}),
                         optional_arg<int>("Int", "inversion", -1)),
@@ -249,7 +278,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(
-        command({"drums"}, false, "Switch to drum-oriented tuning.",
+        command({"drums"}, false, "Switch to drum-oriented tuning.", drums_policy,
                 std::make_tuple(optional_arg<std::size_t>("Unsigned", "octaveSize", 16),
                                 optional_arg<int>("Int", "offset", 1)),
                 [](PluginState &ps, CommandInvocation const &,

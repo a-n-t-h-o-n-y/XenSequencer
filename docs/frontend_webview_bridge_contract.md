@@ -120,8 +120,14 @@ Request payload:
 ```ts
 {
   command: string;
+  context?: {
+    expected_project_revision?: number;
+  };
 }
 ```
+
+Project-aware commands require `expected_project_revision` to match the current
+snapshot. Non-project commands may omit `context`.
 
 Response payload:
 

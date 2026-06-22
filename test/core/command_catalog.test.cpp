@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -11,6 +12,36 @@
 #include <xen/submission_effects.hpp>
 
 using namespace xen;
+
+namespace
+{
+
+auto policy_for(std::string const &text) -> CommandPolicy
+{
+    auto const result = bind_invocation(parse_command_chain(text).front());
+    REQUIRE(std::holds_alternative<BoundStep>(result));
+    auto const &step = std::get<BoundStep>(result);
+    REQUIRE(std::holds_alternative<ExecutableCommand>(step));
+    return std::get<ExecutableCommand>(step).policy;
+}
+
+auto test_definition(CommandPolicy policy, bool uses_submission_effects)
+    -> CommandDefinition
+{
+    if (uses_submission_effects)
+    {
+        return command_dsl::command(
+            {"test"}, false, "Test command.", policy, std::make_tuple(),
+            [](PluginState &, SubmissionEffects &, CommandInvocation const &) {
+                return minfo("test");
+            });
+    }
+    return command_dsl::command(
+        {"test"}, false, "Test command.", policy, std::make_tuple(),
+        [](PluginState &, CommandInvocation const &) { return minfo("test"); });
+}
+
+} // namespace
 
 TEST_CASE("Catalog binds command chain to executable handlers",
           "[core][command][catalog]")
@@ -113,6 +144,9 @@ TEST_CASE("Catalog supports runtime typed command registration",
     auto catalog = CommandCatalog{};
     catalog.add(command_dsl::command(
         {"inspect", "value"}, false, "Inspect a typed value.",
+        CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
+                      RepeatPolicy::Never, HistoryPolicy::None},
         std::make_tuple(command_dsl::constrained(
             command_dsl::optional_arg<int>("value", 7),
             [](int value) { return value >= 0 && value <= 100; },
@@ -169,6 +203,92 @@ TEST_CASE("Catalog bind_chain stops at first bind error", "[core][command][catal
     auto const &error = std::get<CatalogBindError>(result);
     CHECK(error.kind == CatalogBindErrorKind::UnknownCommand);
     CHECK(error.token == "notACommand");
+}
+
+TEST_CASE("Catalog rejects incoherent command policies",
+          "[core][command][catalog][policy]")
+{
+    auto const none = CommandPolicy{ProjectOperation::None,  LibraryAccess::None,
+                                    WorkspaceAccess::None,   FileAccess::None,
+                                    TargetRequirement::None, RepeatPolicy::Never,
+                                    HistoryPolicy::None};
+
+    for (auto const project : {ProjectOperation::None, ProjectOperation::ReplaceHistory,
+                               ProjectOperation::NavigateHistory})
+    {
+        auto catalog = CommandCatalog{};
+        auto policy = none;
+        policy.project = project;
+        policy.target = TargetRequirement::Cell;
+        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+                        std::invalid_argument);
+    }
+
+    for (auto const history :
+         {HistoryPolicy::Commit, HistoryPolicy::AmendCompatibleTransform})
+    {
+        auto catalog = CommandCatalog{};
+        auto policy = none;
+        policy.project = ProjectOperation::Read;
+        policy.history = history;
+        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+                        std::invalid_argument);
+    }
+
+    for (auto const project :
+         {ProjectOperation::ReplaceHistory, ProjectOperation::NavigateHistory})
+    {
+        auto catalog = CommandCatalog{};
+        auto policy = none;
+        policy.project = project;
+        policy.history = HistoryPolicy::Commit;
+        CHECK_THROWS(catalog.add(test_definition(policy, false)));
+    }
+
+    {
+        auto catalog = CommandCatalog{};
+        auto policy = none;
+        policy.files = FileAccess::Read;
+        CHECK_THROWS_AS(catalog.add(test_definition(policy, false)),
+                        std::invalid_argument);
+    }
+    {
+        auto catalog = CommandCatalog{};
+        CHECK_THROWS_AS(catalog.add(test_definition(none, true)),
+                        std::invalid_argument);
+    }
+}
+
+TEST_CASE("Catalog exposes complete backend command policies",
+          "[core][command][catalog][policy]")
+{
+    CHECK(policy_for("version") ==
+          CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                        WorkspaceAccess::None, FileAccess::None,
+                        TargetRequirement::None, RepeatPolicy::Never,
+                        HistoryPolicy::None});
+    CHECK(policy_for("move left") ==
+          CommandPolicy{ProjectOperation::Read, LibraryAccess::None,
+                        WorkspaceAccess::None, FileAccess::None,
+                        TargetRequirement::CellOrElement, RepeatPolicy::Never,
+                        HistoryPolicy::None});
+    CHECK(policy_for("set key 1").history == HistoryPolicy::Commit);
+    CHECK(policy_for("cut").files == FileAccess::Write);
+    CHECK(policy_for("paste").files == FileAccess::Read);
+    CHECK(policy_for("load measure example").workspace == WorkspaceAccess::Read);
+    CHECK(policy_for("save measure example").project == ProjectOperation::Read);
+    CHECK(policy_for("load chords").library == LibraryAccess::Mutate);
+    CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
+
+    auto const chord = policy_for("chord");
+    CHECK(chord.project == ProjectOperation::Edit);
+    CHECK(chord.library == LibraryAccess::Read);
+    CHECK(chord.target == TargetRequirement::Cell);
+    CHECK(chord.history == HistoryPolicy::AmendCompatibleTransform);
+
+    auto const arp = policy_for("arp");
+    CHECK(arp.repeat == RepeatPolicy::OnSuccessfulProjectChange);
+    CHECK(arp.history == HistoryPolicy::AmendCompatibleTransform);
 }
 
 TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][catalog]")

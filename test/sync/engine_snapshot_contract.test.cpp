@@ -18,7 +18,9 @@ TEST_CASE("Engine snapshot version mirrors UI snapshot version", "[sync][snapsho
 
     auto const before_entry_id = before.history_entry_id;
     auto const before_revision = before.project_revision;
-    auto const [level, _message] = processor.execute_command_string("set key 11");
+    auto const [level, _message] = processor.execute_command_string(
+        "set key 11", {.expected_project_revision =
+                           processor.get_engine_snapshot().project_revision});
     CHECK(level == MessageLevel::Info);
 
     auto const after = processor.get_engine_snapshot();
@@ -37,11 +39,11 @@ TEST_CASE("Unknown commands do not mutate engine state", "[sync][snapshot]")
     auto const before = processor.get_engine_snapshot();
 
     auto const [missing_level, _missing_message] =
-        processor.execute_command_string("notACommand");
+        processor.execute_command_string("notACommand", CommandContext{});
     CHECK(missing_level == MessageLevel::Error);
 
     auto const [invalid_level, _invalid_message] =
-        processor.execute_command_string("notACommand 123");
+        processor.execute_command_string("notACommand 123", CommandContext{});
     CHECK(invalid_level == MessageLevel::Error);
 
     auto const after = processor.get_engine_snapshot();
@@ -59,12 +61,13 @@ TEST_CASE("Mailbox version advances only for committed engine changes",
     auto const mailbox_before = processor.pending_engine_state_update.version();
 
     auto const [non_mutating_level, _version_message] =
-        processor.execute_command_string("version");
+        processor.execute_command_string("version", CommandContext{});
     CHECK(non_mutating_level == MessageLevel::Info);
     CHECK(processor.pending_engine_state_update.version() == mailbox_before);
 
-    auto const [mutating_level, _set_key_message] =
-        processor.execute_command_string("set key 9");
+    auto const [mutating_level, _set_key_message] = processor.execute_command_string(
+        "set key 9", {.expected_project_revision =
+                          processor.get_engine_snapshot().project_revision});
     CHECK(mutating_level == MessageLevel::Info);
     CHECK(processor.pending_engine_state_update.version() == mailbox_before + 1);
 }
@@ -74,7 +77,8 @@ TEST_CASE("Empty command strings do not advance snapshot version", "[sync][snaps
     auto processor = XenProcessor{};
 
     auto const before = processor.get_ui_snapshot_version();
-    auto const [level, message] = processor.execute_command_string("   ;    ; ");
+    auto const [level, message] =
+        processor.execute_command_string("   ;    ; ", CommandContext{});
 
     CHECK(level == MessageLevel::Debug);
     CHECK(message.empty());

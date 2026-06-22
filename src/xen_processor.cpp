@@ -78,8 +78,8 @@ XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure)
     pending_engine_state_update.publish(plugin_state.timeline.get_state());
     notify_ui_state_changed();
 
-    this->execute_command_string("load scales");
-    this->execute_command_string("load chords");
+    this->execute_command_string("load scales", CommandContext{});
+    this->execute_command_string("load chords", CommandContext{});
 }
 
 auto XenProcessor::command_catalog() noexcept -> CommandCatalog &
@@ -259,7 +259,8 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     }
 }
 
-auto XenProcessor::execute_command_string(std::string const &command_string)
+auto XenProcessor::execute_command_string(std::string const &command_string,
+                                          CommandContext const &context)
     -> std::pair<MessageLevel, std::string>
 {
     try
@@ -309,9 +310,28 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
             commands.push_back(std::get<ExecutableCommand>(step));
         }
 
+        auto const project_aware =
+            std::ranges::any_of(commands, [](ExecutableCommand const &command) {
+                return command.policy.project != ProjectOperation::None;
+            });
+        if (project_aware && !context.expected_project_revision.has_value())
+        {
+            return {MessageLevel::Error, "expected project revision is required"};
+        }
+        auto const current_revision = plugin_state.timeline.get_project_revision();
+        if (project_aware && *context.expected_project_revision != current_revision)
+        {
+            return {
+                MessageLevel::Error,
+                "stale project revision: expected " +
+                    std::to_string(context.expected_project_revision->value()) +
+                    ", current " + std::to_string(current_revision.value()),
+            };
+        }
+
         auto const history_count =
             std::ranges::count_if(commands, [](ExecutableCommand const &command) {
-                return command.execution_role != ExecutionRole::Normal;
+                return command.policy.project == ProjectOperation::NavigateHistory;
             });
         if (history_count > 0 && commands.size() != 1)
         {
@@ -334,7 +354,8 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
                 return status;
             }
             auto const changed = working.timeline.get_state() != before;
-            if (changed && command.repeat_policy == RepeatPolicy::EngineEdit)
+            if (changed &&
+                command.policy.repeat == RepeatPolicy::OnSuccessfulProjectChange)
             {
                 repeat_target.push_back(command.invocation);
             }

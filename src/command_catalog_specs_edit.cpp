@@ -25,6 +25,22 @@ enum class MoveDirection
     Down,
 };
 
+constexpr auto navigation_policy = CommandPolicy{ProjectOperation::Read,
+                                                 LibraryAccess::None,
+                                                 WorkspaceAccess::None,
+                                                 FileAccess::None,
+                                                 TargetRequirement::CellOrElement,
+                                                 RepeatPolicy::Never,
+                                                 HistoryPolicy::None};
+constexpr auto targeted_edit_policy =
+    CommandPolicy{ProjectOperation::Edit,
+                  LibraryAccess::None,
+                  WorkspaceAccess::None,
+                  FileAccess::None,
+                  TargetRequirement::CellOrElement,
+                  RepeatPolicy::OnSuccessfulProjectChange,
+                  HistoryPolicy::Commit};
+
 auto move_handler(MoveDirection direction)
 {
     return [direction](PluginState &ps, CommandInvocation const &, std::size_t amount) {
@@ -61,16 +77,21 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
     auto const amount_args =
         std::make_tuple(optional_arg<std::size_t>("Unsigned", "amount", 1));
     specs.push_back(command({"move", "left"}, false, "Move selection left.",
-                            amount_args, move_handler(MoveDirection::Left)));
+                            navigation_policy, amount_args,
+                            move_handler(MoveDirection::Left)));
     specs.push_back(command({"move", "right"}, false, "Move selection right.",
-                            amount_args, move_handler(MoveDirection::Right)));
+                            navigation_policy, amount_args,
+                            move_handler(MoveDirection::Right)));
     specs.push_back(command({"move", "up"}, false, "Move selection up one level.",
-                            amount_args, move_handler(MoveDirection::Up)));
+                            navigation_policy, amount_args,
+                            move_handler(MoveDirection::Up)));
     specs.push_back(command({"move", "down"}, false, "Move selection down one level.",
-                            amount_args, move_handler(MoveDirection::Down)));
+                            navigation_policy, amount_args,
+                            move_handler(MoveDirection::Down)));
 
     specs.push_back(
         command({"note"}, false, "Create a note at the current selection.",
+                targeted_edit_policy,
                 std::make_tuple(optional_arg<int>("Int", "pitch", 0),
                                 optional_arg<float>("Float", "velocity", 100.f / 127.f),
                                 optional_arg<float>("Float", "delay", 0.f),
@@ -101,7 +122,7 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                 }));
 
     specs.push_back(command({"delete"}, false, "Delete the current selection.",
-                            std::make_tuple(),
+                            targeted_edit_policy, std::make_tuple(),
                             [](PluginState &ps, CommandInvocation const &) {
                                 auto state = ps.timeline.get_state();
                                 action::delete_cell(state, ps.editor);
@@ -110,7 +131,7 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                             }));
 
     specs.push_back(
-        command({"split"}, false, "Split the current selection.",
+        command({"split"}, false, "Split the current selection.", targeted_edit_policy,
                 std::make_tuple(optional_arg<std::size_t>("Unsigned", "count", 2)),
                 [](PluginState &ps, CommandInvocation const &, std::size_t count) {
                     auto state = ps.timeline.get_state();
@@ -125,7 +146,7 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                 }));
 
     specs.push_back(command({"lift"}, false, "Lift the current selection up one level.",
-                            std::make_tuple(),
+                            targeted_edit_policy, std::make_tuple(),
                             [](PluginState &ps, CommandInvocation const &) {
                                 auto state = ps.timeline.get_state();
                                 action::lift(state, ps.editor);

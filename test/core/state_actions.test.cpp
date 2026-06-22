@@ -64,7 +64,9 @@ TEST_CASE("Move up changes selection path and clears nested cell selection",
     auto before = processor.get_engine_snapshot();
     REQUIRE_FALSE(before.editor.selected.path.empty());
 
-    auto const [level, _message] = processor.execute_command_string("move up");
+    auto const [level, _message] = processor.execute_command_string(
+        "move up", {.expected_project_revision =
+                        processor.get_engine_snapshot().project_revision});
     CHECK(level == MessageLevel::Debug);
 
     auto const after = processor.get_engine_snapshot();
@@ -75,12 +77,20 @@ TEST_CASE("Base frequency command clamps to supported range", "[core][actions]")
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("set baseFrequency -5").first ==
-            MessageLevel::Info);
+    REQUIRE(processor
+                .execute_command_string(
+                    "set baseFrequency -5",
+                    {.expected_project_revision =
+                         processor.get_engine_snapshot().project_revision})
+                .first == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().engine.base_frequency == Catch::Approx(20.f));
 
-    REQUIRE(processor.execute_command_string("set baseFrequency 50000").first ==
-            MessageLevel::Info);
+    REQUIRE(processor
+                .execute_command_string(
+                    "set baseFrequency 50000",
+                    {.expected_project_revision =
+                         processor.get_engine_snapshot().project_revision})
+                .first == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().engine.base_frequency ==
           Catch::Approx(20'000.f));
 }
@@ -91,8 +101,9 @@ TEST_CASE("Set key validates range and does not mutate on invalid input",
     auto processor = XenProcessor{};
     auto const before = processor.get_engine_snapshot();
 
-    auto const [invalid_level, invalid_message] =
-        processor.execute_command_string("set key 128");
+    auto const [invalid_level, invalid_message] = processor.execute_command_string(
+        "set key 128", {.expected_project_revision =
+                            processor.get_engine_snapshot().project_revision});
     auto const after_invalid = processor.get_engine_snapshot();
 
     CHECK(invalid_level == MessageLevel::Error);
@@ -102,8 +113,9 @@ TEST_CASE("Set key validates range and does not mutate on invalid input",
     CHECK(after_invalid.history_entry_id == before.history_entry_id);
     CHECK(after_invalid.project_revision == before.project_revision);
 
-    auto const [valid_level, _valid_message] =
-        processor.execute_command_string("set key -127");
+    auto const [valid_level, _valid_message] = processor.execute_command_string(
+        "set key -127", {.expected_project_revision =
+                             processor.get_engine_snapshot().project_revision});
     CHECK(valid_level == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().engine.key == -127);
 }
@@ -113,8 +125,10 @@ TEST_CASE("Set measure timeSignature validates values", "[core][actions]")
     auto processor = XenProcessor{};
     auto const before = processor.get_engine_snapshot();
 
-    auto const [level, _message] =
-        processor.execute_command_string("set measure timeSignature 7/8");
+    auto const [level, _message] = processor.execute_command_string(
+        "set measure timeSignature 7/8",
+        {.expected_project_revision =
+             processor.get_engine_snapshot().project_revision});
     REQUIRE(level == MessageLevel::Info);
 
     auto const after_valid = processor.get_engine_snapshot();
@@ -122,8 +136,10 @@ TEST_CASE("Set measure timeSignature validates values", "[core][actions]")
     CHECK(after_valid.engine.measure.time_signature.denominator == 8);
 
     auto const before_invalid = after_valid;
-    auto const [invalid_level, invalid_message] =
-        processor.execute_command_string("set measure timeSignature 0/4");
+    auto const [invalid_level, invalid_message] = processor.execute_command_string(
+        "set measure timeSignature 0/4",
+        {.expected_project_revision =
+             processor.get_engine_snapshot().project_revision});
     auto const after_invalid = processor.get_engine_snapshot();
 
     CHECK(invalid_level == MessageLevel::Error);

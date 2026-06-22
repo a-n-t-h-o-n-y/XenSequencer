@@ -13,11 +13,23 @@ using namespace xen;
 TEST_CASE("Processor state round-trip preserves engine state", "[processor][state]")
 {
     auto source = XenProcessor{};
-    REQUIRE(source.execute_command_string("set key 31").first == MessageLevel::Info);
-    REQUIRE(source.execute_command_string("set baseFrequency 333.3").first ==
-            MessageLevel::Info);
-    REQUIRE(source.execute_command_string("set measure timeSignature 7/8").first ==
-            MessageLevel::Info);
+    REQUIRE(source
+                .execute_command_string(
+                    "set key 31", {.expected_project_revision =
+                                       source.get_engine_snapshot().project_revision})
+                .first == MessageLevel::Info);
+    REQUIRE(
+        source
+            .execute_command_string("set baseFrequency 333.3",
+                                    {.expected_project_revision =
+                                         source.get_engine_snapshot().project_revision})
+            .first == MessageLevel::Info);
+    REQUIRE(
+        source
+            .execute_command_string("set measure timeSignature 7/8",
+                                    {.expected_project_revision =
+                                         source.get_engine_snapshot().project_revision})
+            .first == MessageLevel::Info);
 
     auto const expected = source.get_engine_snapshot().engine;
 
@@ -60,7 +72,11 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
           "[processor][state]")
 {
     auto source = XenProcessor{};
-    REQUIRE(source.execute_command_string("set key 5").first == MessageLevel::Info);
+    REQUIRE(source
+                .execute_command_string(
+                    "set key 5", {.expected_project_revision =
+                                      source.get_engine_snapshot().project_revision})
+                .first == MessageLevel::Info);
 
     auto blob = juce::MemoryBlock{};
     source.getStateInformation(blob);
@@ -95,5 +111,9 @@ TEST_CASE("Processor equal-data restoration replaces project history",
     CHECK(after.engine == before.engine);
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
-    CHECK(processor.execute_command_string("undo").second == "Nothing to undo.");
+    CHECK(processor
+              .execute_command_string(
+                  "undo", {.expected_project_revision =
+                               processor.get_engine_snapshot().project_revision})
+              .second == "Nothing to undo.");
 }

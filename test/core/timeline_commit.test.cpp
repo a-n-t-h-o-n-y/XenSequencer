@@ -26,6 +26,12 @@ auto singleton_sequence_cell_selection(std::vector<std::size_t> const &indices)
     return selected;
 }
 
+auto current_context(XenProcessor const &processor) -> CommandContext
+{
+    return {.expected_project_revision =
+                processor.get_engine_snapshot().project_revision};
+}
+
 } // namespace
 
 static_assert(!std::is_same_v<HistoryEntryId, ProjectRevision>);
@@ -38,19 +44,19 @@ TEST_CASE("Mutating commands advance history identity and project revision",
     auto const initial = processor.get_engine_snapshot();
 
     auto const [version_level, _version_message] =
-        processor.execute_command_string("version");
+        processor.execute_command_string("version", CommandContext{});
     CHECK(version_level == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().history_entry_id == initial.history_entry_id);
     CHECK(processor.get_engine_snapshot().project_revision == initial.project_revision);
 
     auto const [move_level, _move_message] =
-        processor.execute_command_string("move right");
+        processor.execute_command_string("move right", current_context(processor));
     CHECK(move_level == MessageLevel::Debug);
     CHECK(processor.get_engine_snapshot().history_entry_id == initial.history_entry_id);
     CHECK(processor.get_engine_snapshot().project_revision == initial.project_revision);
 
     auto const [set_key_level, _set_key_message] =
-        processor.execute_command_string("set key 12");
+        processor.execute_command_string("set key 12", current_context(processor));
     CHECK(set_key_level == MessageLevel::Info);
 
     auto const after = processor.get_engine_snapshot();
@@ -65,28 +71,35 @@ TEST_CASE(
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    REQUIRE(
+        processor.execute_command_string("split 2", current_context(processor)).first ==
+        MessageLevel::Info);
     processor.plugin_state.editor.selected = singleton_sequence_cell_selection({0});
-    REQUIRE(processor.execute_command_string("inputMode gate").first ==
-            MessageLevel::Info);
-    REQUIRE(processor.execute_command_string("set key 9").first == MessageLevel::Info);
+    REQUIRE(
+        processor.execute_command_string("inputMode gate", CommandContext{}).first ==
+        MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("set key 9", current_context(processor))
+                .first == MessageLevel::Info);
     auto const previous_commit = processor.get_engine_snapshot();
     REQUIRE(previous_commit.editor.selected == singleton_sequence_cell_selection({0}));
     REQUIRE(previous_commit.editor.input_mode == InputMode::Gate);
 
-    REQUIRE(processor.execute_command_string("set key 11").first == MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("set key 11", current_context(processor))
+                .first == MessageLevel::Info);
     auto const current = processor.get_engine_snapshot();
     REQUIRE(current.engine.key == 11);
     REQUIRE(current.history_entry_id != previous_commit.history_entry_id);
     REQUIRE(current.project_revision != previous_commit.project_revision);
 
     // Editor changes are session state and survive engine history movement.
-    REQUIRE(processor.execute_command_string("move right").first ==
-            MessageLevel::Debug);
-    REQUIRE(processor.execute_command_string("inputMode pitch").first ==
-            MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("move right", current_context(processor))
+                .first == MessageLevel::Debug);
+    REQUIRE(
+        processor.execute_command_string("inputMode pitch", CommandContext{}).first ==
+        MessageLevel::Info);
 
-    auto const [undo_level, _undo_message] = processor.execute_command_string("undo");
+    auto const [undo_level, _undo_message] =
+        processor.execute_command_string("undo", current_context(processor));
     CHECK(undo_level == MessageLevel::Info);
 
     auto const after_undo = processor.get_engine_snapshot();
@@ -102,23 +115,29 @@ TEST_CASE("New commit after undo truncates redo history", "[core][timeline][comm
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("set key 1").first == MessageLevel::Info);
-    REQUIRE(processor.execute_command_string("set key 2").first == MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("set key 1", current_context(processor))
+                .first == MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("set key 2", current_context(processor))
+                .first == MessageLevel::Info);
 
     auto const commit_with_key_2 = processor.get_engine_snapshot();
     REQUIRE(commit_with_key_2.engine.key == 2);
 
-    REQUIRE(processor.execute_command_string("undo").first == MessageLevel::Info);
+    REQUIRE(
+        processor.execute_command_string("undo", current_context(processor)).first ==
+        MessageLevel::Info);
     auto const after_undo = processor.get_engine_snapshot();
     REQUIRE(after_undo.engine.key == 1);
 
-    REQUIRE(processor.execute_command_string("set key 3").first == MessageLevel::Info);
+    REQUIRE(processor.execute_command_string("set key 3", current_context(processor))
+                .first == MessageLevel::Info);
     auto const after_new_commit = processor.get_engine_snapshot();
     REQUIRE(after_new_commit.engine.key == 3);
     REQUIRE(after_new_commit.history_entry_id != commit_with_key_2.history_entry_id);
     REQUIRE(after_new_commit.project_revision != commit_with_key_2.project_revision);
 
-    auto const [redo_level, redo_message] = processor.execute_command_string("redo");
+    auto const [redo_level, redo_message] =
+        processor.execute_command_string("redo", current_context(processor));
     CHECK(redo_level == MessageLevel::Info);
     CHECK(redo_message == "Nothing to redo.");
 
@@ -163,8 +182,7 @@ TEST_CASE("Guarded amendment retains entry identity and advances revision",
     auto const revision = timeline.get_project_revision();
     state.key = 2;
 
-    CHECK_FALSE(
-        timeline.amend_current(HistoryEntryId{entry_id.value() + 1000}, state));
+    CHECK_FALSE(timeline.amend_current(HistoryEntryId{entry_id.value() + 1000}, state));
     CHECK(timeline.get_current_entry_id() == entry_id);
     CHECK(timeline.get_project_revision() == revision);
 
@@ -263,10 +281,13 @@ TEST_CASE("Modulator and weight mutations commit immediately",
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    REQUIRE(
+        processor.execute_command_string("split 2", current_context(processor)).first ==
+        MessageLevel::Info);
     auto const before = processor.get_engine_snapshot();
 
-    auto const [level, message] = processor.execute_command_string("set weights 0.5");
+    auto const [level, message] =
+        processor.execute_command_string("set weights 0.5", current_context(processor));
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Weights Set");
 
@@ -280,11 +301,13 @@ TEST_CASE("Atomic mutation with later bind error does not commit",
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    REQUIRE(
+        processor.execute_command_string("split 2", current_context(processor)).first ==
+        MessageLevel::Info);
     auto const before = processor.get_engine_snapshot();
 
-    auto const [level, message] =
-        processor.execute_command_string("set weights 0.75; notARealCommand");
+    auto const [level, message] = processor.execute_command_string(
+        "set weights 0.75; notARealCommand", current_context(processor));
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: notARealCommand");
 

@@ -17,6 +17,12 @@ namespace xen
 
 class SubmissionEffects;
 
+struct CommandContext
+{
+    std::optional<SelectedState> selection{};
+    std::optional<ProjectRevision> expected_project_revision{};
+};
+
 enum class CatalogBindErrorKind : std::uint8_t
 {
     UnknownCommand,
@@ -51,17 +57,78 @@ class CatalogBindException final : public std::exception
     std::string message_;
 };
 
-enum class ExecutionRole : std::uint8_t
+enum class ProjectOperation : std::uint8_t
 {
-    Normal,
-    Undo,
-    Redo,
+    None,
+    Read,
+    Edit,
+    ReplaceHistory,
+    NavigateHistory,
+};
+
+enum class LibraryAccess : std::uint8_t
+{
+    None,
+    Read,
+    Mutate,
+};
+
+enum class WorkspaceAccess : std::uint8_t
+{
+    None,
+    Read,
+    Mutate,
+};
+
+enum class FileAccess : std::uint8_t
+{
+    None,
+    Read,
+    Write,
+};
+
+enum class TargetRequirement : std::uint8_t
+{
+    None,
+    Cell,
+    Element,
+    CellOrElement,
 };
 
 enum class RepeatPolicy : std::uint8_t
 {
     Never,
-    EngineEdit,
+    OnSuccessfulProjectChange,
+};
+
+enum class HistoryPolicy : std::uint8_t
+{
+    None,
+    Commit,
+    AmendCompatibleTransform,
+};
+
+struct CommandPolicy
+{
+    CommandPolicy() = delete;
+    constexpr CommandPolicy(ProjectOperation project_in, LibraryAccess library_in,
+                            WorkspaceAccess workspace_in, FileAccess files_in,
+                            TargetRequirement target_in, RepeatPolicy repeat_in,
+                            HistoryPolicy history_in) noexcept
+        : project{project_in}, library{library_in}, workspace{workspace_in},
+          files{files_in}, target{target_in}, repeat{repeat_in}, history{history_in}
+    {
+    }
+
+    ProjectOperation project;
+    LibraryAccess library;
+    WorkspaceAccess workspace;
+    FileAccess files;
+    TargetRequirement target;
+    RepeatPolicy repeat;
+    HistoryPolicy history;
+
+    auto operator==(CommandPolicy const &) const -> bool = default;
 };
 
 using CommandExecutor = std::function<std::pair<MessageLevel, std::string>(
@@ -71,8 +138,7 @@ struct ExecutableCommand
 {
     std::string canonical{};
     CommandInvocation invocation{};
-    ExecutionRole execution_role{ExecutionRole::Normal};
-    RepeatPolicy repeat_policy{RepeatPolicy::EngineEdit};
+    CommandPolicy const policy;
     CommandExecutor execute;
 };
 
@@ -120,6 +186,8 @@ struct CompletionResult
 struct CommandDefinition
 {
     CatalogCommandMetadata metadata{};
+    CommandPolicy const policy;
+    bool const uses_submission_effects;
     std::function<BoundStep(CommandInvocation const &, std::size_t)> bind{};
 };
 

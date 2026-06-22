@@ -189,7 +189,10 @@ type UiStateSnapshot = {
 
 ```json
 {
-  "command": "set key 11"
+  "command": "set key 11",
+  "context": {
+    "expected_project_revision": 42
+  }
 }
 ```
 

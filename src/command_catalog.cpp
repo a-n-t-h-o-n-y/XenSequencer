@@ -37,6 +37,32 @@ void CommandCatalog::add(CommandDefinition definition)
     {
         throw std::invalid_argument("Command definition must have a binder.");
     }
+    auto const &policy = definition.policy;
+    if (policy.target != TargetRequirement::None &&
+        policy.project != ProjectOperation::Read &&
+        policy.project != ProjectOperation::Edit)
+    {
+        throw std::invalid_argument(
+            "Command targets require project read or edit access.");
+    }
+    if (policy.history != HistoryPolicy::None &&
+        policy.project != ProjectOperation::Edit)
+    {
+        throw std::invalid_argument(
+            "Commit and amend history policies require project edit access.");
+    }
+    if ((policy.project == ProjectOperation::ReplaceHistory ||
+         policy.project == ProjectOperation::NavigateHistory) &&
+        policy.history != HistoryPolicy::None)
+    {
+        throw std::invalid_argument(
+            "History replacement and navigation cannot commit or amend.");
+    }
+    if ((policy.files != FileAccess::None) != definition.uses_submission_effects)
+    {
+        throw std::invalid_argument(
+            "File access policy must match submission-effects handler usage.");
+    }
 
     for (auto const &token : definition.metadata.path)
     {

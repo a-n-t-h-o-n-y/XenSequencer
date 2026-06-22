@@ -318,9 +318,9 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
 
 template <typename Handler, typename... Ts>
 auto command_with_options(std::vector<std::string> path, bool accepts_pattern_prefix,
-                          std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
-                          Handler handler, ExecutionRole execution_role,
-                          RepeatPolicy repeat_policy) -> CommandDefinition
+                          std::string description, CommandPolicy policy,
+                          std::tuple<ArgDef<Ts>...> arg_defs, Handler handler)
+    -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
@@ -329,9 +329,13 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
         .description = std::move(description),
     };
 
+    constexpr auto uses_submission_effects =
+        std::is_invocable_r_v<std::pair<MessageLevel, std::string>, Handler,
+                              PluginState &, SubmissionEffects &,
+                              CommandInvocation const &, Ts const &...>;
     auto const command_path = format_command_path(metadata.path);
     auto bind = [arg_defs = std::move(arg_defs), handler = std::move(handler),
-                 accepts_pattern_prefix, execution_role, repeat_policy,
+                 accepts_pattern_prefix, policy,
                  command_path](CommandInvocation const &invocation,
                                std::size_t arg_offset) -> BoundStep {
         if (invocation.input.has_pattern_prefix && !accepts_pattern_prefix)
@@ -349,8 +353,7 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
         return ExecutableCommand{
             .canonical = invocation.canonical_segment,
             .invocation = invocation,
-            .execution_role = execution_role,
-            .repeat_policy = repeat_policy,
+            .policy = policy,
             .execute =
                 [handler, invocation, parsed_args = std::move(parsed_args)](
                     PluginState &state, SubmissionEffects &effects) {
@@ -377,44 +380,24 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
 
     return CommandDefinition{
         .metadata = std::move(metadata),
+        .policy = policy,
+        .uses_submission_effects = uses_submission_effects,
         .bind = std::move(bind),
     };
 }
 
 template <typename Handler, typename... Ts>
 auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
-             std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
-             Handler handler) -> CommandDefinition
+             std::string description, CommandPolicy policy,
+             std::tuple<ArgDef<Ts>...> arg_defs, Handler handler) -> CommandDefinition
 {
     return command_with_options(std::move(path), accepts_pattern_prefix,
-                                std::move(description), std::move(arg_defs),
-                                std::move(handler), ExecutionRole::Normal,
-                                RepeatPolicy::EngineEdit);
+                                std::move(description), policy, std::move(arg_defs),
+                                std::move(handler));
 }
 
-template <typename Handler, typename... Ts>
-auto non_repeatable_command(std::vector<std::string> path, bool accepts_pattern_prefix,
-                            std::string description, std::tuple<ArgDef<Ts>...> arg_defs,
-                            Handler handler) -> CommandDefinition
-{
-    return command_with_options(std::move(path), accepts_pattern_prefix,
-                                std::move(description), std::move(arg_defs),
-                                std::move(handler), ExecutionRole::Normal,
-                                RepeatPolicy::Never);
-}
-
-template <typename Handler, typename... Ts>
-auto history_command(std::vector<std::string> path, std::string description,
-                     ExecutionRole execution_role, std::tuple<ArgDef<Ts>...> arg_defs,
-                     Handler handler) -> CommandDefinition
-{
-    return command_with_options(std::move(path), false, std::move(description),
-                                std::move(arg_defs), std::move(handler), execution_role,
-                                RepeatPolicy::Never);
-}
-
-inline auto replay_command(std::vector<std::string> path, std::string description)
-    -> CommandDefinition
+inline auto replay_command(std::vector<std::string> path, std::string description,
+                           CommandPolicy policy) -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
@@ -444,6 +427,8 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
 
     return CommandDefinition{
         .metadata = std::move(metadata),
+        .policy = policy,
+        .uses_submission_effects = false,
         .bind = std::move(bind),
     };
 }

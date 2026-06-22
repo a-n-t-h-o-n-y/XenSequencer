@@ -29,19 +29,100 @@ auto singleton_sequence_cell_selection(std::vector<std::size_t> const &indices)
     return selected;
 }
 
+auto execute(XenProcessor &processor, std::string const &command)
+    -> std::pair<MessageLevel, std::string>
+{
+    return processor.execute_command_string(
+        command, {.expected_project_revision =
+                      processor.get_engine_snapshot().project_revision});
+}
+
 } // namespace
+
+TEST_CASE("Processor requires current revisions only for project-aware submissions",
+          "[processor][commands][context]")
+{
+    auto processor = XenProcessor{};
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [version_level, _version_message] =
+        processor.execute_command_string("version", CommandContext{});
+    CHECK(version_level == MessageLevel::Info);
+
+    auto const [missing_level, missing_message] =
+        processor.execute_command_string("set key 9", CommandContext{});
+    CHECK(missing_level == MessageLevel::Error);
+    CHECK(missing_message == "expected project revision is required");
+    CHECK(processor.get_engine_snapshot().engine == before.engine);
+
+    auto const [mixed_level, mixed_message] =
+        processor.execute_command_string("version; set key 9", CommandContext{});
+    CHECK(mixed_level == MessageLevel::Error);
+    CHECK(mixed_message == "expected project revision is required");
+    CHECK(processor.get_engine_snapshot().engine == before.engine);
+}
+
+TEST_CASE("Processor rejects stale revisions before project execution",
+          "[processor][commands][context]")
+{
+    auto processor = XenProcessor{};
+    auto const stale_revision = processor.get_engine_snapshot().project_revision;
+    REQUIRE(execute(processor, "set key 3").first == MessageLevel::Info);
+    auto const before_rejection = processor.get_engine_snapshot();
+
+    auto const [level, message] = processor.execute_command_string(
+        "set key 9", {.expected_project_revision = stale_revision});
+
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "stale project revision: expected " +
+                         std::to_string(stale_revision.value()) + ", current " +
+                         std::to_string(before_rejection.project_revision.value()));
+    auto const after = processor.get_engine_snapshot();
+    CHECK(after.engine == before_rejection.engine);
+    CHECK(after.history_entry_id == before_rejection.history_entry_id);
+    CHECK(after.project_revision == before_rejection.project_revision);
+}
+
+TEST_CASE("Processor applies revision requirements after expanding again",
+          "[processor][commands][context][again]")
+{
+    auto processor = XenProcessor{};
+    REQUIRE(execute(processor, "set key 7").first == MessageLevel::Info);
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [level, message] =
+        processor.execute_command_string("again", CommandContext{});
+
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "expected project revision is required");
+    CHECK(processor.get_engine_snapshot().project_revision == before.project_revision);
+}
+
+TEST_CASE("Processor requires revisions for history navigation",
+          "[processor][commands][context][history]")
+{
+    auto processor = XenProcessor{};
+    REQUIRE(execute(processor, "set key 4").first == MessageLevel::Info);
+    auto const before = processor.get_engine_snapshot();
+
+    auto const [level, message] =
+        processor.execute_command_string("undo", CommandContext{});
+
+    CHECK(level == MessageLevel::Error);
+    CHECK(message == "expected project revision is required");
+    CHECK(processor.get_engine_snapshot().project_revision == before.project_revision);
+}
 
 TEST_CASE("Processor command 'again' replays previous command string",
           "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("set key 17").first == MessageLevel::Info);
+    REQUIRE(execute(processor, "set key 17").first == MessageLevel::Info);
     auto const after_first = processor.get_engine_snapshot();
     REQUIRE(after_first.engine.key == 17);
 
-    auto const [again_level, _again_message] =
-        processor.execute_command_string("again");
+    auto const [again_level, _again_message] = execute(processor, "again");
     CHECK(again_level == MessageLevel::Info);
 
     auto const after_again = processor.get_engine_snapshot();
@@ -56,7 +137,7 @@ TEST_CASE("Processor multi-command executes in order and returns last command st
     auto processor = XenProcessor{};
 
     auto const [level, message] =
-        processor.execute_command_string("set key 3; set baseFrequency 300; version");
+        execute(processor, "set key 3; set baseFrequency 300; version");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "v0.3.1");
@@ -72,7 +153,7 @@ TEST_CASE("Processor returns command-not-found error for invalid command",
     auto processor = XenProcessor{};
 
     auto const before = processor.get_engine_snapshot();
-    auto const [level, message] = processor.execute_command_string("notacommand 123");
+    auto const [level, message] = execute(processor, "notacommand 123");
     auto const after = processor.get_engine_snapshot();
 
     CHECK(level == MessageLevel::Error);
@@ -88,8 +169,7 @@ TEST_CASE("Processor bind failure rolls back the complete command chain",
     auto processor = XenProcessor{};
 
     auto const before = processor.get_engine_snapshot();
-    auto const [level, message] =
-        processor.execute_command_string("set key 22; notARealCommand");
+    auto const [level, message] = execute(processor, "set key 22; notARealCommand");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: notARealCommand");
@@ -106,7 +186,7 @@ TEST_CASE("Processor binds the complete chain before execution",
     auto processor = XenProcessor{};
 
     auto const [level, message] =
-        processor.execute_command_string("set key 22; notARealCommand; set key 5");
+        execute(processor, "set key 22; notARealCommand; set key 5");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: notARealCommand");
@@ -121,8 +201,7 @@ TEST_CASE("Processor returned errors roll back prior commands",
     auto processor = XenProcessor{};
     auto const before = processor.get_engine_snapshot();
 
-    auto const [level, _message] =
-        processor.execute_command_string("set key 22; set key 128");
+    auto const [level, _message] = execute(processor, "set key 22; set key 128");
 
     CHECK(level == MessageLevel::Error);
     auto const after = processor.get_engine_snapshot();
@@ -136,10 +215,10 @@ TEST_CASE("Processor rejects undo and redo in mixed chains",
           "[processor][commands][atomic]")
 {
     auto processor = XenProcessor{};
-    REQUIRE(processor.execute_command_string("set key 4").first == MessageLevel::Info);
+    REQUIRE(execute(processor, "set key 4").first == MessageLevel::Info);
     auto const before = processor.get_engine_snapshot();
 
-    auto const [level, message] = processor.execute_command_string("undo; set key 2");
+    auto const [level, message] = execute(processor, "undo; set key 2");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message == "undo and redo must be submitted alone.");
@@ -153,12 +232,11 @@ TEST_CASE("Processor informational commands do not become replay targets",
 {
     auto processor = XenProcessor{};
 
-    auto const [version_level, version_message] =
-        processor.execute_command_string("version");
+    auto const [version_level, version_message] = execute(processor, "version");
     CHECK(version_level == MessageLevel::Info);
     CHECK(version_message == "v0.3.1");
 
-    auto const [again_level, again_message] = processor.execute_command_string("again");
+    auto const [again_level, again_message] = execute(processor, "again");
     CHECK(again_level == MessageLevel::Error);
     CHECK(again_message == "No previous command to repeat.");
 }
@@ -168,13 +246,13 @@ TEST_CASE("Processor 'again' replays full multi-command chain", "[processor][com
     auto processor = XenProcessor{};
 
     auto const [first_level, _first_message] =
-        processor.execute_command_string("set key 3; set baseFrequency 300");
+        execute(processor, "set key 3; set baseFrequency 300");
     CHECK(first_level == MessageLevel::Info);
 
     auto const after_first = processor.get_engine_snapshot();
     REQUIRE(after_first.engine.key == 3);
     REQUIRE(after_first.engine.base_frequency == Catch::Approx(300.f));
-    auto const [again_level, again_message] = processor.execute_command_string("again");
+    auto const [again_level, again_message] = execute(processor, "again");
     CHECK(again_level == MessageLevel::Info);
     CHECK(again_message == "Base Frequency Set");
 
@@ -191,7 +269,7 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
     auto processor = XenProcessor{};
 
     auto const [level, message] =
-        processor.execute_command_string("load measure \"semi;colon\"; version");
+        execute(processor, "load measure \"semi;colon\"; version");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message ==
@@ -206,8 +284,8 @@ TEST_CASE("Processor command-chain splitting ignores semicolons in structured ar
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string(
-        "load measure {\"label\":\"semi;colon\"}; version");
+    auto const [level, message] =
+        execute(processor, "load measure {\"label\":\"semi;colon\"}; version");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message ==
@@ -222,11 +300,10 @@ TEST_CASE("Processor carries selection context across chained commands",
 {
     auto processor = XenProcessor{};
 
-    REQUIRE(processor.execute_command_string("split 2").first == MessageLevel::Info);
+    REQUIRE(execute(processor, "split 2").first == MessageLevel::Info);
     processor.plugin_state.editor.selected = singleton_sequence_cell_selection({0});
 
-    auto const [level, message] =
-        processor.execute_command_string("move right; note 7");
+    auto const [level, message] = execute(processor, "move right; note 7");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Note Created");
@@ -246,8 +323,7 @@ TEST_CASE("Processor measure defaults use updated chain context",
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] =
-        processor.execute_command_string("set measure timeSignature 7/8");
+    auto const [level, message] = execute(processor, "set measure timeSignature 7/8");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Measure TimeSignature Set: 7/8");
@@ -261,9 +337,8 @@ TEST_CASE("Processor rejects unknown commands", "[processor][commands]")
 {
     auto processor = XenProcessor{};
 
-    CHECK(processor.execute_command_string("notACommand").first == MessageLevel::Error);
-    CHECK(processor.execute_command_string("notACommand 123").first ==
-          MessageLevel::Error);
+    CHECK(execute(processor, "notACommand").first == MessageLevel::Error);
+    CHECK(execute(processor, "notACommand 123").first == MessageLevel::Error);
 }
 
 TEST_CASE("Processor rejects malformed syntax without changing engine state",
@@ -276,7 +351,7 @@ TEST_CASE("Processor rejects malformed syntax without changing engine state",
              "set key 22; version }", "set key 22; version \"dangling\\"})
     {
         auto const before = processor.get_engine_snapshot();
-        auto const [level, message] = processor.execute_command_string(command);
+        auto const [level, message] = execute(processor, command);
         auto const after = processor.get_engine_snapshot();
 
         CHECK(level == MessageLevel::Error);
@@ -292,7 +367,7 @@ TEST_CASE("Processor treats removed load keys command as unknown",
 {
     auto processor = XenProcessor{};
 
-    auto const [level, message] = processor.execute_command_string("load keys");
+    auto const [level, message] = execute(processor, "load keys");
 
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: load");
@@ -303,6 +378,9 @@ TEST_CASE("Processor executes commands registered at runtime", "[processor][comm
     auto processor = XenProcessor{};
     processor.command_catalog().add(command_dsl::command(
         {"custom", "key"}, false, "Set key through an extension command.",
+        CommandPolicy{ProjectOperation::Edit, LibraryAccess::None,
+                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
+                      RepeatPolicy::OnSuccessfulProjectChange, HistoryPolicy::Commit},
         std::make_tuple(command_dsl::required_arg<int>("key")),
         [](PluginState &plugin_state, CommandInvocation const &, int key) {
             auto state = plugin_state.timeline.get_state();
@@ -311,7 +389,7 @@ TEST_CASE("Processor executes commands registered at runtime", "[processor][comm
             return std::pair{MessageLevel::Info, std::string{"Custom Key Set"}};
         }));
 
-    auto const [level, message] = processor.execute_command_string("custom key 23");
+    auto const [level, message] = execute(processor, "custom key 23");
 
     CHECK(level == MessageLevel::Info);
     CHECK(message == "Custom Key Set");
@@ -324,20 +402,22 @@ TEST_CASE("Processor rebinds runtime commands when replaying",
     auto processor = XenProcessor{};
     auto increment = 2;
     processor.command_catalog().add(command_dsl::command(
-        {"custom", "increment"}, false, "Increment key.", std::make_tuple(),
-        [&increment](PluginState &state, CommandInvocation const &) {
+        {"custom", "increment"}, false, "Increment key.",
+        CommandPolicy{ProjectOperation::Edit, LibraryAccess::None,
+                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
+                      RepeatPolicy::OnSuccessfulProjectChange, HistoryPolicy::Commit},
+        std::make_tuple(), [&increment](PluginState &state, CommandInvocation const &) {
             auto engine = state.timeline.get_state();
             engine.key += increment;
             state.timeline.stage(std::move(engine));
             return minfo("Incremented");
         }));
 
-    REQUIRE(processor.execute_command_string("custom increment").first ==
-            MessageLevel::Info);
-    CHECK(processor.execute_command_string("version").first == MessageLevel::Info);
-    CHECK(processor.execute_command_string("set key 128").first == MessageLevel::Error);
+    REQUIRE(execute(processor, "custom increment").first == MessageLevel::Info);
+    CHECK(execute(processor, "version").first == MessageLevel::Info);
+    CHECK(execute(processor, "set key 128").first == MessageLevel::Error);
     increment = 5;
-    REQUIRE(processor.execute_command_string("again").first == MessageLevel::Info);
+    REQUIRE(execute(processor, "again").first == MessageLevel::Info);
     CHECK(processor.get_engine_snapshot().engine.key == 7);
 }
 
@@ -354,13 +434,13 @@ TEST_CASE("Measure effects are atomic and provide read-your-writes",
     processor.plugin_state.config.current_sequence_directory = directory;
 
     auto const [failed_level, _failed_message] =
-        processor.execute_command_string("save measure atomic; set key 128");
+        execute(processor, "save measure atomic; set key 128");
     CHECK(failed_level == MessageLevel::Error);
     CHECK(file.loadFileAsString().toStdString() == "original");
 
-    auto const [level, _message] = processor.execute_command_string(
-        "set measure timeSignature 7/8; save measure atomic; "
-        "set measure timeSignature 4/4; load measure atomic");
+    auto const [level, _message] =
+        execute(processor, "set measure timeSignature 7/8; save measure atomic; "
+                           "set measure timeSignature 4/4; load measure atomic");
     CHECK(level == MessageLevel::Info);
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine.measure.time_signature.numerator == 7);
@@ -389,7 +469,7 @@ TEST_CASE("Effect prepare and apply failures roll back state and files",
         auto const before = processor.get_engine_snapshot();
 
         auto const [level, message] =
-            processor.execute_command_string("set key 22; save measure atomic");
+            execute(processor, "set key 22; save measure atomic");
 
         CHECK(level == MessageLevel::Error);
         CHECK_FALSE(message.empty());
