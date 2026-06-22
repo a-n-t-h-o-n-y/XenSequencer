@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -12,6 +13,7 @@
 
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
+#include <xen/command.hpp>
 #include <xen/measure.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
@@ -24,36 +26,54 @@ using SampleIndex = std::uint64_t;
 
 using SampleCount = std::uint64_t;
 
-/**
- * The state of the sequencing engine.
- */
-struct EngineState
+struct NamedTuning
 {
-    Measure measure{};
-
-    sequence::Tuning tuning{
+    std::string name{"12-TET"};
+    sequence::Tuning definition{
         .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
         .octave = 1200,
         .description = "",
     };
-    std::string tuning_name{"12-TET"};
 
-    std::optional<Scale> scale{std::nullopt}; // Chromatic
-    int key{0}; // The pitch considered 'zero', transposition. [0, tuning size)
-    TranslateDirection scale_translate_direction{TranslateDirection::Up};
+    auto operator==(NamedTuning const &) const -> bool = default;
+};
 
+struct ActiveScale
+{
+    std::optional<std::string> source_id{};
+    Scale definition{};
+
+    auto operator==(ActiveScale const &) const -> bool = default;
+};
+
+struct PitchSystem
+{
+    NamedTuning tuning{};
+    std::optional<ActiveScale> scale{}; // null is chromatic
+    int transposition{0};
+    TranslateDirection translation_direction{TranslateDirection::Up};
     float base_frequency{440.f};
+
+    auto operator==(PitchSystem const &) const -> bool = default;
+};
+
+struct ProjectState
+{
+    Measure measure{};
+    PitchSystem pitch{};
 
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
-    auto operator==(EngineState const &) const -> bool = default;
-    auto operator!=(EngineState const &) const -> bool = default;
+    auto operator==(ProjectState const &) const -> bool = default;
+    auto operator!=(ProjectState const &) const -> bool = default;
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
 };
+
+void validate_timeline_state(ProjectState const &project);
 
 enum class SelectionStepKind
 {
@@ -82,64 +102,79 @@ struct SelectionPath
     auto operator!=(SelectionPath const &other) const -> bool = default;
 };
 
-/**
- * Saved baseline and chord-cycle parameters for repeatable chord transforms.
- */
-struct ChordCycleState
+enum class TransformKind : std::uint8_t
 {
-    // The state of the sequencer when the command was first used in a chain.
-    EngineState sequencer{};
-    SelectionPath selection{};
+    Arpeggio,
+    Chord,
+};
 
-    // The project revision from just before the last command call.
-    ProjectRevision previous_project_revision{};
+using TargetSnapshot = std::variant<sequence::Cell, sequence::MusicElement>;
 
-    // Parameters for the chord cycle.
-    std::string previous_chord_name{""};
+struct TransformCycleSession
+{
+    TransformKind kind{TransformKind::Chord};
+    SelectionPath target{};
+    TargetSnapshot baseline{sequence::Cell{}};
+    ProjectRevision project_revision{};
+    HistoryEntryId history_entry_id{};
+    LibraryRevision library_revision{};
+    std::string previous_chord_name{};
     int previous_inversion{-1};
+    bool committed{false};
 };
 
-struct TransformSessionState
+struct CommandSessionState
 {
-    ChordCycleState arp_state{};
-    ChordCycleState chord_state{};
+    std::optional<TransformCycleSession> transform_cycle{};
+    std::vector<CommandInvocation> repeat_chain{};
 };
 
-/**
- * The specific Timeline type for the Xen plugin.
- */
-using XenTimeline = Timeline<EngineState>;
+using XenTimeline = Timeline<ProjectState>;
 
-struct AppConfigState
+struct WorkspaceSettings
 {
-    juce::File current_sequence_directory = get_sequences_directory();
-    juce::File current_tuning_directory = get_tunings_directory();
+    juce::File sequence_directory = get_sequences_directory();
+    juce::File tuning_directory = get_tunings_directory();
+
+    auto operator==(WorkspaceSettings const &) const -> bool = default;
 };
 
-struct ContentLibraryState
+struct ContentLibrary
 {
-    std::vector<Scale> scales{};
-    std::optional<std::size_t> scale_shift_index{std::nullopt}; // null is chromatic
+    std::vector<LibraryScale> scales{};
     std::vector<Chord> chords{};
+
+    auto operator==(ContentLibrary const &) const -> bool = default;
 };
 
 struct PluginState
 {
-    AppConfigState config{};
-    ContentLibraryState library{};
-    TransformSessionState sessions{};
+    WorkspaceSettings workspace{};
+    ContentLibrary library{};
+    LibraryRevision library_revision{detail::allocate_library_revision()};
+    CommandSessionState command_session{};
     XenTimeline timeline;
 };
 
-/**
- * Snapshot passed from processor/core to UI readers.
- */
-struct EngineSnapshot
+struct ProjectSnapshot
 {
-    EngineState engine{};
+    ProjectState project{};
     HistoryEntryId history_entry_id{};
     ProjectRevision project_revision{};
-    std::uint64_t snapshot_version{0};
+};
+
+struct LibrarySnapshot
+{
+    ContentLibrary library{};
+    WorkspaceSettings workspace{};
+    LibraryRevision library_revision{};
+};
+
+struct AudioProjectSnapshot
+{
+    ProjectState project{};
+
+    auto operator==(AudioProjectSnapshot const &) const -> bool = default;
 };
 
 /**

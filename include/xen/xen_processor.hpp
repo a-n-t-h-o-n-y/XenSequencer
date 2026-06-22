@@ -17,30 +17,36 @@
 #include <xen/midi_engine.hpp>
 #include <xen/state.hpp>
 #include <xen/submission_effects.hpp>
+#include <xen/workspace_settings.hpp>
 
 namespace xen
 {
 
 class XenProcessor : public juce::AudioProcessor
 {
+  private:
+    WorkspaceSettingsStore workspace_settings_store_;
+
   public:
     PluginState plugin_state;
     int editor_width{1400};
     int editor_height{350};
 
   public:
-    // Used to send new EngineState snapshots to the Audio Thread.
+    // Used to send validated project snapshots to the audio thread.
     EngineStateMailbox pending_engine_state_update;
 
   public:
-    explicit XenProcessor(SubmissionEffects::FailurePoint effect_failure =
-                              SubmissionEffects::FailurePoint::None);
+    explicit XenProcessor(
+        SubmissionEffects::FailurePoint effect_failure =
+            SubmissionEffects::FailurePoint::None,
+        juce::File workspace_settings_file = WorkspaceSettingsStore::default_file());
 
     ~XenProcessor() override = default;
 
   public:
-    [[nodiscard]] auto get_engine_snapshot() const -> EngineSnapshot;
-    [[nodiscard]] auto get_ui_snapshot_version() const noexcept -> std::uint64_t;
+    [[nodiscard]] auto get_project_snapshot() const -> ProjectSnapshot;
+    [[nodiscard]] auto get_library_snapshot() const -> LibrarySnapshot;
 
   public:
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
@@ -91,17 +97,15 @@ class XenProcessor : public juce::AudioProcessor
     struct AudioThreadState
     {
         DAWState daw;
-        EngineState const *sequencer{};
+        ProjectState const *project{};
         MidiEngine midi_engine;
     } audio_thread_state_;
 
     CommandCatalog command_catalog_;
-    std::vector<CommandInvocation> previous_command_chain_{};
     SubmissionEffects::FailurePoint effect_failure_;
-    std::atomic<std::uint64_t> ui_snapshot_version_{0};
 
   private:
-    void notify_ui_state_changed() noexcept;
+    void publish_project_snapshot();
 
   public:
     DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;

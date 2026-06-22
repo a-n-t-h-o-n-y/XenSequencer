@@ -24,6 +24,14 @@ struct Scale
     [[nodiscard]] auto operator!=(Scale const &other) const -> bool;
 };
 
+struct LibraryScale
+{
+    std::string id{};
+    Scale definition{};
+
+    auto operator==(LibraryScale const &) const -> bool = default;
+};
+
 /**
  * Validate the invariants required for scale mapping.
  *
@@ -36,9 +44,10 @@ void validate_scale(Scale const &scale);
 /**
  * Loads in Scales from library directory's scales.yml and user_scales.yml files.
  */
-[[nodiscard]] auto load_scales_from_files() -> std::vector<Scale>;
+[[nodiscard]] auto load_scales_from_files() -> std::vector<LibraryScale>;
 [[nodiscard]] auto load_scales(std::string const &system_yaml,
-                               std::string const &user_yaml) -> std::vector<Scale>;
+                               std::string const &user_yaml)
+    -> std::vector<LibraryScale>;
 
 /**
  * Direction a Note should be shifted when mapping to a scale if equally spaced from

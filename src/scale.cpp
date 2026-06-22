@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -21,14 +22,17 @@
 namespace YAML
 {
 template <>
-struct convert<::xen::Scale>
+struct convert<::xen::LibraryScale>
 {
-    static auto decode(Node const &node, ::xen::Scale &scale) -> bool
+    static auto decode(Node const &node, ::xen::LibraryScale &entry) -> bool
     {
-        if (!node["name"] || !node["tuning_length"] || !node["intervals"])
+        if (!node["id"] || !node["name"] || !node["tuning_length"] ||
+            !node["intervals"])
         {
             return false;
         }
+        entry.id = node["id"].as<std::string>();
+        auto &scale = entry.definition;
         scale.name = ::xen::to_lower(node["name"].as<std::string>());
         scale.tuning_length = node["tuning_length"].as<std::size_t>();
         auto const intervals = node["intervals"].as<std::vector<unsigned>>();
@@ -96,28 +100,48 @@ void validate_scale(Scale const &scale)
     {
         throw std::invalid_argument{"Scale mode must be in the interval range."};
     }
+    auto const interval_sum =
+        std::accumulate(scale.intervals.begin(), scale.intervals.end(), std::size_t{0});
+    if (interval_sum != scale.tuning_length)
+    {
+        throw std::invalid_argument{"Scale intervals must sum to tuning_length."};
+    }
 }
 
-auto load_scales_from_files() -> std::vector<Scale>
+auto load_scales_from_files() -> std::vector<LibraryScale>
 {
     return load_scales(get_system_scales_file().loadFileAsString().toStdString(),
                        get_user_scales_file().loadFileAsString().toStdString());
 }
 
 auto load_scales(std::string const &system_yaml, std::string const &user_yaml)
-    -> std::vector<Scale>
+    -> std::vector<LibraryScale>
 {
     auto const system_node = YAML::Load(system_yaml);
     auto const user_node = YAML::Load(user_yaml);
-    auto system_scales = system_node["scales"].as<std::vector<Scale>>();
-    auto user_scales = std::vector<Scale>{};
+    auto system_scales = system_node["scales"].as<std::vector<LibraryScale>>();
+    auto user_scales = std::vector<LibraryScale>{};
     if (user_node["scales"])
     {
-        user_scales = user_node["scales"].as<std::vector<Scale>>();
+        user_scales = user_node["scales"].as<std::vector<LibraryScale>>();
     }
     system_scales.insert(std::end(system_scales),
                          std::make_move_iterator(std::begin(user_scales)),
                          std::make_move_iterator(std::end(user_scales)));
+    auto ids = std::vector<std::string>{};
+    ids.reserve(system_scales.size());
+    for (auto const &entry : system_scales)
+    {
+        if (entry.id.empty())
+        {
+            throw std::invalid_argument{"Scale ID must not be empty."};
+        }
+        if (std::ranges::find(ids, entry.id) != ids.end())
+        {
+            throw std::invalid_argument{"Duplicate scale ID: " + entry.id};
+        }
+        ids.push_back(entry.id);
+    }
     return system_scales;
 }
 

@@ -16,22 +16,22 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
     REQUIRE(source
                 .execute_command_string(
                     "set key 31", {.expected_project_revision =
-                                       source.get_engine_snapshot().project_revision})
+                                       source.get_project_snapshot().project_revision})
                 .status.first == MessageLevel::Info);
-    REQUIRE(
-        source
-            .execute_command_string("set baseFrequency 333.3",
-                                    {.expected_project_revision =
-                                         source.get_engine_snapshot().project_revision})
-            .status.first == MessageLevel::Info);
-    REQUIRE(
-        source
-            .execute_command_string("set measure timeSignature 7/8",
-                                    {.expected_project_revision =
-                                         source.get_engine_snapshot().project_revision})
-            .status.first == MessageLevel::Info);
+    REQUIRE(source
+                .execute_command_string(
+                    "set baseFrequency 333.3",
+                    {.expected_project_revision =
+                         source.get_project_snapshot().project_revision})
+                .status.first == MessageLevel::Info);
+    REQUIRE(source
+                .execute_command_string(
+                    "set measure timeSignature 7/8",
+                    {.expected_project_revision =
+                         source.get_project_snapshot().project_revision})
+                .status.first == MessageLevel::Info);
 
-    auto const expected = source.get_engine_snapshot().engine;
+    auto const expected = source.get_project_snapshot().project;
 
     auto blob = juce::MemoryBlock{};
     source.getStateInformation(blob);
@@ -44,7 +44,7 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
     auto target = XenProcessor{};
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
-    auto const actual = target.get_engine_snapshot().engine;
+    auto const actual = target.get_project_snapshot().project;
     CHECK(actual == expected);
 }
 
@@ -52,19 +52,17 @@ TEST_CASE("Processor setStateInformation ignores invalid payload safely",
           "[processor][state]")
 {
     auto processor = XenProcessor{};
-    auto const before_snapshot = processor.get_engine_snapshot();
-    auto const before_ui_version = processor.get_ui_snapshot_version();
+    auto const before_snapshot = processor.get_project_snapshot();
     auto const before_mailbox_version = processor.pending_engine_state_update.version();
 
     auto const invalid = "not json";
     REQUIRE_NOTHROW(processor.setStateInformation(
         invalid, (int)std::char_traits<char>::length(invalid)));
 
-    auto const after_snapshot = processor.get_engine_snapshot();
-    CHECK(after_snapshot.engine == before_snapshot.engine);
+    auto const after_snapshot = processor.get_project_snapshot();
+    CHECK(after_snapshot.project == before_snapshot.project);
     CHECK(after_snapshot.history_entry_id == before_snapshot.history_entry_id);
     CHECK(after_snapshot.project_revision == before_snapshot.project_revision);
-    CHECK(processor.get_ui_snapshot_version() == before_ui_version);
     CHECK(processor.pending_engine_state_update.version() == before_mailbox_version);
 }
 
@@ -75,7 +73,7 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
     REQUIRE(source
                 .execute_command_string(
                     "set key 5", {.expected_project_revision =
-                                      source.get_engine_snapshot().project_revision})
+                                      source.get_project_snapshot().project_revision})
                 .status.first == MessageLevel::Info);
 
     auto blob = juce::MemoryBlock{};
@@ -83,16 +81,14 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
     REQUIRE(blob.getSize() > 0);
 
     auto target = XenProcessor{};
-    auto const before = target.get_engine_snapshot();
-    auto const before_ui_version = target.get_ui_snapshot_version();
+    auto const before = target.get_project_snapshot();
     auto const before_mailbox_version = target.pending_engine_state_update.version();
 
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
-    auto const after = target.get_engine_snapshot();
+    auto const after = target.get_project_snapshot();
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
-    CHECK(target.get_ui_snapshot_version() > before_ui_version);
     CHECK(target.pending_engine_state_update.version() == before_mailbox_version + 1);
 }
 
@@ -104,16 +100,16 @@ TEST_CASE("Processor equal-data restoration replaces project history",
     processor.getStateInformation(blob);
     REQUIRE(blob.getSize() > 0);
 
-    auto const before = processor.get_engine_snapshot();
+    auto const before = processor.get_project_snapshot();
     REQUIRE_NOTHROW(processor.setStateInformation(blob.getData(), (int)blob.getSize()));
 
-    auto const after = processor.get_engine_snapshot();
-    CHECK(after.engine == before.engine);
+    auto const after = processor.get_project_snapshot();
+    CHECK(after.project == before.project);
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
     CHECK(processor
               .execute_command_string(
                   "undo", {.expected_project_revision =
-                               processor.get_engine_snapshot().project_revision})
+                               processor.get_project_snapshot().project_revision})
               .status.second == "Nothing to undo.");
 }

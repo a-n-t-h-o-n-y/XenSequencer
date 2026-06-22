@@ -1,32 +1,42 @@
 version: "0.3.1"
 scales:
-  - name: Major Diatonic
+  - id: major-diatonic
+    name: Major Diatonic
     tuning_length: 12
     intervals: [2, 2, 1, 2, 2, 2, 1]
-  - name: Major Pentatonic
+  - id: major-pentatonic
+    name: Major Pentatonic
     tuning_length: 12
     intervals: [2, 2, 3, 2, 3]
-  - name: Harmonic Minor
+  - id: harmonic-minor
+    name: Harmonic Minor
     tuning_length: 12
     intervals: [2, 1, 2, 2, 1, 3, 1]
-  - name: Whole Tone
+  - id: whole-tone
+    name: Whole Tone
     tuning_length: 12
     intervals: [2, 2, 2, 2, 2, 2]
-  - name: Diminished
+  - id: diminished
+    name: Diminished
     tuning_length: 12
     intervals: [1, 2, 1, 2, 1, 2, 1, 2]
-  - name: Melodic Minor Ascending
+  - id: melodic-minor-ascending
+    name: Melodic Minor Ascending
     tuning_length: 12
     intervals: [2, 1, 2, 2, 2, 2, 1]
-  - name: Enigmatic
+  - id: enigmatic
+    name: Enigmatic
     tuning_length: 12
     intervals: [1, 3, 2, 2, 2, 1, 1]
-  - name: Prometheus
+  - id: prometheus
+    name: Prometheus
     tuning_length: 12
     intervals: [2, 2, 2, 3, 1, 2]
-  - name: Harmonic Major
+  - id: harmonic-major
+    name: Harmonic Major
     tuning_length: 12
     intervals: [2, 2, 1, 2, 1, 3, 1]
-  - name: Augmented
+  - id: augmented
+    name: Augmented
     tuning_length: 12
     intervals: [3, 1, 3, 1, 3, 1]

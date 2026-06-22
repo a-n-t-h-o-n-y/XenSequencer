@@ -20,6 +20,7 @@
 #include <xen/command_catalog.hpp>
 #include <xen/command_transaction.hpp>
 #include <xen/midi.hpp>
+#include <xen/project_validation.hpp>
 #include <xen/selection.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
@@ -136,15 +137,17 @@ auto validate_selection_target(xen::TargetRequirement requirement,
 namespace xen
 {
 
-XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure)
-    : plugin_state{.timeline = XenTimeline{EngineState{}}},
+XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
+                           juce::File workspace_settings_file)
+    : workspace_settings_store_{std::move(workspace_settings_file)},
+      plugin_state{.workspace = workspace_settings_store_.load_or_initialize(),
+                   .timeline = XenTimeline{ProjectState{}}},
       command_catalog_{create_command_catalog()}, effect_failure_{effect_failure}
 {
     initialize_demo_files();
 
     // Send initial state to Audio Thread
-    pending_engine_state_update.publish(plugin_state.timeline.get_state());
-    notify_ui_state_changed();
+    publish_project_snapshot();
 
     this->execute_command_string("load scales", CommandContext{});
     this->execute_command_string("load chords", CommandContext{});
@@ -155,24 +158,29 @@ auto XenProcessor::command_catalog() const noexcept -> CommandCatalog const &
     return command_catalog_;
 }
 
-auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
+auto XenProcessor::get_project_snapshot() const -> ProjectSnapshot
 {
-    return EngineSnapshot{
-        .engine = plugin_state.timeline.get_state(),
+    return ProjectSnapshot{
+        .project = plugin_state.timeline.get_state(),
         .history_entry_id = plugin_state.timeline.get_current_entry_id(),
         .project_revision = plugin_state.timeline.get_project_revision(),
-        .snapshot_version = ui_snapshot_version_.load(std::memory_order_acquire),
     };
 }
 
-auto XenProcessor::get_ui_snapshot_version() const noexcept -> std::uint64_t
+auto XenProcessor::get_library_snapshot() const -> LibrarySnapshot
 {
-    return ui_snapshot_version_.load(std::memory_order_acquire);
+    return LibrarySnapshot{
+        .library = plugin_state.library,
+        .workspace = plugin_state.workspace,
+        .library_revision = plugin_state.library_revision,
+    };
 }
 
-void XenProcessor::notify_ui_state_changed() noexcept
+void XenProcessor::publish_project_snapshot()
 {
-    ui_snapshot_version_.fetch_add(1, std::memory_order_release);
+    validate(plugin_state.timeline.get_state());
+    pending_engine_state_update.publish(
+        AudioProjectSnapshot{plugin_state.timeline.get_state()});
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -246,13 +254,13 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     if (auto const snapshot = pending_engine_state_update.try_consume_latest())
     {
-        audio_thread_state_.sequencer = &snapshot->state();
+        audio_thread_state_.project = &snapshot->state().project;
         update_needed = true;
     }
 
-    if (update_needed && audio_thread_state_.sequencer != nullptr)
+    if (update_needed && audio_thread_state_.project != nullptr)
     {
-        audio_thread_state_.midi_engine.update(*audio_thread_state_.sequencer,
+        audio_thread_state_.midi_engine.update(*audio_thread_state_.project,
                                                audio_thread_state_.daw);
     }
 
@@ -291,7 +299,7 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_plugin(plugin_state.timeline.get_state());
+        auto const json_str = serialize_project(plugin_state.timeline.get_state());
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -309,10 +317,10 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     {
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-        auto state = deserialize_plugin(json_str);
+        auto state = deserialize_project(json_str);
         plugin_state.timeline.replace_history(std::move(state));
-        pending_engine_state_update.publish(plugin_state.timeline.get_state());
-        notify_ui_state_changed();
+        plugin_state.command_session = CommandSessionState{};
+        publish_project_snapshot();
     }
     catch (std::exception const &e)
     {
@@ -339,12 +347,13 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             auto const &step = std::get<BoundStep>(result);
             if (std::holds_alternative<RepeatPrevious>(step))
             {
-                if (previous_command_chain_.empty())
+                if (plugin_state.command_session.repeat_chain.empty())
                 {
                     return error_result("No previous command to repeat.");
                 }
-                expanded.insert(expanded.end(), previous_command_chain_.begin(),
-                                previous_command_chain_.end());
+                expanded.insert(expanded.end(),
+                                plugin_state.command_session.repeat_chain.begin(),
+                                plugin_state.command_session.repeat_chain.end());
             }
             else
             {
@@ -398,6 +407,10 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         }
 
         auto transaction = CommandTransaction{plugin_state, effect_failure_};
+        if (history_count == 1)
+        {
+            transaction.invalidate_transform_sessions();
+        }
         auto execution_context =
             CommandExecutionContext{.selection = context.selection};
         auto result = CommandApplicationResult{};
@@ -452,7 +465,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             auto const changed = transaction.project() != before;
             if ((changed &&
                  command.policy.history != HistoryPolicy::AmendCompatibleTransform) ||
-                transaction.library_changed())
+                transaction.library_changed() || transaction.workspace_changed())
             {
                 transaction.invalidate_transform_sessions();
             }
@@ -463,7 +476,12 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             }
         }
 
-        if (history_count == 0 && transaction.project_changed())
+        if (steps.size() != 1 && transaction.history_plan_is_amend())
+        {
+            transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
+        }
+        if (history_count == 0 && transaction.project_changed() &&
+            !transaction.has_history_plan())
         {
             transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
         }
@@ -473,6 +491,10 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         try
         {
             transaction.apply_effects();
+            if (transaction.workspace_changed())
+            {
+                workspace_settings_store_.save(transaction.workspace());
+            }
         }
         catch (std::exception const &e)
         {
@@ -489,7 +511,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         transaction.finalize_effects();
         if (transaction.repeat_candidate().has_value() && project_changed)
         {
-            previous_command_chain_ = *transaction.repeat_candidate();
+            plugin_state.command_session.repeat_chain = *transaction.repeat_candidate();
         }
         auto const &final_engine = plugin_state.timeline.get_state();
         auto const final_revision = plugin_state.timeline.get_project_revision();
@@ -505,11 +527,12 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         }
         if (final_revision != initial_revision || final_engine != initial_engine)
         {
-            pending_engine_state_update.publish(final_engine);
+            publish_project_snapshot();
         }
-        if (!steps.empty())
+        if (!expanded.empty() &&
+            expanded.front().input.words == std::vector<std::string>{"reset"})
         {
-            notify_ui_state_changed();
+            plugin_state.command_session = CommandSessionState{};
         }
         return result;
     }

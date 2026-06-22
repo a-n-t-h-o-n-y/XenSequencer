@@ -15,10 +15,9 @@ auto execute(XenProcessor &processor, std::string const &command,
     -> CommandApplicationResult
 {
     return processor.execute_command_string(
-        command,
-        {.selection = std::move(selection),
-         .expected_project_revision =
-             processor.get_engine_snapshot().project_revision});
+        command, {.selection = std::move(selection),
+                  .expected_project_revision =
+                      processor.get_project_snapshot().project_revision});
 }
 
 } // namespace
@@ -28,9 +27,8 @@ TEST_CASE("Targeted edits require a supplied selection", "[core][state-actions]"
     auto processor = XenProcessor{};
 
     auto const result = processor.execute_command_string(
-        "delete",
-        {.expected_project_revision =
-             processor.get_engine_snapshot().project_revision});
+        "delete", {.expected_project_revision =
+                       processor.get_project_snapshot().project_revision});
 
     CHECK(result.status.first == MessageLevel::Error);
     CHECK(result.status.second == "selection is required");

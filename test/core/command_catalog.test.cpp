@@ -77,7 +77,7 @@ TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catal
     REQUIRE(set_key_command.execute);
 
     auto state = PluginState{
-        .timeline = XenTimeline{EngineState{}},
+        .timeline = XenTimeline{ProjectState{}},
     };
     auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto context = CommandExecutionContext{};

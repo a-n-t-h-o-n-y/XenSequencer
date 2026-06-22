@@ -42,21 +42,21 @@ namespace xen
 [[nodiscard]] auto deserialize_measure(std::string const &json_str) -> Measure;
 
 /**
- * Serialize the full plugin state to a JSON string.
+ * Serialize project state using project schema 1.
  *
  * @param state The plugin state to serialize.
  * @return std::string The JSON string.
  */
-[[nodiscard]] auto serialize_plugin(EngineState const &state) -> std::string;
+[[nodiscard]] auto serialize_project(ProjectState const &project) -> std::string;
 
 /**
- * Deserialize a JSON string to a plugin state and metadata.
+ * Deserialize project schema 1.
  *
  * @param json_str The JSON string to deserialize.
- * @return EngineState The deserialized plugin state.
+ * @return ProjectState The deserialized project state.
  * @throw std::invalid_argument If the JSON string is invalid.
  */
-[[nodiscard]] auto deserialize_plugin(std::string const &json_str) -> EngineState;
+[[nodiscard]] auto deserialize_project(std::string const &json_str) -> ProjectState;
 
 [[nodiscard]] auto serialize_copy_buffer_content(CopyBufferContent const &content)
     -> std::string;

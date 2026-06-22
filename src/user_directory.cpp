@@ -1,5 +1,6 @@
 #include <xen/user_directory.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
@@ -66,8 +67,8 @@ auto get_system_keys_file() -> juce::File
 
     auto write_system_keys = [&key_file] {
         return key_file.create().wasOk() &&
-        key_file.replaceWithData(embed_keys::keys_yml,
-                                 (std::size_t)embed_keys::keys_ymlSize);
+               key_file.replaceWithData(embed_keys::keys_yml,
+                                        (std::size_t)embed_keys::keys_ymlSize);
     };
 
     auto const file_exists = key_file.existsAsFile();
@@ -119,7 +120,7 @@ auto get_system_scales_file() -> juce::File
     auto write_system_scales = [&scales_file] {
         return scales_file.create().wasOk() &&
                scales_file.replaceWithData(embed_scales::scales_yml,
-                                          (std::size_t)embed_scales::scales_ymlSize);
+                                           (std::size_t)embed_scales::scales_ymlSize);
     };
 
     auto const file_exists = scales_file.existsAsFile();
@@ -128,9 +129,20 @@ auto get_system_scales_file() -> juce::File
     {
         auto root = YAML::LoadFile(full_path);
         auto const ver_node = root["version"];
-        if (ver_node.IsDefined() && ver_node.as<std::string>() == xen::VERSION)
+        auto const scales = root["scales"];
+        auto const has_ids = scales.IsSequence() &&
+                             std::ranges::all_of(scales, [](YAML::Node const &scale) {
+                                 return scale["id"].IsDefined();
+                             });
+        if (ver_node.IsDefined() && ver_node.as<std::string>() == xen::VERSION &&
+            has_ids)
         {
             return scales_file;
+        }
+        if (!scales_file.deleteFile())
+        {
+            throw std::runtime_error{
+                "Unable to replace outdated scales file: " + full_path + "."};
         }
     }
 
@@ -171,7 +183,7 @@ auto get_system_chords_file() -> juce::File
     auto write_system_chords = [&chords_file] {
         return chords_file.create().wasOk() &&
                chords_file.replaceWithData(embed_chords::chords_yml,
-                                          (std::size_t)embed_chords::chords_ymlSize);
+                                           (std::size_t)embed_chords::chords_ymlSize);
     };
 
     auto const file_exists = chords_file.existsAsFile();

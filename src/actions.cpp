@@ -179,7 +179,7 @@ void validate_octave(sequence::MusicElement const &element,
 
 } // namespace
 
-auto copy(EngineState const &state, SelectionPath const &selection)
+auto copy(ProjectState const &state, SelectionPath const &selection)
     -> CopyBufferContent
 {
     if (selection_kind(selection) == SelectionKind::Element)
@@ -189,7 +189,7 @@ auto copy(EngineState const &state, SelectionPath const &selection)
     return get_selected_cell_const(state.measure, selection);
 }
 
-auto paste(EngineState &state, SelectionPath const &selection,
+auto paste(ProjectState &state, SelectionPath const &selection,
            CopyBufferContent const &content) -> SelectionMutation
 {
     auto suggested_selection = selection;
@@ -232,7 +232,7 @@ auto paste(EngineState &state, SelectionPath const &selection,
     return SelectionMutation{.selection = std::move(suggested_selection)};
 }
 
-auto duplicate(EngineState &state, SelectionPath const &selection) -> SelectionMutation
+auto duplicate(ProjectState &state, SelectionPath const &selection) -> SelectionMutation
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
@@ -258,12 +258,13 @@ auto duplicate(EngineState &state, SelectionPath const &selection) -> SelectionM
     return SelectionMutation{.selection = std::move(new_selection)};
 }
 
-auto lift(EngineState &state, SelectionPath const &selection) -> SelectionMutation
+auto lift(ProjectState &state, SelectionPath const &selection) -> SelectionMutation
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
         auto &cell = get_selected_cell(state.measure, selection);
-        auto element = std::move(cell.elements.at(get_selected_element_index(selection)));
+        auto element =
+            std::move(cell.elements.at(get_selected_element_index(selection)));
         cell.elements.clear();
         cell.elements.push_back(std::move(element));
         return SelectionMutation{.selection = select_parent_cell(selection)};
@@ -283,11 +284,11 @@ auto lift(EngineState &state, SelectionPath const &selection) -> SelectionMutati
     return SelectionMutation{.selection = select_parent_cell(selection)};
 }
 
-auto shift_octave(EngineState state, SelectionPath const &selection,
-                  sequence::Pattern const &pattern, int amount) -> EngineState
+auto shift_octave(ProjectState state, SelectionPath const &selection,
+                  sequence::Pattern const &pattern, int amount) -> ProjectState
 {
-    auto const tuning_length = numeric::checked_cast<int>(state.tuning.intervals.size(),
-                                                          "Tuning length exceeds int.");
+    auto const tuning_length = numeric::checked_cast<int>(
+        state.pitch.tuning.definition.intervals.size(), "Tuning length exceeds int.");
     auto const shift =
         numeric::checked_mul(amount, tuning_length, "Octave shift exceeds int.");
     if (selection_kind(selection) == SelectionKind::Element)
@@ -303,10 +304,10 @@ auto shift_octave(EngineState state, SelectionPath const &selection,
     return state;
 }
 
-auto set_note_octave(EngineState state, SelectionPath const &selection,
-                     sequence::Pattern const &pattern, int octave) -> EngineState
+auto set_note_octave(ProjectState state, SelectionPath const &selection,
+                     sequence::Pattern const &pattern, int octave) -> ProjectState
 {
-    auto const tuning_length = state.tuning.intervals.size();
+    auto const tuning_length = state.pitch.tuning.definition.intervals.size();
     if (selection_kind(selection) == SelectionKind::Element)
     {
         auto &element = get_selected_element(state.measure, selection);
@@ -322,7 +323,7 @@ auto set_note_octave(EngineState state, SelectionPath const &selection,
     return state;
 }
 
-auto delete_cell(EngineState &state, SelectionPath const &selection)
+auto delete_cell(ProjectState &state, SelectionPath const &selection)
     -> SelectionMutation
 {
     if (selection_kind(selection) == SelectionKind::Element)
@@ -348,9 +349,9 @@ auto delete_cell(EngineState &state, SelectionPath const &selection)
     return SelectionMutation{.selection = selection};
 }
 
-auto set_base_frequency(EngineState state, float freq) -> EngineState
+auto set_base_frequency(ProjectState state, float freq) -> ProjectState
 {
-    state.base_frequency = std::clamp(freq, 20.f, 20'000.f);
+    state.pitch.base_frequency = std::clamp(freq, 20.f, 20'000.f);
     return state;
 }
 

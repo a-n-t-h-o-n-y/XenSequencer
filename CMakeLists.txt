@@ -205,6 +205,7 @@ set(XEN_CORE_SOURCES
     src/midi_engine.cpp
     src/modulator.cpp
     src/parse_args.cpp
+    src/project_validation.cpp
     src/scale.cpp
     src/selection.cpp
     src/serialize.cpp
@@ -214,6 +215,7 @@ set(XEN_CORE_SOURCES
     src/utility.cpp
     src/bridge_serialize.cpp
     src/webview_bridge.cpp
+    src/workspace_settings.cpp
 )
 
 set(XEN_UI_SOURCES
@@ -336,6 +338,7 @@ if (XEN_BUILD_TESTS)
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
         test/core/webview_bridge.test.cpp
+        test/data_model_refactor.test.cpp
         test/midi.test.cpp
         test/midi_engine.test.cpp
         test/numeric_safety.test.cpp

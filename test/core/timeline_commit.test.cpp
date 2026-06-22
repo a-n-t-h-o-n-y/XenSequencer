@@ -15,8 +15,7 @@ auto current_context(XenProcessor const &processor,
 {
     return {
         .selection = std::move(selection),
-        .expected_project_revision =
-            processor.get_engine_snapshot().project_revision,
+        .expected_project_revision = processor.get_project_snapshot().project_revision,
     };
 }
 
@@ -28,27 +27,27 @@ TEST_CASE("Mutating commands advance history identity and project revision",
           "[core][timeline][commit]")
 {
     auto processor = XenProcessor{};
-    auto const initial = processor.get_engine_snapshot();
+    auto const initial = processor.get_project_snapshot();
 
     auto const result =
         processor.execute_command_string("set key 12", current_context(processor));
     CHECK(result.status.first == MessageLevel::Info);
 
-    auto const after = processor.get_engine_snapshot();
+    auto const after = processor.get_project_snapshot();
     CHECK(after.history_entry_id != initial.history_entry_id);
     CHECK(after.project_revision != initial.project_revision);
-    CHECK(after.engine.key == 12);
+    CHECK(after.project.pitch.transposition == 12);
 }
 
 TEST_CASE("Timeline commit requires explicit state and preserves redo on no-op",
           "[core][timeline][commit]")
 {
-    auto timeline = XenTimeline{EngineState{}};
+    auto timeline = XenTimeline{ProjectState{}};
     auto engine = timeline.get_state();
-    engine.key = 1;
+    engine.pitch.transposition = 1;
     timeline.stage(engine);
     REQUIRE(timeline.commit(timeline.get_state()));
-    engine.key = 2;
+    engine.pitch.transposition = 2;
     timeline.stage(engine);
     REQUIRE(timeline.commit(timeline.get_state()));
     REQUIRE(timeline.undo());
@@ -59,21 +58,21 @@ TEST_CASE("Timeline commit requires explicit state and preserves redo on no-op",
     CHECK(timeline.get_current_entry_id() == entry_before);
     CHECK(timeline.get_project_revision() == revision_before);
     CHECK(timeline.redo());
-    CHECK(timeline.get_state().key == 2);
+    CHECK(timeline.get_state().pitch.transposition == 2);
 }
 
 TEST_CASE("Guarded amendment and replacement keep history invariants",
           "[core][timeline][commit]")
 {
-    auto timeline = XenTimeline{EngineState{}};
+    auto timeline = XenTimeline{ProjectState{}};
     auto state = timeline.get_state();
-    state.key = 1;
+    state.pitch.transposition = 1;
     timeline.stage(state);
     REQUIRE(timeline.commit(timeline.get_state()));
 
     auto const entry_id = timeline.get_current_entry_id();
     auto const revision = timeline.get_project_revision();
-    state.key = 2;
+    state.pitch.transposition = 2;
 
     REQUIRE(timeline.amend_current(entry_id, state));
     CHECK(timeline.get_current_entry_id() == entry_id);

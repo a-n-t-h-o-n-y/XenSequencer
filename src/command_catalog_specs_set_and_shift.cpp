@@ -228,30 +228,29 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"set", "scale"}, false, "Set the active scale by name.",
+        {"set", "scale"}, false, "Set the active scale by source ID.",
         library_read_edit_policy,
-        std::make_tuple(required_arg<std::string>("String", "name")),
+        std::make_tuple(required_arg<std::string>("String", "source_id")),
         [](CommandHandlerContext &context, CommandInvocation const &,
-           std::string const &name) {
-            auto const scale_name = to_lower(name);
+           std::string const &source_id) {
             auto state = context.project();
-            if (scale_name == "chromatic")
+            if (source_id == "chromatic")
             {
-                state.scale = std::nullopt;
+                state.pitch.scale = std::nullopt;
                 context.edit_project() = std::move(state);
-                return make_result(minfo("Scale Set to " + scale_name + "."));
+                return make_result(minfo("Scale Set to chromatic."));
             }
-            auto const at =
-                std::ranges::find(context.library().scales, scale_name,
-                                  [](Scale const &scale) { return scale.name; });
+            auto const at = std::ranges::find(context.library().scales, source_id,
+                                              &LibraryScale::id);
             if (at == std::end(context.library().scales))
             {
-                return make_result(merror("No Scale Found: " + scale_name + "."));
+                return make_result(merror("No Scale Found: " + source_id + "."));
             }
-            validate_scale(*at);
-            state.scale = *at;
+            validate_scale(at->definition);
+            state.pitch.scale =
+                ActiveScale{.source_id = at->id, .definition = at->definition};
             context.edit_project() = std::move(state);
-            return make_result(minfo("Scale Set to " + scale_name + "."));
+            return make_result(minfo("Scale Set to " + source_id + "."));
         }));
 
     specs.push_back(command(
@@ -260,14 +259,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t mode_index) {
             auto state = context.project();
-            if (mode_index == 0 || !state.scale.has_value() ||
-                mode_index > state.scale->intervals.size())
+            if (mode_index == 0 || !state.pitch.scale.has_value() ||
+                mode_index > state.pitch.scale->definition.intervals.size())
             {
                 return make_result(
                     merror("Invalid Mode Index. Must be in range [1, scale size)."));
             }
-            state.scale->mode = static_cast<std::uint8_t>(mode_index);
-            validate_scale(*state.scale);
+            state.pitch.scale->definition.mode = static_cast<std::uint8_t>(mode_index);
+            validate_scale(state.pitch.scale->definition);
             context.edit_project() = std::move(state);
             return make_result(minfo("Scale Mode Set"));
         }));
@@ -282,11 +281,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             auto state = context.project();
             if (direction == "up")
             {
-                state.scale_translate_direction = TranslateDirection::Up;
+                state.pitch.translation_direction = TranslateDirection::Up;
             }
             else if (direction == "down")
             {
-                state.scale_translate_direction = TranslateDirection::Down;
+                state.pitch.translation_direction = TranslateDirection::Down;
             }
             else
             {
@@ -306,7 +305,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                                           ". Must be in range [-127, 127]."));
             }
             auto state = context.project();
-            state.key = key;
+            state.pitch.transposition = key;
             context.edit_project() = std::move(state);
             return make_result(minfo("Key Set to " + std::to_string(key) + "."));
         }));
@@ -464,17 +463,37 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"shift", "scale"}, false, "Shift loaded scale index.",
-        library_mutating_edit_policy,
+        library_read_edit_policy,
         std::make_tuple(optional_arg<int>("Int", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
-            auto &library = context.edit_library();
-            auto const index = action::shift_scale_index(library.scale_shift_index,
-                                                         amount, library.scales.size());
-            library.scale_shift_index = index;
-            state.scale = index.has_value() && *index < library.scales.size()
-                              ? std::optional<Scale>{library.scales[*index]}
-                              : std::nullopt;
+            auto const &library = context.library();
+            auto current = std::optional<std::size_t>{};
+            if (state.pitch.scale.has_value())
+            {
+                if (!state.pitch.scale->source_id.has_value())
+                {
+                    return make_result(
+                        merror("Active scale has no library source ID."));
+                }
+                auto const at = std::ranges::find(
+                    library.scales, *state.pitch.scale->source_id, &LibraryScale::id);
+                if (at == library.scales.end())
+                {
+                    return make_result(
+                        merror("Active scale source is missing from the library."));
+                }
+                current =
+                    static_cast<std::size_t>(std::distance(library.scales.begin(), at));
+            }
+            auto const index =
+                action::shift_scale_index(current, amount, library.scales.size());
+            state.pitch.scale =
+                index.has_value()
+                    ? std::optional<ActiveScale>{ActiveScale{
+                          .source_id = library.scales[*index].id,
+                          .definition = library.scales[*index].definition}}
+                    : std::nullopt;
             context.edit_project() = std::move(state);
             return make_result(minfo("Scale Shifted"));
         }));
@@ -484,9 +503,10 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(optional_arg<int>("Int", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
-            if (state.scale.has_value())
+            if (state.pitch.scale.has_value())
             {
-                state.scale = action::shift_scale_mode(*state.scale, amount);
+                state.pitch.scale->definition =
+                    action::shift_scale_mode(state.pitch.scale->definition, amount);
                 context.edit_project() = std::move(state);
             }
             return make_result(minfo("Scale Mode Shifted"));
@@ -497,14 +517,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 project_edit_policy, std::make_tuple(),
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     auto state = context.project();
-                    action::flip_translate_direction(state.scale_translate_direction);
+                    action::flip_translate_direction(state.pitch.translation_direction);
                     context.edit_project() = std::move(state);
                     return make_result(minfo("Translate Direction Shifted"));
                 }));
 
     specs.push_back(command(
         {"shift", "entireScale"}, false, "Shift direction, mode, and scale together.",
-        library_mutating_edit_policy,
+        library_read_edit_policy,
         std::make_tuple(optional_arg<int>("Int", "direction", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int direction) {
             if (direction != 1 && direction != -1)
@@ -512,33 +532,51 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 return make_result(merror("Invalid direction, must be 1 or -1"));
             }
             auto state = context.project();
-            auto &library = context.edit_library();
-            auto &translate_direction = state.scale_translate_direction;
-            if (state.scale.has_value())
+            auto const &library = context.library();
+            auto &translate_direction = state.pitch.translation_direction;
+            if (state.pitch.scale.has_value())
             {
+                if (!state.pitch.scale->source_id.has_value())
+                {
+                    return make_result(
+                        merror("Active scale has no library source ID."));
+                }
+                auto at = std::ranges::find(
+                    library.scales, *state.pitch.scale->source_id, &LibraryScale::id);
+                if (at == library.scales.end())
+                {
+                    return make_result(
+                        merror("Active scale source is missing from the library."));
+                }
                 action::flip_translate_direction(translate_direction);
                 if (translate_direction == TranslateDirection::Up)
                 {
-                    state.scale = action::shift_scale_mode(*state.scale, direction);
-                    if ((state.scale->mode == 1 && direction == 1) ||
-                        (state.scale->mode == state.scale->intervals.size() &&
+                    state.pitch.scale->definition = action::shift_scale_mode(
+                        state.pitch.scale->definition, direction);
+                    if ((state.pitch.scale->definition.mode == 1 && direction == 1) ||
+                        (state.pitch.scale->definition.mode ==
+                             state.pitch.scale->definition.intervals.size() &&
                          direction == -1))
                     {
-                        auto const index =
-                            action::shift_scale_index(library.scale_shift_index,
-                                                      direction, library.scales.size());
-                        library.scale_shift_index = index;
+                        auto const current = static_cast<std::size_t>(
+                            std::distance(library.scales.begin(), at));
+                        auto const index = action::shift_scale_index(
+                            current, direction, library.scales.size());
                         if (index.has_value() && *index < library.scales.size())
                         {
-                            state.scale = library.scales[*index];
+                            state.pitch.scale = ActiveScale{
+                                .source_id = library.scales[*index].id,
+                                .definition = library.scales[*index].definition,
+                            };
                             if (direction == -1)
                             {
-                                state.scale->mode = state.scale->intervals.size();
+                                state.pitch.scale->definition.mode =
+                                    state.pitch.scale->definition.intervals.size();
                             }
                         }
                         else
                         {
-                            state.scale = std::nullopt;
+                            state.pitch.scale = std::nullopt;
                         }
                     }
                 }
@@ -546,7 +584,10 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else if (!library.scales.empty())
             {
                 auto const index = direction == 1 ? 0 : library.scales.size() - 1;
-                state.scale = library.scales[index];
+                state.pitch.scale = ActiveScale{
+                    .source_id = library.scales[index].id,
+                    .definition = library.scales[index].definition,
+                };
                 translate_direction = TranslateDirection::Up;
             }
             context.edit_project() = std::move(state);

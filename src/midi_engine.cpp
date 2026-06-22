@@ -14,8 +14,7 @@ namespace
 {
 
 [[nodiscard]] auto live_voice_less(xen::midi_internal::LiveVoice const &lhs,
-                                   xen::midi_internal::LiveVoice const &rhs)
-    -> bool
+                                   xen::midi_internal::LiveVoice const &rhs) -> bool
 {
     return std::tie(lhs.channel, lhs.note.begin, lhs.note.end, lhs.note.note,
                     lhs.note.pitch_bend, lhs.note.velocity) <
@@ -64,8 +63,8 @@ void emit_live_voice_note_off(juce::MidiBuffer &buffer,
 void emit_live_voice_pitch_bend(juce::MidiBuffer &buffer,
                                 xen::midi_internal::LiveVoice const &voice)
 {
-    buffer.addEvent(
-        juce::MidiMessage::pitchWheel(voice.channel, voice.note.pitch_bend), 0);
+    buffer.addEvent(juce::MidiMessage::pitchWheel(voice.channel, voice.note.pitch_bend),
+                    0);
 }
 
 void emit_live_voice_note_on(juce::MidiBuffer &buffer,
@@ -84,8 +83,8 @@ void emit_live_voice_note_on(juce::MidiBuffer &buffer,
 }
 
 [[nodiscard]] auto live_voice_continuation_less(
-    xen::midi_internal::LiveVoice const &lhs,
-    xen::midi_internal::LiveVoice const &rhs) -> bool
+    xen::midi_internal::LiveVoice const &lhs, xen::midi_internal::LiveVoice const &rhs)
+    -> bool
 {
     return continuation_key(lhs) < continuation_key(rhs);
 }
@@ -99,7 +98,8 @@ void emit_live_voice_note_on(juce::MidiBuffer &buffer,
 }
 
 void reconcile_live_voices(
-    juce::MidiBuffer &buffer, std::vector<xen::midi_internal::LiveVoice> &active_live_voices,
+    juce::MidiBuffer &buffer,
+    std::vector<xen::midi_internal::LiveVoice> &active_live_voices,
     std::vector<xen::midi_internal::LiveVoice> const &desired_live_voices)
 {
     auto const current_live_voices =
@@ -186,11 +186,9 @@ void reconcile_live_voices(
 }
 
 [[nodiscard]] auto render_measure(xen::Measure const &measure,
-                                  sequence::Tuning const &tuning,
-                                  float base_frequency,
+                                  sequence::Tuning const &tuning, float base_frequency,
                                   xen::DAWState const &daw,
-                                  std::optional<xen::Scale> const &scale,
-                                  int key,
+                                  std::optional<xen::Scale> const &scale, int key,
                                   xen::TranslateDirection scale_translate_direction)
     -> std::vector<xen::midi_internal::AssignedMidiNote>
 {
@@ -229,9 +227,8 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         return out_buffer;
     }
 
-    auto const desired_start_live =
-        live_voices_at(rendered_midi_.assigned_notes, rendered_midi_.sample_count,
-                       offset);
+    auto const desired_start_live = live_voices_at(rendered_midi_.assigned_notes,
+                                                   rendered_midi_.sample_count, offset);
     reconcile_live_voices(out_buffer, active_live_voices_, desired_start_live);
 
     if (length > std::numeric_limits<SampleIndex>::max() - offset)
@@ -240,14 +237,12 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     }
     auto const window_end = offset + length;
 
-    auto const looped =
-        extract_window(rendered_midi_.midi, rendered_midi_.sample_count, offset,
-                       window_end);
+    auto const looped = extract_window(rendered_midi_.midi, rendered_midi_.sample_count,
+                                       offset, window_end);
     out_buffer.addEvents(looped, 0, -1, 0);
 
-    auto desired_end_live =
-        live_voices_at(rendered_midi_.assigned_notes, rendered_midi_.sample_count,
-                       window_end);
+    auto desired_end_live = live_voices_at(rendered_midi_.assigned_notes,
+                                           rendered_midi_.sample_count, window_end);
     auto const desired_end_live_sorted =
         normalize_live_voice_continuations(std::move(desired_end_live));
     auto active_live_voices_sorted =
@@ -288,17 +283,20 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     return out_buffer;
 }
 
-void MidiEngine::update(EngineState const &sequencer, DAWState const &daw)
+void MidiEngine::update(ProjectState const &project, DAWState const &daw)
 {
-    auto assigned_notes =
-        render_measure(sequencer.measure, sequencer.tuning, sequencer.base_frequency,
-                       daw, sequencer.scale, sequencer.key,
-                       sequencer.scale_translate_direction);
+    auto assigned_notes = render_measure(
+        project.measure, project.pitch.tuning.definition, project.pitch.base_frequency,
+        daw,
+        project.pitch.scale.has_value()
+            ? std::optional<Scale>{project.pitch.scale->definition}
+            : std::nullopt,
+        project.pitch.transposition, project.pitch.translation_direction);
     rendered_midi_ = {
         .midi = midi_internal::render_assigned_notes(assigned_notes),
         .assigned_notes = std::move(assigned_notes),
         .sample_count = midi_internal::checked_measure_sample_count(
-            sequencer.measure.time_signature, daw.sample_rate, daw.bpm),
+            project.measure.time_signature, daw.sample_rate, daw.bpm),
     };
 }
 

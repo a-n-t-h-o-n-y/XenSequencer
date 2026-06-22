@@ -1,5 +1,7 @@
 # 13: Final Cleanup and Invariant Audit
 
+Status: Backend audit complete; frontend pending.
+
 ## Objective
 
 Remove migration leftovers and prove the final implementation satisfies the tracker’s
@@ -23,23 +25,23 @@ Packages 06 through 12.
 
 ## Acceptance criteria
 
-- [ ] No project-aware command runs without an expected current revision.
-- [ ] Stale positional selections are always rejected and never rebased.
-- [ ] Handlers receive only declared capabilities.
-- [ ] A command chain installs at most one project-history transition.
-- [ ] Chord/arp cycling uses a backend baseline and amends at most one committed entry.
-- [ ] Project, library, command-session, UI, workspace, and transport state have
+- [x] No project-aware command runs without an expected current revision.
+- [x] Stale positional selections are always rejected and never rebased.
+- [x] Handlers receive only declared capabilities.
+- [x] A command chain installs at most one project-history transition.
+- [x] Chord/arp cycling uses a backend baseline and amends at most one committed entry.
+- [x] Project, library, command-session, UI, workspace, and transport state have
       separate ownership.
-- [ ] No whole-`PluginState` command transaction copy remains.
-- [ ] No removed endpoint, old schema field, compatibility shim, or duplicate source of
+- [x] No whole-`PluginState` command transaction copy remains.
+- [x] No removed endpoint, old schema field, compatibility shim, or duplicate source of
       truth remains.
 - [ ] Documentation describes only the final architecture.
 
 ## Verification
 
-- [ ] Configure with `./configure.sh` if required by source/CMake changes.
-- [ ] Build the relevant aggregate targets with `cmake --build build`.
-- [ ] Run `ctest --test-dir build --output-on-failure` successfully.
-- [ ] Run `git diff --check`.
-- [ ] Review the complete diff for scope growth, stale comments, temporary code, and
+- [x] Configure with `./configure.sh` if required by source/CMake changes.
+- [x] Build the relevant aggregate targets with `cmake --build build`.
+- [x] Run `ctest --test-dir build --output-on-failure` successfully.
+- [x] Run `git diff --check`.
+- [x] Review the complete diff for scope growth, stale comments, temporary code, and
       unintended generated artifacts.

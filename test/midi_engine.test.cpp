@@ -13,13 +13,17 @@
 namespace
 {
 
-[[nodiscard]] auto first_timed_note(xen::EngineState const &engine,
+[[nodiscard]] auto first_timed_note(xen::ProjectState const &engine,
                                     xen::DAWState const &daw)
     -> sequence::midi::TimedMidiNote
 {
     auto const timeline = xen::state_to_timeline(
-        engine.measure, engine.tuning, engine.base_frequency, daw, engine.scale,
-        engine.key, engine.scale_translate_direction);
+        engine.measure, engine.pitch.tuning.definition, engine.pitch.base_frequency,
+        daw,
+        engine.pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.pitch.scale->definition}
+            : std::nullopt,
+        engine.pitch.transposition, engine.pitch.translation_direction);
     if (timeline.empty())
     {
         return {};
@@ -30,9 +34,9 @@ namespace
 [[nodiscard]] auto make_tuning_with_offset(float cents) -> sequence::Tuning
 {
     return {
-        .intervals = {cents, 100.f + cents, 200.f + cents, 300.f + cents,
-                      400.f + cents, 500.f + cents, 600.f + cents, 700.f + cents,
-                      800.f + cents, 900.f + cents, 1000.f + cents, 1100.f + cents},
+        .intervals = {cents, 100.f + cents, 200.f + cents, 300.f + cents, 400.f + cents,
+                      500.f + cents, 600.f + cents, 700.f + cents, 800.f + cents,
+                      900.f + cents, 1000.f + cents, 1100.f + cents},
         .octave = 1200.f,
         .description = "offset",
     };
@@ -40,28 +44,29 @@ namespace
 
 [[nodiscard]] auto make_tuning_shifted_engine(int pitch, float cents,
                                               float velocity = 0.75f)
-    -> xen::EngineState
+    -> xen::ProjectState
 {
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = velocity}},
         .weight = 1.f,
     };
-    engine.tuning = make_tuning_with_offset(cents);
+    engine.pitch.tuning.definition = make_tuning_with_offset(cents);
     return engine;
 }
 
-[[nodiscard]] auto make_two_note_tuning_engine(float cents) -> xen::EngineState
+[[nodiscard]] auto make_two_note_tuning_engine(float cents) -> xen::ProjectState
 {
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = {
-        .elements = {
-            sequence::Note{.pitch = 0, .velocity = 0.75f},
-            sequence::Note{.pitch = 1, .velocity = 0.75f},
-        },
+        .elements =
+            {
+                sequence::Note{.pitch = 0, .velocity = 0.75f},
+                sequence::Note{.pitch = 1, .velocity = 0.75f},
+            },
         .weight = 1.f,
     };
-    engine.tuning = make_tuning_with_offset(cents);
+    engine.pitch.tuning.definition = make_tuning_with_offset(cents);
     return engine;
 }
 
@@ -101,9 +106,9 @@ struct CapturedEvent
     return daw;
 }
 
-[[nodiscard]] auto make_sustained_note_engine(int pitch) -> xen::EngineState
+[[nodiscard]] auto make_sustained_note_engine(int pitch) -> xen::ProjectState
 {
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = 0.75f}},
         .weight = 1.f,
@@ -111,9 +116,9 @@ struct CapturedEvent
     return engine;
 }
 
-[[nodiscard]] auto make_empty_engine() -> xen::EngineState
+[[nodiscard]] auto make_empty_engine() -> xen::ProjectState
 {
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = {
         .elements = {},
         .weight = 1.f,
@@ -121,9 +126,9 @@ struct CapturedEvent
     return engine;
 }
 
-[[nodiscard]] auto make_second_half_note_engine(int pitch) -> xen::EngineState
+[[nodiscard]] auto make_second_half_note_engine(int pitch) -> xen::ProjectState
 {
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = {
         .elements = {sequence::Sequence{{
             {.elements = {}, .weight = 1.f},
@@ -135,12 +140,16 @@ struct CapturedEvent
     return engine;
 }
 
-[[nodiscard]] auto first_note_number(xen::EngineState const &engine,
+[[nodiscard]] auto first_note_number(xen::ProjectState const &engine,
                                      xen::DAWState const &daw) -> int
 {
     auto const timeline = xen::state_to_timeline(
-        engine.measure, engine.tuning, engine.base_frequency, daw, engine.scale,
-        engine.key, engine.scale_translate_direction);
+        engine.measure, engine.pitch.tuning.definition, engine.pitch.base_frequency,
+        daw,
+        engine.pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.pitch.scale->definition}
+            : std::nullopt,
+        engine.pitch.transposition, engine.pitch.translation_direction);
     if (timeline.size() != 1)
     {
         return -1;
@@ -277,8 +286,9 @@ TEST_CASE("MidiEngine does not retrigger when only future notes change",
     CHECK(after_events.empty());
 }
 
-TEST_CASE("MidiEngine turns off active notes when transport stops and only does it once",
-          "[midi][midi-engine]")
+TEST_CASE(
+    "MidiEngine turns off active notes when transport stops and only does it once",
+    "[midi][midi-engine]")
 {
     auto engine = xen::MidiEngine{};
     auto const playing = playing_daw_state();
@@ -293,7 +303,8 @@ TEST_CASE("MidiEngine turns off active notes when transport stops and only does 
     CHECK(stop_events[0].sample_position == 0);
     CHECK(stop_events[0].message.isNoteOff());
     CHECK(stop_events[0].message.getChannel() == 2);
-    CHECK(stop_events[0].message.getNoteNumber() == first_note_number(sequencer, playing));
+    CHECK(stop_events[0].message.getNoteNumber() ==
+          first_note_number(sequencer, playing));
 
     auto const stopped_again = capture_events(engine.step({}, 120, 10, stopped));
     CHECK(stopped_again.empty());

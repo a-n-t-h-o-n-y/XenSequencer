@@ -29,7 +29,7 @@ constexpr auto informational_policy = CommandPolicy{
     FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::None};
 constexpr auto reset_policy = CommandPolicy{
-    ProjectOperation::Edit, LibraryAccess::Mutate,   WorkspaceAccess::None,
+    ProjectOperation::Edit, LibraryAccess::None,     WorkspaceAccess::None,
     FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::Commit};
 constexpr auto history_navigation_policy =
@@ -81,6 +81,10 @@ constexpr auto save_measure_policy = CommandPolicy{
     ProjectOperation::Read, LibraryAccess::None,     WorkspaceAccess::Read,
     FileAccess::Write,      TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::None};
+constexpr auto workspace_mutation_policy = CommandPolicy{
+    ProjectOperation::None, LibraryAccess::None,     WorkspaceAccess::Mutate,
+    FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
+    HistoryPolicy::None};
 
 } // namespace
 
@@ -108,8 +112,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         command({"reset"}, false, "Reset XenSequencer to its initial state.",
                 reset_policy, std::make_tuple(),
                 [](CommandHandlerContext &context, CommandInvocation const &) {
-                    context.edit_project() = EngineState{};
-                    context.edit_library().scale_shift_index = std::nullopt;
+                    context.edit_project() = ProjectState{};
                     return make_result(minfo("XenSequencer Reset"));
                 }));
 
@@ -180,7 +183,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
-            auto const cd = context.workspace().current_sequence_directory;
+            auto const cd = context.workspace().sequence_directory;
             if (!cd.isDirectory())
             {
                 return make_result(merror("Invalid Current Sequence Directory"));
@@ -208,7 +211,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
-            auto const cd = context.workspace().current_tuning_directory;
+            auto const cd = context.workspace().tuning_directory;
             if (!cd.isDirectory())
             {
                 return make_result(merror("Invalid Current Tuning Library Directory"));
@@ -220,8 +223,9 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                                           filepath.getFullPathName().toStdString()));
             }
             auto state = context.project();
-            state.tuning_name = filepath.getFileNameWithoutExtension().toStdString();
-            state.tuning =
+            state.pitch.tuning.name =
+                filepath.getFileNameWithoutExtension().toStdString();
+            state.pitch.tuning.definition =
                 sequence::from_scala(filepath.getFullPathName().toStdString());
             context.edit_project() = std::move(state);
             return make_result(minfo("Tuning Loaded"));
@@ -263,7 +267,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
-            auto const cd = context.workspace().current_sequence_directory;
+            auto const cd = context.workspace().sequence_directory;
             if (!cd.isDirectory())
             {
                 return make_result(merror("Invalid Current Sequence Directory"));
@@ -282,6 +286,31 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                     return make_result(minfo(
                         get_user_library_directory().getFullPathName().toStdString()));
                 }));
+
+    auto const set_directory = [](auto member, std::string label) {
+        return [member, label = std::move(label)](CommandHandlerContext &context,
+                                                  CommandInvocation const &,
+                                                  std::string const &path) {
+            auto const directory = juce::File{path};
+            if (!directory.isDirectory())
+            {
+                return make_result(
+                    merror(label + " directory does not exist: " + path));
+            }
+            (context.edit_workspace()).*member = directory;
+            return make_result(minfo(label + " Directory Set"));
+        };
+    };
+    specs.push_back(
+        command({"set", "sequenceDirectory"}, false,
+                "Set the sequence library directory.", workspace_mutation_policy,
+                std::make_tuple(required_arg<std::string>("String", "path")),
+                set_directory(&WorkspaceSettings::sequence_directory, "Sequence")));
+    specs.push_back(
+        command({"set", "tuningDirectory"}, false, "Set the tuning library directory.",
+                workspace_mutation_policy,
+                std::make_tuple(required_arg<std::string>("String", "path")),
+                set_directory(&WorkspaceSettings::tuning_directory, "Tuning")));
 }
 
 } // namespace xen::catalog_detail

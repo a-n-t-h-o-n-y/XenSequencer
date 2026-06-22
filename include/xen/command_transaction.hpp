@@ -31,15 +31,9 @@ struct HistoryPlan
 
 class CommandTransaction;
 
-enum class TransformKind : std::uint8_t
-{
-    Arpeggio,
-    Chord,
-};
-
 struct TransformInputs
 {
-    EngineState baseline{};
+    ProjectState baseline{};
     SelectionPath selection{};
     std::string chord_name{};
     int inversion{-1};
@@ -48,7 +42,7 @@ struct TransformInputs
 class ProjectReadCapability
 {
   public:
-    [[nodiscard]] auto get() const -> EngineState const &;
+    [[nodiscard]] auto get() const -> ProjectState const &;
 
   private:
     friend class CommandTransaction;
@@ -62,7 +56,7 @@ class ProjectReadCapability
 class ProjectEditCapability
 {
   public:
-    [[nodiscard]] auto get() -> EngineState &;
+    [[nodiscard]] auto get() -> ProjectState &;
 
   private:
     friend class CommandTransaction;
@@ -77,7 +71,7 @@ class ProjectEditCapability
 class LibraryReadCapability
 {
   public:
-    [[nodiscard]] auto get() const -> ContentLibraryState const &;
+    [[nodiscard]] auto get() const -> ContentLibrary const &;
 
   private:
     friend class CommandTransaction;
@@ -91,7 +85,7 @@ class LibraryReadCapability
 class LibraryEditCapability
 {
   public:
-    [[nodiscard]] auto get() -> ContentLibraryState &;
+    [[nodiscard]] auto get() -> ContentLibrary &;
 
   private:
     friend class CommandTransaction;
@@ -105,7 +99,7 @@ class LibraryEditCapability
 class WorkspaceReadCapability
 {
   public:
-    [[nodiscard]] auto get() const -> AppConfigState const &;
+    [[nodiscard]] auto get() const -> WorkspaceSettings const &;
 
   private:
     friend class CommandTransaction;
@@ -119,7 +113,7 @@ class WorkspaceReadCapability
 class WorkspaceEditCapability
 {
   public:
-    [[nodiscard]] auto get() -> AppConfigState &;
+    [[nodiscard]] auto get() -> WorkspaceSettings &;
 
   private:
     friend class CommandTransaction;
@@ -171,12 +165,12 @@ struct CommandHandlerContext
     FileWriteCapability *file_write{};
     CommandExecutionContext &execution;
 
-    [[nodiscard]] auto project() const -> EngineState const &;
-    [[nodiscard]] auto edit_project() -> EngineState &;
-    [[nodiscard]] auto library() const -> ContentLibraryState const &;
-    [[nodiscard]] auto edit_library() -> ContentLibraryState &;
-    [[nodiscard]] auto workspace() const -> AppConfigState const &;
-    [[nodiscard]] auto edit_workspace() -> AppConfigState &;
+    [[nodiscard]] auto project() const -> ProjectState const &;
+    [[nodiscard]] auto edit_project() -> ProjectState &;
+    [[nodiscard]] auto library() const -> ContentLibrary const &;
+    [[nodiscard]] auto edit_library() -> ContentLibrary &;
+    [[nodiscard]] auto workspace() const -> WorkspaceSettings const &;
+    [[nodiscard]] auto edit_workspace() -> WorkspaceSettings &;
     [[nodiscard]] auto read_text(juce::File const &source) const
         -> std::optional<std::string>;
     void write_text(juce::File const &destination, std::string content);
@@ -193,12 +187,12 @@ class CommandTransaction
     [[nodiscard]] auto make_handler_context(CommandPolicy const &policy,
                                             CommandExecutionContext &execution)
         -> CommandHandlerContext;
-    [[nodiscard]] auto project() const -> EngineState const &;
-    [[nodiscard]] auto edit_project() -> EngineState &;
-    [[nodiscard]] auto library() const -> ContentLibraryState const &;
-    [[nodiscard]] auto edit_library() -> ContentLibraryState &;
-    [[nodiscard]] auto workspace() const -> AppConfigState const &;
-    [[nodiscard]] auto edit_workspace() -> AppConfigState &;
+    [[nodiscard]] auto project() const -> ProjectState const &;
+    [[nodiscard]] auto edit_project() -> ProjectState &;
+    [[nodiscard]] auto library() const -> ContentLibrary const &;
+    [[nodiscard]] auto edit_library() -> ContentLibrary &;
+    [[nodiscard]] auto workspace() const -> WorkspaceSettings const &;
+    [[nodiscard]] auto edit_workspace() -> WorkspaceSettings &;
     [[nodiscard]] auto effects() noexcept -> SubmissionEffects &;
     [[nodiscard]] auto prepare_transform(TransformKind kind,
                                          SelectionPath const &selection,
@@ -218,6 +212,8 @@ class CommandTransaction
     [[nodiscard]] auto has_project_candidate() const noexcept -> bool;
     [[nodiscard]] auto has_library_candidate() const noexcept -> bool;
     [[nodiscard]] auto has_workspace_candidate() const noexcept -> bool;
+    [[nodiscard]] auto has_history_plan() const noexcept -> bool;
+    [[nodiscard]] auto history_plan_is_amend() const noexcept -> bool;
 
     void prepare();
     void apply_effects();
@@ -238,10 +234,10 @@ class CommandTransaction
     PluginState &state_;
     SubmissionEffects effects_;
     HistoryPlan history_{};
-    std::optional<EngineState> project_{};
-    std::optional<ContentLibraryState> library_{};
-    std::optional<AppConfigState> workspace_{};
-    std::optional<TransformSessionState> sessions_{};
+    std::optional<ProjectState> project_{};
+    std::optional<ContentLibrary> library_{};
+    std::optional<WorkspaceSettings> workspace_{};
+    std::optional<CommandSessionState> sessions_{};
     std::optional<XenTimeline> prepared_timeline_{};
     std::optional<std::vector<CommandInvocation>> repeat_candidate_{};
 

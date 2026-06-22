@@ -1,4 +1,5 @@
 # scales:
-#  - name: Major Diatonic
+#  - id: my-major-diatonic
+#    name: Major Diatonic
 #    tuning_length: 12
 #    intervals: [2, 2, 1, 2, 2, 2, 1]

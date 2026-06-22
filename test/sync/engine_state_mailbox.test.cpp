@@ -15,64 +15,59 @@ using namespace xen;
 namespace
 {
 
-auto make_state(int id) -> EngineState
+auto make_state(int id) -> AudioProjectSnapshot
 {
-    auto state = EngineState{};
-    state.key = id;
-    state.base_frequency = 400.f + static_cast<float>(id);
-    state.tuning_name = "tuning-" + std::to_string(id);
-    state.tuning.description = "description-" + std::to_string(id);
-    state.tuning.intervals = {
-        static_cast<float>(id),
-        static_cast<float>(id + 10),
-        static_cast<float>(id + 20),
+    auto state = ProjectState{};
+    state.pitch.transposition = id % 255 - 127;
+    state.pitch.base_frequency = 400.f + static_cast<float>(id);
+    state.pitch.tuning.name = "tuning-" + std::to_string(id);
+    state.pitch.tuning.definition.description = "description-" + std::to_string(id);
+    state.pitch.tuning.definition.intervals = {
+        0.f,
+        100.f,
+        200.f,
     };
     state.measure.time_signature.numerator = static_cast<unsigned>((id % 7) + 1);
-    state.scale = Scale{
-        .name = "scale-" + std::to_string(id),
-        .tuning_length = 12,
-        .intervals = std::vector<std::uint8_t>{
-            static_cast<std::uint8_t>(id % 12),
-            static_cast<std::uint8_t>((id + 1) % 12),
-            static_cast<std::uint8_t>((id + 2) % 12),
-        },
-        .mode = 1,
+    state.pitch.scale = ActiveScale{
+        .source_id = "scale-" + std::to_string(id),
+        .definition =
+            Scale{
+                .name = "scale-" + std::to_string(id),
+                .tuning_length = 3,
+                .intervals = std::vector<std::uint8_t>{1, 1, 1},
+                .mode = 1,
+            },
     };
-    return state;
+    return AudioProjectSnapshot{std::move(state)};
 }
 
-void check_state(EngineState const &state, int id)
+void check_state(AudioProjectSnapshot const &snapshot, int id)
 {
-    CHECK(state.key == id);
-    CHECK(static_cast<int>(state.base_frequency) == 400 + id);
-    CHECK(state.tuning_name == "tuning-" + std::to_string(id));
-    CHECK(state.tuning.description == "description-" + std::to_string(id));
-    CHECK(state.tuning.intervals ==
-          std::vector<float>{
-              static_cast<float>(id),
-              static_cast<float>(id + 10),
-              static_cast<float>(id + 20),
-          });
+    auto const &state = snapshot.project;
+    CHECK(state.pitch.transposition == id % 255 - 127);
+    CHECK(static_cast<int>(state.pitch.base_frequency) == 400 + id);
+    CHECK(state.pitch.tuning.name == "tuning-" + std::to_string(id));
+    CHECK(state.pitch.tuning.definition.description ==
+          "description-" + std::to_string(id));
+    CHECK(state.pitch.tuning.definition.intervals == std::vector<float>{
+                                                         0.f,
+                                                         100.f,
+                                                         200.f,
+                                                     });
     CHECK(state.measure.time_signature.numerator ==
           static_cast<unsigned>((id % 7) + 1));
-    REQUIRE(state.scale.has_value());
-    CHECK(state.scale->name == "scale-" + std::to_string(id));
-    CHECK(state.scale->intervals ==
-          std::vector<std::uint8_t>{
-              static_cast<std::uint8_t>(id % 12),
-              static_cast<std::uint8_t>((id + 1) % 12),
-              static_cast<std::uint8_t>((id + 2) % 12),
-          });
+    REQUIRE(state.pitch.scale.has_value());
+    CHECK(state.pitch.scale->definition.name == "scale-" + std::to_string(id));
+    CHECK(state.pitch.scale->definition.intervals ==
+          std::vector<std::uint8_t>{1, 1, 1});
 }
 
 static_assert(EngineStateMailbox::control_is_always_lock_free);
-static_assert(
-    noexcept(std::declval<EngineStateMailbox &>().try_consume_latest()));
+static_assert(noexcept(std::declval<EngineStateMailbox &>().try_consume_latest()));
 
 } // namespace
 
-TEST_CASE("EngineStateMailbox publishes and consumes a read view",
-          "[sync][mailbox]")
+TEST_CASE("EngineStateMailbox publishes and consumes a read view", "[sync][mailbox]")
 {
     auto mailbox = EngineStateMailbox{};
 
@@ -134,15 +129,15 @@ TEST_CASE("EngineStateMailbox snapshots are immutable to source mutations",
 
     mailbox.publish(published);
 
-    published.key = -1;
-    published.base_frequency = 999.f;
-    published.tuning_name = "mutated";
-    published.measure.time_signature = {3, 4};
-    published.tuning.description = "after-publish";
-    published.tuning.intervals = {0, 1, 2, 3};
-    REQUIRE(published.scale.has_value());
-    published.scale->name = "mutated";
-    published.scale->intervals = {9, 9, 9};
+    published.project.pitch.transposition = -1;
+    published.project.pitch.base_frequency = 999.f;
+    published.project.pitch.tuning.name = "mutated";
+    published.project.measure.time_signature = {3, 4};
+    published.project.pitch.tuning.definition.description = "after-publish";
+    published.project.pitch.tuning.definition.intervals = {0, 1, 2, 3};
+    REQUIRE(published.project.pitch.scale.has_value());
+    published.project.pitch.scale->definition.name = "mutated";
+    published.project.pitch.scale->definition.intervals = {9, 9, 9};
 
     auto const view = mailbox.try_consume_latest();
     REQUIRE(view.has_value());
@@ -211,8 +206,7 @@ TEST_CASE("EngineStateMailbox SPSC stress preserves coherent latest states",
 
     auto last_version = std::uint64_t{0};
     auto consumed_final = false;
-    auto const deadline = std::chrono::steady_clock::now() +
-                          std::chrono::seconds{10};
+    auto const deadline = std::chrono::steady_clock::now() + std::chrono::seconds{10};
 
     while (!consumed_final && std::chrono::steady_clock::now() < deadline)
     {

@@ -1,5 +1,7 @@
 # 12: Workspace Settings Lifetime
 
+Status: Complete.
+
 ## Objective
 
 Move non-project paths and preferences into application-wide workspace settings with
@@ -22,15 +24,15 @@ Packages 05 and 11.
 
 ## Acceptance criteria
 
-- [ ] Project files and host state contain no workspace paths or preferences.
-- [ ] New processor instances initialize from the same application-wide settings.
-- [ ] Explicit setting changes are persisted and visible to later processor instances.
-- [ ] Commands without workspace capability cannot access settings.
-- [ ] Missing dependencies fail clearly; no local/system fallback is introduced.
-- [ ] Project replacement and workspace mutation have independent lifecycle behavior.
+- [x] Project files and host state contain no workspace paths or preferences.
+- [x] New processor instances initialize from the same application-wide settings.
+- [x] Explicit setting changes are persisted and visible to later processor instances.
+- [x] Commands without workspace capability cannot access settings.
+- [x] Missing dependencies fail clearly; no local/system fallback is introduced.
+- [x] Project replacement and workspace mutation have independent lifecycle behavior.
 
 ## Verification
 
-- [ ] Tests cover initialization, persistence, mutation, denied access, missing paths,
+- [x] Tests cover initialization, persistence, mutation, denied access, missing paths,
       and project/host serialization boundaries.
-- [ ] `XenTests` builds and full `ctest` passes, or the blocker is recorded.
+- [x] `XenTests` builds and full `ctest` passes, or the blocker is recorded.

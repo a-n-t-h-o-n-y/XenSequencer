@@ -23,7 +23,7 @@ namespace
 
 auto make_plugin_state() -> PluginState
 {
-    return PluginState{.timeline = XenTimeline{EngineState{}}};
+    return PluginState{.timeline = XenTimeline{ProjectState{}}};
 }
 
 auto execute(PluginState &state, std::string const &text,
@@ -70,7 +70,7 @@ TEST_CASE("Command transactions create resource candidates lazily",
                       WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
                       RepeatPolicy::OnSuccessfulProjectChange, HistoryPolicy::Commit},
         execution);
-    project_context.edit_project().key = 2;
+    project_context.edit_project().pitch.transposition = 2;
     CHECK(project.has_project_candidate());
     CHECK_FALSE(project.has_library_candidate());
     CHECK_FALSE(project.has_workspace_candidate());
@@ -118,16 +118,16 @@ TEST_CASE("Effect failures leave backend state unchanged and report rollback fai
                                SubmissionEffects::FailurePoint::ApplyAndRollback})
     {
         auto processor = XenProcessor{failure};
-        processor.plugin_state.config.current_sequence_directory = directory;
-        auto const before = processor.get_engine_snapshot();
+        processor.plugin_state.workspace.sequence_directory = directory;
+        auto const before = processor.get_project_snapshot();
         auto const result = processor.execute_command_string(
             "save measure effect-test",
             {.expected_project_revision = before.project_revision});
 
         CHECK(result.status.first == MessageLevel::Error);
-        CHECK(processor.get_engine_snapshot().project_revision ==
+        CHECK(processor.get_project_snapshot().project_revision ==
               before.project_revision);
-        CHECK(processor.get_engine_snapshot().engine == before.engine);
+        CHECK(processor.get_project_snapshot().project == before.project);
         if (failure == SubmissionEffects::FailurePoint::ApplyAndRollback)
         {
             CHECK(result.status.second.find("rollback failed for:") !=
@@ -145,7 +145,7 @@ TEST_CASE("Direct handlers mutate engine without requiring session editor state"
 
     auto const result = execute(state, "set key 12");
     CHECK(result.status.second == "Key Set to 12.");
-    CHECK(state.timeline.get_state().key == 12);
+    CHECK(state.timeline.get_state().pitch.transposition == 12);
 }
 
 TEST_CASE("Direct handlers validate without retaining partial mutation",
@@ -203,9 +203,10 @@ TEST_CASE("Direct chord handler preserves transform session baseline",
 
     CHECK(execute(state, "chord major 0", selection).status.second ==
           "Chorded with major inversion: 0");
-    CHECK(state.sessions.chord_state.previous_chord_name == "major");
-    CHECK(state.sessions.chord_state.previous_inversion == 0);
-    CHECK(state.sessions.chord_state.previous_project_revision ==
+    REQUIRE(state.command_session.transform_cycle.has_value());
+    CHECK(state.command_session.transform_cycle->previous_chord_name == "major");
+    CHECK(state.command_session.transform_cycle->previous_inversion == 0);
+    CHECK(state.command_session.transform_cycle->project_revision ==
           state.timeline.get_project_revision());
     CHECK(execute(state, "chord", selection).status.second ==
           "Chorded with major inversion: 1");
@@ -217,14 +218,14 @@ TEST_CASE("Timeline commit API requires explicit state", "[core][command][handle
 {
     auto state = make_plugin_state();
     auto engine = state.timeline.get_state();
-    engine.key = 1;
+    engine.pitch.transposition = 1;
     state.timeline.stage(engine);
     REQUIRE(state.timeline.commit(state.timeline.get_state()));
-    engine.key = 2;
+    engine.pitch.transposition = 2;
     state.timeline.stage(engine);
     REQUIRE(state.timeline.commit(state.timeline.get_state()));
     CHECK(state.timeline.undo());
-    CHECK(state.timeline.get_state().key == 1);
+    CHECK(state.timeline.get_state().pitch.transposition == 1);
     CHECK(state.timeline.redo());
-    CHECK(state.timeline.get_state().key == 2);
+    CHECK(state.timeline.get_state().pitch.transposition == 2);
 }

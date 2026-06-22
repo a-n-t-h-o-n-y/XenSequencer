@@ -1,5 +1,7 @@
 # 06: Transform and Repeat Sessions
 
+Status: Complete.
+
 ## Objective
 
 Move chord/arpeggio cycling and `again` into backend command-session state, with every
@@ -24,22 +26,22 @@ Packages 03, 04, and 05.
 
 ## Acceptance criteria
 
-- [ ] Repeated chord/arp candidates never accumulate transforms.
-- [ ] A no-op candidate creates no entry, revision, publication, or repeat target but
+- [x] Repeated chord/arp candidates never accumulate transforms.
+- [x] A no-op candidate creates no entry, revision, publication, or repeat target but
       preserves a valid transform session.
-- [ ] The first changed candidate commits; later compatible candidates amend the same
+- [x] The first changed candidate commits; later compatible candidates amend the same
       entry ID and receive fresh revisions.
-- [ ] Kind, target, revision, current entry, or library revision mismatch starts a new
+- [x] Kind, target, revision, current entry, or library revision mismatch starts a new
       session.
-- [ ] Intervening edits, library reload, undo/redo, reset, load, and replacement
+- [x] Intervening edits, library reload, undo/redo, reset, load, and replacement
       invalidate transform cycling as specified.
-- [ ] Informational and failed commands preserve the session when neither project nor
+- [x] Informational and failed commands preserve the session when neither project nor
       library changes.
-- [ ] `again` amends only when its expanded chain is exactly one compatible transform.
-- [ ] Save/export neither finalizes nor alters transform history.
+- [x] `again` amends only when its expanded chain is exactly one compatible transform.
+- [x] Save/export neither finalizes nor alters transform history.
 
 ## Verification
 
-- [ ] Tests cover baseline restoration, no-op-first candidate, amendment identity,
+- [x] Tests cover baseline restoration, no-op-first candidate, amendment identity,
       every invalidation trigger, undo/redo topology, save failure, and `again`.
-- [ ] `XenTests` builds and full `ctest` passes, or the blocker is recorded.
+- [x] `XenTests` builds and full `ctest` passes, or the blocker is recorded.

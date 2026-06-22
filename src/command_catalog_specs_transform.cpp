@@ -182,7 +182,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             auto state = std::move(inputs.baseline);
             auto const chord = find_chord(context.library().chords, inputs.chord_name);
             auto const intervals =
-                invert_chord(chord, inputs.inversion, state.tuning.intervals.size());
+                invert_chord(chord, inputs.inversion,
+                             state.pitch.tuning.definition.intervals.size());
             state = increment_state(
                 std::move(state), inputs.selection,
                 [](auto target, sequence::Pattern const &pattern,
@@ -208,7 +209,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                                     std::move(chord_name), inversion);
             auto state = std::move(inputs.baseline);
             auto const chord = find_chord(context.library().chords, inputs.chord_name);
-            auto const tuning_size = state.tuning.intervals.size();
+            auto const tuning_size = state.pitch.tuning.definition.intervals.size();
             auto const intervals = invert_chord(chord, inputs.inversion, tuning_size);
             state = increment_state(
                 std::move(state), inputs.selection,
@@ -223,37 +224,36 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                inputs.selection);
         }));
 
-    specs.push_back(
-        command({"drums"}, false, "Switch to drum-oriented tuning.", drums_policy,
-                std::make_tuple(optional_arg<std::size_t>("Unsigned", "octaveSize", 16),
-                                optional_arg<int>("Int", "offset", 1)),
-                [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::size_t requested_octave_size, int offset) {
-                    auto state = context.project();
-                    auto const octave_size =
-                        std::clamp<std::size_t>(requested_octave_size, 1, 128);
-                    state.base_frequency = 440.f;
-                    state.scale = std::nullopt;
-                    context.edit_library().scale_shift_index = std::nullopt;
-                    auto const a3 = 57;
-                    state.key = 23 + offset - a3;
-                    state.tuning = {
-                        .intervals =
-                            [octave_size] {
-                                auto intervals = std::vector<float>{};
-                                for (auto i = std::size_t{0}; i < octave_size; ++i)
-                                {
-                                    intervals.push_back(100.f * static_cast<float>(i));
-                                }
-                                return intervals;
-                            }(),
-                        .octave = 100.f * static_cast<float>(octave_size),
-                        .description = "",
-                    };
-                    state.tuning_name = "Drums (" + std::to_string(octave_size) + ")";
-                    context.edit_project() = std::move(state);
-                    return make_result(minfo("Drum Mode Active"));
-                }));
+    specs.push_back(command(
+        {"drums"}, false, "Switch to drum-oriented tuning.", drums_policy,
+        std::make_tuple(optional_arg<std::size_t>("Unsigned", "octaveSize", 16),
+                        optional_arg<int>("Int", "offset", 1)),
+        [](CommandHandlerContext &context, CommandInvocation const &,
+           std::size_t requested_octave_size, int offset) {
+            auto state = context.project();
+            auto const octave_size =
+                std::clamp<std::size_t>(requested_octave_size, 1, 128);
+            state.pitch.base_frequency = 440.f;
+            state.pitch.scale = std::nullopt;
+            auto const a3 = 57;
+            state.pitch.transposition = 23 + offset - a3;
+            state.pitch.tuning.definition = {
+                .intervals =
+                    [octave_size] {
+                        auto intervals = std::vector<float>{};
+                        for (auto i = std::size_t{0}; i < octave_size; ++i)
+                        {
+                            intervals.push_back(100.f * static_cast<float>(i));
+                        }
+                        return intervals;
+                    }(),
+                .octave = 100.f * static_cast<float>(octave_size),
+                .description = "",
+            };
+            state.pitch.tuning.name = "Drums (" + std::to_string(octave_size) + ")";
+            context.edit_project() = std::move(state);
+            return make_result(minfo("Drum Mode Active"));
+        }));
 }
 
 } // namespace xen::catalog_detail

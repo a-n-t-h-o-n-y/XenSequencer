@@ -7,14 +7,15 @@
 #include <utility>
 
 #include <xen/chord.hpp>
+#include <xen/project_validation.hpp>
 #include <xen/selection.hpp>
 
 namespace xen
 {
 static_assert(std::is_nothrow_swappable_v<XenTimeline>);
-static_assert(std::is_nothrow_swappable_v<ContentLibraryState>);
-static_assert(std::is_nothrow_swappable_v<AppConfigState>);
-static_assert(std::is_nothrow_move_assignable_v<EngineState>);
+static_assert(std::is_nothrow_swappable_v<ContentLibrary>);
+static_assert(std::is_nothrow_swappable_v<WorkspaceSettings>);
+static_assert(std::is_nothrow_move_assignable_v<ProjectState>);
 
 namespace
 {
@@ -25,7 +26,7 @@ namespace
                            " capability."};
 }
 
-auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycle,
+auto resolve_chord_cycle(std::vector<Chord> const &chords, TransformCycleSession &cycle,
                          std::string chord_name, int inversion)
     -> std::pair<std::string, int>
 {
@@ -63,32 +64,32 @@ auto resolve_chord_cycle(std::vector<Chord> const &chords, ChordCycleState &cycl
 
 } // namespace
 
-auto ProjectReadCapability::get() const -> EngineState const &
+auto ProjectReadCapability::get() const -> ProjectState const &
 {
     return transaction_.project();
 }
 
-auto ProjectEditCapability::get() -> EngineState &
+auto ProjectEditCapability::get() -> ProjectState &
 {
     return transaction_.edit_project();
 }
 
-auto LibraryReadCapability::get() const -> ContentLibraryState const &
+auto LibraryReadCapability::get() const -> ContentLibrary const &
 {
     return transaction_.library();
 }
 
-auto LibraryEditCapability::get() -> ContentLibraryState &
+auto LibraryEditCapability::get() -> ContentLibrary &
 {
     return transaction_.edit_library();
 }
 
-auto WorkspaceReadCapability::get() const -> AppConfigState const &
+auto WorkspaceReadCapability::get() const -> WorkspaceSettings const &
 {
     return transaction_.workspace();
 }
 
-auto WorkspaceEditCapability::get() -> AppConfigState &
+auto WorkspaceEditCapability::get() -> WorkspaceSettings &
 {
     return transaction_.edit_workspace();
 }
@@ -104,7 +105,7 @@ void FileWriteCapability::write_text(juce::File const &destination, std::string 
     transaction_.effects().write_text(destination, std::move(content));
 }
 
-auto CommandHandlerContext::project() const -> EngineState const &
+auto CommandHandlerContext::project() const -> ProjectState const &
 {
     if (project_read != nullptr)
     {
@@ -117,7 +118,7 @@ auto CommandHandlerContext::project() const -> EngineState const &
     denied("project-read");
 }
 
-auto CommandHandlerContext::edit_project() -> EngineState &
+auto CommandHandlerContext::edit_project() -> ProjectState &
 {
     if (project_edit == nullptr)
     {
@@ -126,7 +127,7 @@ auto CommandHandlerContext::edit_project() -> EngineState &
     return project_edit->get();
 }
 
-auto CommandHandlerContext::library() const -> ContentLibraryState const &
+auto CommandHandlerContext::library() const -> ContentLibrary const &
 {
     if (library_read != nullptr)
     {
@@ -139,7 +140,7 @@ auto CommandHandlerContext::library() const -> ContentLibraryState const &
     denied("library-read");
 }
 
-auto CommandHandlerContext::edit_library() -> ContentLibraryState &
+auto CommandHandlerContext::edit_library() -> ContentLibrary &
 {
     if (library_edit == nullptr)
     {
@@ -148,7 +149,7 @@ auto CommandHandlerContext::edit_library() -> ContentLibraryState &
     return library_edit->get();
 }
 
-auto CommandHandlerContext::workspace() const -> AppConfigState const &
+auto CommandHandlerContext::workspace() const -> WorkspaceSettings const &
 {
     if (workspace_read != nullptr)
     {
@@ -161,7 +162,7 @@ auto CommandHandlerContext::workspace() const -> AppConfigState const &
     denied("workspace-read");
 }
 
-auto CommandHandlerContext::edit_workspace() -> AppConfigState &
+auto CommandHandlerContext::edit_workspace() -> WorkspaceSettings &
 {
     if (workspace_edit == nullptr)
     {
@@ -231,12 +232,12 @@ auto CommandTransaction::make_handler_context(CommandPolicy const &policy,
     };
 }
 
-auto CommandTransaction::project() const -> EngineState const &
+auto CommandTransaction::project() const -> ProjectState const &
 {
     return project_.has_value() ? *project_ : state_.timeline.get_state();
 }
 
-auto CommandTransaction::edit_project() -> EngineState &
+auto CommandTransaction::edit_project() -> ProjectState &
 {
     if (!project_.has_value())
     {
@@ -245,12 +246,12 @@ auto CommandTransaction::edit_project() -> EngineState &
     return *project_;
 }
 
-auto CommandTransaction::library() const -> ContentLibraryState const &
+auto CommandTransaction::library() const -> ContentLibrary const &
 {
     return library_.has_value() ? *library_ : state_.library;
 }
 
-auto CommandTransaction::edit_library() -> ContentLibraryState &
+auto CommandTransaction::edit_library() -> ContentLibrary &
 {
     if (!library_.has_value())
     {
@@ -259,16 +260,16 @@ auto CommandTransaction::edit_library() -> ContentLibraryState &
     return *library_;
 }
 
-auto CommandTransaction::workspace() const -> AppConfigState const &
+auto CommandTransaction::workspace() const -> WorkspaceSettings const &
 {
-    return workspace_.has_value() ? *workspace_ : state_.config;
+    return workspace_.has_value() ? *workspace_ : state_.workspace;
 }
 
-auto CommandTransaction::edit_workspace() -> AppConfigState &
+auto CommandTransaction::edit_workspace() -> WorkspaceSettings &
 {
     if (!workspace_.has_value())
     {
-        workspace_ = state_.config;
+        workspace_ = state_.workspace;
     }
     return *workspace_;
 }
@@ -285,24 +286,56 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
 {
     if (!sessions_.has_value())
     {
-        sessions_ = state_.sessions;
+        sessions_ = state_.command_session;
     }
-    auto &cycle =
-        kind == TransformKind::Arpeggio ? sessions_->arp_state : sessions_->chord_state;
     auto const revision = state_.timeline.get_project_revision();
-    if (selection != cycle.selection || cycle.previous_project_revision != revision)
+    auto const entry_id = state_.timeline.get_current_entry_id();
+    auto const compatible =
+        sessions_->transform_cycle.has_value() &&
+        sessions_->transform_cycle->kind == kind &&
+        sessions_->transform_cycle->target == selection &&
+        sessions_->transform_cycle->project_revision == revision &&
+        sessions_->transform_cycle->history_entry_id == entry_id &&
+        sessions_->transform_cycle->library_revision == state_.library_revision;
+    if (!compatible)
     {
-        cycle.sequencer = project();
-        cycle.selection = selection;
+        auto baseline =
+            selection_kind(selection) == SelectionKind::Element
+                ? TargetSnapshot{get_selected_element_const(project().measure,
+                                                            selection)}
+                : TargetSnapshot{get_selected_cell_const(project().measure, selection)};
+        sessions_->transform_cycle = TransformCycleSession{
+            .kind = kind,
+            .target = selection,
+            .baseline = std::move(baseline),
+            .project_revision = revision,
+            .history_entry_id = entry_id,
+            .library_revision = state_.library_revision,
+        };
     }
+    auto &cycle = *sessions_->transform_cycle;
     std::tie(chord_name, inversion) =
         resolve_chord_cycle(library().chords, cycle, std::move(chord_name), inversion);
     cycle.previous_chord_name = chord_name;
     cycle.previous_inversion = inversion;
-    cycle.previous_project_revision = revision;
+    auto baseline_project = project();
+    if (std::holds_alternative<sequence::Cell>(cycle.baseline))
+    {
+        get_selected_cell(baseline_project.measure, selection) =
+            std::get<sequence::Cell>(cycle.baseline);
+    }
+    else
+    {
+        get_selected_element(baseline_project.measure, selection) =
+            std::get<sequence::MusicElement>(cycle.baseline);
+    }
+    if (compatible && cycle.committed)
+    {
+        plan_history(HistoryPlan{HistoryPlanKind::Amend, cycle.history_entry_id});
+    }
     return TransformInputs{
-        .baseline = cycle.sequencer,
-        .selection = cycle.selection,
+        .baseline = std::move(baseline_project),
+        .selection = cycle.target,
         .chord_name = std::move(chord_name),
         .inversion = inversion,
     };
@@ -329,7 +362,11 @@ void CommandTransaction::clear_repeat() noexcept
 
 void CommandTransaction::invalidate_transform_sessions()
 {
-    sessions_ = TransformSessionState{};
+    if (!sessions_.has_value())
+    {
+        sessions_ = state_.command_session;
+    }
+    sessions_->transform_cycle.reset();
 }
 
 auto CommandTransaction::repeat_candidate() const
@@ -350,7 +387,7 @@ auto CommandTransaction::library_changed() const -> bool
 
 auto CommandTransaction::workspace_changed() const -> bool
 {
-    return workspace_.has_value();
+    return workspace_.has_value() && *workspace_ != state_.workspace;
 }
 
 auto CommandTransaction::has_domain_candidates() const noexcept -> bool
@@ -373,9 +410,34 @@ auto CommandTransaction::has_workspace_candidate() const noexcept -> bool
     return workspace_.has_value();
 }
 
+auto CommandTransaction::has_history_plan() const noexcept -> bool
+{
+    return history_.kind != HistoryPlanKind::None;
+}
+
+auto CommandTransaction::history_plan_is_amend() const noexcept -> bool
+{
+    return history_.kind == HistoryPlanKind::Amend;
+}
+
 void CommandTransaction::prepare()
 {
-    if (history_.kind != HistoryPlanKind::None)
+    if (project_.has_value())
+    {
+        validate(*project_);
+    }
+    if (library_.has_value())
+    {
+        validate(*library_);
+    }
+    if (workspace_changed())
+    {
+        validate(*workspace_);
+    }
+    auto const changed_history_candidate = (history_.kind != HistoryPlanKind::Commit &&
+                                            history_.kind != HistoryPlanKind::Amend) ||
+                                           project_changed();
+    if (history_.kind != HistoryPlanKind::None && changed_history_candidate)
     {
         prepared_timeline_ = state_.timeline;
         switch (history_.kind)
@@ -402,6 +464,15 @@ void CommandTransaction::prepare()
             break;
         case HistoryPlanKind::None:
             break;
+        }
+        if (sessions_.has_value() && sessions_->transform_cycle.has_value() &&
+            prepared_timeline_->get_project_revision() !=
+                state_.timeline.get_project_revision())
+        {
+            auto &cycle = *sessions_->transform_cycle;
+            cycle.project_revision = prepared_timeline_->get_project_revision();
+            cycle.history_entry_id = prepared_timeline_->get_current_entry_id();
+            cycle.committed = true;
         }
     }
     effects_.prepare();
@@ -432,16 +503,18 @@ void CommandTransaction::install() noexcept
     {
         using std::swap;
         swap(state_.library, *library_);
+        state_.library_revision = detail::allocate_library_revision();
     }
     if (workspace_.has_value())
     {
         using std::swap;
-        swap(state_.config, *workspace_);
+        swap(state_.workspace, *workspace_);
+        state_.library_revision = detail::allocate_library_revision();
     }
     if (sessions_.has_value())
     {
         using std::swap;
-        swap(state_.sessions, *sessions_);
+        swap(state_.command_session, *sessions_);
     }
 }
 

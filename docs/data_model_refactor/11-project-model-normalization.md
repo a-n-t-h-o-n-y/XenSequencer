@@ -1,5 +1,7 @@
 # 11: Project Model Normalization
 
+Status: Complete.
+
 ## Objective
 
 Replace the mixed engine state with a persisted musical `ProjectState` containing a
@@ -22,17 +24,17 @@ Packages 07 and 10.
 
 ## Acceptance criteria
 
-- [ ] The project aggregate contains only persisted musical state needed for rendering.
-- [ ] Coupled tuning, scale, transposition, translation, and base-frequency fields live
+- [x] The project aggregate contains only persisted musical state needed for rendering.
+- [x] Coupled tuning, scale, transposition, translation, and base-frequency fields live
       under one pitch-system object.
-- [ ] Tuning name is not treated as a library lookup key.
-- [ ] Project serialization reflects the new structure with no compatibility path.
-- [ ] History stores only project snapshots and associated history metadata.
-- [ ] Audio publication consumes validated immutable project render data.
-- [ ] No duplicated old `EngineState` structure or field authority remains.
+- [x] Tuning name is not treated as a library lookup key.
+- [x] Project serialization reflects the new structure with no compatibility path.
+- [x] History stores only project snapshots and associated history metadata.
+- [x] Audio publication consumes validated immutable project render data.
+- [x] No duplicated old `EngineState` structure or field authority remains.
 
 ## Verification
 
-- [ ] Serialization and host-state tests use the new schema.
-- [ ] Command and rendering tests cover the grouped pitch fields.
-- [ ] `XenCore`, `XenTests`, and full `ctest` pass, or blockers are recorded.
+- [x] Serialization and host-state tests use the new schema.
+- [x] Command and rendering tests cover the grouped pitch fields.
+- [x] `XenCore`, `XenTests`, and full `ctest` pass, or blockers are recorded.

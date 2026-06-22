@@ -30,12 +30,12 @@ namespace xen
  * @param state The state to mutate.
  * @param fn The function to apply to the selected Cell or MusicElement.
  * @param args The arguments to pass to the function.
- * @return EngineState The updated state.
+ * @return ProjectState The updated state.
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-[[nodiscard]] auto increment_state(EngineState state, SelectionPath const &selection,
-                                   Fn &&fn, Args &&...args) -> EngineState
+[[nodiscard]] auto increment_state(ProjectState state, SelectionPath const &selection,
+                                   Fn &&fn, Args &&...args) -> ProjectState
 {
     constexpr bool supports_cell =
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>;
@@ -85,30 +85,30 @@ struct SelectionMutation
     SelectionPath selection{};
 };
 
-[[nodiscard]] auto copy(EngineState const &state, SelectionPath const &selection)
+[[nodiscard]] auto copy(ProjectState const &state, SelectionPath const &selection)
     -> CopyBufferContent;
 
-[[nodiscard]] auto paste(EngineState &state, SelectionPath const &selection,
+[[nodiscard]] auto paste(ProjectState &state, SelectionPath const &selection,
                          CopyBufferContent const &content) -> SelectionMutation;
 
-[[nodiscard]] auto duplicate(EngineState &state, SelectionPath const &selection)
+[[nodiscard]] auto duplicate(ProjectState &state, SelectionPath const &selection)
     -> SelectionMutation;
 
-[[nodiscard]] auto lift(EngineState &state, SelectionPath const &selection)
+[[nodiscard]] auto lift(ProjectState &state, SelectionPath const &selection)
     -> SelectionMutation;
 
-[[nodiscard]] auto shift_octave(EngineState state, SelectionPath const &selection,
+[[nodiscard]] auto shift_octave(ProjectState state, SelectionPath const &selection,
                                 sequence::Pattern const &pattern, int amount)
-    -> EngineState;
+    -> ProjectState;
 
-[[nodiscard]] auto set_note_octave(EngineState state, SelectionPath const &selection,
+[[nodiscard]] auto set_note_octave(ProjectState state, SelectionPath const &selection,
                                    sequence::Pattern const &pattern, int octave)
-    -> EngineState;
+    -> ProjectState;
 
-[[nodiscard]] auto delete_cell(EngineState &state, SelectionPath const &selection)
+[[nodiscard]] auto delete_cell(ProjectState &state, SelectionPath const &selection)
     -> SelectionMutation;
 
-[[nodiscard]] auto set_base_frequency(EngineState state, float freq) -> EngineState;
+[[nodiscard]] auto set_base_frequency(ProjectState state, float freq) -> ProjectState;
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 

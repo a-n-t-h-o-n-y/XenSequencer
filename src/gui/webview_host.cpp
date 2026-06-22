@@ -24,9 +24,8 @@ auto parse_json_to_var_or_throw(std::string const &json_text,
     if (auto const parse_result = juce::JSON::parse(juce_text, parsed);
         parse_result.failed())
     {
-        throw std::runtime_error(
-            context + " produced invalid JSON: " +
-            parse_result.getErrorMessage().toStdString());
+        throw std::runtime_error(context + " produced invalid JSON: " +
+                                 parse_result.getErrorMessage().toStdString());
     }
     return parsed;
 }
@@ -104,8 +103,7 @@ auto normalize_resource_path(juce::String resource_path) -> std::optional<juce::
 }
 
 auto resource_path_matches_embedded_file(juce::String const &normalized_request_path,
-                                         juce::String original_filename)
-    -> bool
+                                         juce::String original_filename) -> bool
 {
     auto original_path = original_filename.replaceCharacter('\\', '/');
     while (original_path.startsWith("./"))
@@ -177,8 +175,7 @@ auto parse_dev_server_urls(juce::String configured_urls) -> std::vector<juce::St
     while (true)
     {
         auto const comma_index = remaining.indexOfChar(',');
-        auto entry =
-            comma_index >= 0 ? remaining.substring(0, comma_index) : remaining;
+        auto entry = comma_index >= 0 ? remaining.substring(0, comma_index) : remaining;
         entry = entry.trim();
 
         if (entry.isNotEmpty())
@@ -220,8 +217,7 @@ auto make_dev_server_error_page(juce::String const &configured_urls,
     {
         for (auto const &url : attempted_urls)
         {
-            attempted_urls_html +=
-                "<li><code>" + escape_html(url) + "</code></li>";
+            attempted_urls_html += "<li><code>" + escape_html(url) + "</code></li>";
         }
     }
 
@@ -277,8 +273,7 @@ WebviewHost::WebviewHost(XenProcessor &processor)
             return handle_dev_server_load_failure(error_info);
         });
 #else
-    browser_ =
-        std::make_unique<juce::WebBrowserComponent>(create_browser_options());
+    browser_ = std::make_unique<juce::WebBrowserComponent>(create_browser_options());
 #endif
 
     this->addAndMakeVisible(*browser_);
@@ -286,7 +281,8 @@ WebviewHost::WebviewHost(XenProcessor &processor)
 
     load_initial_url();
 
-    last_snapshot_version_ = processor_.get_ui_snapshot_version();
+    last_project_revision_ = processor_.get_project_snapshot().project_revision;
+    last_library_revision_ = processor_.get_library_snapshot().library_revision;
     this->startTimerHz(30);
 }
 
@@ -306,11 +302,17 @@ void WebviewHost::resized()
 
 void WebviewHost::timerCallback()
 {
-    auto const version = processor_.get_ui_snapshot_version();
-    if (version != last_snapshot_version_)
+    auto const project_revision = processor_.get_project_snapshot().project_revision;
+    if (project_revision != last_project_revision_)
     {
-        last_snapshot_version_ = version;
+        last_project_revision_ = project_revision;
         emit_state_changed_event();
+    }
+    auto const library_revision = processor_.get_library_snapshot().library_revision;
+    if (library_revision != last_library_revision_)
+    {
+        last_library_revision_ = library_revision;
+        emit_library_changed_event();
     }
 
     emit_transport_events();
@@ -318,33 +320,30 @@ void WebviewHost::timerCallback()
 
 auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
 {
-    auto options = juce::WebBrowserComponent::Options{}
-                       .withWinWebView2Options(
-                           juce::WebBrowserComponent::Options::WinWebView2{}
-                               .withBuiltInErrorPageDisabled())
-                       .withNativeIntegrationEnabled()
-                       .withNativeFunction(
-                           "xenBridgeRequest",
-                           [this](juce::Array<juce::var> const &args,
-                                  juce::WebBrowserComponent::NativeFunctionCompletion
-                                      completion) {
-                               auto request_json = std::string{};
-                               if (!args.isEmpty())
-                               {
-                                   request_json =
-                                       args[0].toString().toStdString();
-                               }
-                               auto const response_json =
-                                   bridge_.handle_request_json(request_json);
-                               completion(parse_json_to_var_or_throw(
-                                   response_json, "xenBridgeRequest"));
-                           });
+    auto options =
+        juce::WebBrowserComponent::Options{}
+            .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2{}
+                                        .withBuiltInErrorPageDisabled())
+            .withNativeIntegrationEnabled()
+            .withNativeFunction(
+                "xenBridgeRequest",
+                [this](juce::Array<juce::var> const &args,
+                       juce::WebBrowserComponent::NativeFunctionCompletion completion) {
+                    auto request_json = std::string{};
+                    if (!args.isEmpty())
+                    {
+                        request_json = args[0].toString().toStdString();
+                    }
+                    auto const response_json =
+                        bridge_.handle_request_json(request_json);
+                    completion(
+                        parse_json_to_var_or_throw(response_json, "xenBridgeRequest"));
+                });
 
 #if XEN_WEB_UI_USE_EMBEDDED
-    options = options.withResourceProvider(
-        [this](juce::String const &resource_path) {
-            return provide_embedded_resource(resource_path);
-        });
+    options = options.withResourceProvider([this](juce::String const &resource_path) {
+        return provide_embedded_resource(resource_path);
+    });
 #endif
 
     return options;
@@ -427,8 +426,7 @@ void WebviewHost::load_initial_url()
 void WebviewHost::load_current_dev_server_url()
 {
     if (browser_ == nullptr || dev_server_load_succeeded_ ||
-        final_failure_page_shown_ ||
-        current_candidate_index_ >= candidate_urls_.size())
+        final_failure_page_shown_ || current_candidate_index_ >= candidate_urls_.size())
     {
         return;
     }
@@ -461,8 +459,7 @@ void WebviewHost::handle_dev_server_load_success(juce::String const &url)
     dev_server_load_succeeded_ = true;
 }
 
-auto WebviewHost::handle_dev_server_load_failure(juce::String const &error_info)
-    -> bool
+auto WebviewHost::handle_dev_server_load_failure(juce::String const &error_info) -> bool
 {
     juce::ignoreUnused(error_info);
 
@@ -501,8 +498,14 @@ void WebviewHost::emit_state_changed_event()
 {
     auto const event_json = bridge_.make_state_changed_event_json();
     browser_->emitEventIfBrowserIsVisible(
-        "xenBridgeEvent",
-        parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+        "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+}
+
+void WebviewHost::emit_library_changed_event()
+{
+    auto const event_json = bridge_.make_library_changed_event_json();
+    browser_->emitEventIfBrowserIsVisible(
+        "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
 }
 
 void WebviewHost::emit_transport_events()
@@ -518,8 +521,7 @@ void WebviewHost::emit_transport_events()
         last_transport_active_ = false;
         auto const event_json = bridge_.make_transport_stopped_event_json();
         browser_->emitEventIfBrowserIsVisible(
-            "xenBridgeEvent",
-            parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+            "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
         return;
     }
 
@@ -527,8 +529,7 @@ void WebviewHost::emit_transport_events()
     auto const event_json = bridge_.make_phase_sync_event_json(
         {.phase = transport_state.loop_phase}, transport_state.daw.bpm);
     browser_->emitEventIfBrowserIsVisible(
-        "xenBridgeEvent",
-        parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+        "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
 }
 
 } // namespace xen::gui

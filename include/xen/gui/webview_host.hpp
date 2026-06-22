@@ -27,8 +27,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     void timerCallback() override;
 
   private:
-    [[nodiscard]] auto create_browser_options()
-        -> juce::WebBrowserComponent::Options;
+    [[nodiscard]] auto create_browser_options() -> juce::WebBrowserComponent::Options;
 
 #if XEN_WEB_UI_USE_DEV_SERVER
     void load_current_dev_server_url();
@@ -39,13 +38,13 @@ class WebviewHost : public juce::Component, private juce::Timer
 #endif
 
 #if XEN_WEB_UI_USE_EMBEDDED
-    [[nodiscard]] auto provide_embedded_resource(
-        juce::String const &resource_path) const
-        -> std::optional<juce::WebBrowserComponent::Resource>;
+    [[nodiscard]] auto provide_embedded_resource(juce::String const &resource_path)
+        const -> std::optional<juce::WebBrowserComponent::Resource>;
 #endif
 
     void load_initial_url();
     void emit_state_changed_event();
+    void emit_library_changed_event();
     void emit_transport_events();
 
   private:
@@ -59,7 +58,8 @@ class WebviewHost : public juce::Component, private juce::Timer
     bool dev_server_load_succeeded_{false};
     bool final_failure_page_shown_{false};
 #endif
-    std::uint64_t last_snapshot_version_{0};
+    ProjectRevision last_project_revision_{};
+    LibraryRevision last_library_revision_{};
     bool last_transport_active_{false};
 };
 

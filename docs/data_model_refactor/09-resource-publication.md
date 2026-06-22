@@ -1,5 +1,7 @@
 # 09: Resource Publication and Frontend Ingestion
 
+Status: Backend complete; frontend pending.
+
 ## Objective
 
 Publish project, library, session, and transport as separate resources and route all
@@ -26,21 +28,21 @@ Frontend sibling work is explicitly part of this package.
 
 ## Acceptance criteria
 
-- [ ] `session.hello` contains session resources, not project/library state.
-- [ ] `state.get` and `state.changed` contain only project resource data plus identity.
-- [ ] `library.get` and `library.changed` contain only library resource data and
+- [x] `session.hello` contains session resources, not project/library state.
+- [x] `state.get` and `state.changed` contain only project resource data plus identity.
+- [x] `library.get` and `library.changed` contain only library resource data and
       revision.
 - [ ] Frontend ingestion rejects lower revisions and permits equal revisions only for
       initial/idempotent responses.
 - [ ] All snapshot sources use the same atomic ingestion operation.
 - [ ] UI selection, input mode, focus, panels, command text, scroll, and zoom are not
       overwritten by backend project snapshots.
-- [ ] Audio snapshots contain only validated immutable render data.
+- [x] Audio snapshots contain only validated immutable render data.
 - [ ] Components no longer call the native bridge directly.
 
 ## Verification
 
-- [ ] Backend tests cover resource payload boundaries and publication/no-publication
+- [x] Backend tests cover resource payload boundaries and publication/no-publication
       rules.
 - [ ] Frontend tests cover out-of-order, equal, and newer revisions plus selection
       reconciliation.

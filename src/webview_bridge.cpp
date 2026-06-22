@@ -169,20 +169,6 @@ auto selection_to_json(std::optional<xen::SelectionPath> const &selection)
     return nlohmann::json{{"path", std::move(path)}};
 }
 
-void require_integer_equals(nlohmann::json const &json, std::string_view field_name,
-                            int expected)
-{
-    auto const key = std::string{field_name};
-    if (!json.contains(key) || !json.at(key).is_number_integer())
-    {
-        throw BridgeError{"invalid_request", "Field must be an integer: " + key};
-    }
-    if (json.at(key).get<int>() != expected)
-    {
-        throw BridgeError{"unsupported_protocol", "Unsupported " + key};
-    }
-}
-
 auto parse_request(std::string const &request_json) -> ParsedRequest
 {
     auto const parsed = nlohmann::json::parse(request_json);
@@ -291,8 +277,6 @@ void validate_session_hello_payload(nlohmann::json const &payload,
         };
     }
 
-    require_integer_equals(payload, "snapshot_schema_version",
-                           xen::bridge::snapshot_schema_version);
     (void)require_string(payload, "frontend_app");
     (void)require_string(payload, "frontend_version");
 }
@@ -494,22 +478,30 @@ auto make_tuning_entries(juce::File const &directory) -> nlohmann::json
 
 auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
 {
-    auto const snapshot = processor.get_engine_snapshot();
-    auto const &config = processor.plugin_state.config;
-    auto const &library = processor.plugin_state.library;
+    auto const snapshot = processor.get_library_snapshot();
+    auto const &workspace = snapshot.workspace;
+    auto const &library = snapshot.library;
 
     auto scales = nlohmann::json::array();
     scales.push_back(nlohmann::json{
+        {"id", "chromatic"},
         {"name", normalize_utf8("chromatic")},
+        {"definition", nullptr},
         {"intervals", nlohmann::json::array()},
         {"command", normalize_utf8("set scale " + quote_command_arg("chromatic"))},
     });
     for (auto const &scale : library.scales)
     {
         scales.push_back(nlohmann::json{
-            {"name", normalize_utf8(scale.name)},
-            {"intervals", scale.intervals},
-            {"command", normalize_utf8("set scale " + quote_command_arg(scale.name))},
+            {"id", normalize_utf8(scale.id)},
+            {"definition",
+             {
+                 {"name", normalize_utf8(scale.definition.name)},
+                 {"tuning_length", scale.definition.tuning_length},
+                 {"intervals", scale.definition.intervals},
+                 {"mode", scale.definition.mode},
+             }},
+            {"command", normalize_utf8("set scale " + quote_command_arg(scale.id))},
         });
     }
 
@@ -523,17 +515,9 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
         });
     }
 
-    auto active_scale = nlohmann::json{};
-    if (snapshot.engine.scale.has_value())
-    {
-        active_scale = normalize_utf8(snapshot.engine.scale->name);
-    }
-    else
-    {
-        active_scale = nullptr;
-    }
-
     return nlohmann::json{
+        {"schema_version", xen::bridge::library_schema_version},
+        {"library_revision", snapshot.library_revision.value()},
         {"paths",
          {
              {"library",
@@ -541,14 +525,14 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
                   xen::get_user_library_directory().getFullPathName().toStdString())},
              {"sequences",
               normalize_utf8(
-                  config.current_sequence_directory.getFullPathName().toStdString())},
+                  workspace.sequence_directory.getFullPathName().toStdString())},
              {"tunings",
               normalize_utf8(
-                  config.current_tuning_directory.getFullPathName().toStdString())},
+                  workspace.tuning_directory.getFullPathName().toStdString())},
          }},
-        {"measures", make_file_entries(config.current_sequence_directory, "*.xss",
-                                       "load measure ")},
-        {"tunings", make_tuning_entries(config.current_tuning_directory)},
+        {"measures",
+         make_file_entries(workspace.sequence_directory, "*.xss", "load measure ")},
+        {"tunings", make_tuning_entries(workspace.tuning_directory)},
         {"scales", std::move(scales)},
         {"chords", std::move(chords)},
         {"commands",
@@ -556,11 +540,6 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
              {"reload_scales", "load scales"},
              {"reload_chords", "load chords"},
              {"library_directory", "libraryDirectory"},
-         }},
-        {"active",
-         {
-             {"tuning_name", normalize_utf8(snapshot.engine.tuning_name)},
-             {"scale_name", std::move(active_scale)},
          }},
     };
 }
@@ -591,8 +570,9 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                 export_merged_keymap(get_system_keys_file(), get_user_keys_file());
             payload = nlohmann::json{
                 {"protocol", bridge::protocol},
-                {"snapshot_schema_version", bridge::snapshot_schema_version},
                 {"plugin_version", VERSION},
+                {"project_schema_version", bridge::project_schema_version},
+                {"library_schema_version", bridge::library_schema_version},
                 {"catalog",
                  bridge::make_catalog_payload(processor_.command_catalog().metadata())},
                 {"keymap", bridge::make_keymap_payload(keymap).at("keymap")},
@@ -601,8 +581,7 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
         else if (request.name == "state.get")
         {
             validate_empty_object_payload(request.payload, request);
-            payload = bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
-                                                     processor_.plugin_state.library);
+            payload = bridge::make_project_snapshot(processor_.get_project_snapshot());
         }
         else if (request.name == "command.execute")
         {
@@ -617,15 +596,8 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                  }},
                 {"suggested_selection", selection_to_json(result.suggested_selection)},
                 {"snapshot",
-                 bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
-                                                processor_.plugin_state.library)},
+                 bridge::make_project_snapshot(processor_.get_project_snapshot())},
             };
-        }
-        else if (request.name == "keymap.get")
-        {
-            validate_empty_object_payload(request.payload, request);
-            payload = bridge::make_keymap_payload(
-                export_merged_keymap(get_system_keys_file(), get_user_keys_file()));
         }
         else if (request.name == "library.get")
         {
@@ -679,9 +651,16 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
 
 auto WebviewBridge::make_state_changed_event_json() const -> std::string
 {
-    auto const payload = bridge::make_ui_state_snapshot(
-        processor_.get_engine_snapshot(), processor_.plugin_state.library);
+    auto const payload =
+        bridge::make_project_snapshot(processor_.get_project_snapshot());
     return make_envelope("event", "state.changed", std::nullopt, payload).dump();
+}
+
+auto WebviewBridge::make_library_changed_event_json() const -> std::string
+{
+    return make_envelope("event", "library.changed", std::nullopt,
+                         make_library_payload(processor_))
+        .dump();
 }
 
 auto WebviewBridge::make_phase_sync_event_json(MeasurePhase phase, float bpm) const

@@ -121,25 +121,37 @@ auto direction_to_json(xen::TranslateDirection direction) -> nlohmann::json
     return "up";
 }
 
-auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
+auto active_scale_to_json(xen::ActiveScale const &scale) -> nlohmann::json
 {
-    auto result = nlohmann::json{
-        {"measure", measure_to_json(engine.measure)},
-        {"tuning", tuning_to_json(engine.tuning)},
-        {"tuning_name", engine.tuning_name},
-        {"scale", nullptr},
-        {"key", engine.key},
-        {"scale_translate_direction",
-         direction_to_json(engine.scale_translate_direction)},
-        {"base_frequency", engine.base_frequency},
+    return nlohmann::json{
+        {"source_id", scale.source_id.has_value() ? nlohmann::json{*scale.source_id}
+                                                  : nlohmann::json{nullptr}},
+        {"definition", scale_to_json(scale.definition)},
     };
+}
 
-    if (engine.scale.has_value())
+auto project_to_json(xen::ProjectState const &project) -> nlohmann::json
+{
+    auto pitch = nlohmann::json{
+        {"tuning",
+         {
+             {"name", project.pitch.tuning.name},
+             {"definition", tuning_to_json(project.pitch.tuning.definition)},
+         }},
+        {"scale", nullptr},
+        {"transposition", project.pitch.transposition},
+        {"translation_direction",
+         direction_to_json(project.pitch.translation_direction)},
+        {"base_frequency", project.pitch.base_frequency},
+    };
+    if (project.pitch.scale.has_value())
     {
-        result["scale"] = scale_to_json(*engine.scale);
+        pitch["scale"] = active_scale_to_json(*project.pitch.scale);
     }
-
-    return result;
+    return nlohmann::json{
+        {"measure", measure_to_json(project.measure)},
+        {"pitch", std::move(pitch)},
+    };
 }
 
 auto catalog_argument_to_json(xen::CatalogArgumentMetadata const &argument)
@@ -228,32 +240,13 @@ auto to_string(MessageLevel level) -> std::string
     return "error";
 }
 
-auto make_ui_state_snapshot(EngineSnapshot const &snapshot,
-                            ContentLibraryState const &library) -> nlohmann::json
+auto make_project_snapshot(ProjectSnapshot const &snapshot) -> nlohmann::json
 {
-    auto scales = nlohmann::json::array();
-    for (auto const &scale : library.scales)
-    {
-        scales.push_back(detail::scale_to_json(scale));
-    }
-
-    auto chords = nlohmann::json::array();
-    for (auto const &chord : library.chords)
-    {
-        chords.push_back(detail::chord_to_json(chord));
-    }
-
     return nlohmann::json{
-        {"schema_version", snapshot_schema_version},
-        {"snapshot_version", snapshot.snapshot_version},
+        {"schema_version", project_schema_version},
         {"history_entry_id", snapshot.history_entry_id.value()},
         {"project_revision", snapshot.project_revision.value()},
-        {"engine", detail::engine_to_json(snapshot.engine)},
-        {"library",
-         {
-             {"scales", std::move(scales)},
-             {"chords", std::move(chords)},
-         }},
+        {"project", detail::project_to_json(snapshot.project)},
     };
 }
 

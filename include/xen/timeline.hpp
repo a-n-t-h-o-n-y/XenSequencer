@@ -11,6 +11,11 @@
 namespace xen
 {
 
+template <typename State>
+void validate_timeline_state(State const &)
+{
+}
+
 class HistoryEntryId
 {
   public:
@@ -47,6 +52,24 @@ class ProjectRevision
     std::uint64_t value_;
 };
 
+class LibraryRevision
+{
+  public:
+    explicit constexpr LibraryRevision(std::uint64_t value = 0) noexcept : value_{value}
+    {
+    }
+
+    [[nodiscard]] constexpr auto value() const noexcept -> std::uint64_t
+    {
+        return value_;
+    }
+
+    auto operator<=>(LibraryRevision const &) const = default;
+
+  private:
+    std::uint64_t value_;
+};
+
 namespace detail
 {
 
@@ -60,6 +83,12 @@ inline auto allocate_project_revision() noexcept -> ProjectRevision
 {
     static auto next_value = std::atomic<std::uint64_t>{1};
     return ProjectRevision{next_value.fetch_add(1, std::memory_order_relaxed)};
+}
+
+inline auto allocate_library_revision() noexcept -> LibraryRevision
+{
+    static auto next_value = std::atomic<std::uint64_t>{1};
+    return LibraryRevision{next_value.fetch_add(1, std::memory_order_relaxed)};
 }
 
 } // namespace detail
@@ -86,6 +115,7 @@ class Timeline
           timeline_{{stage_, detail::allocate_history_entry_id()}},
           revision_{detail::allocate_project_revision()}
     {
+        validate_timeline_state(stage_);
     }
 
   public:
@@ -110,6 +140,7 @@ class Timeline
      */
     auto commit(State state) -> bool
     {
+        validate_timeline_state(state);
         if (state == timeline_[at_].state)
         {
             return false;
@@ -118,7 +149,8 @@ class Timeline
         auto next_timeline = timeline_;
         auto const next_at = at_ + 1;
         next_timeline.resize(next_at);
-        next_timeline.push_back({std::move(state), detail::allocate_history_entry_id()});
+        next_timeline.push_back(
+            {std::move(state), detail::allocate_history_entry_id()});
         auto const next_revision = detail::allocate_project_revision();
 
         stage_ = next_timeline.back().state;
@@ -133,6 +165,7 @@ class Timeline
      */
     auto amend_current(HistoryEntryId expected_entry_id, State state) -> bool
     {
+        validate_timeline_state(state);
         if (at_ + 1 != std::size(timeline_) || timeline_[at_].id != expected_entry_id ||
             state == timeline_[at_].state)
         {
@@ -154,6 +187,7 @@ class Timeline
      */
     auto replace_history(State state) -> void
     {
+        validate_timeline_state(state);
         auto next_timeline = std::vector<Entry>{};
         next_timeline.push_back({state, detail::allocate_history_entry_id()});
         auto const next_revision = detail::allocate_project_revision();

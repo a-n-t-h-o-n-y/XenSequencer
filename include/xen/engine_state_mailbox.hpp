@@ -7,13 +7,13 @@
 #include <optional>
 #include <stdexcept>
 
-#include <xen/state.hpp>
+#include <xen/project_validation.hpp>
 
 namespace xen
 {
 
 /**
- * Single-producer/single-consumer mailbox for latest EngineState snapshots.
+ * Single-producer/single-consumer mailbox for validated audio project snapshots.
  *
  * Publishing copies into a producer-owned slot and may allocate for dynamic state.
  * Consuming only exchanges slot ownership and returns a view into the consumer-owned
@@ -32,7 +32,7 @@ class EngineStateMailbox
 
     struct Snapshot
     {
-        EngineState state{};
+        AudioProjectSnapshot state{};
         std::uint64_t version{0};
     };
 
@@ -43,7 +43,7 @@ class EngineStateMailbox
     class ReadView
     {
       public:
-        [[nodiscard]] auto state() const noexcept -> EngineState const &
+        [[nodiscard]] auto state() const noexcept -> AudioProjectSnapshot const &
         {
             return snapshot_->state;
         }
@@ -63,12 +63,12 @@ class EngineStateMailbox
         Snapshot const *snapshot_;
     };
 
-    void publish(EngineState const &state)
+    void publish(AudioProjectSnapshot const &state)
     {
+        validate(state.project);
         if (producer_active_.test_and_set(std::memory_order_acquire))
         {
-            throw std::logic_error{
-                "EngineStateMailbox::publish() called concurrently"};
+            throw std::logic_error{"EngineStateMailbox::publish() called concurrently"};
         }
 
         struct ProducerGuard
@@ -86,8 +86,8 @@ class EngineStateMailbox
         snapshot.state = state;
         snapshot.version = next_version;
 
-        auto const previous_control = control_.exchange(
-            encode(producer_slot_, true), std::memory_order_acq_rel);
+        auto const previous_control =
+            control_.exchange(encode(producer_slot_, true), std::memory_order_acq_rel);
         producer_slot_ = decode_index(previous_control);
         version_.store(next_version, std::memory_order_release);
     }
@@ -112,18 +112,17 @@ class EngineStateMailbox
         }
 
         auto const previous_control =
-            control_.exchange(encode(consumer_slot_, false),
-                              std::memory_order_acq_rel);
+            control_.exchange(encode(consumer_slot_, false), std::memory_order_acq_rel);
         consumer_slot_ = decode_index(previous_control);
         return ReadView{&snapshots_[consumer_slot_]};
     }
 
   private:
-    [[nodiscard]] static constexpr auto encode(std::size_t index,
-                                               bool dirty) noexcept -> ControlWord
+    [[nodiscard]] static constexpr auto encode(std::size_t index, bool dirty) noexcept
+        -> ControlWord
     {
-        return static_cast<ControlWord>(
-            static_cast<ControlWord>(index) | (dirty ? DIRTY_MASK : 0));
+        return static_cast<ControlWord>(static_cast<ControlWord>(index) |
+                                        (dirty ? DIRTY_MASK : 0));
     }
 
     [[nodiscard]] static constexpr auto decode_index(ControlWord control) noexcept

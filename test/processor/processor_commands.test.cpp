@@ -16,10 +16,9 @@ auto execute(XenProcessor &processor, std::string const &command,
     -> CommandApplicationResult
 {
     return processor.execute_command_string(
-        command,
-        {.selection = std::move(selection),
-         .expected_project_revision =
-             processor.get_engine_snapshot().project_revision});
+        command, {.selection = std::move(selection),
+                  .expected_project_revision =
+                      processor.get_project_snapshot().project_revision});
 }
 
 } // namespace
@@ -28,7 +27,7 @@ TEST_CASE("Processor requires current revisions only for project-aware submissio
           "[processor][commands][context]")
 {
     auto processor = XenProcessor{};
-    auto const before = processor.get_engine_snapshot();
+    auto const before = processor.get_project_snapshot();
 
     auto const version_result =
         processor.execute_command_string("version", CommandContext{});
@@ -38,26 +37,24 @@ TEST_CASE("Processor requires current revisions only for project-aware submissio
         processor.execute_command_string("set key 9", CommandContext{});
     CHECK(missing_result.status.first == MessageLevel::Error);
     CHECK(missing_result.status.second == "expected project revision is required");
-    CHECK(processor.get_engine_snapshot().engine == before.engine);
+    CHECK(processor.get_project_snapshot().project == before.project);
 }
 
 TEST_CASE("Processor rejects stale revisions before resolving selection",
           "[processor][commands][context]")
 {
     auto processor = XenProcessor{};
-    auto const stale_revision = processor.get_engine_snapshot().project_revision;
+    auto const stale_revision = processor.get_project_snapshot().project_revision;
     REQUIRE(execute(processor, "set key 3").status.first == MessageLevel::Info);
-    auto const before_rejection = processor.get_engine_snapshot();
+    auto const before_rejection = processor.get_project_snapshot();
 
     auto const result = processor.execute_command_string(
         "set key 9", {.expected_project_revision = stale_revision});
 
     CHECK(result.status.first == MessageLevel::Error);
-    CHECK(result.status.second == "stale project revision: expected " +
-                                      std::to_string(stale_revision.value()) +
-                                      ", current " +
-                                      std::to_string(
-                                          before_rejection.project_revision.value()));
+    CHECK(result.status.second ==
+          "stale project revision: expected " + std::to_string(stale_revision.value()) +
+              ", current " + std::to_string(before_rejection.project_revision.value()));
 }
 
 TEST_CASE("Processor rejects missing and invalid targeted selections",
@@ -69,10 +66,9 @@ TEST_CASE("Processor rejects missing and invalid targeted selections",
     CHECK(missing.status.second == "selection is required");
 
     auto const invalid = processor.execute_command_string(
-        "delete",
-        {.selection = select_element_in_cell({}, 9),
-         .expected_project_revision =
-             processor.get_engine_snapshot().project_revision});
+        "delete", {.selection = select_element_in_cell({}, 9),
+                   .expected_project_revision =
+                       processor.get_project_snapshot().project_revision});
     CHECK(invalid.status.first == MessageLevel::Error);
     CHECK(invalid.status.second == "selection path does not resolve");
 }
@@ -82,8 +78,8 @@ TEST_CASE("Processor rejects wrong-kind targets", "[processor][commands][selecti
     auto processor = XenProcessor{};
     REQUIRE(execute(processor, "note 5", SelectionPath{}).status.first ==
             MessageLevel::Info);
-    auto const result = execute(processor, "set weight 0.5",
-                                select_element_in_cell({}, 0));
+    auto const result =
+        execute(processor, "set weight 0.5", select_element_in_cell({}, 0));
     CHECK(result.status.first == MessageLevel::Error);
     CHECK(result.status.second == "selection must resolve to a cell");
 }

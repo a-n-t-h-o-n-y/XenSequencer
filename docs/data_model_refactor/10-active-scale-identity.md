@@ -1,5 +1,7 @@
 # 10: Active Scale Identity
 
+Status: Complete.
+
 ## Objective
 
 Make the active scale definition the project truth, retain optional library
@@ -25,17 +27,17 @@ fallbacks.
 
 ## Acceptance criteria
 
-- [ ] Active scale musical behavior depends on its embedded definition.
-- [ ] Library provenance is optional and represented only by stable source ID.
-- [ ] Every shipped library scale has a unique stable ID.
-- [ ] Mode shifts do not change source ID.
-- [ ] Cycling fails clearly for embedded/unidentified or missing-library scales.
-- [ ] Selecting a library scale establishes its source ID.
-- [ ] `scale_shift_index` and all duplicate active-scale authority are removed.
-- [ ] Persisted data uses the new schema without a compatibility shim.
+- [x] Active scale musical behavior depends on its embedded definition.
+- [x] Library provenance is optional and represented only by stable source ID.
+- [x] Every shipped library scale has a unique stable ID.
+- [x] Mode shifts do not change source ID.
+- [x] Cycling fails clearly for embedded/unidentified or missing-library scales.
+- [x] Selecting a library scale establishes its source ID.
+- [x] `scale_shift_index` and all duplicate active-scale authority are removed.
+- [x] Persisted data uses the new schema without a compatibility shim.
 
 ## Verification
 
-- [ ] Tests cover selection, mode shift, cycling, missing source, duplicate IDs,
+- [x] Tests cover selection, mode shift, cycling, missing source, duplicate IDs,
       embedded definitions, and serialization round trips.
-- [ ] `XenTests` builds and full `ctest` passes, or the blocker is recorded.
+- [x] `XenTests` builds and full `ctest` passes, or the blocker is recorded.

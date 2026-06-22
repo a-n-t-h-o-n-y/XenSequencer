@@ -96,27 +96,27 @@ TEST_CASE("Scale mapping validates preconditions and checked arithmetic",
 TEST_CASE("Plugin state loading rejects scale values before narrowing",
           "[numeric][scale][serialize]")
 {
-    auto state = xen::EngineState{};
-    state.scale = valid_scale();
-    auto json = nlohmann::json::parse(xen::serialize_plugin(state));
+    auto state = xen::ProjectState{};
+    state.pitch.scale =
+        xen::ActiveScale{.source_id = std::nullopt, .definition = valid_scale()};
+    auto json = nlohmann::json::parse(xen::serialize_project(state));
 
-    json["scale"]["intervals"][0] = 256;
-    CHECK_THROWS_AS(xen::deserialize_plugin(json.dump()), std::invalid_argument);
+    json["project"]["pitch"]["scale"]["definition"]["intervals"][0] = 256;
+    CHECK_THROWS_AS(xen::deserialize_project(json.dump()), std::invalid_argument);
 
-    json = nlohmann::json::parse(xen::serialize_plugin(state));
-    json["scale"]["mode"] = 257;
-    CHECK_THROWS_AS(xen::deserialize_plugin(json.dump()), std::invalid_argument);
+    json = nlohmann::json::parse(xen::serialize_project(state));
+    json["project"]["pitch"]["scale"]["definition"]["mode"] = 257;
+    CHECK_THROWS_AS(xen::deserialize_project(json.dump()), std::invalid_argument);
 }
 
 TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
           "[numeric][actions]")
 {
     auto const all = sequence::Pattern{0, {1}};
-    auto engine = xen::EngineState{};
+    auto engine = xen::ProjectState{};
     engine.measure.cell = one_note_cell(std::numeric_limits<int>::max());
-    CHECK_THROWS_AS(
-        xen::action::shift_octave(engine, xen::SelectionPath{}, all, 1),
-        std::overflow_error);
+    CHECK_THROWS_AS(xen::action::shift_octave(engine, xen::SelectionPath{}, all, 1),
+                    std::overflow_error);
     CHECK_THROWS_AS(xen::action::arp(one_note_cell(0), all, {}), std::invalid_argument);
     CHECK_THROWS_AS(
         xen::action::chord(one_note_cell(std::numeric_limits<int>::max()), {1}, 12),
@@ -129,7 +129,7 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
                         std::nullopt, 1, std::numeric_limits<std::size_t>::max()),
                     std::overflow_error);
 
-    engine = xen::EngineState{};
+    engine = xen::ProjectState{};
     engine.measure.cell = one_note_cell(0);
     CHECK_THROWS_AS(xen::action::set_note_octave(engine, xen::SelectionPath{}, all,
                                                  std::numeric_limits<int>::max()),
@@ -212,7 +212,7 @@ TEST_CASE("MIDI engine rejects overflowing absolute processing windows",
           "[numeric][midi]")
 {
     auto engine = xen::MidiEngine{};
-    auto sequencer = xen::EngineState{};
+    auto sequencer = xen::ProjectState{};
     auto const daw = xen::DAWState{
         .bpm = 120.f,
         .sample_rate = 44'100,

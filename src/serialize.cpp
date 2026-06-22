@@ -14,6 +14,7 @@
 
 #include <sequence/sequence.hpp>
 
+#include <xen/project_validation.hpp>
 #include <xen/scale.hpp>
 #include <xen/state.hpp>
 
@@ -181,6 +182,28 @@ static void from_json(json const &j, std::optional<T> &opt)
 namespace xen
 {
 
+static void to_json(nlohmann::json &j, TranslateDirection direction)
+{
+    j = direction == TranslateDirection::Up ? "up" : "down";
+}
+
+static void from_json(nlohmann::json const &j, TranslateDirection &direction)
+{
+    auto const value = j.get<std::string>();
+    if (value == "up")
+    {
+        direction = TranslateDirection::Up;
+    }
+    else if (value == "down")
+    {
+        direction = TranslateDirection::Down;
+    }
+    else
+    {
+        throw std::invalid_argument{"Unknown translation direction."};
+    }
+}
+
 static void to_json(nlohmann::json &j, Scale const &scale)
 {
     j = nlohmann::json{
@@ -200,8 +223,7 @@ static void from_json(nlohmann::json const &j, Scale &scale)
     scale.intervals.reserve(intervals.size());
     for (auto const interval : intervals)
     {
-        if (interval == 0 ||
-            interval > std::numeric_limits<std::uint8_t>::max())
+        if (interval == 0 || interval > std::numeric_limits<std::uint8_t>::max())
         {
             throw std::invalid_argument{
                 "Scale intervals must be in the range [1, 255]."};
@@ -217,34 +239,67 @@ static void from_json(nlohmann::json const &j, Scale &scale)
     validate_scale(scale);
 }
 
-static void to_json(nlohmann::json &j, EngineState const &state)
+static void to_json(nlohmann::json &j, ActiveScale const &scale)
 {
     j = nlohmann::json{
-        {"measure", state.measure},
-        {"tuning", state.tuning},
-        {"tuning_name", state.tuning_name},
-        {"scale", state.scale},
-        {"key", state.key},
-        {"scale_translate_direction", state.scale_translate_direction},
-        {"base_frequency", state.base_frequency},
+        {"source_id", scale.source_id},
+        {"definition", scale.definition},
     };
 }
 
-static void from_json(nlohmann::json const &j, EngineState &state)
+static void from_json(nlohmann::json const &j, ActiveScale &scale)
 {
-    if (j.contains("sequence_bank") || j.contains("sequence_names"))
-    {
-        throw std::invalid_argument("Legacy sequence bank plugin state is unsupported.");
-    }
+    scale.source_id = j.at("source_id").get<std::optional<std::string>>();
+    scale.definition = j.at("definition").get<Scale>();
+}
 
-    state.measure = j.at("measure").get<Measure>();
-    state.tuning = j.at("tuning").get<sequence::Tuning>();
-    state.tuning_name = j.at("tuning_name").get<std::string>();
-    state.scale = j.at("scale").get<std::optional<Scale>>();
-    state.key = j.at("key").get<int>();
-    state.scale_translate_direction =
-        j.at("scale_translate_direction").get<TranslateDirection>();
-    state.base_frequency = j.at("base_frequency").get<float>();
+static void to_json(nlohmann::json &j, NamedTuning const &tuning)
+{
+    j = nlohmann::json{
+        {"name", tuning.name},
+        {"definition", tuning.definition},
+    };
+}
+
+static void from_json(nlohmann::json const &j, NamedTuning &tuning)
+{
+    tuning.name = j.at("name").get<std::string>();
+    tuning.definition = j.at("definition").get<sequence::Tuning>();
+}
+
+static void to_json(nlohmann::json &j, PitchSystem const &pitch)
+{
+    j = nlohmann::json{
+        {"tuning", pitch.tuning},
+        {"scale", pitch.scale},
+        {"transposition", pitch.transposition},
+        {"translation_direction", pitch.translation_direction},
+        {"base_frequency", pitch.base_frequency},
+    };
+}
+
+static void from_json(nlohmann::json const &j, PitchSystem &pitch)
+{
+    pitch.tuning = j.at("tuning").get<NamedTuning>();
+    pitch.scale = j.at("scale").get<std::optional<ActiveScale>>();
+    pitch.transposition = j.at("transposition").get<int>();
+    pitch.translation_direction =
+        j.at("translation_direction").get<TranslateDirection>();
+    pitch.base_frequency = j.at("base_frequency").get<float>();
+}
+
+static void to_json(nlohmann::json &j, ProjectState const &project)
+{
+    j = nlohmann::json{
+        {"measure", project.measure},
+        {"pitch", project.pitch},
+    };
+}
+
+static void from_json(nlohmann::json const &j, ProjectState &project)
+{
+    project.measure = j.at("measure").get<Measure>();
+    project.pitch = j.at("pitch").get<PitchSystem>();
 }
 
 auto serialize_cell(sequence::Cell const &c) -> std::string
@@ -277,16 +332,26 @@ auto deserialize_measure(std::string const &json_str) -> Measure
     return measure;
 }
 
-auto serialize_plugin(EngineState const &state) -> std::string
+auto serialize_project(ProjectState const &project) -> std::string
 {
-    auto json = nlohmann::json{};
-    to_json(json, state);
-    return json.dump();
+    validate(project);
+    return nlohmann::json{
+        {"schema", 1},
+        {"project", project},
+    }
+        .dump();
 }
 
-auto deserialize_plugin(std::string const &json_str) -> EngineState
+auto deserialize_project(std::string const &json_str) -> ProjectState
 {
-    return nlohmann::json::parse(json_str).get<EngineState>();
+    auto const json = nlohmann::json::parse(json_str);
+    if (json.at("schema").get<int>() != 1)
+    {
+        throw std::invalid_argument{"Unsupported project schema."};
+    }
+    auto project = json.at("project").get<ProjectState>();
+    validate(project);
+    return project;
 }
 
 auto serialize_copy_buffer_content(CopyBufferContent const &content) -> std::string
@@ -314,8 +379,7 @@ auto serialize_copy_buffer_content(CopyBufferContent const &content) -> std::str
     return json.dump();
 }
 
-auto deserialize_copy_buffer_content(std::string const &json_str)
-    -> CopyBufferContent
+auto deserialize_copy_buffer_content(std::string const &json_str) -> CopyBufferContent
 {
     auto const json = nlohmann::json::parse(json_str);
     auto const kind = json.at("kind").get<std::string>();
