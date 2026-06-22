@@ -36,6 +36,63 @@
 - Do not invoke raw configure commands or create alternate build directories unless explicitly needed; use `configure.sh` and the existing preset directories.
 - Do not pass explicit `-j` options to Ninja or CMake build commands.
 
+## Token-Efficient Agent Workflow
+
+Repository characteristics that matter for agent context:
+
+- `include`, `src`, and `test` contain about 90 C++ files and 473 KB of text. Reading
+  all of them costs roughly 120k tokens before reasoning or command output.
+- Recent changes commonly span several files, but the relevant code is usually localized
+  by symbol. Read search hits and nearby declarations first instead of whole modules.
+- The dev build exposes roughly 990 Ninja targets because it includes JUCE, plugin
+  formats, tools, tests, and the audio host. Build only the affected target while
+  iterating.
+- `XenTests` contains more than 100 Catch2 cases. Listing or running them verbosely
+  produces much more context than a filtered run; ordinary successful `ctest` output is
+  small.
+
+Use the following operating rules:
+
+- Start discovery with `rg -n` and `rg --files` scoped to likely directories and file
+  types. Exclude `build`, `build-release`, `_deps`, the submodule, fonts, and images
+  unless the task specifically concerns them.
+- Read only relevant line ranges around matching symbols. Do not dump a complete large
+  source file when a declaration, implementation, or test section is enough.
+- Track files and symbols already inspected. Do not reread an unchanged file in full;
+  use a narrower `rg`, `sed` range, or `git diff` to recover the needed context.
+- Do not inspect generated build files such as `build.ninja`, `CMakeCache.txt`, embedded
+  binary-data outputs, or fetched dependency sources to understand project behavior.
+  Query CMake targets or project source lists instead.
+- Inspect `CMakeLists.txt` by relevant section (`XEN_*_SOURCES`, target definition,
+  tests, or dependency declaration), not by repeatedly printing the whole file.
+- During implementation, build the narrowest useful target: `XenCore` for core logic,
+  `XenUI` for editor/webview code, `XenTests` for tests or processor code, and a plugin
+  format target only when plugin packaging is relevant. Use
+  `cmake --build build --target <target> -- --quiet` so successful Ninja progress does
+  not enter context; diagnostics are still emitted.
+- Run an exact Catch2 case or a relevant tag while iterating, for example
+  `build/XenTests "exact test case name"` or `build/XenTests "[tag]"`. Run
+  `ctest --test-dir build --output-on-failure` for final code verification. Do not use
+  `ctest -V`, Catch2 `-s`, or `--list-tests` unless their extra output is needed.
+- When a command may be noisy, capture it under `/tmp`, report its exit status and a
+  short tail, then inspect only the first relevant error and its surrounding lines.
+  Expand diagnostics as needed; do not paste an entire compiler or test log into
+  context. Never suppress or discard diagnostics before confirming success.
+- Compiler failures can produce large template cascades through JUCE and Catch2. Fix
+  the first project-source error, rebuild the affected target quietly, and only inspect
+  later diagnostics if they remain.
+- Run `clang-format` only on changed C++ files. In-place formatting normally emits no
+  output; use `--dry-run --Werror` on those same files when a formatting check is
+  useful. Do not format or check the whole tree for a localized change.
+- Prefer `git diff -- <paths>` and `git diff --check` over rereading edited files.
+  Review the complete final diff once, without repeatedly printing unchanged context.
+- Keep progress updates to decisions, phase changes, blockers, and verification
+  results. Do not narrate each search, file read, or successful command, and do not
+  repeat code or logs already present in tool output.
+- Preserve compact working notes as paths, symbols, decisions, and unresolved issues.
+  Context accumulation multiplies the cost of repeated file contents, logs, plans, and
+  status prose across later turns.
+
 ## C++ Style (Beyond clang-format)
 
 - Use east const consistently, including pointers and references: `Type const &value`, `auto const x = ...`.
