@@ -16,6 +16,16 @@ paths or parallel old/new behavior.
 - Keep backend command definitions authoritative while the frontend owns presentation.
 - Centralize model validation and remove duplicated state.
 
+## Non-negotiable invariants
+
+- No project-aware command runs without an expected current `ProjectRevision`.
+- Stale positional selections are rejected, never rebased.
+- Command handlers receive only declared capabilities.
+- A command chain installs at most one project-history transition.
+- Chord/arp cycling applies a backend-owned baseline and amends at most one committed
+  entry.
+- Project, library, command-session, UI, and transport state have separate ownership.
+
 ## Current codebase anchors
 
 - `include/xen/state.hpp` combines project, editor, transform-cycle, library, and
