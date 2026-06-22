@@ -19,6 +19,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/midi.hpp>
+#include <xen/selection.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
 #include <xen/string_manip.hpp>
@@ -29,6 +30,72 @@
 
 namespace
 {
+
+auto error_result(std::string message) -> xen::CommandApplicationResult
+{
+    return {
+        .status = {xen::MessageLevel::Error, std::move(message)},
+        .suggested_selection = std::nullopt,
+    };
+}
+
+auto validate_selection_target(xen::TargetRequirement requirement,
+                               std::optional<xen::SelectionPath> const &selection,
+                               xen::Measure const &measure)
+    -> std::optional<xen::CommandApplicationResult>
+{
+    using enum xen::TargetRequirement;
+
+    if (requirement == None)
+    {
+        return std::nullopt;
+    }
+    if (!selection.has_value())
+    {
+        return error_result("selection is required");
+    }
+
+    try
+    {
+        switch (requirement)
+        {
+        case Cell:
+            (void)xen::get_selected_cell_const(measure, *selection);
+            return std::nullopt;
+        case Element:
+            (void)xen::get_selected_element_const(measure, *selection);
+            return std::nullopt;
+        case CellOrElement:
+            if (xen::selection_kind(*selection) == xen::SelectionKind::Element)
+            {
+                (void)xen::get_selected_element_const(measure, *selection);
+            }
+            else
+            {
+                (void)xen::get_selected_cell_const(measure, *selection);
+            }
+            return std::nullopt;
+        case None:
+            return std::nullopt;
+        }
+    }
+    catch (std::exception const &)
+    {
+        switch (requirement)
+        {
+        case Cell:
+            return error_result("selection must resolve to a cell");
+        case Element:
+            return error_result("selection must resolve to an element");
+        case CellOrElement:
+            return error_result("selection path does not resolve");
+        case None:
+            break;
+        }
+    }
+
+    return std::nullopt;
+}
 
 [[nodiscard]] auto valid_bpm(double value) -> bool
 {
@@ -96,7 +163,6 @@ auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
 {
     return EngineSnapshot{
         .engine = plugin_state.timeline.get_state(),
-        .editor = plugin_state.editor,
         .history_entry_id = plugin_state.timeline.get_current_entry_id(),
         .project_revision = plugin_state.timeline.get_project_revision(),
         .snapshot_version = ui_snapshot_version_.load(std::memory_order_acquire),
@@ -261,7 +327,7 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 
 auto XenProcessor::execute_command_string(std::string const &command_string,
                                           CommandContext const &context)
-    -> std::pair<MessageLevel, std::string>
+    -> CommandApplicationResult
 {
     try
     {
@@ -272,15 +338,14 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             auto const result = command_catalog_.bind_invocation(invocation);
             if (std::holds_alternative<CatalogBindError>(result))
             {
-                return {MessageLevel::Error,
-                        std::get<CatalogBindError>(result).message};
+                return error_result(std::get<CatalogBindError>(result).message);
             }
             auto const &step = std::get<BoundStep>(result);
             if (std::holds_alternative<RepeatPrevious>(step))
             {
                 if (previous_command_chain_.empty())
                 {
-                    return {MessageLevel::Error, "No previous command to repeat."};
+                    return error_result("No previous command to repeat.");
                 }
                 expanded.insert(expanded.end(), previous_command_chain_.begin(),
                                 previous_command_chain_.end());
@@ -294,65 +359,110 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         auto const bind_result = command_catalog_.bind_chain(expanded);
         if (std::holds_alternative<CatalogBindError>(bind_result))
         {
-            return {MessageLevel::Error,
-                    std::get<CatalogBindError>(bind_result).message};
+            return error_result(std::get<CatalogBindError>(bind_result).message);
         }
         auto const &steps = std::get<std::vector<BoundStep>>(bind_result);
-        auto commands = std::vector<ExecutableCommand>{};
-        commands.reserve(steps.size());
-        for (auto const &step : steps)
-        {
-            if (std::holds_alternative<RepeatPrevious>(step))
-            {
-                return {MessageLevel::Error,
-                        "Recursive 'again' expansion is not allowed."};
-            }
-            commands.push_back(std::get<ExecutableCommand>(step));
-        }
 
-        auto const project_aware =
-            std::ranges::any_of(commands, [](ExecutableCommand const &command) {
-                return command.policy.project != ProjectOperation::None;
+        auto const project_aware = std::ranges::any_of(
+            steps, [](BoundStep const &step) {
+                return std::visit(
+                    [](auto const &typed_step) {
+                        using Step = std::decay_t<decltype(typed_step)>;
+                        if constexpr (std::is_same_v<Step, RepeatPrevious>)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            return typed_step.policy.project !=
+                                   ProjectOperation::None;
+                        }
+                    },
+                    step);
             });
         if (project_aware && !context.expected_project_revision.has_value())
         {
-            return {MessageLevel::Error, "expected project revision is required"};
+            return error_result("expected project revision is required");
         }
         auto const current_revision = plugin_state.timeline.get_project_revision();
         if (project_aware && *context.expected_project_revision != current_revision)
         {
-            return {
-                MessageLevel::Error,
-                "stale project revision: expected " +
-                    std::to_string(context.expected_project_revision->value()) +
-                    ", current " + std::to_string(current_revision.value()),
-            };
+            return error_result("stale project revision: expected " +
+                                std::to_string(
+                                    context.expected_project_revision->value()) +
+                                ", current " +
+                                std::to_string(current_revision.value()));
         }
 
         auto const history_count =
-            std::ranges::count_if(commands, [](ExecutableCommand const &command) {
-                return command.policy.project == ProjectOperation::NavigateHistory;
+            std::ranges::count_if(steps, [](BoundStep const &step) {
+                return std::holds_alternative<ExecutableHistoryNavigation>(step);
             });
-        if (history_count > 0 && commands.size() != 1)
+        if (history_count > 0 && steps.size() != 1)
         {
-            return {MessageLevel::Error, "undo and redo must be submitted alone."};
+            return error_result("undo and redo must be submitted alone.");
         }
 
         auto working = plugin_state;
         auto effects = SubmissionEffects{effect_failure_};
-        auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
+        auto execution_context =
+            CommandExecutionContext{.selection = context.selection};
+        auto result = CommandApplicationResult{};
         auto repeat_target = std::vector<CommandInvocation>{};
         auto const initial_engine = working.timeline.get_state();
         auto const initial_revision = working.timeline.get_project_revision();
 
-        for (auto const &command : commands)
+        for (auto const &step : steps)
         {
-            auto const before = working.timeline.get_state();
-            status = command.execute(working, effects);
-            if (status.first == MessageLevel::Error)
+            if (std::holds_alternative<RepeatPrevious>(step))
             {
-                return status;
+                return error_result("Recursive 'again' expansion is not allowed.");
             }
+
+            if (std::holds_alternative<ExecutableHistoryNavigation>(step))
+            {
+                auto const &navigation =
+                    std::get<ExecutableHistoryNavigation>(step);
+                auto const changed =
+                    navigation.direction == HistoryNavigationDirection::Undo
+                        ? working.timeline.undo()
+                        : working.timeline.redo();
+                result.status = changed
+                                    ? CommandStatus{MessageLevel::Info,
+                                                    navigation.direction ==
+                                                            HistoryNavigationDirection::Undo
+                                                        ? "Undone"
+                                                        : "Redone"}
+                                    : CommandStatus{MessageLevel::Info,
+                                                    navigation.direction ==
+                                                            HistoryNavigationDirection::Undo
+                                                        ? "Nothing to undo."
+                                                        : "Nothing to redo."};
+                result.suggested_selection = std::nullopt;
+                continue;
+            }
+
+            auto const &command = std::get<ExecutableCommand>(step);
+            if (auto selection_error = validate_selection_target(
+                    command.policy.target, execution_context.selection,
+                    working.timeline.get_state().measure);
+                selection_error.has_value())
+            {
+                return *selection_error;
+            }
+
+            auto const before = working.timeline.get_state();
+            result = command.execute(working, effects, execution_context);
+            if (result.status.first == MessageLevel::Error)
+            {
+                return result;
+            }
+
+            if (result.suggested_selection.has_value())
+            {
+                execution_context.selection = result.suggested_selection;
+            }
+
             auto const changed = working.timeline.get_state() != before;
             if (changed &&
                 command.policy.repeat == RepeatPolicy::OnSuccessfulProjectChange)
@@ -363,7 +473,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
 
         if (history_count == 0 && working.timeline.get_state() != initial_engine)
         {
-            working.timeline.commit();
+            working.timeline.commit(working.timeline.get_state());
         }
 
         auto const final_engine = working.timeline.get_state();
@@ -396,7 +506,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
             {
                 message += "; backend state rollback failed";
             }
-            return {MessageLevel::Error, std::move(message)};
+            return error_result(std::move(message));
         }
 
         effects.finalize();
@@ -408,19 +518,19 @@ auto XenProcessor::execute_command_string(std::string const &command_string,
         {
             pending_engine_state_update.publish(final_engine);
         }
-        if (!commands.empty())
+        if (!steps.empty())
         {
             notify_ui_state_changed();
         }
-        return status;
+        return result;
     }
     catch (std::exception const &e)
     {
-        return {MessageLevel::Error, e.what()};
+        return error_result(e.what());
     }
     catch (...)
     {
-        return {MessageLevel::Error, "Unknown error"};
+        return error_result("Unknown error");
     }
 }
 

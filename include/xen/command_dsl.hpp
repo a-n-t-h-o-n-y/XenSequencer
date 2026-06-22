@@ -84,12 +84,6 @@ struct ArgTraits<std::string>
 };
 
 template <>
-struct ArgTraits<InputMode>
-{
-    static constexpr auto type_name = "InputMode";
-};
-
-template <>
 struct ArgTraits<sequence::TimeSignature>
 {
     static constexpr auto type_name = "TimeSignature";
@@ -141,10 +135,6 @@ auto format_default_value(T const &value) -> std::string
     {
         return std::to_string(value.numerator) + "/" +
                std::to_string(value.denominator);
-    }
-    else if constexpr (std::is_same_v<T, InputMode>)
-    {
-        return to_string(value);
     }
     else if constexpr (std::is_same_v<T, Modulator>)
     {
@@ -330,9 +320,11 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
     };
 
     constexpr auto uses_submission_effects =
-        std::is_invocable_r_v<std::pair<MessageLevel, std::string>, Handler,
-                              PluginState &, SubmissionEffects &,
-                              CommandInvocation const &, Ts const &...>;
+        std::is_invocable_v<Handler, PluginState &, SubmissionEffects &,
+                            CommandExecutionContext &, CommandInvocation const &,
+                            Ts const &...> ||
+        std::is_invocable_v<Handler, PluginState &, SubmissionEffects &,
+                            CommandInvocation const &, Ts const &...>;
     auto const command_path = format_command_path(metadata.path);
     auto bind = [arg_defs = std::move(arg_defs), handler = std::move(handler),
                  accepts_pattern_prefix, policy,
@@ -356,21 +348,106 @@ auto command_with_options(std::vector<std::string> path, bool accepts_pattern_pr
             .policy = policy,
             .execute =
                 [handler, invocation, parsed_args = std::move(parsed_args)](
-                    PluginState &state, SubmissionEffects &effects) {
+                    PluginState &state, SubmissionEffects &effects,
+                    CommandExecutionContext &execution_context) {
                     return std::apply(
                         [&](auto const &...values)
-                            -> std::pair<MessageLevel, std::string> {
+                            -> CommandApplicationResult {
                             if constexpr (std::is_invocable_r_v<
-                                              std::pair<MessageLevel, std::string>,
-                                              Handler, PluginState &,
-                                              SubmissionEffects &,
-                                              CommandInvocation const &, Ts const &...>)
+                                              CommandApplicationResult, Handler,
+                                              PluginState &, SubmissionEffects &,
+                                              CommandExecutionContext &,
+                                              CommandInvocation const &,
+                                              Ts const &...>)
+                            {
+                                return handler(state, effects, execution_context,
+                                               invocation, values...);
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandStatus, Handler,
+                                                   PluginState &,
+                                                   SubmissionEffects &,
+                                                   CommandExecutionContext &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
+                            {
+                                return CommandApplicationResult{
+                                    .status = handler(state, effects,
+                                                      execution_context, invocation,
+                                                      values...),
+                                    .suggested_selection = std::nullopt,
+                                };
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandApplicationResult, Handler,
+                                                   PluginState &,
+                                                   SubmissionEffects &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
                             {
                                 return handler(state, effects, invocation, values...);
                             }
-                            else
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandStatus, Handler,
+                                                   PluginState &,
+                                                   SubmissionEffects &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
+                            {
+                                return CommandApplicationResult{
+                                    .status =
+                                        handler(state, effects, invocation, values...),
+                                    .suggested_selection = std::nullopt,
+                                };
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandApplicationResult, Handler,
+                                                   PluginState &,
+                                                   CommandExecutionContext &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
+                            {
+                                return handler(state, execution_context, invocation,
+                                               values...);
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandStatus, Handler,
+                                                   PluginState &,
+                                                   CommandExecutionContext &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
+                            {
+                                return CommandApplicationResult{
+                                    .status = handler(state, execution_context,
+                                                      invocation, values...),
+                                    .suggested_selection = std::nullopt,
+                                };
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandApplicationResult, Handler,
+                                                   PluginState &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
                             {
                                 return handler(state, invocation, values...);
+                            }
+                            else if constexpr (std::is_invocable_r_v<
+                                                   CommandStatus, Handler,
+                                                   PluginState &,
+                                                   CommandInvocation const &,
+                                                   Ts const &...>)
+                            {
+                                return CommandApplicationResult{
+                                    .status =
+                                        handler(state, invocation, values...),
+                                    .suggested_selection = std::nullopt,
+                                };
+                            }
+                            else
+                            {
+                                static_assert(
+                                    [] { return false; }(),
+                                    "Unsupported command handler signature.");
                             }
                         },
                         parsed_args);
@@ -423,6 +500,51 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
             };
         }
         return RepeatPrevious{};
+    };
+
+    return CommandDefinition{
+        .metadata = std::move(metadata),
+        .policy = policy,
+        .uses_submission_effects = false,
+        .bind = std::move(bind),
+    };
+}
+
+inline auto history_navigation_command(std::vector<std::string> path,
+                                       std::string description,
+                                       CommandPolicy policy,
+                                       HistoryNavigationDirection direction)
+    -> CommandDefinition
+{
+    auto metadata = CatalogCommandMetadata{
+        .path = std::move(path),
+        .description = std::move(description),
+    };
+
+    auto bind = [policy, direction](CommandInvocation const &invocation,
+                                    std::size_t arg_offset) -> BoundStep {
+        if (invocation.input.has_pattern_prefix)
+        {
+            throw CatalogBindException{
+                CatalogBindErrorKind::PatternPrefixNotAllowed,
+                invocation.input.words.front(),
+                "",
+            };
+        }
+        if (invocation.input.words.size() > arg_offset)
+        {
+            throw CatalogBindException{
+                CatalogBindErrorKind::UnexpectedArgument,
+                invocation.input.words[arg_offset],
+                "",
+            };
+        }
+
+        return ExecutableHistoryNavigation{
+            .canonical = invocation.canonical_segment,
+            .policy = policy,
+            .direction = direction,
+        };
     };
 
     return CommandDefinition{

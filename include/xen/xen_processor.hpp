@@ -63,7 +63,7 @@ class XenProcessor : public juce::AudioProcessor
      */
     auto execute_command_string(std::string const &command_string,
                                 CommandContext const &context)
-        -> std::pair<MessageLevel, std::string>;
+        -> CommandApplicationResult;
 
     [[nodiscard]] auto command_catalog() noexcept -> CommandCatalog &;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;

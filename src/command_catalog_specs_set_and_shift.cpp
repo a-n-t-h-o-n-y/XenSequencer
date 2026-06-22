@@ -71,13 +71,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         {"set", "pitch"}, true, "Set selected note pitches.", targeted_edit_policy,
         std::make_tuple(optional_arg<std::variant<int, Modulator>>(
             "Int|Modulator", "pitch", std::variant<int, Modulator>{0})),
-        [](PluginState &ps, CommandInvocation const &invocation,
+        [](PluginState &ps, CommandExecutionContext &context,
+           CommandInvocation const &invocation,
            std::variant<int, Modulator> const &pitch) {
             auto state = ps.timeline.get_state();
             if (std::holds_alternative<int>(pitch))
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern, int value) {
                         return sequence::modify::set_pitch(target, pattern, value);
                     },
@@ -86,7 +87,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_pitches(target, pattern, modulator);
@@ -94,18 +95,19 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                     invocation.input.pattern, std::get<Modulator>(pitch));
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Note Set");
+            return unchanged_selection_result(minfo("Note Set"), context);
         }));
 
     specs.push_back(command(
         {"set", "octave"}, true, "Set selected note octaves.", targeted_edit_policy,
         std::make_tuple(optional_arg<int>("Int", "octave", 0)),
-        [](PluginState &ps, CommandInvocation const &invocation, int octave) {
+        [](PluginState &ps, CommandExecutionContext &context,
+           CommandInvocation const &invocation, int octave) {
             auto state = ps.timeline.get_state();
-            state = action::set_note_octave(std::move(state), ps.editor,
+            state = action::set_note_octave(std::move(state), require_selection(context),
                                             invocation.input.pattern, octave);
             ps.timeline.stage(std::move(state));
-            return minfo("Octave Set");
+            return unchanged_selection_result(minfo("Octave Set"), context);
         }));
 
     specs.push_back(command(
@@ -114,13 +116,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(optional_arg<std::variant<float, Modulator>>(
             "Float|Modulator", "velocity",
             std::variant<float, Modulator>{100.f / 127.f})),
-        [](PluginState &ps, CommandInvocation const &invocation,
+        [](PluginState &ps, CommandExecutionContext &context,
+           CommandInvocation const &invocation,
            std::variant<float, Modulator> const &velocity) {
             auto state = ps.timeline.get_state();
             if (std::holds_alternative<float>(velocity))
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return sequence::modify::set_velocity(target, pattern, value);
                     },
@@ -129,7 +132,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_velocities(target, pattern, modulator);
@@ -137,29 +140,31 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                     invocation.input.pattern, std::get<Modulator>(velocity));
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Velocity Set");
+            return unchanged_selection_result(minfo("Velocity Set"), context);
         }));
 
     auto const set_fractional = [](auto scalar_fn, auto modulator_fn,
                                    std::string message) {
         return [scalar_fn, modulator_fn, message = std::move(message)](
-                   PluginState &ps, CommandInvocation const &invocation,
+                   PluginState &ps, CommandExecutionContext &context,
+                   CommandInvocation const &invocation,
                    std::variant<float, Modulator> const &value) {
             auto state = ps.timeline.get_state();
             if (std::holds_alternative<float>(value))
             {
                 state =
-                    increment_state(std::move(state), ps.editor, scalar_fn,
+                    increment_state(std::move(state), require_selection(context),
+                                    scalar_fn,
                                     invocation.input.pattern, std::get<float>(value));
             }
             else
             {
-                state = increment_state(std::move(state), ps.editor, modulator_fn,
-                                        invocation.input.pattern,
+                state = increment_state(std::move(state), require_selection(context),
+                                        modulator_fn, invocation.input.pattern,
                                         std::get<Modulator>(value));
             }
             ps.timeline.stage(std::move(state));
-            return minfo(message);
+            return unchanged_selection_result(minfo(message), context);
         };
     };
 
@@ -195,82 +200,88 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         project_edit_policy,
         std::make_tuple(optional_arg<sequence::TimeSignature>(
             "TimeSignature", "timesignature", sequence::TimeSignature{4, 4})),
-        [](PluginState &ps, CommandInvocation const &,
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
            sequence::TimeSignature time_signature) {
             if (time_signature.denominator == 0 || time_signature.numerator == 0)
             {
-                return merror("Invalid TimeSignature");
+                return make_result(merror("Invalid TimeSignature"));
             }
             if (exceeds_max_measure_length(time_signature))
             {
-                return merror("TimeSignature Too Large, Max length is 64 Whole Notes.");
+                return make_result(
+                    merror("TimeSignature Too Large, Max length is 64 Whole Notes."));
             }
             auto state = ps.timeline.get_state();
             state.measure.time_signature = time_signature;
             ps.timeline.stage(std::move(state));
-            return minfo("Measure TimeSignature Set: " +
-                         std::to_string(time_signature.numerator) + "/" +
-                         std::to_string(time_signature.denominator));
+            return make_result(minfo("Measure TimeSignature Set: " +
+                                     std::to_string(time_signature.numerator) + "/" +
+                                     std::to_string(time_signature.denominator)));
         }));
 
     specs.push_back(
         command({"set", "baseFrequency"}, false, "Set base frequency in Hz.",
                 project_edit_policy,
                 std::make_tuple(optional_arg<float>("Float", "freq", 440.f)),
-                [](PluginState &ps, CommandInvocation const &, float frequency) {
+                [](PluginState &ps, CommandExecutionContext &,
+                   CommandInvocation const &, float frequency) {
                     auto state = ps.timeline.get_state();
                     state = action::set_base_frequency(std::move(state), frequency);
                     ps.timeline.stage(std::move(state));
-                    return minfo("Base Frequency Set");
+                    return make_result(minfo("Base Frequency Set"));
                 }));
 
     specs.push_back(command(
         {"set", "scale"}, false, "Set the active scale by name.",
         library_read_edit_policy,
         std::make_tuple(required_arg<std::string>("String", "name")),
-        [](PluginState &ps, CommandInvocation const &, std::string const &name) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
+           std::string const &name) {
             auto const scale_name = to_lower(name);
             auto state = ps.timeline.get_state();
             if (scale_name == "chromatic")
             {
                 state.scale = std::nullopt;
                 ps.timeline.stage(std::move(state));
-                return minfo("Scale Set to " + scale_name + ".");
+                return make_result(minfo("Scale Set to " + scale_name + "."));
             }
             auto const at =
                 std::ranges::find(ps.library.scales, scale_name,
                                   [](Scale const &scale) { return scale.name; });
             if (at == std::end(ps.library.scales))
             {
-                return merror("No Scale Found: " + scale_name + ".");
+                return make_result(merror("No Scale Found: " + scale_name + "."));
             }
             validate_scale(*at);
             state.scale = *at;
             ps.timeline.stage(std::move(state));
-            return minfo("Scale Set to " + scale_name + ".");
+            return make_result(minfo("Scale Set to " + scale_name + "."));
         }));
 
     specs.push_back(command(
         {"set", "mode"}, false, "Set the active scale mode index.", project_edit_policy,
         std::make_tuple(required_arg<std::size_t>("Unsigned", "mode_index")),
-        [](PluginState &ps, CommandInvocation const &, std::size_t mode_index) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
+           std::size_t mode_index) {
             auto state = ps.timeline.get_state();
             if (mode_index == 0 || !state.scale.has_value() ||
                 mode_index > state.scale->intervals.size())
             {
-                return merror("Invalid Mode Index. Must be in range [1, scale size).");
+                return make_result(
+                    merror("Invalid Mode Index. Must be in range [1, scale size)."));
             }
             state.scale->mode = static_cast<std::uint8_t>(mode_index);
             validate_scale(*state.scale);
             ps.timeline.stage(std::move(state));
-            return minfo("Scale Mode Set");
+            return make_result(minfo("Scale Mode Set"));
         }));
 
     specs.push_back(command(
         {"set", "translateDirection"}, false, "Set scale translate direction.",
         project_edit_policy,
         std::make_tuple(required_arg<std::string>("String", "direction")),
-        [](PluginState &ps, CommandInvocation const &, std::string const &value) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
+           std::string const &value) {
             auto const direction = to_lower(value);
             auto state = ps.timeline.get_state();
             if (direction == "up")
@@ -283,36 +294,41 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             }
             else
             {
-                return merror("Invalid TranslateDirection: " + direction);
+                return make_result(
+                    merror("Invalid TranslateDirection: " + direction));
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Translate Direction Set");
+            return make_result(minfo("Translate Direction Set"));
         }));
 
     specs.push_back(
         command({"set", "key"}, false, "Set transposition key.", project_edit_policy,
                 std::make_tuple(optional_arg<int>("Int", "key", 0)),
-                [](PluginState &ps, CommandInvocation const &, int key) {
+                [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
+                   int key) {
                     if (key > 127 || key < -127)
                     {
-                        return merror("Invalid Key Value: " + std::to_string(key) +
-                                      ". Must be in range [-127, 127].");
+                        return make_result(
+                            merror("Invalid Key Value: " + std::to_string(key) +
+                                   ". Must be in range [-127, 127]."));
                     }
                     auto state = ps.timeline.get_state();
                     state.key = key;
                     ps.timeline.stage(std::move(state));
-                    return minfo("Key Set to " + std::to_string(key) + ".");
+                    return make_result(
+                        minfo("Key Set to " + std::to_string(key) + "."));
                 }));
 
     specs.push_back(
         command({"set", "weight"}, false, "Set selected cell weight.", cell_edit_policy,
                 std::make_tuple(required_arg<float>("Float", "value")),
-                [](PluginState &ps, CommandInvocation const &, float value) {
+                [](PluginState &ps, CommandExecutionContext &context,
+                   CommandInvocation const &, float value) {
                     auto state = ps.timeline.get_state();
-                    state = increment_state(std::move(state), ps.editor,
+                    state = increment_state(std::move(state), require_selection(context),
                                             &action::set_weight, value);
                     ps.timeline.stage(std::move(state));
-                    return minfo("Weight Set");
+                    return unchanged_selection_result(minfo("Weight Set"), context);
                 }));
 
     specs.push_back(command(
@@ -320,13 +336,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         cell_edit_policy,
         std::make_tuple(
             required_arg<std::variant<float, Modulator>>("Float|Modulator", "weight")),
-        [](PluginState &ps, CommandInvocation const &invocation,
+        [](PluginState &ps, CommandExecutionContext &context,
+           CommandInvocation const &invocation,
            std::variant<float, Modulator> const &weight) {
             auto state = ps.timeline.get_state();
             if (std::holds_alternative<float>(weight))
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return action::set_weights(target, pattern, value);
                     },
@@ -335,7 +352,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), ps.editor,
+                    std::move(state), require_selection(context),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_weights(target, pattern, modulator);
@@ -343,36 +360,37 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                     invocation.input.pattern, std::get<Modulator>(weight));
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Weights Set");
+            return unchanged_selection_result(minfo("Weights Set"), context);
         }));
 
     specs.push_back(command(
         {"double", "measure", "timeSignature"}, false, "Double measure time signature.",
         project_edit_policy, std::make_tuple(),
-        [](PluginState &ps, CommandInvocation const &) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &) {
             auto state = ps.timeline.get_state();
             auto &time_signature = state.measure.time_signature;
             if (time_signature.numerator >
                 std::numeric_limits<decltype(time_signature.numerator)>::max() / 2)
             {
-                return merror("Cannot Double the TimeSignature.");
+                return make_result(merror("Cannot Double the TimeSignature."));
             }
             auto const doubled = time_signature.numerator * 2;
             auto const candidate =
                 sequence::TimeSignature{doubled, time_signature.denominator};
             if (exceeds_max_measure_length(candidate))
             {
-                return merror("TimeSignature Too Large, Max length is 64 Whole Notes.");
+                return make_result(
+                    merror("TimeSignature Too Large, Max length is 64 Whole Notes."));
             }
             time_signature.numerator = doubled;
             ps.timeline.stage(std::move(state));
-            return minfo("Measure TimeSignature Doubled.");
+            return make_result(minfo("Measure TimeSignature Doubled."));
         }));
 
     specs.push_back(command(
         {"halve", "measure", "timeSignature"}, false, "Halve measure time signature.",
         project_edit_policy, std::make_tuple(),
-        [](PluginState &ps, CommandInvocation const &) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &) {
             auto state = ps.timeline.get_state();
             auto &time_signature = state.measure.time_signature;
             if (time_signature.numerator % 2 == 0)
@@ -385,22 +403,23 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                     std::numeric_limits<decltype(time_signature.denominator)>::max() /
                         2)
                 {
-                    return merror("Cannot Halve the TimeSignature.");
+                    return make_result(merror("Cannot Halve the TimeSignature."));
                 }
                 time_signature.denominator *= 2;
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Measure TimeSignature Halved.");
+            return make_result(minfo("Measure TimeSignature Halved."));
         }));
 
     auto const shift_pattern = [](auto shift_fn, std::string message) {
         return [shift_fn, message = std::move(message)](
-                   PluginState &ps, CommandInvocation const &invocation, auto amount) {
+                   PluginState &ps, CommandExecutionContext &context,
+                   CommandInvocation const &invocation, auto amount) {
             auto state = ps.timeline.get_state();
-            state = increment_state(std::move(state), ps.editor, shift_fn,
-                                    invocation.input.pattern, amount);
+            state = increment_state(std::move(state), require_selection(context),
+                                    shift_fn, invocation.input.pattern, amount);
             ps.timeline.stage(std::move(state));
-            return minfo(message);
+            return unchanged_selection_result(minfo(message), context);
         };
     };
 
@@ -415,12 +434,13 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"shift", "octave"}, true, "Shift selected note octaves.", targeted_edit_policy,
         std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-        [](PluginState &ps, CommandInvocation const &invocation, int amount) {
+        [](PluginState &ps, CommandExecutionContext &context,
+           CommandInvocation const &invocation, int amount) {
             auto state = ps.timeline.get_state();
-            state = action::shift_octave(std::move(state), ps.editor,
+            state = action::shift_octave(std::move(state), require_selection(context),
                                          invocation.input.pattern, amount);
             ps.timeline.stage(std::move(state));
-            return minfo("Octave Shifted");
+            return unchanged_selection_result(minfo("Octave Shifted"), context);
         }));
     specs.push_back(command(
         {"shift", "velocity"}, true, "Shift selected note velocities.",
@@ -452,7 +472,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         command({"shift", "scale"}, false, "Shift loaded scale index.",
                 library_mutating_edit_policy,
                 std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                [](PluginState &ps, CommandInvocation const &, int amount) {
+                [](PluginState &ps, CommandExecutionContext &,
+                   CommandInvocation const &, int amount) {
                     auto state = ps.timeline.get_state();
                     auto const index = action::shift_scale_index(
                         ps.library.scale_shift_index, amount, ps.library.scales.size());
@@ -461,40 +482,43 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                                       ? std::optional<Scale>{ps.library.scales[*index]}
                                       : std::nullopt;
                     ps.timeline.stage(std::move(state));
-                    return minfo("Scale Shifted");
+                    return make_result(minfo("Scale Shifted"));
                 }));
 
     specs.push_back(
         command({"shift", "scaleMode"}, false, "Shift scale mode.", project_edit_policy,
                 std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-                [](PluginState &ps, CommandInvocation const &, int amount) {
+                [](PluginState &ps, CommandExecutionContext &,
+                   CommandInvocation const &, int amount) {
                     auto state = ps.timeline.get_state();
                     if (state.scale.has_value())
                     {
                         state.scale = action::shift_scale_mode(*state.scale, amount);
                         ps.timeline.stage(std::move(state));
                     }
-                    return minfo("Scale Mode Shifted");
+                    return make_result(minfo("Scale Mode Shifted"));
                 }));
 
     specs.push_back(
         command({"shift", "translateDirection"}, false, "Flip translate direction.",
                 project_edit_policy, std::make_tuple(),
-                [](PluginState &ps, CommandInvocation const &) {
+                [](PluginState &ps, CommandExecutionContext &,
+                   CommandInvocation const &) {
                     auto state = ps.timeline.get_state();
                     action::flip_translate_direction(state.scale_translate_direction);
                     ps.timeline.stage(std::move(state));
-                    return minfo("Translate Direction Shifted");
+                    return make_result(minfo("Translate Direction Shifted"));
                 }));
 
     specs.push_back(command(
         {"shift", "entireScale"}, false, "Shift direction, mode, and scale together.",
         library_mutating_edit_policy,
         std::make_tuple(optional_arg<int>("Int", "direction", 1)),
-        [](PluginState &ps, CommandInvocation const &, int direction) {
+        [](PluginState &ps, CommandExecutionContext &, CommandInvocation const &,
+           int direction) {
             if (direction != 1 && direction != -1)
             {
-                return merror("Invalid direction, must be 1 or -1");
+                return make_result(merror("Invalid direction, must be 1 or -1"));
             }
             auto state = ps.timeline.get_state();
             auto &translate_direction = state.scale_translate_direction;
@@ -534,18 +558,18 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 translate_direction = TranslateDirection::Up;
             }
             ps.timeline.stage(std::move(state));
-            return minfo("Entire Scale Shifted");
+            return make_result(minfo("Entire Scale Shifted"));
         }));
 
     auto const randomize = [](auto randomize_fn, std::string message) {
         return [randomize_fn, message = std::move(message)](
-                   PluginState &ps, CommandInvocation const &invocation, auto min,
-                   auto max) {
+                   PluginState &ps, CommandExecutionContext &context,
+                   CommandInvocation const &invocation, auto min, auto max) {
             auto state = ps.timeline.get_state();
-            state = increment_state(std::move(state), ps.editor, randomize_fn,
-                                    invocation.input.pattern, min, max);
+            state = increment_state(std::move(state), require_selection(context),
+                                    randomize_fn, invocation.input.pattern, min, max);
             ps.timeline.stage(std::move(state));
-            return minfo(message);
+            return unchanged_selection_result(minfo(message), context);
         };
     };
     specs.push_back(command(

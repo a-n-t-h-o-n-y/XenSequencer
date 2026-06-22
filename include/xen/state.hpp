@@ -12,7 +12,6 @@
 
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
-#include <xen/input_mode.hpp>
 #include <xen/measure.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
@@ -74,13 +73,13 @@ struct SelectionStep
 /**
  * The state of the current selection in the sequencer.
  */
-struct SelectedState
+struct SelectionPath
 {
     /// Explicit alternating path through Cell elements and Sequence child cells.
     std::vector<SelectionStep> path{};
 
-    auto operator==(SelectedState const &other) const -> bool = default;
-    auto operator!=(SelectedState const &other) const -> bool = default;
+    auto operator==(SelectionPath const &other) const -> bool = default;
+    auto operator!=(SelectionPath const &other) const -> bool = default;
 };
 
 /**
@@ -90,7 +89,7 @@ struct ChordCycleState
 {
     // The state of the sequencer when the command was first used in a chain.
     EngineState sequencer{};
-    SelectedState selected{};
+    SelectionPath selection{};
 
     // The project revision from just before the last command call.
     ProjectRevision previous_project_revision{};
@@ -100,13 +99,8 @@ struct ChordCycleState
     int previous_inversion{-1};
 };
 
-/**
- * Editor-facing state (selection and editing mode).
- */
-struct EditorSessionState
+struct TransformSessionState
 {
-    SelectedState selected{};
-    InputMode input_mode = InputMode::Pitch;
     ChordCycleState arp_state{};
     ChordCycleState chord_state{};
 };
@@ -133,7 +127,7 @@ struct PluginState
 {
     AppConfigState config{};
     ContentLibraryState library{};
-    EditorSessionState editor{};
+    TransformSessionState sessions{};
     XenTimeline timeline;
 };
 
@@ -143,7 +137,6 @@ struct PluginState
 struct EngineSnapshot
 {
     EngineState engine{};
-    EditorSessionState editor{};
     HistoryEntryId history_entry_id{};
     ProjectRevision project_revision{};
     std::uint64_t snapshot_version{0};

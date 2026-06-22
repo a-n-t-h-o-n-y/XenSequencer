@@ -15,15 +15,15 @@ enum class SelectionKind
     Element,
 };
 
-[[nodiscard]] auto selection_kind(SelectedState const &selected) -> SelectionKind;
+[[nodiscard]] auto selection_kind(SelectionPath const &selected) -> SelectionKind;
 
-[[nodiscard]] auto select_element_in_cell(SelectedState selected, std::size_t index)
-    -> SelectedState;
+[[nodiscard]] auto select_element_in_cell(SelectionPath selected, std::size_t index)
+    -> SelectionPath;
 
-[[nodiscard]] auto select_sequence_cell(SelectedState selected, std::size_t index)
-    -> SelectedState;
+[[nodiscard]] auto select_sequence_cell(SelectionPath selected, std::size_t index)
+    -> SelectionPath;
 
-[[nodiscard]] auto select_parent_cell(SelectedState selected) -> SelectedState;
+[[nodiscard]] auto select_parent_cell(SelectionPath selected) -> SelectionPath;
 
 /**
  * Resolve the current selection to a Cell.
@@ -34,7 +34,7 @@ enum class SelectionKind
  * @exception std::runtime_error If the selection does not resolve to a Cell.
  */
 [[nodiscard]] auto get_selected_cell(Measure &measure,
-                                     SelectedState const &selected) -> sequence::Cell &;
+                                     SelectionPath const &selected) -> sequence::Cell &;
 
 /**
  * Resolve the current selection to a Cell.
@@ -45,28 +45,28 @@ enum class SelectionKind
  * @exception std::runtime_error If the selection does not resolve to a Cell.
  */
 [[nodiscard]] auto get_selected_cell_const(
-    Measure const &measure, SelectedState const &selected) -> sequence::Cell const &;
+    Measure const &measure, SelectionPath const &selected) -> sequence::Cell const &;
 
 [[nodiscard]] auto get_selected_element(Measure &measure,
-                                        SelectedState const &selected)
+                                        SelectionPath const &selected)
     -> sequence::MusicElement &;
 
 [[nodiscard]] auto get_selected_element_const(
-    Measure const &measure, SelectedState const &selected)
+    Measure const &measure, SelectionPath const &selected)
     -> sequence::MusicElement const &;
 
 [[nodiscard]] auto get_selected_sequence(Measure &measure,
-                                         SelectedState const &selected)
+                                         SelectionPath const &selected)
     -> sequence::Sequence &;
 
 [[nodiscard]] auto get_selected_sequence_const(
-    Measure const &measure, SelectedState const &selected)
+    Measure const &measure, SelectionPath const &selected)
     -> sequence::Sequence const &;
 
-[[nodiscard]] auto get_selected_element_index(SelectedState const &selected)
+[[nodiscard]] auto get_selected_element_index(SelectionPath const &selected)
     -> std::size_t;
 
-[[nodiscard]] auto get_selected_cell_index(SelectedState const &selected)
+[[nodiscard]] auto get_selected_cell_index(SelectionPath const &selected)
     -> std::size_t;
 
 /**
@@ -78,7 +78,7 @@ enum class SelectionKind
  * is at the top level.
  */
 [[nodiscard]] auto get_parent_of_selected(
-    Measure &measure, SelectedState const &selected) -> sequence::Cell *;
+    Measure &measure, SelectionPath const &selected) -> sequence::Cell *;
 
 /**
  * Get the parent Cell of the selected child Cell.
@@ -89,21 +89,21 @@ enum class SelectionKind
  * is at the top level.
  */
 [[nodiscard]] auto get_parent_of_selected_const(
-    Measure const &measure, SelectedState const &selected) -> sequence::Cell const *;
+    Measure const &measure, SelectionPath const &selected) -> sequence::Cell const *;
 
 [[nodiscard]] auto get_parent_sequence_of_selected_cell(
-    Measure &measure, SelectedState const &selected) -> sequence::Sequence *;
+    Measure &measure, SelectionPath const &selected) -> sequence::Sequence *;
 
 [[nodiscard]] auto get_parent_sequence_of_selected_cell_const(
-    Measure const &measure, SelectedState const &selected)
+    Measure const &measure, SelectionPath const &selected)
     -> sequence::Sequence const *;
 
 [[nodiscard]] auto get_parent_cell_of_selection(Measure &measure,
-                                                SelectedState const &selected)
+                                                SelectionPath const &selected)
     -> sequence::Cell *;
 
 [[nodiscard]] auto get_parent_cell_of_selection_const(
-    Measure const &measure, SelectedState const &selected)
+    Measure const &measure, SelectionPath const &selected)
     -> sequence::Cell const *;
 
 /**
@@ -116,7 +116,7 @@ enum class SelectionKind
  * @return The number of siblings of the selected Cell.
  */
 [[nodiscard]] auto get_sibling_count(Measure const &measure,
-                                     SelectedState const &selected) -> std::size_t;
+                                     SelectionPath const &selected) -> std::size_t;
 
 /**
  * Move the selection left within the current container.
@@ -126,8 +126,8 @@ enum class SelectionKind
  * @param amount The number of positions to move left.
  * @return The new selection after moving left.
  */
-[[nodiscard]] auto move_left(Measure const &measure, SelectedState selected,
-                             std::size_t amount = 1) -> SelectedState;
+[[nodiscard]] auto move_left(Measure const &measure, SelectionPath selected,
+                             std::size_t amount = 1) -> SelectionPath;
 
 /**
  * Move the selection right within the current container.
@@ -137,8 +137,8 @@ enum class SelectionKind
  * @param amount The number of positions to move right.
  * @return The new selection after moving right.
  */
-[[nodiscard]] auto move_right(Measure const &measure, SelectedState selected,
-                              std::size_t amount = 1) -> SelectedState;
+[[nodiscard]] auto move_right(Measure const &measure, SelectionPath selected,
+                              std::size_t amount = 1) -> SelectionPath;
 
 /**
  * Move the selection up one logical level if possible.
@@ -152,8 +152,8 @@ enum class SelectionKind
  * @param amount The number of steps to move up.
  * @return The new selection path after moving up.
  */
-[[nodiscard]] auto move_up(Measure const &measure, SelectedState selected,
-                           std::size_t amount = 1) -> SelectedState;
+[[nodiscard]] auto move_up(Measure const &measure, SelectionPath selected,
+                           std::size_t amount = 1) -> SelectionPath;
 
 /**
  * Move the selection down into the first element of the current Cell, then into
@@ -170,7 +170,7 @@ enum class SelectionKind
  * @return The new selection path after moving down, or the original path if moving
  * down is not possible.
  */
-[[nodiscard]] auto move_down(Measure const &measure, SelectedState selected,
-                             std::size_t amount = 1) -> SelectedState;
+[[nodiscard]] auto move_down(Measure const &measure, SelectionPath selected,
+                             std::size_t amount = 1) -> SelectionPath;
 
 } // namespace xen

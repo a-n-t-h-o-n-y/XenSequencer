@@ -11,7 +11,6 @@
 
 #include <sequence/time_signature.hpp>
 
-#include <xen/input_mode.hpp>
 #include <xen/modulator.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
@@ -225,10 +224,6 @@ template <typename T>
     else if constexpr (std::is_same_v<T, sequence::TimeSignature>)
     {
         return parse_time_signature(x);
-    }
-    else if constexpr (std::is_same_v<T, InputMode>)
-    {
-        return parse_input_mode(x);
     }
     else if constexpr (std::is_same_v<T, juce::File>)
     {

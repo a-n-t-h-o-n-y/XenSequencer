@@ -10,7 +10,6 @@
 
 #include <sequence/sequence.hpp>
 
-#include <xen/input_mode.hpp>
 #include <xen/scale.hpp>
 
 namespace xen::bridge::detail
@@ -145,27 +144,6 @@ auto engine_to_json(xen::EngineState const &engine) -> nlohmann::json
     return result;
 }
 
-auto editor_to_json(xen::EditorSessionState const &editor) -> nlohmann::json
-{
-    auto selected_path = nlohmann::json::array();
-    for (auto const &step : editor.selected.path)
-    {
-        selected_path.push_back({
-            {"kind", step.kind == xen::SelectionStepKind::Element ? "element"
-                                                                   : "cell"},
-            {"index", step.index},
-        });
-    }
-
-    return nlohmann::json{
-        {"selected",
-         {
-             {"path", std::move(selected_path)},
-         }},
-        {"input_mode", xen::to_string(editor.input_mode)},
-    };
-}
-
 auto catalog_argument_to_json(xen::CatalogArgumentMetadata const &argument)
     -> nlohmann::json
 {
@@ -260,7 +238,6 @@ auto make_ui_state_snapshot(EngineSnapshot const &snapshot,
         {"history_entry_id", snapshot.history_entry_id.value()},
         {"project_revision", snapshot.project_revision.value()},
         {"engine", detail::engine_to_json(snapshot.engine)},
-        {"editor", detail::editor_to_json(snapshot.editor)},
         {"library",
          {
              {"scales", std::move(scales)},

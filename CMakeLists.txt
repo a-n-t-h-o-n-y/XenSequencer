@@ -200,7 +200,6 @@ set(XEN_CORE_SOURCES
     src/command_catalog_specs_transform.cpp
     src/copy_paste.cpp
     src/guide_text.cpp
-    src/input_mode.cpp
     src/key_core.cpp
     src/message_level.cpp
     src/midi.cpp

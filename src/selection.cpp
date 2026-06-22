@@ -15,7 +15,7 @@ namespace
 {
 
 template <typename MeasureType>
-auto resolve_path(MeasureType &measure, SelectedState const &selected)
+auto resolve_path(MeasureType &measure, SelectionPath const &selected)
 {
     using CellPointer = std::conditional_t<std::is_const_v<MeasureType>,
                                            sequence::Cell const *, sequence::Cell *>;
@@ -62,7 +62,7 @@ auto resolve_path(MeasureType &measure, SelectedState const &selected)
     return std::pair{current_cell, current_element};
 }
 
-auto selection_parent(SelectedState selected) -> SelectedState
+auto selection_parent(SelectionPath selected) -> SelectionPath
 {
     if (!selected.path.empty())
     {
@@ -73,7 +73,7 @@ auto selection_parent(SelectedState selected) -> SelectedState
 
 } // namespace
 
-auto selection_kind(SelectedState const &selected) -> SelectionKind
+auto selection_kind(SelectionPath const &selected) -> SelectionKind
 {
     if (selected.path.empty() ||
         selected.path.back().kind == SelectionStepKind::SequenceCell)
@@ -84,8 +84,8 @@ auto selection_kind(SelectedState const &selected) -> SelectionKind
     return SelectionKind::Element;
 }
 
-auto select_element_in_cell(SelectedState selected, std::size_t index)
-    -> SelectedState
+auto select_element_in_cell(SelectionPath selected, std::size_t index)
+    -> SelectionPath
 {
     if (selection_kind(selected) != SelectionKind::Cell)
     {
@@ -96,8 +96,8 @@ auto select_element_in_cell(SelectedState selected, std::size_t index)
     return selected;
 }
 
-auto select_sequence_cell(SelectedState selected, std::size_t index)
-    -> SelectedState
+auto select_sequence_cell(SelectionPath selected, std::size_t index)
+    -> SelectionPath
 {
     if (selection_kind(selected) != SelectionKind::Element)
     {
@@ -108,7 +108,7 @@ auto select_sequence_cell(SelectedState selected, std::size_t index)
     return selected;
 }
 
-auto select_parent_cell(SelectedState selected) -> SelectedState
+auto select_parent_cell(SelectionPath selected) -> SelectionPath
 {
     if (selection_kind(selected) == SelectionKind::Element)
     {
@@ -128,7 +128,7 @@ auto select_parent_cell(SelectedState selected) -> SelectedState
     return selected;
 }
 
-auto get_selected_cell(Measure &measure, SelectedState const &selected)
+auto get_selected_cell(Measure &measure, SelectionPath const &selected)
     -> sequence::Cell &
 {
     auto const [current_cell, current_element] = resolve_path(measure, selected);
@@ -139,7 +139,7 @@ auto get_selected_cell(Measure &measure, SelectedState const &selected)
     return *current_cell;
 }
 
-auto get_selected_cell_const(Measure const &measure, SelectedState const &selected)
+auto get_selected_cell_const(Measure const &measure, SelectionPath const &selected)
     -> sequence::Cell const &
 {
     auto const [current_cell, current_element] = resolve_path(measure, selected);
@@ -150,7 +150,7 @@ auto get_selected_cell_const(Measure const &measure, SelectedState const &select
     return *current_cell;
 }
 
-auto get_selected_element(Measure &measure, SelectedState const &selected)
+auto get_selected_element(Measure &measure, SelectionPath const &selected)
     -> sequence::MusicElement &
 {
     auto const [current_cell, current_element] = resolve_path(measure, selected);
@@ -162,7 +162,7 @@ auto get_selected_element(Measure &measure, SelectedState const &selected)
 }
 
 auto get_selected_element_const(Measure const &measure,
-                                SelectedState const &selected)
+                                SelectionPath const &selected)
     -> sequence::MusicElement const &
 {
     auto const [current_cell, current_element] = resolve_path(measure, selected);
@@ -173,7 +173,7 @@ auto get_selected_element_const(Measure const &measure,
     return *current_element;
 }
 
-auto get_selected_sequence(Measure &measure, SelectedState const &selected)
+auto get_selected_sequence(Measure &measure, SelectionPath const &selected)
     -> sequence::Sequence &
 {
     auto &element = get_selected_element(measure, selected);
@@ -186,7 +186,7 @@ auto get_selected_sequence(Measure &measure, SelectedState const &selected)
 }
 
 auto get_selected_sequence_const(Measure const &measure,
-                                 SelectedState const &selected)
+                                 SelectionPath const &selected)
     -> sequence::Sequence const &
 {
     auto const &element = get_selected_element_const(measure, selected);
@@ -198,7 +198,7 @@ auto get_selected_sequence_const(Measure const &measure,
     return *sequence;
 }
 
-auto get_selected_element_index(SelectedState const &selected) -> std::size_t
+auto get_selected_element_index(SelectionPath const &selected) -> std::size_t
 {
     if (selection_kind(selected) != SelectionKind::Element || selected.path.empty())
     {
@@ -207,7 +207,7 @@ auto get_selected_element_index(SelectedState const &selected) -> std::size_t
     return selected.path.back().index;
 }
 
-auto get_selected_cell_index(SelectedState const &selected) -> std::size_t
+auto get_selected_cell_index(SelectionPath const &selected) -> std::size_t
 {
     if (selection_kind(selected) != SelectionKind::Cell || selected.path.empty())
     {
@@ -216,7 +216,7 @@ auto get_selected_cell_index(SelectedState const &selected) -> std::size_t
     return selected.path.back().index;
 }
 
-auto get_parent_of_selected(Measure &measure, SelectedState const &selected)
+auto get_parent_of_selected(Measure &measure, SelectionPath const &selected)
     -> sequence::Cell *
 {
     if (selection_kind(selected) != SelectionKind::Cell)
@@ -233,7 +233,7 @@ auto get_parent_of_selected(Measure &measure, SelectedState const &selected)
 }
 
 auto get_parent_of_selected_const(Measure const &measure,
-                                  SelectedState const &selected)
+                                  SelectionPath const &selected)
     -> sequence::Cell const *
 {
     if (selection_kind(selected) != SelectionKind::Cell)
@@ -250,7 +250,7 @@ auto get_parent_of_selected_const(Measure const &measure,
 }
 
 auto get_parent_sequence_of_selected_cell(Measure &measure,
-                                          SelectedState const &selected)
+                                          SelectionPath const &selected)
     -> sequence::Sequence *
 {
     if (selection_kind(selected) != SelectionKind::Cell || selected.path.empty())
@@ -263,7 +263,7 @@ auto get_parent_sequence_of_selected_cell(Measure &measure,
 }
 
 auto get_parent_sequence_of_selected_cell_const(Measure const &measure,
-                                                SelectedState const &selected)
+                                                SelectionPath const &selected)
     -> sequence::Sequence const *
 {
     if (selection_kind(selected) != SelectionKind::Cell || selected.path.empty())
@@ -275,7 +275,7 @@ auto get_parent_sequence_of_selected_cell_const(Measure const &measure,
     return &get_selected_sequence_const(measure, parent_selection);
 }
 
-auto get_parent_cell_of_selection(Measure &measure, SelectedState const &selected)
+auto get_parent_cell_of_selection(Measure &measure, SelectionPath const &selected)
     -> sequence::Cell *
 {
     if (selection_kind(selected) == SelectionKind::Element)
@@ -287,7 +287,7 @@ auto get_parent_cell_of_selection(Measure &measure, SelectedState const &selecte
 }
 
 auto get_parent_cell_of_selection_const(Measure const &measure,
-                                        SelectedState const &selected)
+                                        SelectionPath const &selected)
     -> sequence::Cell const *
 {
     if (selection_kind(selected) == SelectionKind::Element)
@@ -298,7 +298,7 @@ auto get_parent_cell_of_selection_const(Measure const &measure,
     return get_parent_of_selected_const(measure, selected);
 }
 
-auto get_sibling_count(Measure const &measure, SelectedState const &selected)
+auto get_sibling_count(Measure const &measure, SelectionPath const &selected)
     -> std::size_t
 {
     auto const *sequence = get_parent_sequence_of_selected_cell_const(measure, selected);
@@ -309,8 +309,8 @@ auto get_sibling_count(Measure const &measure, SelectedState const &selected)
     return sequence->cells.size();
 }
 
-auto move_left(Measure const &measure, SelectedState selected, std::size_t amount)
-    -> SelectedState
+auto move_left(Measure const &measure, SelectionPath selected, std::size_t amount)
+    -> SelectionPath
 {
     if (selected.path.empty())
     {
@@ -348,8 +348,8 @@ auto move_left(Measure const &measure, SelectedState selected, std::size_t amoun
     return selected;
 }
 
-auto move_right(Measure const &measure, SelectedState selected, std::size_t amount)
-    -> SelectedState
+auto move_right(Measure const &measure, SelectionPath selected, std::size_t amount)
+    -> SelectionPath
 {
     if (selected.path.empty())
     {
@@ -381,8 +381,8 @@ auto move_right(Measure const &measure, SelectedState selected, std::size_t amou
     return selected;
 }
 
-auto move_up(Measure const &measure, SelectedState selected, std::size_t amount)
-    -> SelectedState
+auto move_up(Measure const &measure, SelectionPath selected, std::size_t amount)
+    -> SelectionPath
 {
     for (auto i = std::size_t{0}; i < amount && !selected.path.empty(); ++i)
     {
@@ -406,8 +406,8 @@ auto move_up(Measure const &measure, SelectedState selected, std::size_t amount)
     return selected;
 }
 
-auto move_down(Measure const &measure, SelectedState selected, std::size_t amount)
-    -> SelectedState
+auto move_down(Measure const &measure, SelectionPath selected, std::size_t amount)
+    -> SelectionPath
 {
     for (auto i = std::size_t{0}; i < amount; ++i)
     {

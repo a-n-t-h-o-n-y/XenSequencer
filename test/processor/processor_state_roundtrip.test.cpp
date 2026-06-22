@@ -17,19 +17,19 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
                 .execute_command_string(
                     "set key 31", {.expected_project_revision =
                                        source.get_engine_snapshot().project_revision})
-                .first == MessageLevel::Info);
+                .status.first == MessageLevel::Info);
     REQUIRE(
         source
             .execute_command_string("set baseFrequency 333.3",
                                     {.expected_project_revision =
                                          source.get_engine_snapshot().project_revision})
-            .first == MessageLevel::Info);
+            .status.first == MessageLevel::Info);
     REQUIRE(
         source
             .execute_command_string("set measure timeSignature 7/8",
                                     {.expected_project_revision =
                                          source.get_engine_snapshot().project_revision})
-            .first == MessageLevel::Info);
+            .status.first == MessageLevel::Info);
 
     auto const expected = source.get_engine_snapshot().engine;
 
@@ -76,7 +76,7 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
                 .execute_command_string(
                     "set key 5", {.expected_project_revision =
                                       source.get_engine_snapshot().project_revision})
-                .first == MessageLevel::Info);
+                .status.first == MessageLevel::Info);
 
     auto blob = juce::MemoryBlock{};
     source.getStateInformation(blob);
@@ -115,5 +115,5 @@ TEST_CASE("Processor equal-data restoration replaces project history",
               .execute_command_string(
                   "undo", {.expected_project_revision =
                                processor.get_engine_snapshot().project_revision})
-              .second == "Nothing to undo.");
+              .status.second == "Nothing to undo.");
 }

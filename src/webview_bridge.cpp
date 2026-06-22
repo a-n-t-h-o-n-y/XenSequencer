@@ -78,19 +78,96 @@ auto parse_command_context(nlohmann::json const &payload) -> xen::CommandContext
     auto const &json_context = require_object(payload, "context");
     if (!json_context.contains("expected_project_revision"))
     {
-        return context;
+        // continue parsing optional selection
     }
-    auto const &revision = json_context.at("expected_project_revision");
-    if (!revision.is_number_unsigned())
+    else
     {
-        throw BridgeError{
-            "invalid_request",
-            "Field must be an unsigned integer: context.expected_project_revision",
-        };
+        auto const &revision = json_context.at("expected_project_revision");
+        if (!revision.is_number_unsigned())
+        {
+            throw BridgeError{
+                "invalid_request",
+                "Field must be an unsigned integer: context.expected_project_revision",
+            };
+        }
+        context.expected_project_revision =
+            xen::ProjectRevision{revision.get<std::uint64_t>()};
     }
-    context.expected_project_revision =
-        xen::ProjectRevision{revision.get<std::uint64_t>()};
+
+    if (json_context.contains("selection"))
+    {
+        auto const &selection = require_object(json_context, "selection");
+        auto const &path_json = selection.at("path");
+        if (!path_json.is_array())
+        {
+            throw BridgeError{"invalid_request",
+                              "Field must be an array: context.selection.path"};
+        }
+
+        auto path = xen::SelectionPath{};
+        for (auto const &step_json : path_json)
+        {
+            if (!step_json.is_object())
+            {
+                throw BridgeError{
+                    "invalid_request",
+                    "Selection steps must be objects: context.selection.path",
+                };
+            }
+
+            auto const kind = require_string(step_json, "kind");
+            auto const &index_json = step_json.at("index");
+            if (!index_json.is_number_unsigned())
+            {
+                throw BridgeError{
+                    "invalid_request",
+                    "Field must be an unsigned integer: context.selection.path[].index",
+                };
+            }
+
+            auto step = xen::SelectionStep{.index = index_json.get<std::size_t>()};
+            if (kind == "element")
+            {
+                step.kind = xen::SelectionStepKind::Element;
+            }
+            else if (kind == "cell")
+            {
+                step.kind = xen::SelectionStepKind::SequenceCell;
+            }
+            else
+            {
+                throw BridgeError{
+                    "invalid_request",
+                    "Invalid selection step kind: " + kind,
+                };
+            }
+
+            path.path.push_back(step);
+        }
+        context.selection = std::move(path);
+    }
     return context;
+}
+
+auto selection_to_json(std::optional<xen::SelectionPath> const &selection)
+    -> nlohmann::json
+{
+    if (!selection.has_value())
+    {
+        return nullptr;
+    }
+
+    auto path = nlohmann::json::array();
+    for (auto const &step : selection->path)
+    {
+        path.push_back({
+            {"kind", step.kind == xen::SelectionStepKind::Element ? "element"
+                                                                   : "cell"},
+            {"index", step.index},
+        });
+    }
+
+    return nlohmann::json{{"path", std::move(path)}};
 }
 
 void require_integer_equals(nlohmann::json const &json, std::string_view field_name,
@@ -532,14 +609,15 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
         {
             auto const command = require_string(request.payload, "command");
             auto const context = parse_command_context(request.payload);
-            auto const [level, message] =
-                processor_.execute_command_string(command, context);
+            auto const result = processor_.execute_command_string(command, context);
             payload = nlohmann::json{
                 {"status",
                  {
-                     {"level", bridge::to_string(level)},
-                     {"message", message},
+                     {"level", bridge::to_string(result.status.first)},
+                     {"message", result.status.second},
                  }},
+                {"suggested_selection",
+                 selection_to_json(result.suggested_selection)},
                 {"snapshot",
                  bridge::make_ui_state_snapshot(processor_.get_engine_snapshot(),
                                                 processor_.plugin_state.library)},

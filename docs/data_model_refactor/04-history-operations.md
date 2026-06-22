@@ -25,17 +25,17 @@ Do not implement transform session behavior in this package.
 
 ## Acceptance criteria
 
-- [ ] Commit creates one new entry and truncates redo only under normal commit rules.
-- [ ] Guarded amendment preserves entry ID, updates project revision, and fails cleanly
+- [x] Commit creates one new entry and truncates redo only under normal commit rules.
+- [x] Guarded amendment preserves entry ID, updates project revision, and fails cleanly
       when the expected entry is not current or not at the tip.
-- [ ] Replacement creates a fresh root identity/revision and leaves no undo/redo.
-- [ ] Read-only timeline access does not copy project state.
-- [ ] No handler directly controls history transitions.
-- [ ] History installation after validation cannot leave partially installed backend
+- [x] Replacement creates a fresh root identity/revision and leaves no undo/redo.
+- [x] Read-only timeline access does not copy project state.
+- [x] No handler directly controls history transitions.
+- [x] History installation after validation cannot leave partially installed backend
       state.
 
 ## Verification
 
-- [ ] Tests cover amendment at tip, stale expected ID, amendment with redo present,
+- [x] Tests cover amendment at tip, stale expected ID, amendment with redo present,
       replacement, and const-reference reads.
-- [ ] `XenTests` builds and full `ctest` passes, or the blocker is recorded.
+- [x] `XenTests` builds and full `ctest` passes, or the blocker is recorded.

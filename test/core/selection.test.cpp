@@ -8,6 +8,8 @@
 
 using namespace xen;
 
+using SelectedState = SelectionPath;
+
 namespace
 {
 

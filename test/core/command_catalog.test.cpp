@@ -21,8 +21,12 @@ auto policy_for(std::string const &text) -> CommandPolicy
     auto const result = bind_invocation(parse_command_chain(text).front());
     REQUIRE(std::holds_alternative<BoundStep>(result));
     auto const &step = std::get<BoundStep>(result);
-    REQUIRE(std::holds_alternative<ExecutableCommand>(step));
-    return std::get<ExecutableCommand>(step).policy;
+    if (std::holds_alternative<ExecutableCommand>(step))
+    {
+        return std::get<ExecutableCommand>(step).policy;
+    }
+    REQUIRE(std::holds_alternative<ExecutableHistoryNavigation>(step));
+    return std::get<ExecutableHistoryNavigation>(step).policy;
 }
 
 auto test_definition(CommandPolicy policy, bool uses_submission_effects)
@@ -46,7 +50,7 @@ auto test_definition(CommandPolicy policy, bool uses_submission_effects)
 TEST_CASE("Catalog binds command chain to executable handlers",
           "[core][command][catalog]")
 {
-    auto const chain = parse_command_chain("version; again; set key 7; move left 3");
+    auto const chain = parse_command_chain("version; again; set key 7; undo");
     auto const result = bind_chain(chain);
 
     REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
@@ -56,10 +60,10 @@ TEST_CASE("Catalog binds command chain to executable handlers",
     REQUIRE(std::holds_alternative<ExecutableCommand>(bound[0]));
     CHECK(std::holds_alternative<RepeatPrevious>(bound[1]));
     REQUIRE(std::holds_alternative<ExecutableCommand>(bound[2]));
-    REQUIRE(std::holds_alternative<ExecutableCommand>(bound[3]));
+    REQUIRE(std::holds_alternative<ExecutableHistoryNavigation>(bound[3]));
     CHECK(std::get<ExecutableCommand>(bound[0]).canonical == "version");
     CHECK(std::get<ExecutableCommand>(bound[2]).canonical == "set key 7");
-    CHECK(std::get<ExecutableCommand>(bound[3]).canonical == "move left 3");
+    CHECK(std::get<ExecutableHistoryNavigation>(bound[3]).canonical == "undo");
 }
 
 TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catalog]")
@@ -72,22 +76,13 @@ TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catal
     auto const &set_key_command = std::get<ExecutableCommand>(set_key_step);
     REQUIRE(set_key_command.execute);
 
-    auto const move_invocation = parse_command_chain("move right")[0];
-    auto const move_result = bind_invocation(move_invocation);
-    REQUIRE(std::holds_alternative<BoundStep>(move_result));
-    auto const &move_step = std::get<BoundStep>(move_result);
-    REQUIRE(std::holds_alternative<ExecutableCommand>(move_step));
-    auto const &move_command = std::get<ExecutableCommand>(move_step);
-    REQUIRE(move_command.execute);
-
     auto state = PluginState{
         .timeline = XenTimeline{EngineState{}},
     };
     auto effects = SubmissionEffects{};
-    auto const key_result = set_key_command.execute(state, effects);
-    CHECK(key_result.second == "Key Set to 0.");
-    auto const move_result_value = move_command.execute(state, effects);
-    CHECK(move_result_value.second == "Moved Right 1 Times");
+    auto context = CommandExecutionContext{};
+    auto const key_result = set_key_command.execute(state, effects, context);
+    CHECK(key_result.status.second == "Key Set to 0.");
 }
 
 TEST_CASE("Catalog binder reports unknown command", "[core][command][catalog]")
@@ -165,9 +160,10 @@ TEST_CASE("Catalog supports runtime typed command registration",
 
     auto state = PluginState{.timeline = XenTimeline{EngineState{}}};
     auto effects = SubmissionEffects{};
-    auto const execution = command.execute(state, effects);
-    CHECK(execution.first == MessageLevel::Info);
-    CHECK(execution.second == "42");
+    auto context = CommandExecutionContext{};
+    auto const execution = command.execute(state, effects, context);
+    CHECK(execution.status.first == MessageLevel::Info);
+    CHECK(execution.status.second == "42");
 
     REQUIRE(catalog.metadata().size() == 1);
     CHECK(catalog.metadata()[0].arguments[0].type == "Int");
@@ -267,11 +263,7 @@ TEST_CASE("Catalog exposes complete backend command policies",
                         WorkspaceAccess::None, FileAccess::None,
                         TargetRequirement::None, RepeatPolicy::Never,
                         HistoryPolicy::None});
-    CHECK(policy_for("move left") ==
-          CommandPolicy{ProjectOperation::Read, LibraryAccess::None,
-                        WorkspaceAccess::None, FileAccess::None,
-                        TargetRequirement::CellOrElement, RepeatPolicy::Never,
-                        HistoryPolicy::None});
+    CHECK(policy_for("duplicate").target == TargetRequirement::CellOrElement);
     CHECK(policy_for("set key 1").history == HistoryPolicy::Commit);
     CHECK(policy_for("cut").files == FileAccess::Write);
     CHECK(policy_for("paste").files == FileAccess::Read);

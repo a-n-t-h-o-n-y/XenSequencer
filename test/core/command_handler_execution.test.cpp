@@ -23,8 +23,9 @@ auto make_plugin_state() -> PluginState
     return PluginState{.timeline = XenTimeline{EngineState{}}};
 }
 
-auto execute(PluginState &state, std::string const &text)
-    -> std::pair<MessageLevel, std::string>
+auto execute(PluginState &state, std::string const &text,
+             std::optional<SelectionPath> selection = std::nullopt)
+    -> CommandApplicationResult
 {
     auto const result = bind_invocation(parse_command_chain(text).front());
     REQUIRE(std::holds_alternative<BoundStep>(result));
@@ -32,24 +33,20 @@ auto execute(PluginState &state, std::string const &text)
     REQUIRE(std::holds_alternative<ExecutableCommand>(step));
     auto const &command = std::get<ExecutableCommand>(step);
     auto effects = SubmissionEffects{};
-    return command.execute(state, effects);
+    auto context = CommandExecutionContext{.selection = std::move(selection)};
+    return command.execute(state, effects, context);
 }
 
 } // namespace
 
-TEST_CASE("Direct handlers mutate engine and editor independently",
+TEST_CASE("Direct handlers mutate engine without requiring session editor state",
           "[core][command][handler]")
 {
     auto state = make_plugin_state();
-    state.editor.input_mode = InputMode::Velocity;
 
-    CHECK(execute(state, "set key 12").second == "Key Set to 12.");
+    auto const result = execute(state, "set key 12");
+    CHECK(result.status.second == "Key Set to 12.");
     CHECK(state.timeline.get_state().key == 12);
-    CHECK(state.editor.input_mode == InputMode::Velocity);
-
-    auto const engine_before_move = state.timeline.get_state();
-    CHECK(execute(state, "move right").second == "Moved Right 1 Times");
-    CHECK(state.timeline.get_state() == engine_before_move);
 }
 
 TEST_CASE("Direct handlers validate without retaining partial mutation",
@@ -58,14 +55,14 @@ TEST_CASE("Direct handlers validate without retaining partial mutation",
     auto state = make_plugin_state();
     auto const before = state.timeline.get_state();
 
-    CHECK(execute(state, "set key 128").first == MessageLevel::Error);
+    CHECK(execute(state, "set key 128").status.first == MessageLevel::Error);
     CHECK(state.timeline.get_state() == before);
-    CHECK(execute(state, "set measure timeSignature 0/4").second ==
+    CHECK(execute(state, "set measure timeSignature 0/4").status.second ==
           "Invalid TimeSignature");
     CHECK(state.timeline.get_state() == before);
 }
 
-TEST_CASE("Direct edit handlers use PluginState editor selection",
+TEST_CASE("Direct edit handlers use execution-context selection",
           "[core][command][handler]")
 {
     auto state = make_plugin_state();
@@ -74,18 +71,20 @@ TEST_CASE("Direct edit handlers use PluginState editor selection",
         sequence::Note{1, 0.5f, 0.f, 1.f},
     };
     state.timeline.stage(std::move(engine));
-    state.editor.selected = select_element_in_cell({}, 0);
 
-    CHECK(execute(state, "note 12 0.5 0.25 0.75").first == MessageLevel::Info);
+    auto const selection = select_element_in_cell({}, 0);
+
+    CHECK(execute(state, "note 12 0.5 0.25 0.75", selection).status.first ==
+          MessageLevel::Info);
     auto const after_note = state.timeline.get_state();
     auto const &created = std::get<sequence::Note>(after_note.measure.cell.elements[0]);
     CHECK(created.pitch == 12);
 
-    CHECK(execute(state, "delete").first == MessageLevel::Info);
+    CHECK(execute(state, "delete", selection).status.first == MessageLevel::Info);
     CHECK(state.timeline.get_state().measure.cell.elements.empty());
 }
 
-TEST_CASE("Direct chord handler preserves editor cycle state",
+TEST_CASE("Direct chord handler preserves transform session baseline",
           "[core][command][handler]")
 {
     auto state = make_plugin_state();
@@ -101,27 +100,28 @@ TEST_CASE("Direct chord handler preserves editor cycle state",
     };
     state.timeline.stage(std::move(engine));
 
-    CHECK(execute(state, "chord major 0").second == "Chorded with major inversion: 0");
-    CHECK(execute(state, "chord").second == "Chorded with major inversion: 1");
-    CHECK(execute(state, "chord cycle 0").second == "Chorded with minor inversion: 0");
+    auto const selection = SelectionPath{};
+
+    CHECK(execute(state, "chord major 0", selection).status.second ==
+          "Chorded with major inversion: 0");
+    CHECK(execute(state, "chord", selection).status.second ==
+          "Chorded with major inversion: 1");
+    CHECK(execute(state, "chord cycle 0", selection).status.second ==
+          "Chorded with minor inversion: 0");
 }
 
-TEST_CASE("Direct undo and redo preserve editor state", "[core][command][handler]")
+TEST_CASE("Timeline commit API requires explicit state", "[core][command][handler]")
 {
     auto state = make_plugin_state();
     auto engine = state.timeline.get_state();
     engine.key = 1;
     state.timeline.stage(engine);
-    REQUIRE(state.timeline.commit());
+    REQUIRE(state.timeline.commit(state.timeline.get_state()));
     engine.key = 2;
     state.timeline.stage(engine);
-    REQUIRE(state.timeline.commit());
-    state.editor.input_mode = InputMode::Gate;
-
-    CHECK(execute(state, "undo").second == "Undone");
+    REQUIRE(state.timeline.commit(state.timeline.get_state()));
+    CHECK(state.timeline.undo());
     CHECK(state.timeline.get_state().key == 1);
-    CHECK(state.editor.input_mode == InputMode::Gate);
-    CHECK(execute(state, "redo").second == "Redone");
+    CHECK(state.timeline.redo());
     CHECK(state.timeline.get_state().key == 2);
-    CHECK(state.editor.input_mode == InputMode::Gate);
 }

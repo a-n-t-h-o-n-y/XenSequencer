@@ -12,7 +12,6 @@
 #include <sequence/time_signature.hpp>
 
 #include <xen/copy_paste.hpp>
-#include <xen/input_mode.hpp>
 #include <xen/measure.hpp>
 #include <xen/modulator.hpp>
 #include <xen/selection.hpp>
@@ -35,7 +34,7 @@ namespace xen
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-[[nodiscard]] auto increment_state(EngineState state, EditorSessionState const &editor,
+[[nodiscard]] auto increment_state(EngineState state, SelectionPath const &selection,
                                    Fn &&fn, Args &&...args) -> EngineState
 {
     constexpr bool supports_cell =
@@ -48,11 +47,11 @@ template <typename Fn, typename... Args>
                   "Function must be invocable with a Cell or MusicElement and return "
                   "the same type.");
 
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
         if constexpr (supports_element)
         {
-            auto &selected = get_selected_element(state.measure, editor.selected);
+            auto &selected = get_selected_element(state.measure, selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -64,7 +63,7 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_cell)
         {
-            auto &selected = get_selected_cell(state.measure, editor.selected);
+            auto &selected = get_selected_cell(state.measure, selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -81,40 +80,33 @@ template <typename Fn, typename... Args>
 namespace xen::action
 {
 
-[[nodiscard]] auto move_left(EngineState const &state, EditorSessionState editor,
-                             std::size_t amount) -> EditorSessionState;
+struct SelectionMutation
+{
+    SelectionPath selection{};
+};
 
-[[nodiscard]] auto move_right(EngineState const &state, EditorSessionState editor,
-                              std::size_t amount) -> EditorSessionState;
-
-[[nodiscard]] auto move_up(EngineState const &state, EditorSessionState editor,
-                           std::size_t amount) -> EditorSessionState;
-
-[[nodiscard]] auto move_down(EngineState const &state, EditorSessionState editor,
-                             std::size_t amount) -> EditorSessionState;
-
-[[nodiscard]] auto copy(EngineState const &state, EditorSessionState const &editor)
+[[nodiscard]] auto copy(EngineState const &state, SelectionPath const &selection)
     -> CopyBufferContent;
 
-[[nodiscard]] auto paste(EngineState state, EditorSessionState const &editor,
-                         CopyBufferContent const &content) -> EngineState;
+[[nodiscard]] auto paste(EngineState &state, SelectionPath const &selection,
+                         CopyBufferContent const &content) -> SelectionMutation;
 
-void duplicate(EngineState &state, EditorSessionState &editor);
+[[nodiscard]] auto duplicate(EngineState &state, SelectionPath const &selection)
+    -> SelectionMutation;
 
-[[nodiscard]] auto set_input_mode(EditorSessionState editor, InputMode mode)
-    -> EditorSessionState;
+[[nodiscard]] auto lift(EngineState &state, SelectionPath const &selection)
+    -> SelectionMutation;
 
-void lift(EngineState &state, EditorSessionState &editor);
-
-[[nodiscard]] auto shift_octave(EngineState state, EditorSessionState const &editor,
+[[nodiscard]] auto shift_octave(EngineState state, SelectionPath const &selection,
                                 sequence::Pattern const &pattern, int amount)
     -> EngineState;
 
-[[nodiscard]] auto set_note_octave(EngineState state, EditorSessionState const &editor,
+[[nodiscard]] auto set_note_octave(EngineState state, SelectionPath const &selection,
                                    sequence::Pattern const &pattern, int octave)
     -> EngineState;
 
-void delete_cell(EngineState &state, EditorSessionState &editor);
+[[nodiscard]] auto delete_cell(EngineState &state, SelectionPath const &selection)
+    -> SelectionMutation;
 
 [[nodiscard]] auto set_base_frequency(EngineState state, float freq) -> EngineState;
 

@@ -24,8 +24,8 @@ These files define sequencing, scope, and completion criteria.
 | --- | --- | --- | --- | --- |
 | [01](01-history-identity-and-revisions.md) | Separate history-entry identity from project revision | None | Complete | |
 | [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Complete | |
-| [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending | |
-| [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Pending | Package 01 added the final guarded amendment and replacement primitives; package 04 still owns broader history API migration and encapsulation. |
+| [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending | Backend complete in this repo; frontend integration remains pending in the sibling frontend repo. |
+| [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Complete | Package 01 added the final guarded amendment and replacement primitives; package 04 now owns the narrowed public timeline API and processor-owned history navigation. |
 | [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Pending | |
 | [06](06-transform-and-repeat-sessions.md) | Implement baseline-based chord/arp cycling and `again` | 03, 04, 05 | Pending | |
 | [07](07-project-validation.md) | Establish one authoritative project validation boundary | 05 | Pending | |

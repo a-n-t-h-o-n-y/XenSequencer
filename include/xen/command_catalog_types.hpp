@@ -19,8 +19,13 @@ class SubmissionEffects;
 
 struct CommandContext
 {
-    std::optional<SelectedState> selection{};
+    std::optional<SelectionPath> selection{};
     std::optional<ProjectRevision> expected_project_revision{};
+};
+
+struct CommandExecutionContext
+{
+    std::optional<SelectionPath> selection{};
 };
 
 enum class CatalogBindErrorKind : std::uint8_t
@@ -131,8 +136,16 @@ struct CommandPolicy
     auto operator==(CommandPolicy const &) const -> bool = default;
 };
 
-using CommandExecutor = std::function<std::pair<MessageLevel, std::string>(
-    PluginState &, SubmissionEffects &)>;
+using CommandStatus = std::pair<MessageLevel, std::string>;
+
+struct CommandApplicationResult
+{
+    CommandStatus status{MessageLevel::Debug, ""};
+    std::optional<SelectionPath> suggested_selection{};
+};
+
+using CommandExecutor = std::function<CommandApplicationResult(
+    PluginState &, SubmissionEffects &, CommandExecutionContext &)>;
 
 struct ExecutableCommand
 {
@@ -142,11 +155,25 @@ struct ExecutableCommand
     CommandExecutor execute;
 };
 
+enum class HistoryNavigationDirection : std::uint8_t
+{
+    Undo,
+    Redo,
+};
+
+struct ExecutableHistoryNavigation
+{
+    std::string canonical{};
+    CommandPolicy const policy;
+    HistoryNavigationDirection direction{HistoryNavigationDirection::Undo};
+};
+
 struct RepeatPrevious
 {
 };
 
-using BoundStep = std::variant<ExecutableCommand, RepeatPrevious>;
+using BoundStep =
+    std::variant<ExecutableCommand, ExecutableHistoryNavigation, RepeatPrevious>;
 
 struct CatalogArgumentMetadata
 {

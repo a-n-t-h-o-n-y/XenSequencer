@@ -179,70 +179,43 @@ void validate_octave(sequence::MusicElement const &element,
 
 } // namespace
 
-auto move_left(EngineState const &state, EditorSessionState editor, std::size_t amount)
-    -> EditorSessionState
-{
-    editor.selected = xen::move_left(state.measure, editor.selected, amount);
-    return editor;
-}
-
-auto move_right(EngineState const &state, EditorSessionState editor, std::size_t amount)
-    -> EditorSessionState
-{
-    editor.selected = xen::move_right(state.measure, editor.selected, amount);
-    return editor;
-}
-
-auto move_up(EngineState const &state, EditorSessionState editor, std::size_t amount)
-    -> EditorSessionState
-{
-    editor.selected = xen::move_up(state.measure, editor.selected, amount);
-    return editor;
-}
-
-auto move_down(EngineState const &state, EditorSessionState editor, std::size_t amount)
-    -> EditorSessionState
-{
-    editor.selected = xen::move_down(state.measure, editor.selected, amount);
-    return editor;
-}
-
-auto copy(EngineState const &state, EditorSessionState const &editor)
+auto copy(EngineState const &state, SelectionPath const &selection)
     -> CopyBufferContent
 {
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        return get_selected_element_const(state.measure, editor.selected);
+        return get_selected_element_const(state.measure, selection);
     }
-    return get_selected_cell_const(state.measure, editor.selected);
+    return get_selected_cell_const(state.measure, selection);
 }
 
-auto paste(EngineState state, EditorSessionState const &editor,
-           CopyBufferContent const &content) -> EngineState
+auto paste(EngineState &state, SelectionPath const &selection,
+           CopyBufferContent const &content) -> SelectionMutation
 {
+    auto suggested_selection = selection;
+
     if (std::holds_alternative<sequence::Cell>(content))
     {
         auto replacement = std::get<sequence::Cell>(content);
-        if (selection_kind(editor.selected) == SelectionKind::Element)
+        if (selection_kind(selection) == SelectionKind::Element)
         {
-            auto *parent_cell =
-                get_parent_cell_of_selection(state.measure, editor.selected);
+            auto *parent_cell = get_parent_cell_of_selection(state.measure, selection);
             *parent_cell = std::move(replacement);
+            suggested_selection = select_parent_cell(selection);
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, editor.selected);
+            auto &selected = get_selected_cell(state.measure, selection);
             selected = std::move(replacement);
         }
     }
     else
     {
         auto element = std::get<sequence::MusicElement>(content);
-        if (selection_kind(editor.selected) == SelectionKind::Element)
+        if (selection_kind(selection) == SelectionKind::Element)
         {
-            auto &parent_cell =
-                *get_parent_cell_of_selection(state.measure, editor.selected);
-            auto const index = get_selected_element_index(editor.selected);
+            auto &parent_cell = *get_parent_cell_of_selection(state.measure, selection);
+            auto const index = get_selected_element_index(selection);
             parent_cell.elements.insert(
                 std::next(
                     std::begin(parent_cell.elements),
@@ -251,136 +224,128 @@ auto paste(EngineState state, EditorSessionState const &editor,
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, editor.selected);
+            auto &selected = get_selected_cell(state.measure, selection);
             selected.elements.push_back(std::move(element));
         }
     }
 
-    return state;
+    return SelectionMutation{.selection = std::move(suggested_selection)};
 }
 
-void duplicate(EngineState &state, EditorSessionState &editor)
+auto duplicate(EngineState &state, SelectionPath const &selection) -> SelectionMutation
 {
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.measure, editor.selected);
-        auto const index = get_selected_element_index(editor.selected);
+        auto &cell = get_selected_cell(state.measure, selection);
+        auto const index = get_selected_element_index(selection);
         auto copy = cell.elements.at(index);
         cell.elements.insert(
             std::next(
                 std::begin(cell.elements),
                 (std::vector<sequence::MusicElement>::difference_type)(index + 1)),
             copy);
-        editor.selected =
-            select_element_in_cell(select_parent_cell(editor.selected), index + 1);
-        return;
+        return SelectionMutation{
+            .selection =
+                select_element_in_cell(select_parent_cell(selection), index + 1),
+        };
     }
 
-    auto selected_copy = get_selected_cell(state.measure, editor.selected);
+    auto selected_copy = get_selected_cell(state.measure, selection);
 
-    auto new_selection = ::xen::move_right(state.measure, editor.selected, 1);
+    auto new_selection = ::xen::move_right(state.measure, selection, 1);
     auto &selected = get_selected_cell(state.measure, new_selection);
     selected = selected_copy;
-    editor.selected = new_selection;
+    return SelectionMutation{.selection = std::move(new_selection)};
 }
 
-auto set_input_mode(EditorSessionState editor, InputMode mode) -> EditorSessionState
+auto lift(EngineState &state, SelectionPath const &selection) -> SelectionMutation
 {
-    editor.input_mode = mode;
-    return editor;
-}
-
-void lift(EngineState &state, EditorSessionState &editor)
-{
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.measure, editor.selected);
-        auto element =
-            std::move(cell.elements.at(get_selected_element_index(editor.selected)));
+        auto &cell = get_selected_cell(state.measure, selection);
+        auto element = std::move(cell.elements.at(get_selected_element_index(selection)));
         cell.elements.clear();
         cell.elements.push_back(std::move(element));
-        editor.selected = select_parent_cell(editor.selected);
-        return;
+        return SelectionMutation{.selection = select_parent_cell(selection)};
     }
 
-    sequence::Cell *parent = get_parent_of_selected(state.measure, editor.selected);
+    sequence::Cell *parent = get_parent_of_selected(state.measure, selection);
     if (parent == nullptr)
     {
         throw std::runtime_error{"Can't lift top level Cell."};
     }
 
-    auto &cell = get_selected_cell(state.measure, editor.selected);
+    auto &cell = get_selected_cell(state.measure, selection);
 
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
 
-    editor.selected = select_parent_cell(editor.selected);
+    return SelectionMutation{.selection = select_parent_cell(selection)};
 }
 
-auto shift_octave(EngineState state, EditorSessionState const &editor,
+auto shift_octave(EngineState state, SelectionPath const &selection,
                   sequence::Pattern const &pattern, int amount) -> EngineState
 {
     auto const tuning_length = numeric::checked_cast<int>(state.tuning.intervals.size(),
                                                           "Tuning length exceeds int.");
     auto const shift =
         numeric::checked_mul(amount, tuning_length, "Octave shift exceeds int.");
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, editor.selected);
+        auto &element = get_selected_element(state.measure, selection);
         element = checked_shift_pitch(std::move(element), pattern, shift);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, editor.selected);
+        auto &cell = get_selected_cell(state.measure, selection);
         cell = checked_shift_pitch(std::move(cell), pattern, shift);
     }
     return state;
 }
 
-auto set_note_octave(EngineState state, EditorSessionState const &editor,
+auto set_note_octave(EngineState state, SelectionPath const &selection,
                      sequence::Pattern const &pattern, int octave) -> EngineState
 {
     auto const tuning_length = state.tuning.intervals.size();
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, editor.selected);
+        auto &element = get_selected_element(state.measure, selection);
         validate_octave(element, pattern, octave, tuning_length);
         element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, editor.selected);
+        auto &cell = get_selected_cell(state.measure, selection);
         validate_octave(cell, pattern, octave, tuning_length);
         cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
     }
     return state;
 }
 
-void delete_cell(EngineState &state, EditorSessionState &editor)
+auto delete_cell(EngineState &state, SelectionPath const &selection)
+    -> SelectionMutation
 {
-    if (selection_kind(editor.selected) == SelectionKind::Element)
+    if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &selected_cell =
-            *get_parent_cell_of_selection(state.measure, editor.selected);
-        auto const index = get_selected_element_index(editor.selected);
+        auto &selected_cell = *get_parent_cell_of_selection(state.measure, selection);
+        auto const index = get_selected_element_index(selection);
         erase_selected_element(selected_cell, index);
 
         if (selected_cell.elements.empty())
         {
-            editor.selected = select_parent_cell(editor.selected);
-        }
-        else
-        {
-            editor.selected = select_element_in_cell(
-                select_parent_cell(editor.selected),
-                std::min(index, selected_cell.elements.size() - 1));
+            return SelectionMutation{.selection = select_parent_cell(selection)};
         }
 
-        return;
+        return SelectionMutation{
+            .selection = select_element_in_cell(
+                select_parent_cell(selection),
+                std::min(index, selected_cell.elements.size() - 1)),
+        };
     }
 
-    auto &selected_cell = get_selected_cell(state.measure, editor.selected);
+    auto &selected_cell = get_selected_cell(state.measure, selection);
     selected_cell.elements.clear();
+    return SelectionMutation{.selection = selection};
 }
 
 auto set_base_frequency(EngineState state, float freq) -> EngineState

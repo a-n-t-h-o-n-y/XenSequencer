@@ -67,9 +67,9 @@ inline auto allocate_project_revision() noexcept -> ProjectRevision
 /**
  * A timeline/history of States.
  *
- * @details The timeline can have State staged to it, which can be written to the
- * timeline with a commit() call. You can move through commit history with undo/redo
- * commands and truncate history with new writes after an undo.
+ * @details The timeline can have State staged to it as a candidate. Committed history
+ * changes happen through explicit operations such as commit(project), amend_current,
+ * replace_history, undo, and redo.
  * @tparam State The type of the states stored in the timeline.
  */
 template <typename State>
@@ -108,16 +108,23 @@ class Timeline
      * the timeline is in the past, a changed commit truncates the future. A no-op
      * preserves redo history.
      */
-    auto commit() -> bool
+    auto commit(State state) -> bool
     {
-        if (stage_ == timeline_[at_].state)
+        if (state == timeline_[at_].state)
         {
             return false;
         }
-        at_ = at_ + 1;
-        timeline_.resize(at_);
-        timeline_.push_back({stage_, detail::allocate_history_entry_id()});
-        revision_ = detail::allocate_project_revision();
+
+        auto next_timeline = timeline_;
+        auto const next_at = at_ + 1;
+        next_timeline.resize(next_at);
+        next_timeline.push_back({std::move(state), detail::allocate_history_entry_id()});
+        auto const next_revision = detail::allocate_project_revision();
+
+        stage_ = next_timeline.back().state;
+        timeline_ = std::move(next_timeline);
+        at_ = next_at;
+        revision_ = next_revision;
         return true;
     }
 
@@ -132,9 +139,13 @@ class Timeline
             return false;
         }
 
-        timeline_[at_].state = std::move(state);
-        stage_ = timeline_[at_].state;
-        revision_ = detail::allocate_project_revision();
+        auto next_timeline = timeline_;
+        next_timeline[at_].state = std::move(state);
+        auto const next_revision = detail::allocate_project_revision();
+
+        stage_ = next_timeline[at_].state;
+        timeline_ = std::move(next_timeline);
+        revision_ = next_revision;
         return true;
     }
 
@@ -143,10 +154,14 @@ class Timeline
      */
     auto replace_history(State state) -> void
     {
+        auto next_timeline = std::vector<Entry>{};
+        next_timeline.push_back({state, detail::allocate_history_entry_id()});
+        auto const next_revision = detail::allocate_project_revision();
+
         stage_ = std::move(state);
-        timeline_ = {{stage_, detail::allocate_history_entry_id()}};
+        timeline_ = std::move(next_timeline);
         at_ = 0;
-        revision_ = detail::allocate_project_revision();
+        revision_ = next_revision;
     }
 
     /**
@@ -155,7 +170,7 @@ class Timeline
      * @details This is the state that was last staged or a previous commit if undo has
      * been called.
      */
-    [[nodiscard]] auto get_state() const -> State
+    [[nodiscard]] auto get_state() const -> State const &
     {
         return stage_;
     }
@@ -163,7 +178,7 @@ class Timeline
     /**
      * Retrieve the current committed state at the timeline cursor.
      */
-    [[nodiscard]] auto get_committed_state() const -> State
+    [[nodiscard]] auto get_committed_state() const -> State const &
     {
         return timeline_[at_].state;
     }
@@ -196,9 +211,12 @@ class Timeline
     {
         if (at_ > 0)
         {
+            auto next_stage = timeline_[at_ - 1].state;
+            auto const next_revision = detail::allocate_project_revision();
+
+            stage_ = std::move(next_stage);
             at_ = at_ - 1;
-            stage_ = timeline_[at_].state;
-            revision_ = detail::allocate_project_revision();
+            revision_ = next_revision;
             return true;
         }
         return false;
@@ -215,9 +233,12 @@ class Timeline
     {
         if (at_ + 1 < std::size(timeline_))
         {
+            auto next_stage = timeline_[at_ + 1].state;
+            auto const next_revision = detail::allocate_project_revision();
+
+            stage_ = std::move(next_stage);
             at_ = at_ + 1;
-            stage_ = timeline_[at_].state;
-            revision_ = detail::allocate_project_revision();
+            revision_ = next_revision;
             return true;
         }
         return false;
