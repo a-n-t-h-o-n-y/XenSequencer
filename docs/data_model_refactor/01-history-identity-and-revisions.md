@@ -22,18 +22,18 @@ Do not redesign command contexts or history mutation APIs in this package.
 
 ## Acceptance criteria
 
-- [ ] Entry identity and project revision are different strong types.
-- [ ] An amended entry can retain its entry ID while receiving a new revision.
-- [ ] Undo/redo changes revision even when returning to a previously visited entry.
-- [ ] Host restoration invalidates requests from the prior project context.
-- [ ] No persisted project schema contains process-local IDs or revisions.
-- [ ] Existing code no longer treats `get_next_commit_id()` or `snapshot_version` as
+- [x] Entry identity and project revision are different strong types.
+- [x] An amended entry can retain its entry ID while receiving a new revision.
+- [x] Undo/redo changes revision even when returning to a previously visited entry.
+- [x] Host restoration invalidates requests from the prior project context.
+- [x] No persisted project schema contains process-local IDs or revisions.
+- [x] Existing code no longer treats `get_next_commit_id()` or `snapshot_version` as
       the authoritative edit guard.
-- [ ] Failed and no-op project operations leave identity and revision unchanged.
+- [x] Failed and no-op project operations leave identity and revision unchanged.
 
 ## Verification
 
-- [ ] Focused tests cover commit, amendment-ready identity semantics, undo, redo,
+- [x] Focused tests cover commit, amendment-ready identity semantics, undo, redo,
       equal-data restoration, and no-op behavior.
-- [ ] `XenTests` builds.
-- [ ] Full `ctest` passes, or the blocker is recorded.
+- [x] `XenTests` builds.
+- [x] Full `ctest` passes, or the blocker is recorded.

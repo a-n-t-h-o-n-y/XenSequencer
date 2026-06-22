@@ -92,8 +92,8 @@ struct ChordCycleState
     EngineState sequencer{};
     SelectedState selected{};
 
-    // The commit ID from just before the last command call.
-    int previous_commit_id{-1};
+    // The project revision from just before the last command call.
+    ProjectRevision previous_project_revision{};
 
     // Parameters for the chord cycle.
     std::string previous_chord_name{""};
@@ -144,7 +144,8 @@ struct EngineSnapshot
 {
     EngineState engine{};
     EditorSessionState editor{};
-    int commit_id{-1};
+    HistoryEntryId history_entry_id{};
+    ProjectRevision project_revision{};
     std::uint64_t snapshot_version{0};
 };
 

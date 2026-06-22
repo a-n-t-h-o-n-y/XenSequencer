@@ -97,7 +97,8 @@ auto XenProcessor::get_engine_snapshot() const -> EngineSnapshot
     return EngineSnapshot{
         .engine = plugin_state.timeline.get_state(),
         .editor = plugin_state.editor,
-        .commit_id = plugin_state.timeline.get_current_commit_id(),
+        .history_entry_id = plugin_state.timeline.get_current_entry_id(),
+        .project_revision = plugin_state.timeline.get_project_revision(),
         .snapshot_version = ui_snapshot_version_.load(std::memory_order_acquire),
     };
 }
@@ -247,8 +248,7 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
         auto state = deserialize_plugin(json_str);
-        plugin_state.timeline.stage(std::move(state));
-        plugin_state.timeline.commit();
+        plugin_state.timeline.replace_history(std::move(state));
         pending_engine_state_update.publish(plugin_state.timeline.get_state());
         notify_ui_state_changed();
     }
@@ -323,7 +323,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         auto status = std::pair<MessageLevel, std::string>{MessageLevel::Debug, ""};
         auto repeat_target = std::vector<CommandInvocation>{};
         auto const initial_engine = working.timeline.get_state();
-        auto const initial_commit_id = working.timeline.get_current_commit_id();
+        auto const initial_revision = working.timeline.get_project_revision();
 
         for (auto const &command : commands)
         {
@@ -346,7 +346,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         }
 
         auto const final_engine = working.timeline.get_state();
-        auto const final_commit_id = working.timeline.get_current_commit_id();
+        auto const final_revision = working.timeline.get_project_revision();
         effects.prepare();
         auto const original_state = plugin_state;
         try
@@ -383,7 +383,7 @@ auto XenProcessor::execute_command_string(std::string const &command_string)
         {
             previous_command_chain_ = std::move(repeat_target);
         }
-        if (final_commit_id != initial_commit_id || final_engine != initial_engine)
+        if (final_revision != initial_revision || final_engine != initial_engine)
         {
             pending_engine_state_update.publish(final_engine);
         }

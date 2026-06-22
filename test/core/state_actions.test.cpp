@@ -99,7 +99,8 @@ TEST_CASE("Set key validates range and does not mutate on invalid input",
     CHECK(invalid_message == "Invalid Key Value: 128. Must be in range [-127, 127].");
     CHECK(after_invalid.engine == before.engine);
     check_editor_stable(after_invalid, before);
-    CHECK(after_invalid.commit_id == before.commit_id);
+    CHECK(after_invalid.history_entry_id == before.history_entry_id);
+    CHECK(after_invalid.project_revision == before.project_revision);
 
     auto const [valid_level, _valid_message] =
         processor.execute_command_string("set key -127");
@@ -129,5 +130,6 @@ TEST_CASE("Set measure timeSignature validates values", "[core][actions]")
     CHECK(invalid_message == "Invalid TimeSignature");
     CHECK(after_invalid.engine == before_invalid.engine);
     check_editor_stable(after_invalid, before_invalid);
-    CHECK(after_invalid.commit_id == before_invalid.commit_id);
+    CHECK(after_invalid.history_entry_id == before_invalid.history_entry_id);
+    CHECK(after_invalid.project_revision == before_invalid.project_revision);
 }

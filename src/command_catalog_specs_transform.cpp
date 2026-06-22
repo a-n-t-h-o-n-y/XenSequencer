@@ -176,8 +176,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             auto state = ps.timeline.get_state();
             bool const starting_new_chain =
                 ps.editor.selected != ps.editor.arp_state.selected ||
-                ps.editor.arp_state.previous_commit_id !=
-                    ps.timeline.get_next_commit_id();
+                ps.editor.arp_state.previous_project_revision !=
+                    ps.timeline.get_project_revision();
             if (starting_new_chain)
             {
                 ps.editor.arp_state.sequencer = state;
@@ -188,7 +188,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                     std::move(chord_name), inversion);
             ps.editor.arp_state.previous_chord_name = chord_name;
             ps.editor.arp_state.previous_inversion = inversion;
-            ps.editor.arp_state.previous_commit_id = ps.timeline.get_next_commit_id();
+            ps.editor.arp_state.previous_project_revision =
+                ps.timeline.get_project_revision();
             state = ps.editor.arp_state.sequencer;
             ps.editor.selected = ps.editor.arp_state.selected;
             auto const chord = find_chord(ps.library.chords, chord_name);
@@ -216,8 +217,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             auto state = ps.timeline.get_state();
             bool const starting_new_chain =
                 ps.editor.selected != ps.editor.chord_state.selected ||
-                ps.editor.chord_state.previous_commit_id !=
-                    ps.timeline.get_next_commit_id();
+                ps.editor.chord_state.previous_project_revision !=
+                    ps.timeline.get_project_revision();
             if (starting_new_chain)
             {
                 ps.editor.chord_state.sequencer = state;
@@ -228,7 +229,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                     std::move(chord_name), inversion);
             ps.editor.chord_state.previous_chord_name = chord_name;
             ps.editor.chord_state.previous_inversion = inversion;
-            ps.editor.chord_state.previous_commit_id = ps.timeline.get_next_commit_id();
+            ps.editor.chord_state.previous_project_revision =
+                ps.timeline.get_project_revision();
             state = ps.editor.chord_state.sequencer;
             ps.editor.selected = ps.editor.chord_state.selected;
             auto const chord = find_chord(ps.library.chords, chord_name);

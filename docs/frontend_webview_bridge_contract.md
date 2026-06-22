@@ -68,7 +68,7 @@ Request payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 2;
+  snapshot_schema_version: 5;
   frontend_app: string;
   frontend_version: string;
 }
@@ -79,7 +79,7 @@ Response payload:
 ```ts
 {
   protocol: "xen.bridge.v1";
-  snapshot_schema_version: 2;
+  snapshot_schema_version: 5;
   plugin_version: string;
   reference: {
     commands: Array<{
@@ -101,7 +101,7 @@ Response payload:
 Validation behavior:
 
 1. `protocol` mismatch -> `unsupported_protocol`.
-1. `snapshot_schema_version !== 2` -> `unsupported_protocol`.
+1. `snapshot_schema_version !== 5` -> `unsupported_protocol`.
 
 ### `state.get`
 
@@ -388,9 +388,10 @@ type Chord = {
 };
 
 type UiStateSnapshot = {
-  schema_version: 4;
+  schema_version: 5;
   snapshot_version: number;
-  commit_id: number;
+  history_entry_id: number;
+  project_revision: number;
   engine: {
     measure: Measure;
     tuning: Tuning;

@@ -16,7 +16,8 @@ TEST_CASE("Engine snapshot version mirrors UI snapshot version", "[sync][snapsho
     auto const before_version = processor.get_ui_snapshot_version();
     CHECK(before.snapshot_version == before_version);
 
-    auto const before_commit_id = before.commit_id;
+    auto const before_entry_id = before.history_entry_id;
+    auto const before_revision = before.project_revision;
     auto const [level, _message] = processor.execute_command_string("set key 11");
     CHECK(level == MessageLevel::Info);
 
@@ -25,7 +26,8 @@ TEST_CASE("Engine snapshot version mirrors UI snapshot version", "[sync][snapsho
     CHECK(after.snapshot_version == after_version);
     CHECK(after.snapshot_version > before.snapshot_version);
     CHECK(after.engine.key == 11);
-    CHECK(after.commit_id != before_commit_id);
+    CHECK(after.history_entry_id != before_entry_id);
+    CHECK(after.project_revision != before_revision);
 }
 
 TEST_CASE("Unknown commands do not mutate engine state", "[sync][snapshot]")
@@ -44,7 +46,8 @@ TEST_CASE("Unknown commands do not mutate engine state", "[sync][snapshot]")
 
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine == before.engine);
-    CHECK(after.commit_id == before.commit_id);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
     CHECK(after.snapshot_version == before.snapshot_version);
 }
 

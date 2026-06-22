@@ -1,12 +1,68 @@
 #pragma once
 
+#include <atomic>
 #include <cassert>
+#include <compare>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
 namespace xen
 {
+
+class HistoryEntryId
+{
+  public:
+    explicit constexpr HistoryEntryId(std::uint64_t value = 0) noexcept : value_{value}
+    {
+    }
+
+    [[nodiscard]] constexpr auto value() const noexcept -> std::uint64_t
+    {
+        return value_;
+    }
+
+    auto operator<=>(HistoryEntryId const &) const = default;
+
+  private:
+    std::uint64_t value_;
+};
+
+class ProjectRevision
+{
+  public:
+    explicit constexpr ProjectRevision(std::uint64_t value = 0) noexcept : value_{value}
+    {
+    }
+
+    [[nodiscard]] constexpr auto value() const noexcept -> std::uint64_t
+    {
+        return value_;
+    }
+
+    auto operator<=>(ProjectRevision const &) const = default;
+
+  private:
+    std::uint64_t value_;
+};
+
+namespace detail
+{
+
+inline auto allocate_history_entry_id() noexcept -> HistoryEntryId
+{
+    static auto next_value = std::atomic<std::uint64_t>{1};
+    return HistoryEntryId{next_value.fetch_add(1, std::memory_order_relaxed)};
+}
+
+inline auto allocate_project_revision() noexcept -> ProjectRevision
+{
+    static auto next_value = std::atomic<std::uint64_t>{1};
+    return ProjectRevision{next_value.fetch_add(1, std::memory_order_relaxed)};
+}
+
+} // namespace detail
 
 /**
  * A timeline/history of States.
@@ -26,7 +82,9 @@ class Timeline
      * @details The Timeline is never empty, there is always an initial state.
      */
     explicit Timeline(State state)
-        : stage_{std::move(state)}, timeline_{{stage_, id_origin_++}}
+        : stage_{std::move(state)},
+          timeline_{{stage_, detail::allocate_history_entry_id()}},
+          revision_{detail::allocate_project_revision()}
     {
     }
 
@@ -52,14 +110,43 @@ class Timeline
      */
     auto commit() -> bool
     {
-        if (stage_ == timeline_[at_].first)
+        if (stage_ == timeline_[at_].state)
         {
             return false;
         }
         at_ = at_ + 1;
         timeline_.resize(at_);
-        timeline_.push_back({stage_, id_origin_++});
+        timeline_.push_back({stage_, detail::allocate_history_entry_id()});
+        revision_ = detail::allocate_project_revision();
         return true;
+    }
+
+    /**
+     * Amend the current history tip when its identity matches the expected entry.
+     */
+    auto amend_current(HistoryEntryId expected_entry_id, State state) -> bool
+    {
+        if (at_ + 1 != std::size(timeline_) || timeline_[at_].id != expected_entry_id ||
+            state == timeline_[at_].state)
+        {
+            return false;
+        }
+
+        timeline_[at_].state = std::move(state);
+        stage_ = timeline_[at_].state;
+        revision_ = detail::allocate_project_revision();
+        return true;
+    }
+
+    /**
+     * Replace all history with a new root, including when the project data is equal.
+     */
+    auto replace_history(State state) -> void
+    {
+        stage_ = std::move(state);
+        timeline_ = {{stage_, detail::allocate_history_entry_id()}};
+        at_ = 0;
+        revision_ = detail::allocate_project_revision();
     }
 
     /**
@@ -78,24 +165,23 @@ class Timeline
      */
     [[nodiscard]] auto get_committed_state() const -> State
     {
-        return timeline_[at_].first;
+        return timeline_[at_].state;
     }
 
     /**
-     * Return the unique commit ID for the most recent commit state. Does not change on
-     * staged state.
+     * Return the immutable identity of the current history entry.
      */
-    [[nodiscard]] auto get_current_commit_id() const -> int
+    [[nodiscard]] auto get_current_entry_id() const noexcept -> HistoryEntryId
     {
-        return timeline_[at_].second;
+        return timeline_[at_].id;
     }
 
     /**
-     * Return the unique commit ID for the next commit.
+     * Return the current authoritative project generation.
      */
-    [[nodiscard]] auto get_next_commit_id() const -> int
+    [[nodiscard]] auto get_project_revision() const noexcept -> ProjectRevision
     {
-        return id_origin_;
+        return revision_;
     }
 
     /**
@@ -111,7 +197,8 @@ class Timeline
         if (at_ > 0)
         {
             at_ = at_ - 1;
-            stage_ = timeline_[at_].first;
+            stage_ = timeline_[at_].state;
+            revision_ = detail::allocate_project_revision();
             return true;
         }
         return false;
@@ -129,7 +216,8 @@ class Timeline
         if (at_ + 1 < std::size(timeline_))
         {
             at_ = at_ + 1;
-            stage_ = timeline_[at_].first;
+            stage_ = timeline_[at_].state;
+            revision_ = detail::allocate_project_revision();
             return true;
         }
         return false;
@@ -143,14 +231,20 @@ class Timeline
      */
     auto reset_stage() -> void
     {
-        stage_ = timeline_[at_].first;
+        stage_ = timeline_[at_].state;
     }
 
   private:
-    int id_origin_{0};
+    struct Entry
+    {
+        State state;
+        HistoryEntryId id;
+    };
+
     State stage_; // Staged state to be committed. Also the 'current' state.
-    std::vector<std::pair<State, int>> timeline_; // [state, commit ID]
+    std::vector<Entry> timeline_;
     std::size_t at_{0};
+    ProjectRevision revision_;
 };
 
 } // namespace xen

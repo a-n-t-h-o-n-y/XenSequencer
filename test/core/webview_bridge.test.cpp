@@ -93,7 +93,11 @@ TEST_CASE("WebviewBridge state.get returns snapshot payload", "[core][webview-br
     auto const &payload = response.at("payload");
     CHECK(payload.at("schema_version") == bridge::snapshot_schema_version);
     CHECK(payload.contains("snapshot_version"));
-    CHECK(payload.contains("commit_id"));
+    CHECK(payload.contains("history_entry_id"));
+    CHECK(payload.contains("project_revision"));
+    CHECK_FALSE(payload.contains("commit_id"));
+    CHECK(payload.at("history_entry_id").is_number_unsigned());
+    CHECK(payload.at("project_revision").is_number_unsigned());
     CHECK(payload.contains("engine"));
     CHECK(payload.contains("editor"));
     CHECK(payload.contains("library"));

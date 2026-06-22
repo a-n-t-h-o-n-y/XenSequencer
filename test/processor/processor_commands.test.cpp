@@ -40,14 +40,14 @@ TEST_CASE("Processor command 'again' replays previous command string",
     auto const after_first = processor.get_engine_snapshot();
     REQUIRE(after_first.engine.key == 17);
 
-    auto const first_commit = after_first.commit_id;
     auto const [again_level, _again_message] =
         processor.execute_command_string("again");
     CHECK(again_level == MessageLevel::Info);
 
     auto const after_again = processor.get_engine_snapshot();
     CHECK(after_again.engine.key == 17);
-    CHECK(after_again.commit_id >= first_commit);
+    CHECK(after_again.history_entry_id == after_first.history_entry_id);
+    CHECK(after_again.project_revision == after_first.project_revision);
 }
 
 TEST_CASE("Processor multi-command executes in order and returns last command status",
@@ -78,7 +78,8 @@ TEST_CASE("Processor returns command-not-found error for invalid command",
     CHECK(level == MessageLevel::Error);
     CHECK(message == "Command not found: notacommand");
     CHECK(after.engine == before.engine);
-    CHECK(after.commit_id == before.commit_id);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
 }
 
 TEST_CASE("Processor bind failure rolls back the complete command chain",
@@ -94,7 +95,8 @@ TEST_CASE("Processor bind failure rolls back the complete command chain",
     CHECK(message == "Command not found: notARealCommand");
 
     auto const after = processor.get_engine_snapshot();
-    CHECK(after.commit_id == before.commit_id);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
     CHECK(after.engine.key == before.engine.key);
 }
 
@@ -126,7 +128,8 @@ TEST_CASE("Processor returned errors roll back prior commands",
     auto const after = processor.get_engine_snapshot();
     CHECK(after.engine == before.engine);
     CHECK(after.editor.selected == before.editor.selected);
-    CHECK(after.commit_id == before.commit_id);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
 }
 
 TEST_CASE("Processor rejects undo and redo in mixed chains",
@@ -141,7 +144,8 @@ TEST_CASE("Processor rejects undo and redo in mixed chains",
     CHECK(level == MessageLevel::Error);
     CHECK(message == "undo and redo must be submitted alone.");
     CHECK(processor.get_engine_snapshot().engine == before.engine);
-    CHECK(processor.get_engine_snapshot().commit_id == before.commit_id);
+    CHECK(processor.get_engine_snapshot().history_entry_id == before.history_entry_id);
+    CHECK(processor.get_engine_snapshot().project_revision == before.project_revision);
 }
 
 TEST_CASE("Processor informational commands do not become replay targets",
@@ -170,8 +174,6 @@ TEST_CASE("Processor 'again' replays full multi-command chain", "[processor][com
     auto const after_first = processor.get_engine_snapshot();
     REQUIRE(after_first.engine.key == 3);
     REQUIRE(after_first.engine.base_frequency == Catch::Approx(300.f));
-    auto const first_commit = after_first.commit_id;
-
     auto const [again_level, again_message] = processor.execute_command_string("again");
     CHECK(again_level == MessageLevel::Info);
     CHECK(again_message == "Base Frequency Set");
@@ -179,7 +181,8 @@ TEST_CASE("Processor 'again' replays full multi-command chain", "[processor][com
     auto const after_again = processor.get_engine_snapshot();
     CHECK(after_again.engine.key == 3);
     CHECK(after_again.engine.base_frequency == Catch::Approx(300.f));
-    CHECK(after_again.commit_id >= first_commit);
+    CHECK(after_again.history_entry_id == after_first.history_entry_id);
+    CHECK(after_again.project_revision == after_first.project_revision);
 }
 
 TEST_CASE("Processor command-chain splitting ignores semicolons in quoted args",
@@ -279,7 +282,8 @@ TEST_CASE("Processor rejects malformed syntax without changing engine state",
         CHECK(level == MessageLevel::Error);
         CHECK_FALSE(message.empty());
         CHECK(after.engine == before.engine);
-        CHECK(after.commit_id == before.commit_id);
+        CHECK(after.history_entry_id == before.history_entry_id);
+        CHECK(after.project_revision == before.project_revision);
     }
 }
 
@@ -393,7 +397,8 @@ TEST_CASE("Effect prepare and apply failures roll back state and files",
         auto const after = processor.get_engine_snapshot();
         CHECK(after.engine == before.engine);
         CHECK(after.editor.selected == before.editor.selected);
-        CHECK(after.commit_id == before.commit_id);
+        CHECK(after.history_entry_id == before.history_entry_id);
+        CHECK(after.project_revision == before.project_revision);
     }
 
     CHECK(directory.deleteRecursively());
