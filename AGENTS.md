@@ -107,3 +107,4 @@ Use the following operating rules:
 
 - Review the final diff for accidental scope growth, stale comments, and temporary code.
 - State what changed and what verification was or was not performed.
+- Leave a short git commit message if the change is enough for a commit.

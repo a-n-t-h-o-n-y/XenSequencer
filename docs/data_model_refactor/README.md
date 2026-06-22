@@ -20,21 +20,21 @@ These files define sequencing, scope, and completion criteria.
 
 ## Package sequence
 
-| Package | Outcome | Prerequisites | Status |
-| --- | --- | --- | --- |
-| [01](01-history-identity-and-revisions.md) | Separate history-entry identity from project revision | None | Complete |
-| [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Pending |
-| [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending |
-| [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Pending |
-| [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Pending |
-| [06](06-transform-and-repeat-sessions.md) | Implement baseline-based chord/arp cycling and `again` | 03, 04, 05 | Pending |
-| [07](07-project-validation.md) | Establish one authoritative project validation boundary | 05 | Pending |
-| [08](08-command-catalog-delivery.md) | Deliver immutable catalog metadata at session startup | 02 | Pending |
-| [09](09-resource-publication.md) | Split project, library, session, and transport publication | 03, 05, 08 | Pending |
-| [10](10-active-scale-identity.md) | Normalize active-scale identity and remove duplicate state | 07 | Pending |
-| [11](11-project-model-normalization.md) | Introduce `ProjectState` and grouped pitch state | 07, 10 | Pending |
-| [12](12-workspace-settings-lifetime.md) | Move workspace preferences outside project and host state | 05, 11 | Pending |
-| [13](13-final-cleanup-and-invariant-audit.md) | Remove obsolete paths and verify all architecture invariants | 06–12 | Pending |
+| Package | Outcome | Prerequisites | Status | Notes |
+| --- | --- | --- | --- | --- |
+| [01](01-history-identity-and-revisions.md) | Separate history-entry identity from project revision | None | Complete | |
+| [02](02-command-context-and-policy.md) | Add typed request context and explicit command policies | 01 | Pending | |
+| [03](03-selection-command-boundary.md) | Move selection ownership to the frontend boundary | 02 | Pending | |
+| [04](04-history-operations.md) | Provide commit, guarded amendment, and replacement APIs | 01 | Pending | Package 01 added the final guarded amendment and replacement primitives; package 04 still owns broader history API migration and encapsulation. |
+| [05](05-command-transaction-and-capabilities.md) | Replace whole-state copies with scoped transactions | 02, 04 | Pending | |
+| [06](06-transform-and-repeat-sessions.md) | Implement baseline-based chord/arp cycling and `again` | 03, 04, 05 | Pending | |
+| [07](07-project-validation.md) | Establish one authoritative project validation boundary | 05 | Pending | |
+| [08](08-command-catalog-delivery.md) | Deliver immutable catalog metadata at session startup | 02 | Pending | |
+| [09](09-resource-publication.md) | Split project, library, session, and transport publication | 03, 05, 08 | Pending | |
+| [10](10-active-scale-identity.md) | Normalize active-scale identity and remove duplicate state | 07 | Pending | |
+| [11](11-project-model-normalization.md) | Introduce `ProjectState` and grouped pitch state | 07, 10 | Pending | |
+| [12](12-workspace-settings-lifetime.md) | Move workspace preferences outside project and host state | 05, 11 | Pending | |
+| [13](13-final-cleanup-and-invariant-audit.md) | Remove obsolete paths and verify all architecture invariants | 06–12 | Pending | |
 
 Packages 03 and 04 may proceed in parallel after package 02. Package 08 may proceed in
 parallel with packages 03–07 after package 02. All other ordering reflects data or API
