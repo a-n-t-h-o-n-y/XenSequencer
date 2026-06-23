@@ -195,6 +195,7 @@ struct CatalogArgumentMetadata
 struct CatalogCommandMetadata
 {
     std::vector<std::string> path{};
+    std::vector<std::string> keywords{};
     bool accepts_pattern_prefix{false};
     TargetRequirement target{TargetRequirement::None};
     std::vector<CatalogArgumentMetadata> arguments{};

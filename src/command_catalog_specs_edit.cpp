@@ -63,8 +63,8 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"delete"}, false, "Delete the current selection.", targeted_edit_policy,
-        std::make_tuple(),
+        {"delete"}, false, "Delete the current selection.", {"remove"},
+        targeted_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
             auto const mutation =

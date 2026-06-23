@@ -112,7 +112,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "velocity"}, true, "Set selected note velocities.",
-        targeted_edit_policy,
+        {"volume", "gain", "level", "loudness"}, targeted_edit_policy,
         std::make_tuple(optional_arg<std::variant<float, Modulator>>(
             "Float|Modulator", "velocity",
             std::variant<float, Modulator>{100.f / 127.f})),
@@ -165,21 +165,23 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         };
     };
 
-    specs.push_back(command(
-        {"set", "delay"}, true, "Set selected note delays.", targeted_edit_policy,
-        std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-            "Float|Modulator", "delay", std::variant<float, Modulator>{0.f})),
-        set_fractional(
-            [](auto target, sequence::Pattern const &pattern, float value) {
-                return sequence::modify::set_delay(target, pattern, value);
-            },
-            [](auto target, sequence::Pattern const &pattern,
-               Modulator const &modulator) {
-                return action::set_delays(target, pattern, modulator);
-            },
-            "Delay Set")));
     specs.push_back(
-        command({"set", "gate"}, true, "Set selected note gates.", targeted_edit_policy,
+        command({"set", "delay"}, true, "Set selected note delays.",
+                {"offset", "timing", "shift"}, targeted_edit_policy,
+                std::make_tuple(optional_arg<std::variant<float, Modulator>>(
+                    "Float|Modulator", "delay", std::variant<float, Modulator>{0.f})),
+                set_fractional(
+                    [](auto target, sequence::Pattern const &pattern, float value) {
+                        return sequence::modify::set_delay(target, pattern, value);
+                    },
+                    [](auto target, sequence::Pattern const &pattern,
+                       Modulator const &modulator) {
+                        return action::set_delays(target, pattern, modulator);
+                    },
+                    "Delay Set")));
+    specs.push_back(
+        command({"set", "gate"}, true, "Set selected note gates.",
+                {"duration", "length"}, targeted_edit_policy,
                 std::make_tuple(optional_arg<std::variant<float, Modulator>>(
                     "Float|Modulator", "gate", std::variant<float, Modulator>{1.f})),
                 set_fractional(

@@ -106,11 +106,11 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(replay_command({"again"},
                                    "Replay the previously executed command chain.",
-                                   informational_policy));
+                                   informational_policy, {"repeat", "replay"}));
 
     specs.push_back(
         command({"reset"}, false, "Reset XenSequencer to its initial state.",
-                reset_policy, std::make_tuple(),
+                {"clear", "restart"}, reset_policy, std::make_tuple(),
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     context.edit_project() = ProjectState{};
                     return make_result(minfo("XenSequencer Reset"));
@@ -118,14 +118,15 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(history_navigation_command(
         {"undo"}, "Revert state to before the last action.", history_navigation_policy,
-        HistoryNavigationDirection::Undo));
+        HistoryNavigationDirection::Undo, {"revert"}));
 
     specs.push_back(history_navigation_command(
         {"redo"}, "Reapply the last undone action.", history_navigation_policy,
-        HistoryNavigationDirection::Redo));
+        HistoryNavigationDirection::Redo, {"reapply"}));
 
     specs.push_back(command(
-        {"copy"}, false, "Copy the current selection.", copy_policy, std::make_tuple(),
+        {"copy"}, false, "Copy the current selection.", {"clipboard"}, copy_policy,
+        std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto const &state = context.project();
             context.write_text(copy_buffer_filepath(),
@@ -136,7 +137,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"cut"}, false, "Cut the current selection.", cut_policy, std::make_tuple(),
+        {"cut"}, false, "Cut the current selection.", {"remove", "clipboard"},
+        cut_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
             context.write_text(copy_buffer_filepath(),
@@ -149,8 +151,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"paste"}, false, "Paste over the current selection.", paste_policy,
-        std::make_tuple(),
+        {"paste"}, false, "Paste over the current selection.", {"insert", "clipboard"},
+        paste_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
             auto const text = context.read_text(copy_buffer_filepath());
@@ -166,8 +168,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"duplicate"}, false, "Duplicate the current selection.", targeted_edit_policy,
-        std::make_tuple(),
+        {"duplicate"}, false, "Duplicate the current selection.", {"clone"},
+        targeted_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
             auto const mutation =
@@ -179,7 +181,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"load", "measure"}, false,
         "Load a measure from the current sequence directory.",
-        load_project_resource_policy,
+        {"open", "file", "sequence"}, load_project_resource_policy,
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
@@ -207,7 +209,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"load", "tuning"}, false, "Load a tuning from the current tuning directory.",
-        load_project_resource_policy,
+        {"open", "file", "scala", "scl"}, load_project_resource_policy,
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
@@ -233,7 +235,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"load", "scales"}, false, "Load scales from library files.",
-        reload_library_policy, std::make_tuple(),
+        {"reload", "library"}, reload_library_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto const system = context.read_text(get_system_scales_file());
             auto const user = context.read_text(get_user_scales_file());
@@ -248,7 +250,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"load", "chords"}, false, "Load chords from library files.",
-        reload_library_policy, std::make_tuple(),
+        {"reload", "library"}, reload_library_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto const system = context.read_text(get_system_chords_file());
             auto const user = context.read_text(get_user_chords_file());
@@ -263,7 +265,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"save", "measure"}, false, "Save the current measure to file.",
-        save_measure_policy,
+        {"write", "file", "sequence"}, save_measure_policy,
         std::make_tuple(required_arg<std::string>("String", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {

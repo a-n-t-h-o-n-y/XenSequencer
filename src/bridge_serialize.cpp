@@ -212,6 +212,7 @@ auto catalog_command_to_json(xen::CatalogCommandMetadata const &command)
 
     return nlohmann::json{
         {"path", command.path},
+        {"keywords", command.keywords},
         {"accepts_pattern_prefix", command.accepts_pattern_prefix},
         {"target_requirement", target_requirement_to_string(command.target)},
         {"arguments", std::move(arguments)},

@@ -312,12 +312,13 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
 
 template <typename Handler, typename... Ts>
 auto command_with_options(std::vector<std::string> path, bool accepts_pattern_prefix,
-                          std::string description, CommandPolicy policy,
-                          std::tuple<ArgDef<Ts>...> arg_defs, Handler handler)
-    -> CommandDefinition
+                          std::string description, std::vector<std::string> keywords,
+                          CommandPolicy policy, std::tuple<ArgDef<Ts>...> arg_defs,
+                          Handler handler) -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
+        .keywords = std::move(keywords),
         .accepts_pattern_prefix = accepts_pattern_prefix,
         .target = policy.target,
         .arguments = to_metadata_args(arg_defs),
@@ -397,15 +398,28 @@ auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
              std::tuple<ArgDef<Ts>...> arg_defs, Handler handler) -> CommandDefinition
 {
     return command_with_options(std::move(path), accepts_pattern_prefix,
-                                std::move(description), policy, std::move(arg_defs),
+                                std::move(description), {}, policy, std::move(arg_defs),
                                 std::move(handler));
 }
 
+template <typename Handler, typename... Ts>
+auto command(std::vector<std::string> path, bool accepts_pattern_prefix,
+             std::string description, std::vector<std::string> keywords,
+             CommandPolicy policy, std::tuple<ArgDef<Ts>...> arg_defs, Handler handler)
+    -> CommandDefinition
+{
+    return command_with_options(std::move(path), accepts_pattern_prefix,
+                                std::move(description), std::move(keywords), policy,
+                                std::move(arg_defs), std::move(handler));
+}
+
 inline auto replay_command(std::vector<std::string> path, std::string description,
-                           CommandPolicy policy) -> CommandDefinition
+                           CommandPolicy policy, std::vector<std::string> keywords = {})
+    -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
+        .keywords = std::move(keywords),
         .target = policy.target,
         .description = std::move(description),
     };
@@ -441,11 +455,13 @@ inline auto replay_command(std::vector<std::string> path, std::string descriptio
 
 inline auto history_navigation_command(std::vector<std::string> path,
                                        std::string description, CommandPolicy policy,
-                                       HistoryNavigationDirection direction)
+                                       HistoryNavigationDirection direction,
+                                       std::vector<std::string> keywords = {})
     -> CommandDefinition
 {
     auto metadata = CatalogCommandMetadata{
         .path = std::move(path),
+        .keywords = std::move(keywords),
         .target = policy.target,
         .description = std::move(description),
     };

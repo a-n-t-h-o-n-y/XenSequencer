@@ -71,6 +71,7 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.at("project_schema_version") == bridge::project_schema_version);
     CHECK(payload.at("library_schema_version") == bridge::library_schema_version);
     CHECK(payload.contains("catalog"));
+    CHECK(payload.at("catalog").at("schema_version") == 2);
     CHECK(payload.contains("keymap"));
     CHECK(payload.at("keymap").at("schema_version") == 1);
     CHECK(payload.at("keymap").at("key_semantics") == "KeyboardEvent.key");

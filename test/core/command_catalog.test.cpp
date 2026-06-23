@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <xen/bridge_serialize.hpp>
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/command_dsl.hpp>
@@ -253,6 +254,15 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
     REQUIRE(set_key->arguments[0].default_value.has_value());
     CHECK(*set_key->arguments[0].default_value == "0");
     CHECK_FALSE(set_key->description.empty());
+    CHECK(set_key->keywords.empty());
+
+    auto const set_velocity = std::find_if(
+        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
+            return entry.path == std::vector<std::string>{"set", "velocity"};
+        });
+    REQUIRE(set_velocity != metadata.end());
+    CHECK(set_velocity->keywords ==
+          std::vector<std::string>{"volume", "gain", "level", "loudness"});
 
     auto const entire_scale = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
@@ -272,6 +282,28 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
     REQUIRE(std::holds_alternative<CatalogBindError>(load_keys_result));
     CHECK(std::get<CatalogBindError>(load_keys_result).kind ==
           CatalogBindErrorKind::UnknownCommand);
+}
+
+TEST_CASE("Catalog bridge payload serializes schema version and keywords",
+          "[core][command][catalog][bridge]")
+{
+    auto const payload = bridge::make_catalog_payload(command_metadata());
+    CHECK(payload.at("schema_version") == 2);
+
+    auto const &commands = payload.at("commands");
+    REQUIRE_FALSE(commands.empty());
+    for (auto const &command : commands)
+    {
+        CHECK(command.contains("keywords"));
+    }
+
+    auto const set_velocity = std::find_if(
+        commands.begin(), commands.end(), [](nlohmann::json const &command) {
+            return command.at("path") == std::vector<std::string>{"set", "velocity"};
+        });
+    REQUIRE(set_velocity != commands.end());
+    CHECK(set_velocity->at("keywords") ==
+          std::vector<std::string>{"volume", "gain", "level", "loudness"});
 }
 
 TEST_CASE("Catalog docs are generated from catalog metadata",
