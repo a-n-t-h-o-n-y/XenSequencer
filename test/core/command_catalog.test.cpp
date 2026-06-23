@@ -242,6 +242,24 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
     auto const &metadata = command_metadata();
     REQUIRE_FALSE(metadata.empty());
 
+    auto const set_pitch = std::find_if(
+        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
+            return entry.path == std::vector<std::string>{"set", "pitch"};
+        });
+    REQUIRE(set_pitch != metadata.end());
+    REQUIRE(set_pitch->arguments.size() == 1);
+    CHECK(set_pitch->arguments[0].kind == "integer | modulator");
+
+    auto const set_velocity = std::find_if(
+        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
+            return entry.path == std::vector<std::string>{"set", "velocity"};
+        });
+    REQUIRE(set_velocity != metadata.end());
+    REQUIRE(set_velocity->arguments.size() == 1);
+    CHECK(set_velocity->arguments[0].kind == "number | modulator");
+    CHECK(set_velocity->keywords ==
+          std::vector<std::string>{"volume", "gain", "level", "loudness"});
+
     auto const set_key = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
             return entry.path == std::vector<std::string>{"set", "key"};
@@ -255,14 +273,6 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
     CHECK(*set_key->arguments[0].default_value == "0");
     CHECK_FALSE(set_key->description.empty());
     CHECK(set_key->keywords.empty());
-
-    auto const set_velocity = std::find_if(
-        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
-            return entry.path == std::vector<std::string>{"set", "velocity"};
-        });
-    REQUIRE(set_velocity != metadata.end());
-    CHECK(set_velocity->keywords ==
-          std::vector<std::string>{"volume", "gain", "level", "loudness"});
 
     auto const entire_scale = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {

@@ -93,13 +93,13 @@ struct ArgTraits<sequence::TimeSignature>
 template <>
 struct ArgTraits<std::variant<int, Modulator>>
 {
-    static constexpr auto type_name = "integer_or_modulator";
+    static constexpr auto type_name = "integer | modulator";
 };
 
 template <>
 struct ArgTraits<std::variant<float, Modulator>>
 {
-    static constexpr auto type_name = "number_or_modulator";
+    static constexpr auto type_name = "number | modulator";
 };
 
 inline auto format_float(double value) -> std::string
