@@ -52,10 +52,21 @@ auto ui_action(std::string value, nlohmann::json arguments) -> KeymapTarget
     };
 }
 
+void add(KeymapContexts &contexts, std::string const &context,
+         KeymapTrigger binding_trigger, KeymapTarget target)
+{
+    contexts[context].push_back(
+        {.trigger = std::move(binding_trigger), .target = std::move(target)});
+}
+
 void add(KeymapContexts &contexts, KeymapTrigger binding_trigger, KeymapTarget target)
 {
-    contexts["sequence"].push_back(
-        {.trigger = std::move(binding_trigger), .target = std::move(target)});
+    add(contexts, "sequence", std::move(binding_trigger), std::move(target));
+}
+
+auto command_ui_action(std::string value) -> KeymapTarget
+{
+    return ui_action(std::move(value), nlohmann::json::object());
 }
 
 auto trigger_to_json(KeymapTrigger const &value) -> nlohmann::json
@@ -160,7 +171,7 @@ auto is_context_name(std::string const &value) -> bool
     return !value.empty() && value.size() <= 64 &&
            std::ranges::all_of(value, [](unsigned char character) {
                return std::islower(character) != 0 || std::isdigit(character) != 0 ||
-                      character == '_' || character == '-';
+                      character == '_' || character == '-' || character == '.';
            });
 }
 
@@ -284,6 +295,31 @@ auto default_keymap() -> KeymapContexts
     add(contexts, trigger("s"), command("split :N=2:"));
     add(contexts, trigger("n"), command("note :N=0:"));
     add(contexts, trigger("r"), command("rest"));
+
+    add(contexts, trigger("k", false, true), command_ui_action("command.open"));
+    add(contexts, trigger(":"), command_ui_action("command.open"));
+
+    add(contexts, "command.input", trigger("Escape"),
+        command_ui_action("command.cancel"));
+    add(contexts, "command.input", trigger("Enter"),
+        command_ui_action("command.submit"));
+    add(contexts, "command.input", trigger("ArrowUp"),
+        command_ui_action("command.history.previous"));
+    add(contexts, "command.input", trigger("ArrowDown"),
+        command_ui_action("command.history.next"));
+    add(contexts, "command.input", trigger("Tab"),
+        command_ui_action("command.completion.accept"));
+
+    add(contexts, "command.completions", trigger("Escape"),
+        command_ui_action("command.completion.dismiss"));
+    add(contexts, "command.completions", trigger("Enter"),
+        command_ui_action("command.completion.accept"));
+    add(contexts, "command.completions", trigger("Tab"),
+        command_ui_action("command.completion.accept"));
+    add(contexts, "command.completions", trigger("ArrowUp"),
+        command_ui_action("command.completion.previous"));
+    add(contexts, "command.completions", trigger("ArrowDown"),
+        command_ui_action("command.completion.next"));
     return contexts;
 }
 
@@ -348,6 +384,21 @@ void validate(KeymapTarget const &value)
             value.arguments.size() != 1)
         {
             throw std::invalid_argument{"Invalid input_mode.set arguments."};
+        }
+        return;
+    }
+    if (value.value == "command.open" || value.value == "command.cancel" ||
+        value.value == "command.submit" || value.value == "command.close_if_empty" ||
+        value.value == "command.history.previous" ||
+        value.value == "command.history.next" ||
+        value.value == "command.completion.accept" ||
+        value.value == "command.completion.dismiss" ||
+        value.value == "command.completion.previous" ||
+        value.value == "command.completion.next")
+    {
+        if (!value.arguments.empty())
+        {
+            throw std::invalid_argument{"Command UI actions cannot have arguments."};
         }
         return;
     }

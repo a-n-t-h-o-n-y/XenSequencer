@@ -70,3 +70,55 @@ TEST_CASE("Keymap store rejects stale mutations", "[core][keymap]")
         store.set_override(snapshot.revision, "sequence", {.key = "w"}, target),
         std::invalid_argument);
 }
+
+TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
+{
+    auto store = KeymapStore{temporary_keymap_file()};
+    auto const snapshot = store.snapshot();
+
+    auto const open_binding =
+        find_binding(snapshot, "sequence", {.key = "k", .command = true});
+    REQUIRE(open_binding != nullptr);
+    CHECK(open_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(open_binding->target.value == "command.open");
+    CHECK(open_binding->target.arguments.empty());
+
+    auto const submit_binding =
+        find_binding(snapshot, "command.input", {.key = "Enter"});
+    REQUIRE(submit_binding != nullptr);
+    CHECK(submit_binding->target.value == "command.submit");
+
+    auto const next_completion =
+        find_binding(snapshot, "command.completions", {.key = "ArrowDown"});
+    REQUIRE(next_completion != nullptr);
+    CHECK(next_completion->target.value == "command.completion.next");
+}
+
+TEST_CASE("Keymap accepts command UI action overrides in dotted contexts",
+          "[core][keymap]")
+{
+    auto store = KeymapStore{temporary_keymap_file()};
+    auto const snapshot = store.snapshot();
+    auto const target = KeymapTarget{
+        .type = KeymapTargetType::UiAction,
+        .value = "command.close_if_empty",
+    };
+
+    auto const updated = store.set_override(snapshot.revision, "command.input",
+                                            {.key = "Escape"}, target);
+
+    auto const binding = find_binding(updated, "command.input", {.key = "Escape"});
+    REQUIRE(binding != nullptr);
+    CHECK(binding->target == target);
+}
+
+TEST_CASE("Keymap rejects command UI action arguments", "[core][keymap]")
+{
+    auto const target = KeymapTarget{
+        .type = KeymapTargetType::UiAction,
+        .value = "command.open",
+        .arguments = {{"unexpected", true}},
+    };
+
+    CHECK_THROWS_AS(validate(target), std::invalid_argument);
+}

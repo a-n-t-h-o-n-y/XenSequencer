@@ -83,6 +83,21 @@ type UiActionTarget =
         mode: 'pitch' | 'velocity' | 'delay' | 'gate' | 'scale'
       }
     }
+  | {
+      type: 'ui_action'
+      action:
+        | 'command.open'
+        | 'command.cancel'
+        | 'command.submit'
+        | 'command.close_if_empty'
+        | 'command.history.previous'
+        | 'command.history.next'
+        | 'command.completion.accept'
+        | 'command.completion.dismiss'
+        | 'command.completion.previous'
+        | 'command.completion.next'
+      arguments: {}
+    }
 
 type KeymapTarget = CommandTarget | UiActionTarget
 
@@ -114,8 +129,16 @@ type KeymapResource = {
 - a user-added binding;
 - an explicit unbinding, represented by `target: null`.
 
-The initial context is `sequence`. Context selection and precedence are frontend
-concerns. Additional contexts can be introduced without changing the resource shape.
+The frontend currently selects these contexts:
+
+- `sequence`: sequencer/default editing shortcuts;
+- `command.input`: command bar input is focused and completions are not active;
+- `command.completions`: command bar input is focused and the completions popup is
+  active.
+
+Context selection and precedence are frontend concerns. The same trigger may be
+bound differently in separate contexts. Settings UI conflict checks should only
+compare triggers inside the edited context.
 
 ## Runtime Dispatch
 
@@ -135,6 +158,19 @@ the current project revision and reconciled selection.
 For `type: "ui_action"`, dispatch through a closed frontend action registry. Do not
 send UI actions to the backend command parser. Unknown action IDs or invalid
 arguments are contract errors and should be surfaced during ingestion.
+
+Command UI action meanings:
+
+- `command.open`: focus and show the command bar;
+- `command.cancel`: dismiss active completions, otherwise close the command bar;
+- `command.submit`: submit the command text, or accept a visible completion first;
+- `command.close_if_empty`: close the command bar only when the input is empty;
+- `command.history.previous`: show the previous command-history entry;
+- `command.history.next`: show the next command-history entry;
+- `command.completion.accept`: accept the selected completion;
+- `command.completion.dismiss`: dismiss visible completion assistance;
+- `command.completion.previous`: move to the previous completion;
+- `command.completion.next`: move to the next completion.
 
 The old semicolon-based mixed local/backend routing is obsolete. Each binding has one
 typed target.
