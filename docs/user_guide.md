@@ -45,7 +45,8 @@ Try copy and pasting any selection with the common `ctrl+c` and `ctrl+v` keybind
 
 From here try the __Library__ view by pressing `w`. This will show you the saved measures, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that these scales only make sense for a subset of 12 note tunings.
 
-Check out the [command reference](command_reference.md) and the [keybindings reference](keybindings_reference.md) for more ideas.
+Check out the [command reference](command_reference.md) for more ideas. Current
+keyboard shortcuts are shown and edited in the application settings UI.
 
 ## Scales
 The current scale defines a subset of notes available. Any notes outside of this set will be transposed to the next valid note in the current translate direction. The easiest way to change scales is to enter the __scale input mode__ with the `c` key and cycle through the available scales with the arrow keys.
@@ -61,10 +62,8 @@ Multiple commands can be run at once by separating them with a semicolon `;`.
 
 The `again` command will repeat the previous command and has the `.` keybinding.
 
-Commands can be bound to keyboard shortcuts in the `user_keys.yml` file in the user data directory:
-- Windows: `\Users\username\AppData\Roaming\XenSequencer\`
-- MacOS: `~/Library/XenSequencer/`
-- Linux: `~/.config/XenSequencer/`
+Keyboard shortcuts are configured from the application settings UI and persisted as
+application-level user settings.
 
 ### Patterns
 

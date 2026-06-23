@@ -4,6 +4,10 @@
 #include <string>
 #include <vector>
 
+#include <juce_core/juce_core.h>
+
+#include <xen/keymap.hpp>
+
 namespace xen
 {
 class XenProcessor;
@@ -21,19 +25,23 @@ class WebviewBridge
     };
 
   public:
-    explicit WebviewBridge(XenProcessor &processor);
+    explicit WebviewBridge(XenProcessor &processor,
+                           juce::File keymap_file = KeymapStore::default_file());
 
     [[nodiscard]] auto handle_request_json(std::string const &request_json)
         -> std::string;
 
     [[nodiscard]] auto make_state_changed_event_json() const -> std::string;
     [[nodiscard]] auto make_library_changed_event_json() const -> std::string;
+    [[nodiscard]] auto make_keymap_changed_event_json() const -> std::string;
     [[nodiscard]] auto make_phase_sync_event_json(MeasurePhase phase, float bpm) const
         -> std::string;
     [[nodiscard]] auto make_transport_stopped_event_json() const -> std::string;
+    [[nodiscard]] auto keymap_revision() const noexcept -> std::uint64_t;
 
   private:
     XenProcessor &processor_;
+    KeymapStore keymap_store_;
 };
 
 } // namespace xen

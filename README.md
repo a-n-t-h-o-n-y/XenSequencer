@@ -7,7 +7,6 @@
 ## Documentation
 - [User Guide](docs/user_guide.md)
 - [Command Reference](docs/command_reference.md)
-- [Keybindings Reference](docs/keybindings_reference.md)
 
 ## Building from Source
 

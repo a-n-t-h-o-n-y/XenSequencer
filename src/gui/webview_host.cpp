@@ -283,6 +283,7 @@ WebviewHost::WebviewHost(XenProcessor &processor)
 
     last_project_revision_ = processor_.get_project_snapshot().project_revision;
     last_library_revision_ = processor_.get_library_snapshot().library_revision;
+    last_keymap_revision_ = bridge_.keymap_revision();
     this->startTimerHz(30);
 }
 
@@ -313,6 +314,12 @@ void WebviewHost::timerCallback()
     {
         last_library_revision_ = library_revision;
         emit_library_changed_event();
+    }
+    auto const keymap_revision = bridge_.keymap_revision();
+    if (keymap_revision != last_keymap_revision_)
+    {
+        last_keymap_revision_ = keymap_revision;
+        emit_keymap_changed_event();
     }
 
     emit_transport_events();
@@ -504,6 +511,13 @@ void WebviewHost::emit_state_changed_event()
 void WebviewHost::emit_library_changed_event()
 {
     auto const event_json = bridge_.make_library_changed_event_json();
+    browser_->emitEventIfBrowserIsVisible(
+        "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
+}
+
+void WebviewHost::emit_keymap_changed_event()
+{
+    auto const event_json = bridge_.make_keymap_changed_event_json();
     browser_->emitEventIfBrowserIsVisible(
         "xenBridgeEvent", parse_json_to_var_or_throw(event_json, "xenBridgeEvent"));
 }

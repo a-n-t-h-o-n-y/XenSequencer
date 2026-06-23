@@ -25,9 +25,11 @@ to the contract below as one migration.
   mode changes must be handled locally.
 - Project and library publication are separate revision domains. Library data is not
   included in project snapshots.
-- `session.hello` contains the immutable command catalog and merged keymap.
+- `session.hello` contains the immutable command catalog and revisioned keymap
+  resource.
 - `catalog.get`, `command.complete`, `command.completeText`, `command.completeId`, and
-  `keymap.get` were removed. Completion and keymap routing are frontend-local.
+  the old raw-string keymap contract were removed. Completion and keymap routing are
+  frontend-local; keymap persistence uses the dedicated keymap requests.
 - Active scales use stable library IDs and preserve an optional `source_id`.
 
 ## Transport
@@ -96,7 +98,7 @@ type SessionHello = {
     schema_version: 1;
     commands: CatalogCommand[];
   };
-  keymap: Record<string, Record<string, string>>;
+  keymap: KeymapResource;
 };
 ```
 
@@ -139,9 +141,9 @@ autocomplete, filtering, and ranking. Completion should tolerantly parse only th
 active semicolon-delimited chain segment. Final command text is still submitted to the
 strict backend parser.
 
-The keymap contains raw strings. Values may contain command chains, placeholders such
-as `:N=2:`, and frontend-local actions. The frontend must split and route those
-locally; removed navigation/input-mode commands must not be sent to the backend.
+The typed keymap resource, mutation requests, revision rules, and frontend dispatch
+requirements are defined in
+[`frontend_keymap_contract.md`](frontend_keymap_contract.md).
 
 ## Project resource
 
@@ -394,10 +396,9 @@ transient animation state; they do not participate in project or library revisio
 
 ## Required frontend migration
 
-The current sibling frontend still uses the old contract. In particular, it requests
-snapshot schema `4`, parses `engine` and `editor`, calls `keymap.get` and
-`command.completeText`, ignores `library.changed`, and submits backend commands
-without revision or selection context.
+The frontend migration must cover the resource contracts below as one breaking
+change. Keymap-specific replacement work is tracked separately in
+[`frontend_keymap_contract.md`](frontend_keymap_contract.md).
 
 At minimum:
 
@@ -412,8 +413,9 @@ At minimum:
 - implement local selection navigation and input-mode actions;
 - send current revision and selection in command context;
 - consume `suggested_selection`;
-- consume catalog and keymap from `session.hello`;
-- remove the `keymap.get` startup request;
+- consume the catalog and typed keymap resource from `session.hello`;
+- replace raw key-combination parsing with typed trigger matching and target dispatch;
+- implement keymap mutation responses and `keymap.changed`;
 - remove all `command.complete*` and `catalog.get` requests;
 - implement completion from the cached catalog;
 - add `library.changed` handling and revision-aware library ingestion;

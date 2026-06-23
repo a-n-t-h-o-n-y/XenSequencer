@@ -17,7 +17,9 @@ WorkspaceSettingsStore::WorkspaceSettingsStore(juce::File file) : file_{std::mov
 
 auto WorkspaceSettingsStore::default_file() -> juce::File
 {
-    return get_user_library_directory().getChildFile("workspace-settings.json");
+    return get_user_library_directory()
+        .getChildFile("settings")
+        .getChildFile("workspace.json");
 }
 
 auto WorkspaceSettingsStore::load_or_initialize() const -> WorkspaceSettings

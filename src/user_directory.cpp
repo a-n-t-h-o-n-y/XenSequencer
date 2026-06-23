@@ -11,7 +11,6 @@
 
 #include <embed_chords.hpp>
 #include <embed_demos.hpp>
-#include <embed_keys.hpp>
 #include <embed_scales.hpp>
 
 #include <xen/constants.hpp>
@@ -32,6 +31,17 @@ auto get_user_library_directory() -> juce::File
                                  library_dir.getFullPathName().toStdString() + ".");
     }
     return library_dir;
+}
+
+auto get_user_settings_directory() -> juce::File
+{
+    auto const settings_dir = get_user_library_directory().getChildFile("settings");
+    if (!settings_dir.exists() && !settings_dir.createDirectory().wasOk())
+    {
+        throw std::runtime_error("Unable to create user settings directory: " +
+                                 settings_dir.getFullPathName().toStdString() + ".");
+    }
+    return settings_dir;
 }
 
 auto get_sequences_directory() -> juce::File
@@ -58,58 +68,6 @@ auto get_tunings_directory() -> juce::File
                                  tunings_dir.getFullPathName().toStdString() + ".");
     }
     return tunings_dir;
-}
-
-auto get_system_keys_file() -> juce::File
-{
-    auto const key_file = get_user_library_directory().getChildFile("keys.yml");
-    auto const full_path = key_file.getFullPathName().toStdString();
-
-    auto write_system_keys = [&key_file] {
-        return key_file.create().wasOk() &&
-               key_file.replaceWithData(embed_keys::keys_yml,
-                                        (std::size_t)embed_keys::keys_ymlSize);
-    };
-
-    auto const file_exists = key_file.existsAsFile();
-
-    if (file_exists)
-    {
-        auto root = YAML::LoadFile(full_path);
-        auto const ver_node = root["version"];
-        if (ver_node.IsDefined() && ver_node.as<std::string>() == xen::VERSION)
-        {
-            return key_file;
-        }
-    }
-
-    return write_system_keys()
-               ? key_file
-               : throw std::runtime_error(
-                     "Unable to create keybinding file: " + full_path + ".");
-}
-
-auto get_user_keys_file() -> juce::File
-{
-    auto const key_file = get_user_library_directory().getChildFile("user_keys.yml");
-
-    // Check if the file exists, if not create it.
-    if (!key_file.existsAsFile())
-    {
-        // write out the default key file
-        if (key_file.create().wasOk())
-        {
-            key_file.appendData(embed_keys::user_keys_yml,
-                                (std::size_t)embed_keys::user_keys_ymlSize);
-        }
-        else
-        {
-            throw std::runtime_error("Unable to create keybinding file: " +
-                                     key_file.getFullPathName().toStdString() + ".");
-        }
-    }
-
-    return key_file;
 }
 
 auto get_system_scales_file() -> juce::File

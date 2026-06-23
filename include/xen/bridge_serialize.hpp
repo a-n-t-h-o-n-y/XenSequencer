@@ -1,6 +1,5 @@
 #pragma once
 
-#include <map>
 #include <string>
 #include <string_view>
 
@@ -8,6 +7,7 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
+#include <xen/keymap.hpp>
 #include <xen/message_level.hpp>
 #include <xen/state.hpp>
 
@@ -27,8 +27,7 @@ inline constexpr int catalog_schema_version = 1;
 [[nodiscard]] auto make_catalog_payload(
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 
-[[nodiscard]] auto make_keymap_payload(
-    std::map<std::string, std::map<std::string, std::string>> const &keymap)
+[[nodiscard]] auto make_keymap_payload(KeymapSnapshot const &snapshot)
     -> nlohmann::json;
 
 } // namespace xen::bridge

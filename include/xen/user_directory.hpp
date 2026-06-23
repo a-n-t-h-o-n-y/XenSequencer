@@ -13,6 +13,14 @@ namespace xen
 [[nodiscard]] auto get_user_library_directory() -> juce::File;
 
 /**
+ * Retrieve the application settings directory for the current OS.
+ *
+ * @details If the directory does not exist, it will be created.
+ * @return The filesystem path of the settings directory.
+ */
+[[nodiscard]] auto get_user_settings_directory() -> juce::File;
+
+/**
  * Retrieve the location of the sequences directory.
  *
  * @details If the directory does not exist, it will be created.
@@ -27,25 +35,6 @@ namespace xen
  * @return The filesystem path of the tunings directory.
  */
 [[nodiscard]] auto get_tunings_directory() -> juce::File;
-
-/**
- * Retrieve the location of the system keys.yml configuration file.
- *
- * @details If the file does not exist, it will be created. If it is outdated, it will
- * be overwritten.
- * @return The filesystem path of the keybinding file.
- * @throws std::runtime_error if the file cannot be created.
- */
-[[nodiscard]] auto get_system_keys_file() -> juce::File;
-
-/**
- * Retrieve the location of the user keybinding configuration file.
- *
- * @details If the file does not exist, it will be created.
- * @return The filesystem path of the user keybinding file.
- * @throws std::runtime_error if the file cannot be created.
- */
-[[nodiscard]] auto get_user_keys_file() -> juce::File;
 
 /**
  * Retrieve the location of the system scales.yml file.

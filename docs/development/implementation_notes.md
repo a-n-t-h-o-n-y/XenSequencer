@@ -20,8 +20,9 @@ The current frontend migration contract is documented in
   - requests: `session.hello`, `state.get`, `command.execute`, and `library.get`;
   - events: `state.changed`, `library.changed`, `transport.phase.sync`, and
     `transport.stopped`.
-- `session.hello` includes the command catalog and merged keymap. The old catalog,
-  completion, and `keymap.get` requests are not supported.
+- `session.hello` includes the command catalog and revisioned typed keymap. Keymap
+  overrides are persisted through `keymap.get`, `keymap.override.set`,
+  `keymap.override.remove`, and `keymap.reset`, with `keymap.changed` publication.
 - The project model has one top-level measure. Cells contain zero or more
   `MusicElement` values; an empty cell represents silence.
 

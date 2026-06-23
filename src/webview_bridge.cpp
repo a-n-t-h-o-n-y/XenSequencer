@@ -15,8 +15,7 @@
 #include <xen/bridge_serialize.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/constants.hpp>
-#include <xen/key_core.hpp>
-#include <xen/user_directory.hpp>
+#include <xen/keymap.hpp>
 #include <xen/xen_processor.hpp>
 
 namespace
@@ -65,6 +64,77 @@ auto require_string(nlohmann::json const &json, std::string_view field_name)
         throw BridgeError{"invalid_request", "Field must be a string: " + key};
     }
     return json.at(key).get<std::string>();
+}
+
+auto require_unsigned(nlohmann::json const &json, std::string_view field_name)
+    -> std::uint64_t
+{
+    auto const key = std::string{field_name};
+    if (!json.contains(key) || !json.at(key).is_number_unsigned())
+    {
+        throw BridgeError{"invalid_request",
+                          "Field must be an unsigned integer: " + key};
+    }
+    return json.at(key).get<std::uint64_t>();
+}
+
+auto parse_keymap_trigger(nlohmann::json const &json) -> xen::KeymapTrigger
+{
+    if (!json.is_object())
+    {
+        throw BridgeError{"invalid_request", "Keymap trigger must be an object."};
+    }
+    auto const &modifiers = require_object(json, "modifiers");
+    auto const require_boolean = [](nlohmann::json const &object,
+                                    std::string_view field) {
+        auto const key = std::string{field};
+        if (!object.contains(key) || !object.at(key).is_boolean())
+        {
+            throw BridgeError{"invalid_request",
+                              "Field must be a boolean: modifiers." + key};
+        }
+        return object.at(key).get<bool>();
+    };
+
+    auto value = xen::KeymapTrigger{
+        .key = require_string(json, "key"),
+        .shift = require_boolean(modifiers, "shift"),
+        .command = require_boolean(modifiers, "command"),
+        .alt = require_boolean(modifiers, "alt"),
+    };
+    if (json.contains("when"))
+    {
+        value.input_mode = require_string(require_object(json, "when"), "input_mode");
+    }
+    xen::validate(value);
+    return value;
+}
+
+auto parse_keymap_target(nlohmann::json const &json) -> xen::KeymapTarget
+{
+    if (!json.is_object())
+    {
+        throw BridgeError{"invalid_request", "Keymap target must be an object."};
+    }
+    auto const type = require_string(json, "type");
+    auto value = xen::KeymapTarget{};
+    if (type == "command")
+    {
+        value.type = xen::KeymapTargetType::Command;
+        value.value = require_string(json, "command");
+    }
+    else if (type == "ui_action")
+    {
+        value.type = xen::KeymapTargetType::UiAction;
+        value.value = require_string(json, "action");
+        value.arguments = require_object(json, "arguments");
+    }
+    else
+    {
+        throw BridgeError{"invalid_request", "Unknown keymap target type: " + type};
+    }
+    xen::validate(value);
+    return value;
 }
 
 auto parse_command_context(nlohmann::json const &payload) -> xen::CommandContext
@@ -549,7 +619,8 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
 namespace xen
 {
 
-WebviewBridge::WebviewBridge(XenProcessor &processor) : processor_{processor}
+WebviewBridge::WebviewBridge(XenProcessor &processor, juce::File keymap_file)
+    : processor_{processor}, keymap_store_{std::move(keymap_file)}
 {
 }
 
@@ -566,8 +637,6 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
         if (request.name == "session.hello")
         {
             validate_session_hello_payload(request.payload, request);
-            auto const keymap =
-                export_merged_keymap(get_system_keys_file(), get_user_keys_file());
             payload = nlohmann::json{
                 {"protocol", bridge::protocol},
                 {"plugin_version", VERSION},
@@ -575,7 +644,7 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                 {"library_schema_version", bridge::library_schema_version},
                 {"catalog",
                  bridge::make_catalog_payload(processor_.command_catalog().metadata())},
-                {"keymap", bridge::make_keymap_payload(keymap).at("keymap")},
+                {"keymap", bridge::make_keymap_payload(keymap_store_.snapshot())},
             };
         }
         else if (request.name == "state.get")
@@ -604,6 +673,47 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
             validate_empty_object_payload(request.payload, request);
             payload = make_library_payload(processor_);
         }
+        else if (request.name == "keymap.get")
+        {
+            validate_empty_object_payload(request.payload, request);
+            payload = bridge::make_keymap_payload(keymap_store_.snapshot());
+        }
+        else if (request.name == "keymap.override.set")
+        {
+            auto const expected_revision =
+                require_unsigned(request.payload, "expected_revision");
+            auto const context = require_string(request.payload, "context");
+            auto const trigger =
+                parse_keymap_trigger(require_object(request.payload, "trigger"));
+            auto target = std::optional<KeymapTarget>{};
+            if (!request.payload.contains("target"))
+            {
+                throw BridgeError{"invalid_request", "Missing field: target"};
+            }
+            if (!request.payload.at("target").is_null())
+            {
+                target = parse_keymap_target(request.payload.at("target"));
+            }
+            payload = bridge::make_keymap_payload(keymap_store_.set_override(
+                expected_revision, context, trigger, std::move(target)));
+        }
+        else if (request.name == "keymap.override.remove")
+        {
+            auto const expected_revision =
+                require_unsigned(request.payload, "expected_revision");
+            auto const context = require_string(request.payload, "context");
+            auto const trigger =
+                parse_keymap_trigger(require_object(request.payload, "trigger"));
+            payload = bridge::make_keymap_payload(
+                keymap_store_.remove_override(expected_revision, context, trigger));
+        }
+        else if (request.name == "keymap.reset")
+        {
+            auto const expected_revision =
+                require_unsigned(request.payload, "expected_revision");
+            payload =
+                bridge::make_keymap_payload(keymap_store_.reset(expected_revision));
+        }
         else
         {
             throw BridgeError{
@@ -624,6 +734,14 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
             .dump();
     }
     catch (nlohmann::json::exception const &error)
+    {
+        return make_envelope("response",
+                             request.name.empty() ? "bridge.error" : request.name,
+                             request.request_id,
+                             make_error_payload("invalid_request", error.what()))
+            .dump();
+    }
+    catch (std::invalid_argument const &error)
     {
         return make_envelope("response",
                              request.name.empty() ? "bridge.error" : request.name,
@@ -663,6 +781,13 @@ auto WebviewBridge::make_library_changed_event_json() const -> std::string
         .dump();
 }
 
+auto WebviewBridge::make_keymap_changed_event_json() const -> std::string
+{
+    return make_envelope("event", "keymap.changed", std::nullopt,
+                         bridge::make_keymap_payload(keymap_store_.snapshot()))
+        .dump();
+}
+
 auto WebviewBridge::make_phase_sync_event_json(MeasurePhase phase, float bpm) const
     -> std::string
 {
@@ -678,6 +803,11 @@ auto WebviewBridge::make_transport_stopped_event_json() const -> std::string
     return make_envelope("event", "transport.stopped", std::nullopt,
                          nlohmann::json::object())
         .dump();
+}
+
+auto WebviewBridge::keymap_revision() const noexcept -> std::uint64_t
+{
+    return keymap_store_.revision();
 }
 
 } // namespace xen

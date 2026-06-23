@@ -45,6 +45,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     void load_initial_url();
     void emit_state_changed_event();
     void emit_library_changed_event();
+    void emit_keymap_changed_event();
     void emit_transport_events();
 
   private:
@@ -60,6 +61,7 @@ class WebviewHost : public juce::Component, private juce::Timer
 #endif
     ProjectRevision last_project_revision_{};
     LibraryRevision last_library_revision_{};
+    std::uint64_t last_keymap_revision_{};
     bool last_transport_active_{false};
 };
 

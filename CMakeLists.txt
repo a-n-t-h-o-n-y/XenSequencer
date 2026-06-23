@@ -128,15 +128,6 @@ endif()
 
 # BINARY DATA --------------------------------------------------------------------------
 
-# Add key config files as a binary resource
-juce_add_binary_data(EmbedKeys
-    HEADER_NAME "embed_keys.hpp"
-    NAMESPACE embed_keys
-    SOURCES
-        data/keys/keys.yml
-        data/keys/user_keys.yml
-)
-
 # Add scale files as a binary resource
 juce_add_binary_data(EmbedScales
     HEADER_NAME "embed_scales.hpp"
@@ -199,7 +190,7 @@ set(XEN_CORE_SOURCES
     src/command_catalog_specs_transform.cpp
     src/command_transaction.cpp
     src/copy_paste.cpp
-    src/key_core.cpp
+    src/keymap.cpp
     src/message_level.cpp
     src/midi.cpp
     src/midi_engine.cpp
@@ -256,7 +247,6 @@ target_link_libraries(XenCore
         juce::juce_core
         yaml-cpp
         nlohmann_json::nlohmann_json
-        EmbedKeys
         EmbedScales
         EmbedChords
         EmbedDemos
@@ -335,6 +325,7 @@ if (XEN_BUILD_TESTS)
         test/core/command_handler_execution.test.cpp
         test/core/command_catalog.test.cpp
         test/core/command_parse.test.cpp
+        test/core/keymap.test.cpp
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
         test/core/webview_bridge.test.cpp
