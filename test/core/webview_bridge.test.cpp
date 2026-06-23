@@ -72,6 +72,19 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.at("library_schema_version") == bridge::library_schema_version);
     CHECK(payload.contains("catalog"));
     CHECK(payload.at("catalog").at("schema_version") == 2);
+    for (auto const &command : payload.at("catalog").at("commands"))
+    {
+        for (auto const &argument : command.at("arguments"))
+        {
+            for (auto const &constraint : argument.at("constraints"))
+            {
+                CHECK((constraint.at("minimum").is_null() ||
+                       constraint.at("minimum").is_number()));
+                CHECK((constraint.at("maximum").is_null() ||
+                       constraint.at("maximum").is_number()));
+            }
+        }
+    }
     CHECK(payload.contains("keymap"));
     CHECK(payload.at("keymap").at("schema_version") == 1);
     CHECK(payload.at("keymap").at("key_semantics") == "KeyboardEvent.key");

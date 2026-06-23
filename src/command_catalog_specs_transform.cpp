@@ -53,7 +53,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
 {
     specs.push_back(command(
         {"stretch"}, true, "Stretch selected pattern.", transform_policy,
-        std::make_tuple(optional_arg<std::size_t>("Unsigned", "count", 2)),
+        std::make_tuple(repeat_count_arg("count", 2)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            std::size_t count) {
             auto state = context.project();
@@ -106,7 +106,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"rotate"}, false, "Rotate selected content.", transform_policy,
-        std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+        std::make_tuple(optional_arg<int>("rotation_offset", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
             state = increment_state(
@@ -133,29 +133,29 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                                       context.execution);
                 }));
 
-    specs.push_back(command(
-        {"mirror"}, true, "Mirror selected notes around center pitch.",
-        transform_policy, std::make_tuple(optional_arg<int>("Int", "centerPitch", 0)),
-        [](CommandHandlerContext &context, CommandInvocation const &invocation,
-           int center_pitch) {
-            auto state = context.project();
-            state = increment_state(
-                std::move(state), require_selection(context.execution),
-                [](auto target, sequence::Pattern const &pattern, int center) {
-                    return sequence::modify::mirror(target, pattern, center);
-                },
-                invocation.input.pattern, center_pitch);
-            context.edit_project() = std::move(state);
-            return unchanged_selection_result(minfo("Selection Mirrored"),
-                                              context.execution);
-        }));
+    specs.push_back(
+        command({"mirror"}, true, "Mirror selected notes around center pitch.",
+                transform_policy, std::make_tuple(note_pitch_arg("centerPitch", 0)),
+                [](CommandHandlerContext &context, CommandInvocation const &invocation,
+                   int center_pitch) {
+                    auto state = context.project();
+                    state = increment_state(
+                        std::move(state), require_selection(context.execution),
+                        [](auto target, sequence::Pattern const &pattern, int center) {
+                            return sequence::modify::mirror(target, pattern, center);
+                        },
+                        invocation.input.pattern, center_pitch);
+                    context.edit_project() = std::move(state);
+                    return unchanged_selection_result(minfo("Selection Mirrored"),
+                                                      context.execution);
+                }));
 
     specs.push_back(command(
         {"step"}, true,
         "Apply incremental pitch/velocity offsets to selected sequence.",
         transform_policy,
-        std::make_tuple(optional_arg<int>("Int", "pitchDistance", 1),
-                        optional_arg<float>("Float", "velocityDistance", 0.f)),
+        std::make_tuple(pitch_offset_arg("pitchDistance", 1),
+                        velocity_offset_arg("velocityDistance", 0.f)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            int pitch_distance, float velocity_distance) {
             auto state = context.project();
@@ -172,9 +172,9 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"arp"}, true, "Apply chord arpeggiation to selection.", arp_policy,
-        std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
+        std::make_tuple(optional_arg<std::string>("chord_name", "chord", "cycle",
                                                   std::string{"\"cycle\""}),
-                        optional_arg<int>("Int", "inversion", -1)),
+                        optional_arg<int>("chord_inversion", "inversion", -1)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            std::string chord_name, int inversion) {
             auto inputs = context.prepare_transform(TransformKind::Arpeggio,
@@ -200,9 +200,9 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"chord"}, false, "Apply chord offsets across elements in the selected cell.",
         chord_policy,
-        std::make_tuple(optional_arg<std::string>("String", "chord", "cycle",
+        std::make_tuple(optional_arg<std::string>("chord_name", "chord", "cycle",
                                                   std::string{"\"cycle\""}),
-                        optional_arg<int>("Int", "inversion", -1)),
+                        optional_arg<int>("chord_inversion", "inversion", -1)),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string chord_name, int inversion) {
             auto inputs = context.prepare_transform(TransformKind::Chord,
@@ -226,8 +226,10 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"drums"}, false, "Switch to drum-oriented tuning.", drums_policy,
-        std::make_tuple(optional_arg<std::size_t>("Unsigned", "octaveSize", 16),
-                        optional_arg<int>("Int", "offset", 1)),
+        std::make_tuple(
+            minimum(optional_arg<std::size_t>("octave_size", "octaveSize", 16), 1.0,
+                    "Must be at least 1."),
+            pitch_offset_arg("offset", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t requested_octave_size, int offset) {
             auto state = context.project();

@@ -124,8 +124,8 @@ auto direction_to_json(xen::TranslateDirection direction) -> nlohmann::json
 auto active_scale_to_json(xen::ActiveScale const &scale) -> nlohmann::json
 {
     return nlohmann::json{
-        {"source_id", scale.source_id.has_value() ? nlohmann::json{*scale.source_id}
-                                                  : nlohmann::json{nullptr}},
+        {"source_id", scale.source_id.has_value() ? nlohmann::json(*scale.source_id)
+                                                  : nlohmann::json(nullptr)},
         {"definition", scale_to_json(scale.definition)},
     };
 }
@@ -163,11 +163,11 @@ auto catalog_argument_to_json(xen::CatalogArgumentMetadata const &argument)
         constraints.push_back({
             {"kind", constraint.kind},
             {"minimum", constraint.minimum.has_value()
-                            ? nlohmann::json{*constraint.minimum}
-                            : nlohmann::json{nullptr}},
+                            ? nlohmann::json(*constraint.minimum)
+                            : nlohmann::json(nullptr)},
             {"maximum", constraint.maximum.has_value()
-                            ? nlohmann::json{*constraint.maximum}
-                            : nlohmann::json{nullptr}},
+                            ? nlohmann::json(*constraint.maximum)
+                            : nlohmann::json(nullptr)},
             {"values", constraint.values},
         });
     }

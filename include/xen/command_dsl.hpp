@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <iomanip>
@@ -221,6 +222,258 @@ auto constrained(ArgDef<T> argument, CatalogArgumentConstraint metadata,
 }
 
 template <typename T>
+auto ranged(ArgDef<T> argument, double minimum, double maximum,
+            std::string error_message) -> ArgDef<T>
+{
+    auto const min_value = static_cast<T>(minimum);
+    auto const max_value = static_cast<T>(maximum);
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{
+            .kind = "range", .minimum = minimum, .maximum = maximum, .values = {}},
+        [min_value, max_value](T const &value) {
+            return value >= min_value && value <= max_value;
+        },
+        std::move(error_message));
+}
+
+template <typename T>
+auto minimum(ArgDef<T> argument, double minimum_value, std::string error_message)
+    -> ArgDef<T>
+{
+    auto const min_value = static_cast<T>(minimum_value);
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{.kind = "minimum",
+                                  .minimum = minimum_value,
+                                  .maximum = std::nullopt,
+                                  .values = {}},
+        [min_value](T const &value) { return value >= min_value; },
+        std::move(error_message));
+}
+
+inline auto positive_float(ArgDef<float> argument, std::string error_message)
+    -> ArgDef<float>
+{
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{
+            .kind = "minimum", .minimum = 0.0, .maximum = std::nullopt, .values = {}},
+        [](float value) { return value > 0.f; }, std::move(error_message));
+}
+
+template <typename T>
+auto one_of(ArgDef<T> argument, std::vector<T> values, std::string error_message)
+    -> ArgDef<T>
+{
+    auto display_values = std::vector<std::string>{};
+    display_values.reserve(values.size());
+    for (auto const &value : values)
+    {
+        display_values.push_back(format_default_value(value));
+    }
+
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{.kind = "one_of",
+                                  .minimum = std::nullopt,
+                                  .maximum = std::nullopt,
+                                  .values = std::move(display_values)},
+        [values = std::move(values)](T const &value) {
+            return std::find(values.begin(), values.end(), value) != values.end();
+        },
+        std::move(error_message));
+}
+
+template <typename Scalar>
+auto scalar_or_modulator_range(ArgDef<std::variant<Scalar, Modulator>> argument,
+                               double minimum, double maximum,
+                               std::string error_message)
+    -> ArgDef<std::variant<Scalar, Modulator>>
+{
+    auto const min_value = static_cast<Scalar>(minimum);
+    auto const max_value = static_cast<Scalar>(maximum);
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{
+            .kind = "range", .minimum = minimum, .maximum = maximum, .values = {}},
+        [min_value, max_value](std::variant<Scalar, Modulator> const &value) {
+            if (auto const scalar = std::get_if<Scalar>(&value); scalar != nullptr)
+            {
+                return *scalar >= min_value && *scalar <= max_value;
+            }
+            return true;
+        },
+        std::move(error_message));
+}
+
+template <typename Scalar>
+auto scalar_or_modulator_minimum(ArgDef<std::variant<Scalar, Modulator>> argument,
+                                 double minimum_value, std::string error_message)
+    -> ArgDef<std::variant<Scalar, Modulator>>
+{
+    auto const min_value = static_cast<Scalar>(minimum_value);
+    return constrained(
+        std::move(argument),
+        CatalogArgumentConstraint{.kind = "minimum",
+                                  .minimum = minimum_value,
+                                  .maximum = std::nullopt,
+                                  .values = {}},
+        [min_value](std::variant<Scalar, Modulator> const &value) {
+            if (auto const scalar = std::get_if<Scalar>(&value); scalar != nullptr)
+            {
+                return *scalar > min_value;
+            }
+            return true;
+        },
+        std::move(error_message));
+}
+
+inline auto note_pitch_arg(std::string name, int default_value)
+{
+    return optional_arg<int>("pitch", std::move(name), default_value);
+}
+
+inline auto note_pitch_or_modulator_arg(std::string name,
+                                        std::variant<int, Modulator> default_value)
+{
+    return optional_arg<std::variant<int, Modulator>>(
+        "pitch | modulator", std::move(name), std::move(default_value));
+}
+
+inline auto pitch_offset_arg(std::string name, int default_value)
+{
+    return optional_arg<int>("pitch_offset", std::move(name), default_value);
+}
+
+inline auto octave_arg(std::string name, int default_value)
+{
+    return optional_arg<int>("octave", std::move(name), default_value);
+}
+
+inline auto octave_offset_arg(std::string name, int default_value)
+{
+    return optional_arg<int>("octave_offset", std::move(name), default_value);
+}
+
+inline auto unit_interval_arg(std::string type, std::string name, float default_value)
+{
+    return ranged(optional_arg<float>(std::move(type), std::move(name), default_value),
+                  0.0, 1.0, "Must be in range [0, 1].");
+}
+
+inline auto unit_interval_modulator_arg(std::string type, std::string name,
+                                        std::variant<float, Modulator> default_value)
+{
+    return scalar_or_modulator_range(
+        optional_arg<std::variant<float, Modulator>>(std::move(type), std::move(name),
+                                                     std::move(default_value)),
+        0.0, 1.0, "Must be in range [0, 1].");
+}
+
+inline auto unit_interval_delta_arg(std::string type, std::string name,
+                                    float default_value)
+{
+    return ranged(optional_arg<float>(std::move(type), std::move(name), default_value),
+                  -1.0, 1.0, "Must be in range [-1, 1].");
+}
+
+inline auto velocity_arg(std::string name, float default_value)
+{
+    return unit_interval_arg("velocity", std::move(name), default_value);
+}
+
+inline auto velocity_or_modulator_arg(std::string name,
+                                      std::variant<float, Modulator> default_value)
+{
+    return unit_interval_modulator_arg("velocity | modulator", std::move(name),
+                                       std::move(default_value));
+}
+
+inline auto velocity_offset_arg(std::string name, float default_value)
+{
+    return unit_interval_delta_arg("velocity_offset", std::move(name), default_value);
+}
+
+inline auto delay_arg(std::string name, float default_value)
+{
+    return unit_interval_arg("delay", std::move(name), default_value);
+}
+
+inline auto delay_or_modulator_arg(std::string name,
+                                   std::variant<float, Modulator> default_value)
+{
+    return unit_interval_modulator_arg("delay | modulator", std::move(name),
+                                       std::move(default_value));
+}
+
+inline auto delay_offset_arg(std::string name, float default_value)
+{
+    return unit_interval_delta_arg("delay_offset", std::move(name), default_value);
+}
+
+inline auto gate_arg(std::string name, float default_value)
+{
+    return unit_interval_arg("gate", std::move(name), default_value);
+}
+
+inline auto gate_or_modulator_arg(std::string name,
+                                  std::variant<float, Modulator> default_value)
+{
+    return unit_interval_modulator_arg("gate | modulator", std::move(name),
+                                       std::move(default_value));
+}
+
+inline auto gate_offset_arg(std::string name, float default_value)
+{
+    return unit_interval_delta_arg("gate_offset", std::move(name), default_value);
+}
+
+inline auto frequency_hz_arg(std::string name, float default_value)
+{
+    return ranged(optional_arg<float>("frequency_hz", std::move(name), default_value),
+                  20.0, 20000.0, "Must be in range [20, 20000] Hz.");
+}
+
+inline auto transpose_key_arg(std::string name, int default_value)
+{
+    return ranged(optional_arg<int>("transpose_key", std::move(name), default_value),
+                  -127.0, 127.0, "Must be in range [-127, 127].");
+}
+
+inline auto positive_weight_arg(std::string type, std::string name)
+{
+    return positive_float(required_arg<float>(std::move(type), std::move(name)),
+                          "Must be greater than 0.");
+}
+
+inline auto positive_weight_or_modulator_arg(std::string name)
+{
+    return scalar_or_modulator_minimum(required_arg<std::variant<float, Modulator>>(
+                                           "cell_weight | modulator", std::move(name)),
+                                       0.0, "Must be greater than 0.");
+}
+
+inline auto repeat_count_arg(std::string name, std::size_t default_value)
+{
+    return minimum(
+        optional_arg<std::size_t>("repeat_count", std::move(name), default_value), 1.0,
+        "Must be at least 1.");
+}
+
+inline auto scale_mode_arg(std::string name)
+{
+    return minimum(required_arg<std::size_t>("scale_mode", std::move(name)), 1.0,
+                   "Must be at least 1.");
+}
+
+inline auto direction_arg(std::string name, int default_value)
+{
+    return one_of(optional_arg<int>("direction", std::move(name), default_value),
+                  std::vector<int>{-1, 1}, "Must be -1 or 1.");
+}
+
+template <typename T>
 auto parse_arg(std::vector<std::string> const &words, std::size_t index,
                ArgDef<T> const &arg) -> T
 {
@@ -297,7 +550,7 @@ auto to_metadata_args(std::tuple<ArgDef<Ts>...> const &arg_defs)
     std::apply(
         [&](auto const &...defs) {
             (metadata.push_back(CatalogArgumentMetadata{
-                 .kind = ArgTraits<Ts>::type_name,
+                 .kind = defs.type,
                  .display_name = defs.name,
                  .required = !defs.default_text.has_value(),
                  .default_value = defs.default_text,

@@ -69,8 +69,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 {
     specs.push_back(command(
         {"set", "pitch"}, true, "Set selected note pitches.", targeted_edit_policy,
-        std::make_tuple(optional_arg<std::variant<int, Modulator>>(
-            "Int|Modulator", "pitch", std::variant<int, Modulator>{0})),
+        std::make_tuple(
+            note_pitch_or_modulator_arg("pitch", std::variant<int, Modulator>{0})),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            std::variant<int, Modulator> const &pitch) {
             auto state = context.project();
@@ -99,7 +99,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "octave"}, true, "Set selected note octaves.", targeted_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "octave", 0)),
+        std::make_tuple(octave_arg("octave", 0)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            int octave) {
             auto state = context.project();
@@ -113,9 +113,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "velocity"}, true, "Set selected note velocities.",
         {"volume", "gain", "level", "loudness"}, targeted_edit_policy,
-        std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-            "Float|Modulator", "velocity",
-            std::variant<float, Modulator>{100.f / 127.f})),
+        std::make_tuple(velocity_or_modulator_arg(
+            "velocity", std::variant<float, Modulator>{100.f / 127.f})),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            std::variant<float, Modulator> const &velocity) {
             auto state = context.project();
@@ -168,8 +167,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(
         command({"set", "delay"}, true, "Set selected note delays.",
                 {"offset", "timing", "shift"}, targeted_edit_policy,
-                std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-                    "Float|Modulator", "delay", std::variant<float, Modulator>{0.f})),
+                std::make_tuple(delay_or_modulator_arg(
+                    "delay", std::variant<float, Modulator>{0.f})),
                 set_fractional(
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return sequence::modify::set_delay(target, pattern, value);
@@ -182,8 +181,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(
         command({"set", "gate"}, true, "Set selected note gates.",
                 {"duration", "length"}, targeted_edit_policy,
-                std::make_tuple(optional_arg<std::variant<float, Modulator>>(
-                    "Float|Modulator", "gate", std::variant<float, Modulator>{1.f})),
+                std::make_tuple(
+                    gate_or_modulator_arg("gate", std::variant<float, Modulator>{1.f})),
                 set_fractional(
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return sequence::modify::set_gate(target, pattern, value);
@@ -197,19 +196,21 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "measure", "timeSignature"}, false, "Set measure time signature.",
         project_edit_policy,
-        std::make_tuple(optional_arg<sequence::TimeSignature>(
-            "TimeSignature", "timesignature", sequence::TimeSignature{4, 4})),
+        std::make_tuple(constrained(
+            optional_arg<sequence::TimeSignature>("time_signature", "timesignature",
+                                                  sequence::TimeSignature{4, 4}),
+            CatalogArgumentConstraint{.kind = "measure_time_signature",
+                                      .minimum = std::nullopt,
+                                      .maximum = std::nullopt,
+                                      .values = {}},
+            [](sequence::TimeSignature const &time_signature) {
+                return time_signature.denominator != 0 &&
+                       time_signature.numerator != 0 &&
+                       !exceeds_max_measure_length(time_signature);
+            },
+            "Must be non-zero and no longer than 64 whole notes.")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            sequence::TimeSignature time_signature) {
-            if (time_signature.denominator == 0 || time_signature.numerator == 0)
-            {
-                return make_result(merror("Invalid TimeSignature"));
-            }
-            if (exceeds_max_measure_length(time_signature))
-            {
-                return make_result(
-                    merror("TimeSignature Too Large, Max length is 64 Whole Notes."));
-            }
             auto state = context.project();
             state.measure.time_signature = time_signature;
             context.edit_project() = std::move(state);
@@ -220,8 +221,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "baseFrequency"}, false, "Set base frequency in Hz.",
-        project_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "freq", 440.f)),
+        project_edit_policy, std::make_tuple(frequency_hz_arg("freq", 440.f)),
         [](CommandHandlerContext &context, CommandInvocation const &, float frequency) {
             auto state = context.project();
             state = action::set_base_frequency(std::move(state), frequency);
@@ -232,7 +232,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "scale"}, false, "Set the active scale by source ID.",
         library_read_edit_policy,
-        std::make_tuple(required_arg<std::string>("String", "source_id")),
+        std::make_tuple(required_arg<std::string>("scale_id", "source_id")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &source_id) {
             auto state = context.project();
@@ -257,7 +257,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "mode"}, false, "Set the active scale mode index.", project_edit_policy,
-        std::make_tuple(required_arg<std::size_t>("Unsigned", "mode_index")),
+        std::make_tuple(scale_mode_arg("mode_index")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t mode_index) {
             auto state = context.project();
@@ -276,7 +276,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "translateDirection"}, false, "Set scale translate direction.",
         project_edit_policy,
-        std::make_tuple(required_arg<std::string>("String", "direction")),
+        std::make_tuple(required_arg<std::string>("translate_direction", "direction")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &value) {
             auto const direction = to_lower(value);
@@ -299,13 +299,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "key"}, false, "Set transposition key.", project_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "key", 0)),
+        std::make_tuple(transpose_key_arg("key", 0)),
         [](CommandHandlerContext &context, CommandInvocation const &, int key) {
-            if (key > 127 || key < -127)
-            {
-                return make_result(merror("Invalid Key Value: " + std::to_string(key) +
-                                          ". Must be in range [-127, 127]."));
-            }
             auto state = context.project();
             state.pitch.transposition = key;
             context.edit_project() = std::move(state);
@@ -314,7 +309,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "weight"}, false, "Set selected cell weight.", cell_edit_policy,
-        std::make_tuple(required_arg<float>("Float", "value")),
+        std::make_tuple(positive_weight_arg("cell_weight", "value")),
         [](CommandHandlerContext &context, CommandInvocation const &, float value) {
             auto state = context.project();
             state =
@@ -326,9 +321,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"set", "weights"}, true, "Set child weights in selected cell.",
-        cell_edit_policy,
-        std::make_tuple(
-            required_arg<std::variant<float, Modulator>>("Float|Modulator", "weight")),
+        cell_edit_policy, std::make_tuple(positive_weight_or_modulator_arg("weight")),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            std::variant<float, Modulator> const &weight) {
             auto state = context.project();
@@ -416,57 +409,56 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         };
     };
 
-    specs.push_back(command(
-        {"shift", "pitch"}, true, "Shift selected note pitches.", targeted_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-        shift_pattern(
-            [](auto target, sequence::Pattern const &pattern, int amount) {
-                return action::shift_pitch(std::move(target), pattern, amount);
-            },
-            "Pitch Shifted")));
-    specs.push_back(command(
-        {"shift", "octave"}, true, "Shift selected note octaves.", targeted_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "amount", 1)),
-        [](CommandHandlerContext &context, CommandInvocation const &invocation,
-           int amount) {
-            auto state = context.project();
-            state = action::shift_octave(std::move(state),
-                                         require_selection(context.execution),
-                                         invocation.input.pattern, amount);
-            context.edit_project() = std::move(state);
-            return unchanged_selection_result(minfo("Octave Shifted"),
-                                              context.execution);
-        }));
+    specs.push_back(
+        command({"shift", "pitch"}, true, "Shift selected note pitches.",
+                targeted_edit_policy, std::make_tuple(pitch_offset_arg("amount", 1)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, int amount) {
+                        return action::shift_pitch(std::move(target), pattern, amount);
+                    },
+                    "Pitch Shifted")));
+    specs.push_back(
+        command({"shift", "octave"}, true, "Shift selected note octaves.",
+                targeted_edit_policy, std::make_tuple(octave_offset_arg("amount", 1)),
+                [](CommandHandlerContext &context, CommandInvocation const &invocation,
+                   int amount) {
+                    auto state = context.project();
+                    state = action::shift_octave(std::move(state),
+                                                 require_selection(context.execution),
+                                                 invocation.input.pattern, amount);
+                    context.edit_project() = std::move(state);
+                    return unchanged_selection_result(minfo("Octave Shifted"),
+                                                      context.execution);
+                }));
     specs.push_back(command(
         {"shift", "velocity"}, true, "Shift selected note velocities.",
-        targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
+        targeted_edit_policy, std::make_tuple(velocity_offset_arg("amount", 0.1f)),
         shift_pattern(
             [](auto target, sequence::Pattern const &pattern, float amount) {
                 return sequence::modify::shift_velocity(target, pattern, amount);
             },
             "Velocity Shifted")));
-    specs.push_back(command(
-        {"shift", "delay"}, true, "Shift selected note delays.", targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-        shift_pattern(
-            [](auto target, sequence::Pattern const &pattern, float amount) {
-                return sequence::modify::shift_delay(target, pattern, amount);
-            },
-            "Delay Shifted")));
-    specs.push_back(command(
-        {"shift", "gate"}, true, "Shift selected note gates.", targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "amount", 0.1f)),
-        shift_pattern(
-            [](auto target, sequence::Pattern const &pattern, float amount) {
-                return sequence::modify::shift_gate(target, pattern, amount);
-            },
-            "Gate Shifted")));
+    specs.push_back(
+        command({"shift", "delay"}, true, "Shift selected note delays.",
+                targeted_edit_policy, std::make_tuple(delay_offset_arg("amount", 0.1f)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_delay(target, pattern, amount);
+                    },
+                    "Delay Shifted")));
+    specs.push_back(
+        command({"shift", "gate"}, true, "Shift selected note gates.",
+                targeted_edit_policy, std::make_tuple(gate_offset_arg("amount", 0.1f)),
+                shift_pattern(
+                    [](auto target, sequence::Pattern const &pattern, float amount) {
+                        return sequence::modify::shift_gate(target, pattern, amount);
+                    },
+                    "Gate Shifted")));
 
     specs.push_back(command(
         {"shift", "scale"}, false, "Shift loaded scale index.",
         library_read_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+        std::make_tuple(optional_arg<int>("scale_offset", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
             auto const &library = context.library();
@@ -502,7 +494,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"shift", "scaleMode"}, false, "Shift scale mode.", project_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "amount", 1)),
+        std::make_tuple(optional_arg<int>("scale_mode_offset", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
             if (state.pitch.scale.has_value())
@@ -526,13 +518,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 
     specs.push_back(command(
         {"shift", "entireScale"}, false, "Shift direction, mode, and scale together.",
-        library_read_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "direction", 1)),
+        library_read_edit_policy, std::make_tuple(direction_arg("direction", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int direction) {
-            if (direction != 1 && direction != -1)
-            {
-                return make_result(merror("Invalid direction, must be 1 or -1"));
-            }
             auto state = context.project();
             auto const &library = context.library();
             auto &translate_direction = state.pitch.translation_direction;
@@ -610,8 +597,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     };
     specs.push_back(command(
         {"randomize", "pitch"}, true, "Randomize note pitches.", targeted_edit_policy,
-        std::make_tuple(optional_arg<int>("Int", "min", -12),
-                        optional_arg<int>("Int", "max", 12)),
+        std::make_tuple(note_pitch_arg("min", -12), note_pitch_arg("max", 12)),
         randomize(
             [](auto target, sequence::Pattern const &pattern, int min, int max) {
                 return sequence::modify::randomize_pitch(target, pattern, min, max);
@@ -620,8 +606,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"randomize", "velocity"}, true, "Randomize note velocities.",
         targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "min", 0.01f),
-                        optional_arg<float>("Float", "max", 1.f)),
+        std::make_tuple(velocity_arg("min", 0.01f), velocity_arg("max", 1.f)),
         randomize(
             [](auto target, sequence::Pattern const &pattern, float min, float max) {
                 return sequence::modify::randomize_velocity(target, pattern, min, max);
@@ -629,8 +614,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             "Randomized Velocity")));
     specs.push_back(command(
         {"randomize", "delay"}, true, "Randomize note delays.", targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "min", 0.f),
-                        optional_arg<float>("Float", "max", 0.95f)),
+        std::make_tuple(delay_arg("min", 0.f), delay_arg("max", 0.95f)),
         randomize(
             [](auto target, sequence::Pattern const &pattern, float min, float max) {
                 return sequence::modify::randomize_delay(target, pattern, min, max);
@@ -638,8 +622,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             "Randomized Delay")));
     specs.push_back(command(
         {"randomize", "gate"}, true, "Randomize note gates.", targeted_edit_policy,
-        std::make_tuple(optional_arg<float>("Float", "min", 0.f),
-                        optional_arg<float>("Float", "max", 0.95f)),
+        std::make_tuple(gate_arg("min", 0.f), gate_arg("max", 0.95f)),
         randomize(
             [](auto target, sequence::Pattern const &pattern, float min, float max) {
                 return sequence::modify::randomize_gate(target, pattern, min, max);

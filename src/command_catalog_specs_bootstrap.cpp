@@ -182,7 +182,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         {"load", "measure"}, false,
         "Load a measure from the current sequence directory.",
         {"open", "file", "sequence"}, load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("String", "filename")),
+        std::make_tuple(required_arg<std::string>("measure_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().sequence_directory;
@@ -210,7 +210,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"load", "tuning"}, false, "Load a tuning from the current tuning directory.",
         {"open", "file", "scala", "scl"}, load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("String", "filename")),
+        std::make_tuple(required_arg<std::string>("tuning_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().tuning_directory;
@@ -266,7 +266,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"save", "measure"}, false, "Save the current measure to file.",
         {"write", "file", "sequence"}, save_measure_policy,
-        std::make_tuple(required_arg<std::string>("String", "filename")),
+        std::make_tuple(required_arg<std::string>("measure_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().sequence_directory;
@@ -306,12 +306,12 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
     specs.push_back(
         command({"set", "sequenceDirectory"}, false,
                 "Set the sequence library directory.", workspace_mutation_policy,
-                std::make_tuple(required_arg<std::string>("String", "path")),
+                std::make_tuple(required_arg<std::string>("directory_path", "path")),
                 set_directory(&WorkspaceSettings::sequence_directory, "Sequence")));
     specs.push_back(
         command({"set", "tuningDirectory"}, false, "Set the tuning library directory.",
                 workspace_mutation_policy,
-                std::make_tuple(required_arg<std::string>("String", "path")),
+                std::make_tuple(required_arg<std::string>("directory_path", "path")),
                 set_directory(&WorkspaceSettings::tuning_directory, "Tuning")));
 }
 

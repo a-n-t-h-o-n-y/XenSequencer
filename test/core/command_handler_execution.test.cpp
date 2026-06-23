@@ -154,10 +154,9 @@ TEST_CASE("Direct handlers validate without retaining partial mutation",
     auto state = make_plugin_state();
     auto const before = state.timeline.get_state();
 
-    CHECK(execute(state, "set key 128").status.first == MessageLevel::Error);
-    CHECK(state.timeline.get_state() == before);
-    CHECK(execute(state, "set measure timeSignature 0/4").status.second ==
-          "Invalid TimeSignature");
+    auto const result = execute(state, "set translateDirection sideways");
+    CHECK(result.status.first == MessageLevel::Error);
+    CHECK(result.status.second == "Invalid TranslateDirection: sideways");
     CHECK(state.timeline.get_state() == before);
 }
 

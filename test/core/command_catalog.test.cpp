@@ -107,6 +107,22 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     CHECK(invalid_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(invalid_error.message == "Invalid argument 'key': Invalid integer: nope");
 
+    auto const out_of_range_result =
+        bind_invocation(parse_command_chain("set key 128")[0]);
+    REQUIRE(std::holds_alternative<CatalogBindError>(out_of_range_result));
+    auto const &out_of_range_error = std::get<CatalogBindError>(out_of_range_result);
+    CHECK(out_of_range_error.kind == CatalogBindErrorKind::InvalidArgument);
+    CHECK(out_of_range_error.message ==
+          "Invalid argument 'key': Must be in range [-127, 127].");
+
+    auto const invalid_velocity =
+        bind_invocation(parse_command_chain("set velocity 1.5")[0]);
+    REQUIRE(std::holds_alternative<CatalogBindError>(invalid_velocity));
+    auto const &velocity_error = std::get<CatalogBindError>(invalid_velocity);
+    CHECK(velocity_error.kind == CatalogBindErrorKind::InvalidArgument);
+    CHECK(velocity_error.message ==
+          "Invalid argument 'velocity': Must be in range [0, 1].");
+
     auto const missing_invocation = parse_command_chain("load measure")[0];
     auto const missing_result = bind_invocation(missing_invocation);
     REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
@@ -248,7 +264,7 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
         });
     REQUIRE(set_pitch != metadata.end());
     REQUIRE(set_pitch->arguments.size() == 1);
-    CHECK(set_pitch->arguments[0].kind == "integer | modulator");
+    CHECK(set_pitch->arguments[0].kind == "pitch | modulator");
 
     auto const set_velocity = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
@@ -256,7 +272,11 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
         });
     REQUIRE(set_velocity != metadata.end());
     REQUIRE(set_velocity->arguments.size() == 1);
-    CHECK(set_velocity->arguments[0].kind == "number | modulator");
+    CHECK(set_velocity->arguments[0].kind == "velocity | modulator");
+    REQUIRE(set_velocity->arguments[0].constraints.size() == 1);
+    CHECK(set_velocity->arguments[0].constraints[0].kind == "range");
+    CHECK(set_velocity->arguments[0].constraints[0].minimum == 0.0);
+    CHECK(set_velocity->arguments[0].constraints[0].maximum == 1.0);
     CHECK(set_velocity->keywords ==
           std::vector<std::string>{"volume", "gain", "level", "loudness"});
 
@@ -266,11 +286,14 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
         });
     REQUIRE(set_key != metadata.end());
     REQUIRE(set_key->arguments.size() == 1);
-    CHECK(set_key->arguments[0].kind == "integer");
+    CHECK(set_key->arguments[0].kind == "transpose_key");
     CHECK(set_key->arguments[0].display_name == "key");
     CHECK_FALSE(set_key->arguments[0].required);
     REQUIRE(set_key->arguments[0].default_value.has_value());
     CHECK(*set_key->arguments[0].default_value == "0");
+    REQUIRE(set_key->arguments[0].constraints.size() == 1);
+    CHECK(set_key->arguments[0].constraints[0].minimum == -127.0);
+    CHECK(set_key->arguments[0].constraints[0].maximum == 127.0);
     CHECK_FALSE(set_key->description.empty());
     CHECK(set_key->keywords.empty());
 
@@ -314,6 +337,16 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
     REQUIRE(set_velocity != commands.end());
     CHECK(set_velocity->at("keywords") ==
           std::vector<std::string>{"volume", "gain", "level", "loudness"});
+    REQUIRE(set_velocity->at("arguments").size() == 1);
+    CHECK(set_velocity->at("arguments")[0].at("kind") == "velocity | modulator");
+    CHECK(set_velocity->at("arguments")[0]
+              .at("constraints")[0]
+              .at("minimum")
+              .get<double>() == 0.0);
+    CHECK(set_velocity->at("arguments")[0]
+              .at("constraints")[0]
+              .at("maximum")
+              .get<double>() == 1.0);
 }
 
 TEST_CASE("Catalog docs are generated from catalog metadata",
@@ -336,5 +369,5 @@ TEST_CASE("Catalog docs are generated from catalog metadata",
     REQUIRE(mirror_doc != docs.end());
     CHECK(mirror_doc->signature.pattern_arg == true);
     REQUIRE_FALSE(mirror_doc->signature.arguments.empty());
-    CHECK(mirror_doc->signature.arguments[0] == "[integer: centerPitch=0]");
+    CHECK(mirror_doc->signature.arguments[0] == "[pitch: centerPitch=0]");
 }
