@@ -24,7 +24,10 @@
 
 ## Build And Verification
 
+- Keep default validation lightweight. Do not treat a full build-and-test cycle as the baseline for every task.
 - Builds and tests may take a while; run them when they provide useful verification, not as a reflex after every change.
+- Avoid repetitive validation loops. While iterating, prefer the smallest meaningful build or test that checks the change, and stop once you have enough signal to proceed.
+- Run expensive verification only when the task actually requires it, such as shared-core changes, build-system changes, release/plugin packaging work, or when a narrow check cannot cover the risk.
 - Use the canonical dev workflow:
   - Configure: `./configure.sh`
   - Build: `cmake --build build`
@@ -70,10 +73,14 @@ Use the following operating rules:
   format target only when plugin packaging is relevant. Use
   `cmake --build build --target <target> -- --quiet` so successful Ninja progress does
   not enter context; diagnostics are still emitted.
+- Default to a narrow validation pass for local changes. Do not escalate to a full
+  `ctest` run or broader target build unless the edited code path, failure mode, or
+  user request makes that coverage necessary.
 - Run an exact Catch2 case or a relevant tag while iterating, for example
   `build/XenTests "exact test case name"` or `build/XenTests "[tag]"`. Run
-  `ctest --test-dir build --output-on-failure` for final code verification. Do not use
-  `ctest -V`, Catch2 `-s`, or `--list-tests` unless their extra output is needed.
+  `ctest --test-dir build --output-on-failure` for final code verification only when a
+  broader test pass is warranted. Do not use `ctest -V`, Catch2 `-s`, or
+  `--list-tests` unless their extra output is needed.
 - When a command may be noisy, capture it under `/tmp`, report its exit status and a
   short tail, then inspect only the first relevant error and its surrounding lines.
   Expand diagnostics as needed; do not paste an entire compiler or test log into
