@@ -262,7 +262,7 @@ namespace xen::gui
 {
 
 WebviewHost::WebviewHost(XenProcessor &processor)
-    : processor_{processor}, bridge_{processor}
+    : processor_{processor}, bridge_{processor.session()}
 {
 #if XEN_WEB_UI_USE_DEV_SERVER
     candidate_urls_ = parse_dev_server_urls(juce::String{XEN_WEB_UI_DEV_URL});
@@ -281,8 +281,8 @@ WebviewHost::WebviewHost(XenProcessor &processor)
 
     load_initial_url();
 
-    last_project_revision_ = processor_.get_project_snapshot().project_revision;
-    last_library_revision_ = processor_.get_library_snapshot().library_revision;
+    last_project_revision_ = processor_.session().project_snapshot().project_revision;
+    last_library_revision_ = processor_.session().library_snapshot().library_revision;
     last_keymap_revision_ = bridge_.keymap_revision();
     this->startTimerHz(30);
 }
@@ -303,13 +303,15 @@ void WebviewHost::resized()
 
 void WebviewHost::timerCallback()
 {
-    auto const project_revision = processor_.get_project_snapshot().project_revision;
+    auto const project_revision =
+        processor_.session().project_snapshot().project_revision;
     if (project_revision != last_project_revision_)
     {
         last_project_revision_ = project_revision;
         emit_state_changed_event();
     }
-    auto const library_revision = processor_.get_library_snapshot().library_revision;
+    auto const library_revision =
+        processor_.session().library_snapshot().library_revision;
     if (library_revision != last_library_revision_)
     {
         last_library_revision_ = library_revision;
@@ -524,7 +526,7 @@ void WebviewHost::emit_keymap_changed_event()
 
 void WebviewHost::emit_transport_events()
 {
-    auto const transport_state = processor_.audio_thread_state_for_gui.read();
+    auto const transport_state = processor_.audio_thread_state_snapshot();
     if (!transport_state.transport_active)
     {
         if (!last_transport_active_)

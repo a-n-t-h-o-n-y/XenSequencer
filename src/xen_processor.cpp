@@ -7,97 +7,21 @@
 #include <cstring>
 #include <exception>
 #include <limits>
-#include <ranges>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <xen/command.hpp>
-#include <xen/command_catalog.hpp>
-#include <xen/command_transaction.hpp>
 #include <xen/midi.hpp>
-#include <xen/project_validation.hpp>
-#include <xen/selection.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
-#include <xen/string_manip.hpp>
-#include <xen/submission_effects.hpp>
-#include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace
 {
-
-auto error_result(std::string message) -> xen::CommandApplicationResult
-{
-    return {
-        .status = {xen::MessageLevel::Error, std::move(message)},
-        .suggested_selection = std::nullopt,
-    };
-}
-
-auto validate_selection_target(xen::TargetRequirement requirement,
-                               std::optional<xen::SelectionPath> const &selection,
-                               xen::Measure const &measure)
-    -> std::optional<xen::CommandApplicationResult>
-{
-    using enum xen::TargetRequirement;
-
-    if (requirement == None)
-    {
-        return std::nullopt;
-    }
-    if (!selection.has_value())
-    {
-        return error_result("selection is required");
-    }
-
-    try
-    {
-        switch (requirement)
-        {
-        case Cell:
-            (void)xen::get_selected_cell_const(measure, *selection);
-            return std::nullopt;
-        case Element:
-            (void)xen::get_selected_element_const(measure, *selection);
-            return std::nullopt;
-        case CellOrElement:
-            if (xen::selection_kind(*selection) == xen::SelectionKind::Element)
-            {
-                (void)xen::get_selected_element_const(measure, *selection);
-            }
-            else
-            {
-                (void)xen::get_selected_cell_const(measure, *selection);
-            }
-            return std::nullopt;
-        case None:
-            return std::nullopt;
-        }
-    }
-    catch (std::exception const &)
-    {
-        switch (requirement)
-        {
-        case Cell:
-            return error_result("selection must resolve to a cell");
-        case Element:
-            return error_result("selection must resolve to an element");
-        case CellOrElement:
-            return error_result("selection path does not resolve");
-        case None:
-            break;
-        }
-    }
-
-    return std::nullopt;
-}
 
 [[nodiscard]] auto valid_bpm(double value) -> bool
 {
@@ -139,48 +63,24 @@ namespace xen
 
 XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
                            juce::File workspace_settings_file)
-    : workspace_settings_store_{std::move(workspace_settings_file)},
-      plugin_state{.workspace = workspace_settings_store_.load_or_initialize(),
-                   .timeline = XenTimeline{ProjectState{}}},
-      command_catalog_{create_command_catalog()}, effect_failure_{effect_failure}
+    : session_{effect_failure, std::move(workspace_settings_file)}
 {
-    initialize_demo_files();
-
-    // Send initial state to Audio Thread
-    publish_project_snapshot();
-
-    this->execute_command_string("load scales", CommandContext{});
-    this->execute_command_string("load chords", CommandContext{});
 }
 
-auto XenProcessor::command_catalog() const noexcept -> CommandCatalog const &
+auto XenProcessor::session() noexcept -> SequencerSession &
 {
-    return command_catalog_;
+    return session_;
 }
 
-auto XenProcessor::get_project_snapshot() const -> ProjectSnapshot
+auto XenProcessor::session() const noexcept -> SequencerSession const &
 {
-    return ProjectSnapshot{
-        .project = plugin_state.timeline.get_state(),
-        .history_entry_id = plugin_state.timeline.get_current_entry_id(),
-        .project_revision = plugin_state.timeline.get_project_revision(),
-    };
+    return session_;
 }
 
-auto XenProcessor::get_library_snapshot() const -> LibrarySnapshot
+auto XenProcessor::audio_thread_state_snapshot() const noexcept
+    -> AudioThreadStateForGUI
 {
-    return LibrarySnapshot{
-        .library = plugin_state.library,
-        .workspace = plugin_state.workspace,
-        .library_revision = plugin_state.library_revision,
-    };
-}
-
-void XenProcessor::publish_project_snapshot()
-{
-    validate(plugin_state.timeline.get_state());
-    pending_engine_state_update.publish(
-        AudioProjectSnapshot{plugin_state.timeline.get_state()});
+    return audio_thread_state_for_gui.read();
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -252,7 +152,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }
 
-    if (auto const snapshot = pending_engine_state_update.try_consume_latest())
+    if (auto const snapshot = session_.try_consume_audio_project_update())
     {
         audio_thread_state_.project = &snapshot->state().project;
         update_needed = true;
@@ -299,7 +199,7 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_project(plugin_state.timeline.get_state());
+        auto const json_str = serialize_project(session_.project_snapshot().project);
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -318,231 +218,12 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
         auto state = deserialize_project(json_str);
-        plugin_state.timeline.replace_history(std::move(state));
-        plugin_state.command_session = CommandSessionState{};
-        publish_project_snapshot();
+        session_.replace_project_history(std::move(state));
     }
     catch (std::exception const &e)
     {
         juce::Logger::writeToLog("XenSequencer setStateInformation error: " +
                                  juce::String{e.what()});
-    }
-}
-
-auto XenProcessor::execute_command_string(std::string const &command_string,
-                                          CommandContext const &context)
-    -> CommandApplicationResult
-{
-    try
-    {
-        auto const parsed = parse_command_chain(command_string);
-        auto expanded = std::vector<CommandInvocation>{};
-        for (auto const &invocation : parsed)
-        {
-            auto const result = command_catalog_.bind_invocation(invocation);
-            if (std::holds_alternative<CatalogBindError>(result))
-            {
-                return error_result(std::get<CatalogBindError>(result).message);
-            }
-            auto const &step = std::get<BoundStep>(result);
-            if (std::holds_alternative<RepeatPrevious>(step))
-            {
-                if (plugin_state.command_session.repeat_chain.empty())
-                {
-                    return error_result("No previous command to repeat.");
-                }
-                expanded.insert(expanded.end(),
-                                plugin_state.command_session.repeat_chain.begin(),
-                                plugin_state.command_session.repeat_chain.end());
-            }
-            else
-            {
-                expanded.push_back(invocation);
-            }
-        }
-
-        auto const bind_result = command_catalog_.bind_chain(expanded);
-        if (std::holds_alternative<CatalogBindError>(bind_result))
-        {
-            return error_result(std::get<CatalogBindError>(bind_result).message);
-        }
-        auto const &steps = std::get<std::vector<BoundStep>>(bind_result);
-
-        auto const project_aware =
-            std::ranges::any_of(steps, [](BoundStep const &step) {
-                return std::visit(
-                    [](auto const &typed_step) {
-                        using Step = std::decay_t<decltype(typed_step)>;
-                        if constexpr (std::is_same_v<Step, RepeatPrevious>)
-                        {
-                            return false;
-                        }
-                        else
-                        {
-                            return typed_step.policy.project != ProjectOperation::None;
-                        }
-                    },
-                    step);
-            });
-        if (project_aware && !context.expected_project_revision.has_value())
-        {
-            return error_result("expected project revision is required");
-        }
-        auto const current_revision = plugin_state.timeline.get_project_revision();
-        if (project_aware && *context.expected_project_revision != current_revision)
-        {
-            return error_result(
-                "stale project revision: expected " +
-                std::to_string(context.expected_project_revision->value()) +
-                ", current " + std::to_string(current_revision.value()));
-        }
-
-        auto const history_count =
-            std::ranges::count_if(steps, [](BoundStep const &step) {
-                return std::holds_alternative<ExecutableHistoryNavigation>(step);
-            });
-        if (history_count > 0 && steps.size() != 1)
-        {
-            return error_result("undo and redo must be submitted alone.");
-        }
-
-        auto transaction = CommandTransaction{plugin_state, effect_failure_};
-        if (history_count == 1)
-        {
-            transaction.invalidate_transform_sessions();
-        }
-        auto execution_context =
-            CommandExecutionContext{.selection = context.selection};
-        auto result = CommandApplicationResult{};
-        auto const initial_engine = plugin_state.timeline.get_state();
-        auto const initial_revision = plugin_state.timeline.get_project_revision();
-
-        for (auto const &step : steps)
-        {
-            if (std::holds_alternative<RepeatPrevious>(step))
-            {
-                return error_result("Recursive 'again' expansion is not allowed.");
-            }
-
-            if (std::holds_alternative<ExecutableHistoryNavigation>(step))
-            {
-                auto const &navigation = std::get<ExecutableHistoryNavigation>(step);
-                transaction.plan_history(HistoryPlan{
-                    .kind = navigation.direction == HistoryNavigationDirection::Undo
-                                ? HistoryPlanKind::NavigateUndo
-                                : HistoryPlanKind::NavigateRedo,
-                });
-                result.status = CommandStatus{MessageLevel::Info,
-                                              navigation.direction ==
-                                                      HistoryNavigationDirection::Undo
-                                                  ? "Undone"
-                                                  : "Redone"};
-                result.suggested_selection = std::nullopt;
-                continue;
-            }
-
-            auto const &command = std::get<ExecutableCommand>(step);
-            if (auto selection_error = validate_selection_target(
-                    command.policy.target, execution_context.selection,
-                    transaction.project().measure);
-                selection_error.has_value())
-            {
-                return *selection_error;
-            }
-
-            auto const before = transaction.project();
-            result = command.execute(transaction, execution_context);
-            if (result.status.first == MessageLevel::Error)
-            {
-                return result;
-            }
-
-            if (result.suggested_selection.has_value())
-            {
-                execution_context.selection = result.suggested_selection;
-            }
-
-            auto const changed = transaction.project() != before;
-            if ((changed &&
-                 command.policy.history != HistoryPolicy::AmendCompatibleTransform) ||
-                transaction.library_changed() || transaction.workspace_changed())
-            {
-                transaction.invalidate_transform_sessions();
-            }
-            if (changed &&
-                command.policy.repeat == RepeatPolicy::OnSuccessfulProjectChange)
-            {
-                transaction.record_repeat(command.invocation);
-            }
-        }
-
-        if (steps.size() != 1 && transaction.history_plan_is_amend())
-        {
-            transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
-        }
-        if (history_count == 0 && transaction.project_changed() &&
-            !transaction.has_history_plan())
-        {
-            transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
-        }
-
-        auto const project_changed = transaction.project_changed();
-        transaction.prepare();
-        try
-        {
-            transaction.apply_effects();
-            if (transaction.workspace_changed())
-            {
-                workspace_settings_store_.save(transaction.workspace());
-            }
-        }
-        catch (std::exception const &e)
-        {
-            auto const rollback_failures = transaction.rollback_effects();
-            auto message = std::string{e.what()};
-            if (!rollback_failures.empty())
-            {
-                message += "; rollback failed for: " + rollback_failures;
-            }
-            return error_result(std::move(message));
-        }
-
-        transaction.install();
-        transaction.finalize_effects();
-        if (transaction.repeat_candidate().has_value() && project_changed)
-        {
-            plugin_state.command_session.repeat_chain = *transaction.repeat_candidate();
-        }
-        auto const &final_engine = plugin_state.timeline.get_state();
-        auto const final_revision = plugin_state.timeline.get_project_revision();
-        if (history_count == 1 && final_revision == initial_revision)
-        {
-            auto const &navigation =
-                std::get<ExecutableHistoryNavigation>(steps.front());
-            result.status =
-                CommandStatus{MessageLevel::Info,
-                              navigation.direction == HistoryNavigationDirection::Undo
-                                  ? "Nothing to undo."
-                                  : "Nothing to redo."};
-        }
-        if (final_revision != initial_revision || final_engine != initial_engine)
-        {
-            publish_project_snapshot();
-        }
-        if (!expanded.empty() &&
-            expanded.front().input.words == std::vector<std::string>{"reset"})
-        {
-            plugin_state.command_session = CommandSessionState{};
-        }
-        return result;
-    }
-    catch (std::exception const &e)
-    {
-        return error_result(e.what());
-    }
-    catch (...)
-    {
-        return error_result("Unknown error");
     }
 }
 

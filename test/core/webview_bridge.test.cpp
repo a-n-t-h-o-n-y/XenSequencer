@@ -4,8 +4,8 @@
 #include <nlohmann/json.hpp>
 
 #include <xen/bridge_serialize.hpp>
+#include <xen/sequencer_session.hpp>
 #include <xen/webview_bridge.hpp>
-#include <xen/xen_processor.hpp>
 
 using namespace xen;
 
@@ -24,15 +24,15 @@ auto temporary_workspace_file() -> juce::File
         .getNonexistentChildFile("xen-workspace", ".json", false);
 }
 
-auto make_processor() -> XenProcessor
+auto make_session() -> SequencerSession
 {
-    return XenProcessor{SubmissionEffects::FailurePoint::None,
-                        temporary_workspace_file()};
+    return SequencerSession{SubmissionEffects::FailurePoint::None,
+                            temporary_workspace_file()};
 }
 
-auto make_bridge(XenProcessor &processor) -> WebviewBridge
+auto make_bridge(SequencerSession &session) -> WebviewBridge
 {
-    return WebviewBridge{processor, temporary_keymap_file()};
+    return WebviewBridge{session, temporary_keymap_file()};
 }
 
 auto request(std::string name, nlohmann::json payload = nlohmann::json::object())
@@ -57,8 +57,8 @@ auto response(WebviewBridge &bridge, std::string name,
 
 TEST_CASE("Bridge session hello contains session resources only", "[core][bridge]")
 {
-    auto processor = make_processor();
-    auto host_bridge = make_bridge(processor);
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
     auto const message = response(host_bridge, "session.hello",
                                   {
                                       {"protocol", bridge::protocol},
@@ -96,8 +96,8 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
 
 TEST_CASE("Bridge project and library resources are separated", "[core][bridge]")
 {
-    auto processor = make_processor();
-    auto host_bridge = make_bridge(processor);
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
 
     auto const state = response(host_bridge, "state.get").at("payload");
     CHECK(state.at("schema_version") == bridge::project_schema_version);
@@ -121,9 +121,9 @@ TEST_CASE("Bridge project and library resources are separated", "[core][bridge]"
 
 TEST_CASE("Bridge command response contains current project snapshot", "[core][bridge]")
 {
-    auto processor = make_processor();
-    auto host_bridge = make_bridge(processor);
-    auto const revision = processor.get_project_snapshot().project_revision.value();
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
+    auto const revision = session.project_snapshot().project_revision.value();
     auto const message =
         response(host_bridge, "command.execute",
                  {
@@ -140,8 +140,8 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
 
 TEST_CASE("Bridge updates and resets individual keymap overrides", "[core][bridge]")
 {
-    auto processor = make_processor();
-    auto host_bridge = make_bridge(processor);
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
     auto const initial = response(host_bridge, "keymap.get").at("payload");
     auto const revision = initial.at("revision").get<std::uint64_t>();
     auto const trigger = nlohmann::json{
@@ -199,8 +199,8 @@ TEST_CASE("Bridge updates and resets individual keymap overrides", "[core][bridg
 
 TEST_CASE("Bridge changed events use independent resource payloads", "[core][bridge]")
 {
-    auto processor = make_processor();
-    auto host_bridge = make_bridge(processor);
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
 
     auto const state =
         nlohmann::json::parse(host_bridge.make_state_changed_event_json());

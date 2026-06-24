@@ -206,16 +206,17 @@ set(XEN_APPLICATION_SOURCES
     src/command_transaction.cpp
     src/keymap.cpp
     src/parse_args.cpp
+    src/sequencer_session.cpp
     src/submission_effects.cpp
     src/workspace_settings.cpp
 )
 
 set(XEN_BRIDGE_PROTOCOL_SOURCES
     src/bridge_serialize.cpp
+    src/webview_bridge.cpp
 )
 
 set(XEN_JUCE_UI_SOURCES
-    src/webview_bridge.cpp
     src/xen_editor.cpp
     src/gui/webview_host.cpp
 )
@@ -352,23 +353,23 @@ if (XEN_BUILD_TESTS)
         test/core/command_catalog.test.cpp
         test/core/command_parse.test.cpp
         test/core/keymap.test.cpp
+        test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
+        test/core/webview_bridge.test.cpp
+        test/data_model_refactor.test.cpp
         test/midi.test.cpp
         test/midi_engine.test.cpp
         test/numeric_safety.test.cpp
+        test/processor/command_effects.test.cpp
+        test/processor/processor_commands.test.cpp
+        test/processor/processor_timeline_commit.test.cpp
         test/sync/engine_state_mailbox.test.cpp
+        test/sync/engine_snapshot_contract.test.cpp
         test/utility.test.cpp
     )
 
     set(XEN_ADAPTER_TEST_SOURCES
-        test/core/state_actions.test.cpp
-        test/core/webview_bridge.test.cpp
-        test/data_model_refactor.test.cpp
-        test/processor/command_effects.test.cpp
-        test/processor/processor_commands.test.cpp
         test/processor/processor_state_roundtrip.test.cpp
-        test/processor/processor_timeline_commit.test.cpp
-        test/sync/engine_snapshot_contract.test.cpp
     )
 
     if (XEN_CORE_TEST_SOURCES)

@@ -16,7 +16,7 @@
 #include <xen/command_catalog.hpp>
 #include <xen/constants.hpp>
 #include <xen/keymap.hpp>
-#include <xen/xen_processor.hpp>
+#include <xen/sequencer_session.hpp>
 
 namespace
 {
@@ -546,9 +546,9 @@ auto make_tuning_entries(juce::File const &directory) -> nlohmann::json
     return out;
 }
 
-auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
+auto make_library_payload(xen::SequencerSession const &session) -> nlohmann::json
 {
-    auto const snapshot = processor.get_library_snapshot();
+    auto const snapshot = session.library_snapshot();
     auto const &workspace = snapshot.workspace;
     auto const &library = snapshot.library;
 
@@ -619,8 +619,8 @@ auto make_library_payload(xen::XenProcessor const &processor) -> nlohmann::json
 namespace xen
 {
 
-WebviewBridge::WebviewBridge(XenProcessor &processor, juce::File keymap_file)
-    : processor_{processor}, keymap_store_{std::move(keymap_file)}
+WebviewBridge::WebviewBridge(SequencerSession &session, juce::File keymap_file)
+    : session_{session}, keymap_store_{std::move(keymap_file)}
 {
 }
 
@@ -643,20 +643,20 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                 {"project_schema_version", bridge::project_schema_version},
                 {"library_schema_version", bridge::library_schema_version},
                 {"catalog",
-                 bridge::make_catalog_payload(processor_.command_catalog().metadata())},
+                 bridge::make_catalog_payload(session_.command_catalog().metadata())},
                 {"keymap", bridge::make_keymap_payload(keymap_store_.snapshot())},
             };
         }
         else if (request.name == "state.get")
         {
             validate_empty_object_payload(request.payload, request);
-            payload = bridge::make_project_snapshot(processor_.get_project_snapshot());
+            payload = bridge::make_project_snapshot(session_.project_snapshot());
         }
         else if (request.name == "command.execute")
         {
             auto const command = require_string(request.payload, "command");
             auto const context = parse_command_context(request.payload);
-            auto const result = processor_.execute_command_string(command, context);
+            auto const result = session_.execute_command_string(command, context);
             payload = nlohmann::json{
                 {"status",
                  {
@@ -665,13 +665,13 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
                  }},
                 {"suggested_selection", selection_to_json(result.suggested_selection)},
                 {"snapshot",
-                 bridge::make_project_snapshot(processor_.get_project_snapshot())},
+                 bridge::make_project_snapshot(session_.project_snapshot())},
             };
         }
         else if (request.name == "library.get")
         {
             validate_empty_object_payload(request.payload, request);
-            payload = make_library_payload(processor_);
+            payload = make_library_payload(session_);
         }
         else if (request.name == "keymap.get")
         {
@@ -769,15 +769,14 @@ auto WebviewBridge::handle_request_json(std::string const &request_json) -> std:
 
 auto WebviewBridge::make_state_changed_event_json() const -> std::string
 {
-    auto const payload =
-        bridge::make_project_snapshot(processor_.get_project_snapshot());
+    auto const payload = bridge::make_project_snapshot(session_.project_snapshot());
     return make_envelope("event", "state.changed", std::nullopt, payload).dump();
 }
 
 auto WebviewBridge::make_library_changed_event_json() const -> std::string
 {
     return make_envelope("event", "library.changed", std::nullopt,
-                         make_library_payload(processor_))
+                         make_library_payload(session_))
         .dump();
 }
 

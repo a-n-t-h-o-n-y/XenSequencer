@@ -7,11 +7,7 @@
 #include <juce_core/juce_core.h>
 
 #include <xen/keymap.hpp>
-
-namespace xen
-{
-class XenProcessor;
-}
+#include <xen/sequencer_session.hpp>
 
 namespace xen
 {
@@ -25,7 +21,7 @@ class WebviewBridge
     };
 
   public:
-    explicit WebviewBridge(XenProcessor &processor,
+    explicit WebviewBridge(SequencerSession &session,
                            juce::File keymap_file = KeymapStore::default_file());
 
     [[nodiscard]] auto handle_request_json(std::string const &request_json)
@@ -40,7 +36,7 @@ class WebviewBridge
     [[nodiscard]] auto keymap_revision() const noexcept -> std::uint64_t;
 
   private:
-    XenProcessor &processor_;
+    SequencerSession &session_;
     KeymapStore keymap_store_;
 };
 

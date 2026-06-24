@@ -9,9 +9,9 @@
 
 #include <xen/project_validation.hpp>
 #include <xen/scale.hpp>
+#include <xen/sequencer_session.hpp>
 #include <xen/serialize.hpp>
 #include <xen/workspace_settings.hpp>
-#include <xen/xen_processor.hpp>
 
 using namespace xen;
 
@@ -108,7 +108,7 @@ scales:
 TEST_CASE("Scale selection uses source IDs and mode shifts preserve provenance",
           "[data-model][scale]")
 {
-    auto processor = XenProcessor{};
+    auto session = SequencerSession{};
     auto make_scale = [](std::string name) {
         return Scale{
             .name = std::move(name),
@@ -117,40 +117,40 @@ TEST_CASE("Scale selection uses source IDs and mode shifts preserve provenance",
             .mode = 1,
         };
     };
-    processor.plugin_state.library.scales = {
-        LibraryScale{.id = "major", .definition = make_scale("major")},
-        LibraryScale{.id = "other", .definition = make_scale("other")},
-    };
+    session.replace_library(ContentLibrary{
+        .scales = {
+            LibraryScale{.id = "major", .definition = make_scale("major")},
+            LibraryScale{.id = "other", .definition = make_scale("other")},
+        }});
 
     auto context = CommandContext{
-        .expected_project_revision = processor.get_project_snapshot().project_revision,
+        .expected_project_revision = session.project_snapshot().project_revision,
     };
-    REQUIRE(processor.execute_command_string("set scale major", context).status.first ==
+    REQUIRE(session.execute_command_string("set scale major", context).status.first ==
             MessageLevel::Info);
-    auto snapshot = processor.get_project_snapshot();
+    auto snapshot = session.project_snapshot();
     REQUIRE(snapshot.project.pitch.scale.has_value());
     CHECK(snapshot.project.pitch.scale->source_id == "major");
 
     context.expected_project_revision = snapshot.project_revision;
-    REQUIRE(
-        processor.execute_command_string("shift scaleMode 1", context).status.first ==
-        MessageLevel::Info);
-    snapshot = processor.get_project_snapshot();
+    REQUIRE(session.execute_command_string("shift scaleMode 1", context).status.first ==
+            MessageLevel::Info);
+    snapshot = session.project_snapshot();
     REQUIRE(snapshot.project.pitch.scale.has_value());
     CHECK(snapshot.project.pitch.scale->source_id == "major");
 
     context.expected_project_revision = snapshot.project_revision;
-    REQUIRE(processor.execute_command_string("shift scale 1", context).status.first ==
+    REQUIRE(session.execute_command_string("shift scale 1", context).status.first ==
             MessageLevel::Info);
-    snapshot = processor.get_project_snapshot();
+    snapshot = session.project_snapshot();
     REQUIRE(snapshot.project.pitch.scale.has_value());
     CHECK(snapshot.project.pitch.scale->source_id == "other");
 
     context.expected_project_revision = snapshot.project_revision;
     REQUIRE(
-        processor.execute_command_string("set scale chromatic", context).status.first ==
+        session.execute_command_string("set scale chromatic", context).status.first ==
         MessageLevel::Info);
-    CHECK_FALSE(processor.get_project_snapshot().project.pitch.scale.has_value());
+    CHECK_FALSE(session.project_snapshot().project.pitch.scale.has_value());
 }
 
 TEST_CASE("Workspace settings persist outside project state", "[data-model][workspace]")
@@ -165,15 +165,15 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
     auto const settings_file = root.getChildFile("settings.json");
 
     {
-        auto processor =
-            XenProcessor{SubmissionEffects::FailurePoint::None, settings_file};
-        CHECK(processor
+        auto session =
+            SequencerSession{SubmissionEffects::FailurePoint::None, settings_file};
+        CHECK(session
                   .execute_command_string(
                       "set sequenceDirectory \"" +
                           sequences.getFullPathName().toStdString() + "\"",
                       CommandContext{})
                   .status.first == MessageLevel::Info);
-        CHECK(processor
+        CHECK(session
                   .execute_command_string("set tuningDirectory \"" +
                                               tunings.getFullPathName().toStdString() +
                                               "\"",
@@ -193,34 +193,34 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
 TEST_CASE("Transform cycles amend one history entry and again remains compatible",
           "[data-model][transform]")
 {
-    auto processor = XenProcessor{};
-    auto project = processor.get_project_snapshot().project;
+    auto session = SequencerSession{};
+    auto project = session.project_snapshot().project;
     project.measure.cell.elements = {
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},
     };
-    processor.plugin_state.timeline.replace_history(project);
+    session.replace_project_history(project);
 
     auto context = CommandContext{
         .selection = SelectionPath{},
-        .expected_project_revision = processor.get_project_snapshot().project_revision,
+        .expected_project_revision = session.project_snapshot().project_revision,
     };
-    REQUIRE(processor.execute_command_string("chord Major 0", context).status.first ==
+    REQUIRE(session.execute_command_string("chord Major 0", context).status.first ==
             MessageLevel::Info);
-    auto const first = processor.get_project_snapshot();
+    auto const first = session.project_snapshot();
 
     context.expected_project_revision = first.project_revision;
-    REQUIRE(processor.execute_command_string("chord", context).status.first ==
+    REQUIRE(session.execute_command_string("chord", context).status.first ==
             MessageLevel::Info);
-    auto const second = processor.get_project_snapshot();
+    auto const second = session.project_snapshot();
     CHECK(second.history_entry_id == first.history_entry_id);
     CHECK(second.project_revision != first.project_revision);
 
     context.expected_project_revision = second.project_revision;
-    REQUIRE(processor.execute_command_string("again", context).status.first ==
+    REQUIRE(session.execute_command_string("again", context).status.first ==
             MessageLevel::Info);
-    auto const repeated = processor.get_project_snapshot();
+    auto const repeated = session.project_snapshot();
     CHECK(repeated.history_entry_id == first.history_entry_id);
     CHECK(repeated.project_revision != second.project_revision);
 }
@@ -228,31 +228,32 @@ TEST_CASE("Transform cycles amend one history entry and again remains compatible
 TEST_CASE("No-op transform preserves session without history or publication",
           "[data-model][transform]")
 {
-    auto processor = XenProcessor{};
-    auto const before = processor.get_project_snapshot();
-    auto const mailbox_version = processor.pending_engine_state_update.version();
-    auto const result = processor.execute_command_string(
+    auto session = SequencerSession{};
+    auto const before = session.project_snapshot();
+    auto const mailbox_version = session.audio_project_update_version();
+    auto const result = session.execute_command_string(
         "chord Major 0", {
                              .selection = SelectionPath{},
                              .expected_project_revision = before.project_revision,
                          });
 
     CHECK(result.status.first == MessageLevel::Info);
-    auto const after = processor.get_project_snapshot();
+    auto const after = session.project_snapshot();
     CHECK(after.project_revision == before.project_revision);
     CHECK(after.history_entry_id == before.history_entry_id);
-    CHECK(processor.pending_engine_state_update.version() == mailbox_version);
-    REQUIRE(processor.plugin_state.command_session.transform_cycle.has_value());
-    CHECK_FALSE(processor.plugin_state.command_session.transform_cycle->committed);
-    CHECK(processor.plugin_state.command_session.repeat_chain.empty());
+    CHECK(session.audio_project_update_version() == mailbox_version);
+    REQUIRE(session.command_session().transform_cycle.has_value());
+    CHECK_FALSE(session.command_session().transform_cycle->committed);
+    CHECK(session.command_session().repeat_chain.empty());
 }
 
 TEST_CASE("Library reloads always advance library revision", "[data-model][library]")
 {
-    auto processor = XenProcessor{};
-    auto const before = processor.get_library_snapshot().library_revision;
-    REQUIRE(processor.execute_command_string("load chords", CommandContext{})
-                .status.first == MessageLevel::Info);
-    auto const after = processor.get_library_snapshot().library_revision;
+    auto session = SequencerSession{};
+    auto const before = session.library_snapshot().library_revision;
+    REQUIRE(
+        session.execute_command_string("load chords", CommandContext{}).status.first ==
+        MessageLevel::Info);
+    auto const after = session.library_snapshot().library_revision;
     CHECK(after != before);
 }
