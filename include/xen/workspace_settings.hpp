@@ -1,6 +1,6 @@
 #pragma once
 
-#include <juce_core/juce_core.h>
+#include <filesystem>
 
 #include <xen/state.hpp>
 
@@ -10,16 +10,16 @@ namespace xen
 class WorkspaceSettingsStore
 {
   public:
-    explicit WorkspaceSettingsStore(juce::File file = default_file());
+    explicit WorkspaceSettingsStore(std::filesystem::path file = default_file());
 
     [[nodiscard]] auto load_or_initialize() const -> WorkspaceSettings;
     void save(WorkspaceSettings const &settings) const;
-    [[nodiscard]] auto file() const -> juce::File const &;
+    [[nodiscard]] auto file() const -> std::filesystem::path const &;
 
-    [[nodiscard]] static auto default_file() -> juce::File;
+    [[nodiscard]] static auto default_file() -> std::filesystem::path;
 
   private:
-    juce::File file_;
+    std::filesystem::path file_;
 };
 
 } // namespace xen

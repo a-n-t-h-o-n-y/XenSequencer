@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <ranges>
 #include <stdexcept>
 #include <string_view>
@@ -10,6 +11,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <xen/text_file.hpp>
 #include <xen/user_directory.hpp>
 
 namespace
@@ -420,31 +422,34 @@ void validate(KeymapOverride const &value)
     }
 }
 
-KeymapStore::KeymapStore(juce::File file) : file_{std::move(file)}
+KeymapStore::KeymapStore(std::filesystem::path file) : file_{std::move(file)}
 {
     load();
 }
 
-auto KeymapStore::default_file() -> juce::File
+auto KeymapStore::default_file() -> std::filesystem::path
 {
-    return get_user_settings_directory().getChildFile("keymap.json");
+    return std::filesystem::path{
+               get_user_settings_directory().getFullPathName().toStdString()} /
+           "keymap.json";
 }
 
 void KeymapStore::load()
 {
-    if (!file_.existsAsFile())
+    auto const text = read_text_file(file_);
+    if (!text.has_value())
     {
         save();
         return;
     }
-    if (file_.getSize() > (4 * 1'024 * 1'024))
+    if (text->size() > (4 * 1'024 * 1'024))
     {
         throw std::runtime_error{"Keymap settings file exceeds 4MB."};
     }
 
     try
     {
-        auto const json = nlohmann::json::parse(file_.loadFileAsString().toStdString());
+        auto const json = nlohmann::json::parse(*text);
         if (json.at("schema_version").get<int>() != KEYMAP_SCHEMA_VERSION)
         {
             throw std::invalid_argument{"Unsupported keymap schema."};
@@ -471,19 +476,13 @@ void KeymapStore::load()
     }
     catch (std::exception const &error)
     {
-        throw std::runtime_error{"Unable to load keymap settings " +
-                                 file_.getFullPathName().toStdString() + ": " +
-                                 error.what()};
+        throw std::runtime_error{"Unable to load keymap settings " + file_.string() +
+                                 ": " + error.what()};
     }
 }
 
 void KeymapStore::save() const
 {
-    auto const parent = file_.getParentDirectory();
-    if (!parent.isDirectory() && !parent.createDirectory().wasOk())
-    {
-        throw std::runtime_error{"Unable to create keymap settings directory."};
-    }
     auto entries = nlohmann::json::array();
     for (auto const &entry : overrides_)
     {
@@ -495,13 +494,7 @@ void KeymapStore::save() const
         {"overrides", std::move(entries)},
     };
 
-    auto temporary = juce::TemporaryFile{file_};
-    if (!temporary.getFile().replaceWithText(json.dump(2)) ||
-        !temporary.overwriteTargetFileWithTemporary())
-    {
-        throw std::runtime_error{"Unable to persist keymap settings: " +
-                                 file_.getFullPathName().toStdString()};
-    }
+    atomic_write_text_file(file_, json.dump(2));
 }
 
 void KeymapStore::require_revision(std::uint64_t expected_revision) const
@@ -626,7 +619,7 @@ auto KeymapStore::reset(std::uint64_t expected_revision) -> KeymapSnapshot
     return snapshot();
 }
 
-auto KeymapStore::file() const -> juce::File const &
+auto KeymapStore::file() const -> std::filesystem::path const &
 {
     return file_;
 }

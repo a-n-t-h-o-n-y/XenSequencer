@@ -28,7 +28,8 @@ TEST_CASE("Effect failures leave backend state unchanged and report rollback fai
                                SubmissionEffects::FailurePoint::Apply,
                                SubmissionEffects::FailurePoint::ApplyAndRollback})
     {
-        auto session = SequencerSession{failure, settings_file};
+        auto session =
+            SequencerSession{failure, settings_file.getFullPathName().toStdString()};
         auto const before = session.project_snapshot();
         auto const result = session.execute_command_string(
             "save measure effect-test",

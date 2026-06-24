@@ -22,19 +22,30 @@ namespace
                     rhs.note.pitch_bend, rhs.note.velocity);
 }
 
-[[nodiscard]] auto normalize_live_voices(
-    std::vector<xen::midi_internal::LiveVoice> voices)
-    -> std::vector<xen::midi_internal::LiveVoice>
+using LiveVoiceSet = xen::MidiEngine::LiveVoiceSet;
+
+void push_live_voice(LiveVoiceSet &set, xen::midi_internal::LiveVoice voice) noexcept
 {
-    std::sort(voices.begin(), voices.end(), live_voice_less);
-    voices.erase(std::unique(voices.begin(), voices.end()), voices.end());
+    if (set.size < set.voices.size())
+    {
+        set.voices[set.size] = voice;
+        ++set.size;
+    }
+}
+
+[[nodiscard]] auto normalize_live_voices(LiveVoiceSet voices) -> LiveVoiceSet
+{
+    auto const begin = voices.voices.begin();
+    auto const end = begin + static_cast<std::ptrdiff_t>(voices.size);
+    std::sort(begin, end, live_voice_less);
+    auto const unique_end = std::unique(begin, end);
+    voices.size = static_cast<std::size_t>(std::distance(begin, unique_end));
     return voices;
 }
 
 [[nodiscard]] auto live_voices_at(
     std::vector<xen::midi_internal::AssignedMidiNote> const &assigned_notes,
-    xen::SampleCount sample_count, xen::SampleIndex position)
-    -> std::vector<xen::midi_internal::LiveVoice>
+    xen::SampleCount sample_count, xen::SampleIndex position) -> LiveVoiceSet
 {
     if (sample_count == 0)
     {
@@ -42,16 +53,16 @@ namespace
     }
 
     auto const loop_position = position % sample_count;
-    auto voices = std::vector<xen::midi_internal::LiveVoice>{};
+    auto voices = LiveVoiceSet{};
     for (auto const &assigned : assigned_notes)
     {
         if (assigned.note.begin < loop_position && loop_position < assigned.note.end)
         {
-            voices.push_back(xen::midi_internal::live_voice_from(assigned));
+            push_live_voice(voices, xen::midi_internal::live_voice_from(assigned));
         }
     }
 
-    return normalize_live_voices(std::move(voices));
+    return normalize_live_voices(voices);
 }
 
 void emit_live_voice_note_off(juce::MidiBuffer &buffer,
@@ -89,18 +100,17 @@ void emit_live_voice_note_on(juce::MidiBuffer &buffer,
     return continuation_key(lhs) < continuation_key(rhs);
 }
 
-[[nodiscard]] auto normalize_live_voice_continuations(
-    std::vector<xen::midi_internal::LiveVoice> voices)
-    -> std::vector<xen::midi_internal::LiveVoice>
+[[nodiscard]] auto normalize_live_voice_continuations(LiveVoiceSet voices)
+    -> LiveVoiceSet
 {
-    std::sort(voices.begin(), voices.end(), live_voice_continuation_less);
+    auto const begin = voices.voices.begin();
+    auto const end = begin + static_cast<std::ptrdiff_t>(voices.size);
+    std::sort(begin, end, live_voice_continuation_less);
     return voices;
 }
 
-void reconcile_live_voices(
-    juce::MidiBuffer &buffer,
-    std::vector<xen::midi_internal::LiveVoice> &active_live_voices,
-    std::vector<xen::midi_internal::LiveVoice> const &desired_live_voices)
+void reconcile_live_voices(juce::MidiBuffer &buffer, LiveVoiceSet &active_live_voices,
+                           LiveVoiceSet const &desired_live_voices)
 {
     auto const current_live_voices =
         normalize_live_voice_continuations(active_live_voices);
@@ -109,28 +119,28 @@ void reconcile_live_voices(
 
     auto current_index = std::size_t{0};
     auto desired_index = std::size_t{0};
-    auto removed_voices = std::vector<xen::midi_internal::LiveVoice>{};
-    auto pitch_bend_updates = std::vector<xen::midi_internal::LiveVoice>{};
-    auto added_voices = std::vector<xen::midi_internal::LiveVoice>{};
-    auto next_active_live_voices = std::vector<xen::midi_internal::LiveVoice>{};
+    auto removed_voices = LiveVoiceSet{};
+    auto pitch_bend_updates = LiveVoiceSet{};
+    auto added_voices = LiveVoiceSet{};
+    auto next_active_live_voices = LiveVoiceSet{};
 
-    while (current_index < current_live_voices.size() &&
-           desired_index < sorted_desired_live_voices.size())
+    while (current_index < current_live_voices.size &&
+           desired_index < sorted_desired_live_voices.size)
     {
-        auto const &current = current_live_voices[current_index];
-        auto desired = sorted_desired_live_voices[desired_index];
+        auto const &current = current_live_voices.voices[current_index];
+        auto desired = sorted_desired_live_voices.voices[desired_index];
 
         if (live_voice_continuation_less(current, desired))
         {
-            removed_voices.push_back(current);
+            push_live_voice(removed_voices, current);
             ++current_index;
             continue;
         }
 
         if (live_voice_continuation_less(desired, current))
         {
-            added_voices.push_back(desired);
-            next_active_live_voices.push_back(desired);
+            push_live_voice(added_voices, desired);
+            push_live_voice(next_active_live_voices, desired);
             ++desired_index;
             continue;
         }
@@ -140,49 +150,49 @@ void reconcile_live_voices(
         if (desired.note.velocity != current.note.velocity ||
             desired.note.note != current.note.note)
         {
-            removed_voices.push_back(current);
-            added_voices.push_back(desired);
+            push_live_voice(removed_voices, current);
+            push_live_voice(added_voices, desired);
         }
         else if (desired.note.pitch_bend != current.note.pitch_bend)
         {
-            pitch_bend_updates.push_back(desired);
+            push_live_voice(pitch_bend_updates, desired);
         }
 
-        next_active_live_voices.push_back(desired);
+        push_live_voice(next_active_live_voices, desired);
         ++current_index;
         ++desired_index;
     }
 
-    while (current_index < current_live_voices.size())
+    while (current_index < current_live_voices.size)
     {
-        removed_voices.push_back(current_live_voices[current_index]);
+        push_live_voice(removed_voices, current_live_voices.voices[current_index]);
         ++current_index;
     }
 
-    while (desired_index < sorted_desired_live_voices.size())
+    while (desired_index < sorted_desired_live_voices.size)
     {
-        auto const &desired = sorted_desired_live_voices[desired_index];
-        added_voices.push_back(desired);
-        next_active_live_voices.push_back(desired);
+        auto const &desired = sorted_desired_live_voices.voices[desired_index];
+        push_live_voice(added_voices, desired);
+        push_live_voice(next_active_live_voices, desired);
         ++desired_index;
     }
 
-    for (auto const &voice : removed_voices)
+    for (auto i = std::size_t{0}; i < removed_voices.size; ++i)
     {
-        emit_live_voice_note_off(buffer, voice);
+        emit_live_voice_note_off(buffer, removed_voices.voices[i]);
     }
 
-    for (auto const &voice : pitch_bend_updates)
+    for (auto i = std::size_t{0}; i < pitch_bend_updates.size; ++i)
     {
-        emit_live_voice_pitch_bend(buffer, voice);
+        emit_live_voice_pitch_bend(buffer, pitch_bend_updates.voices[i]);
     }
 
-    for (auto const &voice : added_voices)
+    for (auto i = std::size_t{0}; i < added_voices.size; ++i)
     {
-        emit_live_voice_note_on(buffer, voice);
+        emit_live_voice_note_on(buffer, added_voices.voices[i]);
     }
 
-    active_live_voices = normalize_live_voices(std::move(next_active_live_voices));
+    active_live_voices = normalize_live_voices(next_active_live_voices);
 }
 
 [[nodiscard]] auto render_measure(xen::Measure const &measure,
@@ -219,11 +229,11 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     if (!daw.is_playing || daw.sample_rate == 0 || daw.bpm <= 0.f ||
         rendered_midi_.sample_count == 0)
     {
-        for (auto const &voice : active_live_voices_)
+        for (auto i = std::size_t{0}; i < active_live_voices_.size; ++i)
         {
-            emit_live_voice_note_off(out_buffer, voice);
+            emit_live_voice_note_off(out_buffer, active_live_voices_.voices[i]);
         }
-        active_live_voices_.clear();
+        active_live_voices_ = {};
         return out_buffer;
     }
 
@@ -233,7 +243,8 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
 
     if (length > std::numeric_limits<SampleIndex>::max() - offset)
     {
-        throw std::overflow_error{"MIDI processing window exceeds uint64."};
+        active_live_voices_ = {};
+        return out_buffer;
     }
     auto const window_end = offset + length;
 
@@ -249,12 +260,12 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         normalize_live_voice_continuations(active_live_voices_);
     auto end_index = std::size_t{0};
     auto active_index = std::size_t{0};
-    auto next_active_live_voices = std::vector<xen::midi_internal::LiveVoice>{};
-    while (end_index < desired_end_live_sorted.size() &&
-           active_index < active_live_voices_sorted.size())
+    auto next_active_live_voices = LiveVoiceSet{};
+    while (end_index < desired_end_live_sorted.size &&
+           active_index < active_live_voices_sorted.size)
     {
-        auto desired = desired_end_live_sorted[end_index];
-        auto const &active = active_live_voices_sorted[active_index];
+        auto desired = desired_end_live_sorted.voices[end_index];
+        auto const &active = active_live_voices_sorted.voices[active_index];
         if (live_voice_continuation_less(active, desired))
         {
             ++active_index;
@@ -262,42 +273,59 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         }
         if (live_voice_continuation_less(desired, active))
         {
-            next_active_live_voices.push_back(desired);
+            push_live_voice(next_active_live_voices, desired);
             ++end_index;
             continue;
         }
 
         desired.channel = active.channel;
-        next_active_live_voices.push_back(desired);
+        push_live_voice(next_active_live_voices, desired);
         ++end_index;
         ++active_index;
     }
 
-    while (end_index < desired_end_live_sorted.size())
+    while (end_index < desired_end_live_sorted.size)
     {
-        next_active_live_voices.push_back(desired_end_live_sorted[end_index]);
+        push_live_voice(next_active_live_voices,
+                        desired_end_live_sorted.voices[end_index]);
         ++end_index;
     }
 
-    active_live_voices_ = normalize_live_voices(std::move(next_active_live_voices));
+    active_live_voices_ = normalize_live_voices(next_active_live_voices);
     return out_buffer;
+}
+
+auto MidiEngine::render(ProjectState const &project, DAWState const &daw)
+    -> std::optional<MidiSequence>
+{
+    try
+    {
+        auto assigned_notes = render_measure(
+            project.measure, project.pitch.tuning.definition,
+            project.pitch.base_frequency, daw,
+            project.pitch.scale.has_value()
+                ? std::optional<Scale>{project.pitch.scale->definition}
+                : std::nullopt,
+            project.pitch.transposition, project.pitch.translation_direction);
+        return MidiSequence{
+            .midi = midi_internal::render_assigned_notes(assigned_notes),
+            .assigned_notes = std::move(assigned_notes),
+            .sample_count = midi_internal::checked_measure_sample_count(
+                project.measure.time_signature, daw.sample_rate, daw.bpm),
+        };
+    }
+    catch (...)
+    {
+        return std::nullopt;
+    }
 }
 
 void MidiEngine::update(ProjectState const &project, DAWState const &daw)
 {
-    auto assigned_notes = render_measure(
-        project.measure, project.pitch.tuning.definition, project.pitch.base_frequency,
-        daw,
-        project.pitch.scale.has_value()
-            ? std::optional<Scale>{project.pitch.scale->definition}
-            : std::nullopt,
-        project.pitch.transposition, project.pitch.translation_direction);
-    rendered_midi_ = {
-        .midi = midi_internal::render_assigned_notes(assigned_notes),
-        .assigned_notes = std::move(assigned_notes),
-        .sample_count = midi_internal::checked_measure_sample_count(
-            project.measure.time_signature, daw.sample_rate, daw.bpm),
-    };
+    if (auto rendered = render(project, daw))
+    {
+        rendered_midi_ = std::move(*rendered);
+    }
 }
 
 auto MidiEngine::get_loop_phase(SampleIndex offset, DAWState const &daw) const -> double

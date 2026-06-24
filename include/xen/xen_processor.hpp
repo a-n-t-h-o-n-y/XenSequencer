@@ -1,11 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <xen/double_buffer.hpp>
+#include <xen/audio_thread_state_exchange.hpp>
 #include <xen/midi_engine.hpp>
 #include <xen/sequencer_session.hpp>
 #include <xen/state.hpp>
@@ -22,10 +23,10 @@ class XenProcessor : public juce::AudioProcessor
     int editor_height{350};
 
   public:
-    explicit XenProcessor(
-        SubmissionEffects::FailurePoint effect_failure =
-            SubmissionEffects::FailurePoint::None,
-        juce::File workspace_settings_file = WorkspaceSettingsStore::default_file());
+    explicit XenProcessor(SubmissionEffects::FailurePoint effect_failure =
+                              SubmissionEffects::FailurePoint::None,
+                          std::filesystem::path workspace_settings_file =
+                              WorkspaceSettingsStore::default_file());
 
     ~XenProcessor() override = default;
 
@@ -74,7 +75,7 @@ class XenProcessor : public juce::AudioProcessor
     } audio_thread_state_;
 
     SequencerSession session_;
-    DoubleBuffer<AudioThreadStateForGUI> audio_thread_state_for_gui;
+    AudioThreadStateExchange audio_thread_state_for_gui_;
 };
 
 } // namespace xen

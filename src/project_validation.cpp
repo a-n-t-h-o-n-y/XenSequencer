@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -173,17 +174,15 @@ void validate(ContentLibrary const &library)
 
 void validate(WorkspaceSettings const &workspace)
 {
-    if (!workspace.sequence_directory.isDirectory())
+    if (!std::filesystem::is_directory(workspace.sequence_directory))
     {
-        throw std::invalid_argument{
-            "Sequence directory does not exist: " +
-            workspace.sequence_directory.getFullPathName().toStdString()};
+        throw std::invalid_argument{"Sequence directory does not exist: " +
+                                    workspace.sequence_directory.string()};
     }
-    if (!workspace.tuning_directory.isDirectory())
+    if (!std::filesystem::is_directory(workspace.tuning_directory))
     {
-        throw std::invalid_argument{
-            "Tuning directory does not exist: " +
-            workspace.tuning_directory.getFullPathName().toStdString()};
+        throw std::invalid_argument{"Tuning directory does not exist: " +
+                                    workspace.tuning_directory.string()};
     }
 }
 

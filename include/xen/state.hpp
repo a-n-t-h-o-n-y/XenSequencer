@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <variant>
@@ -17,7 +18,6 @@
 #include <xen/measure.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
-#include <xen/user_directory.hpp>
 
 namespace xen
 {
@@ -133,8 +133,8 @@ using XenTimeline = Timeline<ProjectState>;
 
 struct WorkspaceSettings
 {
-    juce::File sequence_directory = get_sequences_directory();
-    juce::File tuning_directory = get_tunings_directory();
+    std::filesystem::path sequence_directory{};
+    std::filesystem::path tuning_directory{};
 
     auto operator==(WorkspaceSettings const &) const -> bool = default;
 };

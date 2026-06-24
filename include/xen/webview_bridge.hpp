@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 #include <juce_core/juce_core.h>
 
-#include <xen/keymap.hpp>
 #include <xen/sequencer_session.hpp>
+#include <xen/webview_bridge_services.hpp>
 
 namespace xen
 {
@@ -21,8 +22,9 @@ class WebviewBridge
     };
 
   public:
-    explicit WebviewBridge(SequencerSession &session,
-                           juce::File keymap_file = KeymapStore::default_file());
+    explicit WebviewBridge(
+        SequencerSession &session,
+        std::filesystem::path keymap_file = KeymapStore::default_file());
 
     [[nodiscard]] auto handle_request_json(std::string const &request_json)
         -> std::string;
@@ -36,8 +38,11 @@ class WebviewBridge
     [[nodiscard]] auto keymap_revision() const noexcept -> std::uint64_t;
 
   private:
-    SequencerSession &session_;
-    KeymapStore keymap_store_;
+    bridge::SequencerApplicationBridgeService application_service_;
+    bridge::JuceLibraryFilePort library_files_;
+    bridge::JuceLibraryBridgeService library_service_;
+    bridge::StoreKeymapBridgeService keymap_service_;
+    bridge::BridgeRequestDispatcher dispatcher_;
 };
 
 } // namespace xen

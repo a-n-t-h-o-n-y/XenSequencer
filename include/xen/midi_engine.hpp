@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -14,6 +16,17 @@ namespace xen
 
 class MidiEngine
 {
+  public:
+    static constexpr auto max_live_voices =
+        static_cast<std::size_t>(midi_internal::mpe_last_member_channel -
+                                 midi_internal::mpe_first_member_channel + 1);
+
+    struct LiveVoiceSet
+    {
+        std::array<midi_internal::LiveVoice, max_live_voices> voices{};
+        std::size_t size{};
+    };
+
   public:
     /**
      * Translates a slice of transport time to a slice of sequence notes.
@@ -51,8 +64,12 @@ class MidiEngine
         std::vector<midi_internal::AssignedMidiNote> assigned_notes{};
         SampleCount sample_count{};
     };
+
+    [[nodiscard]] static auto render(ProjectState const &project, DAWState const &daw)
+        -> std::optional<MidiSequence>;
+
     MidiSequence rendered_midi_{};
-    std::vector<midi_internal::LiveVoice> active_live_voices_{};
+    LiveVoiceSet active_live_voices_{};
 };
 
 } // namespace xen

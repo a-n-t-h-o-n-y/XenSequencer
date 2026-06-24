@@ -208,7 +208,7 @@ TEST_CASE("MIDI timing rejects unsupported signed sample positions", "[numeric][
                     std::overflow_error);
 }
 
-TEST_CASE("MIDI engine rejects overflowing absolute processing windows",
+TEST_CASE("MIDI engine ignores overflowing absolute processing windows",
           "[numeric][midi]")
 {
     auto engine = xen::MidiEngine{};
@@ -220,7 +220,6 @@ TEST_CASE("MIDI engine rejects overflowing absolute processing windows",
     };
     engine.update(sequencer, daw);
 
-    CHECK_THROWS_AS(
-        engine.step({}, std::numeric_limits<xen::SampleIndex>::max(), 1, daw),
-        std::overflow_error);
+    CHECK_NOTHROW(
+        (void)engine.step({}, std::numeric_limits<xen::SampleIndex>::max(), 1, daw));
 }

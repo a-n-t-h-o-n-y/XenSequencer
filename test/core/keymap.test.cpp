@@ -1,3 +1,7 @@
+#include <atomic>
+#include <cstdint>
+#include <filesystem>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <xen/keymap.hpp>
@@ -7,10 +11,15 @@ using namespace xen;
 namespace
 {
 
-auto temporary_keymap_file() -> juce::File
+auto temporary_keymap_file() -> std::filesystem::path
 {
-    return juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getNonexistentChildFile("xen-keymap-store", ".json", false);
+    static auto counter = std::atomic<std::uint64_t>{0};
+    auto const path =
+        std::filesystem::temp_directory_path() /
+        ("xen-keymap-store-" +
+         std::to_string(counter.fetch_add(1, std::memory_order_relaxed)) + ".json");
+    std::filesystem::remove(path);
+    return path;
 }
 
 auto find_binding(KeymapSnapshot const &snapshot, std::string const &context,

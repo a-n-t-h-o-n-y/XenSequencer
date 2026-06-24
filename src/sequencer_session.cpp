@@ -11,7 +11,6 @@
 #include <xen/project_validation.hpp>
 #include <xen/selection.hpp>
 #include <xen/string_manip.hpp>
-#include <xen/user_directory.hpp>
 
 namespace
 {
@@ -88,14 +87,13 @@ namespace xen
 {
 
 SequencerSession::SequencerSession(SubmissionEffects::FailurePoint effect_failure,
-                                   juce::File workspace_settings_file)
+                                   std::filesystem::path workspace_settings_file)
     : state_{.workspace =
                  WorkspaceSettingsStore{workspace_settings_file}.load_or_initialize(),
              .timeline = XenTimeline{ProjectState{}}},
       workspace_settings_store_{std::move(workspace_settings_file)},
       command_catalog_{create_command_catalog()}, effect_failure_{effect_failure}
 {
-    initialize_demo_files();
     publish_project_snapshot();
     (void)execute_command_string("load scales", CommandContext{});
     (void)execute_command_string("load chords", CommandContext{});

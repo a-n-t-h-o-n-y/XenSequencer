@@ -1,10 +1,9 @@
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <juce_core/juce_core.h>
 
 namespace xen
 {
@@ -25,8 +24,8 @@ class SubmissionEffects
     auto operator=(SubmissionEffects const &) -> SubmissionEffects & = delete;
     ~SubmissionEffects();
 
-    void write_text(juce::File const &destination, std::string content);
-    [[nodiscard]] auto read_text(juce::File const &source) const
+    void write_text(std::filesystem::path destination, std::string content);
+    [[nodiscard]] auto read_text(std::filesystem::path const &source) const
         -> std::optional<std::string>;
 
     void prepare();
@@ -37,10 +36,10 @@ class SubmissionEffects
   private:
     struct Replacement
     {
-        juce::File destination{};
+        std::filesystem::path destination{};
         std::string content{};
-        juce::File temporary{};
-        juce::File backup{};
+        std::filesystem::path temporary{};
+        std::filesystem::path backup{};
         bool destination_existed{false};
         bool applied{false};
     };

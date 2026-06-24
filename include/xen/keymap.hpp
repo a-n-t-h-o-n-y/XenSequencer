@@ -1,12 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
 namespace xen
@@ -74,7 +74,7 @@ void validate(KeymapOverride const &override);
 class KeymapStore
 {
   public:
-    explicit KeymapStore(juce::File file = default_file());
+    explicit KeymapStore(std::filesystem::path file = default_file());
 
     [[nodiscard]] auto snapshot() const -> KeymapSnapshot;
     [[nodiscard]] auto revision() const noexcept -> std::uint64_t;
@@ -85,15 +85,15 @@ class KeymapStore
                          KeymapTrigger const &trigger) -> KeymapSnapshot;
     auto reset(std::uint64_t expected_revision) -> KeymapSnapshot;
 
-    [[nodiscard]] auto file() const -> juce::File const &;
-    [[nodiscard]] static auto default_file() -> juce::File;
+    [[nodiscard]] auto file() const -> std::filesystem::path const &;
+    [[nodiscard]] static auto default_file() -> std::filesystem::path;
 
   private:
     void load();
     void save() const;
     void require_revision(std::uint64_t expected_revision) const;
 
-    juce::File file_;
+    std::filesystem::path file_;
     std::uint64_t revision_{1};
     std::vector<KeymapOverride> overrides_{};
 };

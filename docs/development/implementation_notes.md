@@ -11,8 +11,19 @@ The current frontend migration contract is documented in
 - `CommandCatalog` owns parsing metadata, binding, policy, and handler registration.
   Its immutable presentation metadata is included in `session.hello`; command
   completion and UI navigation are frontend-local.
+- `SequencerSession` owns application state, command execution, workspace settings,
+  and audio-project publication. `XenProcessor` is a JUCE adapter around realtime
+  playback, plugin state serialization, and editor creation.
+- Bridge protocol DTO parsing/serialization is separate from request dispatch.
+  Session, project, command, library, and keymap requests route through bridge service
+  seams so handlers can be tested without constructing the processor.
 - Command submissions execute through lazy project, library, and workspace candidates.
-  Effects are applied with rollback before backend candidates are installed.
+  File effects use path-based read/write ports and the shared atomic text-write
+  helper before backend candidates are installed.
+- `WorkspaceSettings` stores plain filesystem paths. JUCE file objects are adapter
+  details in stores, bridge library payloads, and host integration code.
+- `MidiEngine` publishes validated render snapshots and uses bounded live-voice
+  storage during playback. Invalid render inputs are rejected before publication.
 - Project history identity and project revision are separate. Project-aware commands
   require the expected revision, and targeted commands also receive frontend-owned
   selection context.
@@ -29,14 +40,14 @@ The current frontend migration contract is documented in
 Useful implementation anchors:
 
 - `src/webview_bridge.cpp`
+- `src/webview_bridge_protocol.cpp`
+- `src/webview_bridge_services.cpp`
+- `src/sequencer_session.cpp`
 - `src/bridge_serialize.cpp`
+- `src/midi_engine.cpp`
 - `src/xen_processor.cpp`
 - `src/command_transaction.cpp`
 - `test/core/webview_bridge.test.cpp`
+- `test/midi_engine.test.cpp`
+- `test/sync/audio_thread_state_exchange.test.cpp`
 - `test/data_model_refactor.test.cpp`
-
-## Known loose end
-
-The bundled files in `data/demos` still use the removed sequence-bank and `Rest`
-serialization schema. The current deserializer intentionally rejects that format, so
-the demos need to be recreated or explicitly migrated before they are usable.

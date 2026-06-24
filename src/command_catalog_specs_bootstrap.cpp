@@ -1,5 +1,6 @@
 #include "command_catalog_specs_internal.hpp"
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -18,11 +19,17 @@
 #include <xen/serialize.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/submission_effects.hpp>
+#include <xen/user_directory.hpp>
 
 namespace xen::catalog_detail
 {
 namespace
 {
+
+auto as_juce_file(std::filesystem::path const &path) -> juce::File
+{
+    return juce::File{path.string()};
+}
 
 constexpr auto informational_policy = CommandPolicy{
     ProjectOperation::None, LibraryAccess::None,     WorkspaceAccess::None,
@@ -186,16 +193,16 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().sequence_directory;
-            if (!cd.isDirectory())
+            auto const directory = as_juce_file(cd);
+            if (!directory.isDirectory())
             {
                 return make_result(merror("Invalid Current Sequence Directory"));
             }
-            auto const filepath = cd.getChildFile(filename + ".xss");
+            auto const filepath = cd / (filename + ".xss");
             auto const text = context.read_text(filepath);
             if (!text.has_value())
             {
-                return make_result(merror("File Not Found: " +
-                                          filepath.getFullPathName().toStdString()));
+                return make_result(merror("File Not Found: " + filepath.string()));
             }
             auto state = context.project();
             if (text->size() > (128 * 1'024 * 1'024))
@@ -214,21 +221,20 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().tuning_directory;
-            if (!cd.isDirectory())
+            auto const directory = as_juce_file(cd);
+            if (!directory.isDirectory())
             {
                 return make_result(merror("Invalid Current Tuning Library Directory"));
             }
-            auto const filepath = cd.getChildFile(filename + ".scl");
-            if (!filepath.exists())
+            auto const filepath = cd / (filename + ".scl");
+            auto const file = as_juce_file(filepath);
+            if (!file.exists())
             {
-                return make_result(merror("File Not Found: " +
-                                          filepath.getFullPathName().toStdString()));
+                return make_result(merror("File Not Found: " + filepath.string()));
             }
             auto state = context.project();
-            state.pitch.tuning.name =
-                filepath.getFileNameWithoutExtension().toStdString();
-            state.pitch.tuning.definition =
-                sequence::from_scala(filepath.getFullPathName().toStdString());
+            state.pitch.tuning.name = file.getFileNameWithoutExtension().toStdString();
+            state.pitch.tuning.definition = sequence::from_scala(filepath.string());
             context.edit_project() = std::move(state);
             return make_result(minfo("Tuning Loaded"));
         }));
@@ -237,8 +243,10 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         {"load", "scales"}, false, "Load scales from library files.",
         {"reload", "library"}, reload_library_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
-            auto const system = context.read_text(get_system_scales_file());
-            auto const user = context.read_text(get_user_scales_file());
+            auto const system = context.read_text(
+                get_system_scales_file().getFullPathName().toStdString());
+            auto const user = context.read_text(
+                get_user_scales_file().getFullPathName().toStdString());
             if (!system.has_value() || !user.has_value())
             {
                 throw std::runtime_error{"Scale library file is missing."};
@@ -252,8 +260,10 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         {"load", "chords"}, false, "Load chords from library files.",
         {"reload", "library"}, reload_library_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
-            auto const system = context.read_text(get_system_chords_file());
-            auto const user = context.read_text(get_user_chords_file());
+            auto const system = context.read_text(
+                get_system_chords_file().getFullPathName().toStdString());
+            auto const user = context.read_text(
+                get_user_chords_file().getFullPathName().toStdString());
             if (!system.has_value() || !user.has_value())
             {
                 throw std::runtime_error{"Chord library file is missing."};
@@ -270,15 +280,15 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().sequence_directory;
-            if (!cd.isDirectory())
+            auto const directory = as_juce_file(cd);
+            if (!directory.isDirectory())
             {
                 return make_result(merror("Invalid Current Sequence Directory"));
             }
-            auto const filepath = cd.getChildFile(filename + ".xss");
+            auto const filepath = cd / (filename + ".xss");
             context.write_text(filepath, serialize_measure(context.project().measure));
             return make_result(
-                minfo("Measure Saved to " +
-                      single_quote(filepath.getFullPathName().toStdString())));
+                minfo("Measure Saved to " + single_quote(filepath.string())));
         }));
 
     specs.push_back(
@@ -299,7 +309,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                 return make_result(
                     merror(label + " directory does not exist: " + path));
             }
-            (context.edit_workspace()).*member = directory;
+            (context.edit_workspace()).*member =
+                std::filesystem::path{directory.getFullPathName().toStdString()};
             return make_result(minfo(label + " Directory Set"));
         };
     };

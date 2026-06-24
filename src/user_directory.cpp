@@ -10,7 +10,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include <embed_chords.hpp>
-#include <embed_demos.hpp>
 #include <embed_scales.hpp>
 
 #include <xen/constants.hpp>
@@ -184,39 +183,6 @@ auto get_user_chords_file() -> juce::File
     }
 
     return chords_file;
-}
-
-void initialize_demo_files()
-{
-    auto const demos_dir = get_sequences_directory().getChildFile("demos");
-    if (!demos_dir.exists() && !demos_dir.createDirectory().wasOk())
-    {
-        throw std::runtime_error("Unable to create demos directory: " +
-                                 demos_dir.getFullPathName().toStdString() + ".");
-    }
-
-    for (auto i = 0; i < embed_demos::namedResourceListSize; ++i)
-    {
-        int size = 0;
-        char const *name = embed_demos::namedResourceList[i];
-        char const *data = embed_demos::getNamedResource(name, size);
-        char const *filename = embed_demos::getNamedResourceOriginalFilename(name);
-
-        auto const file = demos_dir.getChildFile(filename);
-
-        if (!file.existsAsFile())
-        {
-            if (file.create().wasOk())
-            {
-                file.appendData(data, (std::size_t)size);
-            }
-            else
-            {
-                throw std::runtime_error("Unable to create demo file: " +
-                                         file.getFullPathName().toStdString() + ".");
-            }
-        }
-    }
 }
 
 } // namespace xen

@@ -62,7 +62,7 @@ namespace xen
 {
 
 XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
-                           juce::File workspace_settings_file)
+                           std::filesystem::path workspace_settings_file)
     : session_{effect_failure, std::move(workspace_settings_file)}
 {
 }
@@ -80,7 +80,7 @@ auto XenProcessor::session() const noexcept -> SequencerSession const &
 auto XenProcessor::audio_thread_state_snapshot() const noexcept
     -> AudioThreadStateForGUI
 {
-    return audio_thread_state_for_gui.read();
+    return audio_thread_state_for_gui_.read();
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
@@ -173,7 +173,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
     midi_buffer.swapWith(next_slice);
 
-    audio_thread_state_for_gui.write({
+    audio_thread_state_for_gui_.write({
         .daw = audio_thread_state_.daw,
         .loop_phase = audio_thread_state_.midi_engine.get_loop_phase(
             transport_offset, audio_thread_state_.daw),

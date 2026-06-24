@@ -74,9 +74,4 @@ namespace xen
  */
 [[nodiscard]] auto get_user_chords_file() -> juce::File;
 
-/**
- * Create and populate the demos/ directory with the demo files.
- */
-void initialize_demo_files();
-
 } // namespace xen

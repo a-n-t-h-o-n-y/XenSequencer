@@ -94,13 +94,14 @@ auto WorkspaceEditCapability::get() -> WorkspaceSettings &
     return transaction_.edit_workspace();
 }
 
-auto FileReadCapability::read_text(juce::File const &source) const
+auto FileReadCapability::read_text(std::filesystem::path const &source) const
     -> std::optional<std::string>
 {
     return transaction_.effects().read_text(source);
 }
 
-void FileWriteCapability::write_text(juce::File const &destination, std::string content)
+void FileWriteCapability::write_text(std::filesystem::path const &destination,
+                                     std::string content)
 {
     transaction_.effects().write_text(destination, std::move(content));
 }
@@ -171,7 +172,7 @@ auto CommandHandlerContext::edit_workspace() -> WorkspaceSettings &
     return workspace_edit->get();
 }
 
-auto CommandHandlerContext::read_text(juce::File const &source) const
+auto CommandHandlerContext::read_text(std::filesystem::path const &source) const
     -> std::optional<std::string>
 {
     if (file_read == nullptr)
@@ -181,7 +182,7 @@ auto CommandHandlerContext::read_text(juce::File const &source) const
     return file_read->read_text(source);
 }
 
-void CommandHandlerContext::write_text(juce::File const &destination,
+void CommandHandlerContext::write_text(std::filesystem::path const &destination,
                                        std::string content)
 {
     if (file_write == nullptr)

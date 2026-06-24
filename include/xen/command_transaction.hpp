@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -127,7 +128,7 @@ class WorkspaceEditCapability
 class FileReadCapability
 {
   public:
-    [[nodiscard]] auto read_text(juce::File const &source) const
+    [[nodiscard]] auto read_text(std::filesystem::path const &source) const
         -> std::optional<std::string>;
 
   private:
@@ -142,7 +143,7 @@ class FileReadCapability
 class FileWriteCapability
 {
   public:
-    void write_text(juce::File const &destination, std::string content);
+    void write_text(std::filesystem::path const &destination, std::string content);
 
   private:
     friend class CommandTransaction;
@@ -171,9 +172,9 @@ struct CommandHandlerContext
     [[nodiscard]] auto edit_library() -> ContentLibrary &;
     [[nodiscard]] auto workspace() const -> WorkspaceSettings const &;
     [[nodiscard]] auto edit_workspace() -> WorkspaceSettings &;
-    [[nodiscard]] auto read_text(juce::File const &source) const
+    [[nodiscard]] auto read_text(std::filesystem::path const &source) const
         -> std::optional<std::string>;
-    void write_text(juce::File const &destination, std::string content);
+    void write_text(std::filesystem::path const &destination, std::string content);
     [[nodiscard]] auto prepare_transform(TransformKind kind, std::string chord_name,
                                          int inversion) -> TransformInputs;
 };

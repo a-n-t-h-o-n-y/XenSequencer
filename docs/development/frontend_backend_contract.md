@@ -95,7 +95,7 @@ type SessionHello = {
   project_schema_version: 1;
   library_schema_version: 1;
   catalog: {
-    schema_version: 1;
+    schema_version: 2;
     commands: CatalogCommand[];
   };
   keymap: KeymapResource;
@@ -129,6 +129,7 @@ type CatalogArgument = {
 
 type CatalogCommand = {
   path: string[];
+  keywords: string[];
   accepts_pattern_prefix: boolean;
   target_requirement: "none" | "cell" | "element" | "cell_or_element";
   arguments: CatalogArgument[];

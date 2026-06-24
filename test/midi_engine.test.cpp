@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <limits>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -407,4 +408,36 @@ TEST_CASE("MidiEngine preserves live channels across tuning bend reshuffles",
     CHECK(events[0].message.getChannel() == 2);
     CHECK(events[1].message.isPitchWheel());
     CHECK(events[1].message.getChannel() == 3);
+}
+
+TEST_CASE("MidiEngine rejects invalid render inputs before publication",
+          "[midi][midi-engine]")
+{
+    auto engine = xen::MidiEngine{};
+    auto const daw = playing_daw_state();
+    auto invalid_daw = daw;
+    invalid_daw.bpm = 0.f;
+    auto const original = make_sustained_note_engine(0);
+    auto const changed = make_sustained_note_engine(4);
+
+    engine.update(original, daw);
+    auto const started = capture_events(engine.step({}, 100, 10, daw));
+    REQUIRE(started.size() == 2);
+
+    engine.update(changed, invalid_daw);
+    auto const after_rejected_update = capture_events(engine.step({}, 110, 10, daw));
+    CHECK(after_rejected_update.empty());
+}
+
+TEST_CASE("MidiEngine does not throw on invalid processing window",
+          "[midi][midi-engine]")
+{
+    auto engine = xen::MidiEngine{};
+    auto const daw = playing_daw_state();
+    engine.update(make_sustained_note_engine(0), daw);
+
+    auto const offset = std::numeric_limits<xen::SampleIndex>::max() - 5;
+    auto const length = xen::SampleCount{10};
+
+    CHECK_NOTHROW((void)engine.step({}, offset, length, daw));
 }

@@ -146,15 +146,6 @@ juce_add_binary_data(EmbedChords
         data/chords/user_chords.yml
 )
 
-# Add demo files as a binary resource
-juce_add_binary_data(EmbedDemos
-    HEADER_NAME "embed_demos.hpp"
-    NAMESPACE embed_demos
-    SOURCES
-        "data/demos/by this river.xss"
-        "data/demos/in a landscape.xss"
-)
-
 if (XEN_WEB_UI_MODE STREQUAL "EMBEDDED")
     file(GLOB_RECURSE XEN_WEB_UI_DIST_FILES CONFIGURE_DEPENDS
         LIST_DIRECTORIES false
@@ -189,6 +180,7 @@ set(XEN_DOMAIN_SOURCES
     src/selection.cpp
     src/serialize.cpp
     src/string_manip.cpp
+    src/text_file.cpp
     src/user_directory.cpp
     src/utility.cpp
 )
@@ -214,6 +206,8 @@ set(XEN_APPLICATION_SOURCES
 set(XEN_BRIDGE_PROTOCOL_SOURCES
     src/bridge_serialize.cpp
     src/webview_bridge.cpp
+    src/webview_bridge_protocol.cpp
+    src/webview_bridge_services.cpp
 )
 
 set(XEN_JUCE_UI_SOURCES
@@ -256,7 +250,6 @@ target_link_libraries(XenDomain
         nlohmann_json::nlohmann_json
         EmbedScales
         EmbedChords
-        EmbedDemos
 )
 xen_apply_compile_settings(XenDomain PUBLIC)
 
@@ -363,6 +356,7 @@ if (XEN_BUILD_TESTS)
         test/processor/command_effects.test.cpp
         test/processor/processor_commands.test.cpp
         test/processor/processor_timeline_commit.test.cpp
+        test/sync/audio_thread_state_exchange.test.cpp
         test/sync/engine_state_mailbox.test.cpp
         test/sync/engine_snapshot_contract.test.cpp
         test/utility.test.cpp

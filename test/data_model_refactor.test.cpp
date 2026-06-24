@@ -165,8 +165,8 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
     auto const settings_file = root.getChildFile("settings.json");
 
     {
-        auto session =
-            SequencerSession{SubmissionEffects::FailurePoint::None, settings_file};
+        auto session = SequencerSession{SubmissionEffects::FailurePoint::None,
+                                        settings_file.getFullPathName().toStdString()};
         CHECK(session
                   .execute_command_string(
                       "set sequenceDirectory \"" +
@@ -181,13 +181,22 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
                   .status.first == MessageLevel::Info);
     }
 
-    auto const restored = WorkspaceSettingsStore{settings_file}.load_or_initialize();
-    CHECK(restored.sequence_directory == sequences);
-    CHECK(restored.tuning_directory == tunings);
+    auto const restored =
+        WorkspaceSettingsStore{settings_file.getFullPathName().toStdString()}
+            .load_or_initialize();
+    CHECK(restored.sequence_directory == sequences.getFullPathName().toStdString());
+    CHECK(restored.tuning_directory == tunings.getFullPathName().toStdString());
     CHECK(nlohmann::json::parse(serialize_project(ProjectState{}))
               .dump()
               .find(sequences.getFullPathName().toStdString()) == std::string::npos);
     CHECK(root.deleteRecursively());
+}
+
+TEST_CASE("Workspace settings default construction is pure", "[data-model][workspace]")
+{
+    auto const settings = WorkspaceSettings{};
+    CHECK(settings.sequence_directory.empty());
+    CHECK(settings.tuning_directory.empty());
 }
 
 TEST_CASE("Transform cycles amend one history entry and again remains compatible",

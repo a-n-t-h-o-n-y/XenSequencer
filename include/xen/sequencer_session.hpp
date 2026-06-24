@@ -1,10 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
-
-#include <juce_core/juce_core.h>
 
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
@@ -19,10 +18,10 @@ namespace xen
 class SequencerSession
 {
   public:
-    explicit SequencerSession(
-        SubmissionEffects::FailurePoint effect_failure =
-            SubmissionEffects::FailurePoint::None,
-        juce::File workspace_settings_file = WorkspaceSettingsStore::default_file());
+    explicit SequencerSession(SubmissionEffects::FailurePoint effect_failure =
+                                  SubmissionEffects::FailurePoint::None,
+                              std::filesystem::path workspace_settings_file =
+                                  WorkspaceSettingsStore::default_file());
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot;
