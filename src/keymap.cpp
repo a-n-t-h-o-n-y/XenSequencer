@@ -394,11 +394,13 @@ void validate(KeymapTarget const &value)
         value.value == "command.completion.accept" ||
         value.value == "command.completion.dismiss" ||
         value.value == "command.completion.previous" ||
-        value.value == "command.completion.next")
+        value.value == "command.completion.next" ||
+        value.value == "workspace.view.toggle")
     {
         if (!value.arguments.empty())
         {
-            throw std::invalid_argument{"Command UI actions cannot have arguments."};
+            throw std::invalid_argument{
+                "No-argument UI actions cannot have arguments."};
         }
         return;
     }

@@ -112,11 +112,52 @@ TEST_CASE("Keymap accepts command UI action overrides in dotted contexts",
     CHECK(binding->target == target);
 }
 
+TEST_CASE("Keymap persists workspace view toggle UI action overrides", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto const trigger =
+        KeymapTrigger{.key = "l", .shift = true, .command = false, .alt = false};
+    auto const target = KeymapTarget{
+        .type = KeymapTargetType::UiAction,
+        .value = "workspace.view.toggle",
+        .arguments = nlohmann::json::object(),
+    };
+
+    {
+        auto store = KeymapStore{file};
+        auto const snapshot = store.snapshot();
+
+        auto const updated =
+            store.set_override(snapshot.revision, "sequence", trigger, target);
+
+        auto const binding = find_binding(updated, "sequence", trigger);
+        REQUIRE(binding != nullptr);
+        CHECK(binding->target == target);
+    }
+
+    auto restored_store = KeymapStore{file};
+    auto const restored = restored_store.snapshot();
+    auto const restored_binding = find_binding(restored, "sequence", trigger);
+    REQUIRE(restored_binding != nullptr);
+    CHECK(restored_binding->target == target);
+}
+
 TEST_CASE("Keymap rejects command UI action arguments", "[core][keymap]")
 {
     auto const target = KeymapTarget{
         .type = KeymapTargetType::UiAction,
         .value = "command.open",
+        .arguments = {{"unexpected", true}},
+    };
+
+    CHECK_THROWS_AS(validate(target), std::invalid_argument);
+}
+
+TEST_CASE("Keymap rejects workspace view toggle arguments", "[core][keymap]")
+{
+    auto const target = KeymapTarget{
+        .type = KeymapTargetType::UiAction,
+        .value = "workspace.view.toggle",
         .arguments = {{"unexpected", true}},
     };
 
