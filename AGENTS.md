@@ -26,6 +26,7 @@
 
 - Keep default validation lightweight. Do not treat a full build-and-test cycle as the baseline for every task.
 - Builds and tests may take a while; run them when they provide useful verification, not as a reflex after every change.
+- use only up to 6 parallel instances when compiling C++.
 - Avoid repetitive validation loops. While iterating, prefer the smallest meaningful build or test that checks the change, and stop once you have enough signal to proceed.
 - Run expensive verification only when the task actually requires it, such as shared-core changes, build-system changes, release/plugin packaging work, or when a narrow check cannot cover the risk.
 - Use the canonical dev workflow:

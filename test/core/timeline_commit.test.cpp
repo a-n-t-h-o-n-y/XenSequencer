@@ -2,42 +2,12 @@
 
 #include <type_traits>
 
-#include <xen/xen_processor.hpp>
+#include <xen/state.hpp>
+#include <xen/timeline.hpp>
 
 using namespace xen;
 
-namespace
-{
-
-auto current_context(XenProcessor const &processor,
-                     std::optional<SelectionPath> selection = std::nullopt)
-    -> CommandContext
-{
-    return {
-        .selection = std::move(selection),
-        .expected_project_revision = processor.get_project_snapshot().project_revision,
-    };
-}
-
-} // namespace
-
 static_assert(!std::is_same_v<HistoryEntryId, ProjectRevision>);
-
-TEST_CASE("Mutating commands advance history identity and project revision",
-          "[core][timeline][commit]")
-{
-    auto processor = XenProcessor{};
-    auto const initial = processor.get_project_snapshot();
-
-    auto const result =
-        processor.execute_command_string("set key 12", current_context(processor));
-    CHECK(result.status.first == MessageLevel::Info);
-
-    auto const after = processor.get_project_snapshot();
-    CHECK(after.history_entry_id != initial.history_entry_id);
-    CHECK(after.project_revision != initial.project_revision);
-    CHECK(after.project.pitch.transposition == 12);
-}
 
 TEST_CASE("Timeline commit requires explicit state and preserves redo on no-op",
           "[core][timeline][commit]")

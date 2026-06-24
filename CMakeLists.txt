@@ -175,10 +175,25 @@ endif()
 
 # BUILD TARGETS ------------------------------------------------------------------------
 
-set(XEN_CORE_SOURCES
+set(XEN_DOMAIN_SOURCES
     src/actions.cpp
     src/chord.cpp
     src/command.cpp
+    src/copy_paste.cpp
+    src/message_level.cpp
+    src/midi.cpp
+    src/midi_engine.cpp
+    src/modulator.cpp
+    src/project_validation.cpp
+    src/scale.cpp
+    src/selection.cpp
+    src/serialize.cpp
+    src/string_manip.cpp
+    src/user_directory.cpp
+    src/utility.cpp
+)
+
+set(XEN_APPLICATION_SOURCES
     src/command_catalog.cpp
     src/command_catalog_bind.cpp
     src/command_catalog_docs.cpp
@@ -189,27 +204,18 @@ set(XEN_CORE_SOURCES
     src/command_catalog_specs_set_and_shift.cpp
     src/command_catalog_specs_transform.cpp
     src/command_transaction.cpp
-    src/copy_paste.cpp
     src/keymap.cpp
-    src/message_level.cpp
-    src/midi.cpp
-    src/midi_engine.cpp
-    src/modulator.cpp
     src/parse_args.cpp
-    src/project_validation.cpp
-    src/scale.cpp
-    src/selection.cpp
-    src/serialize.cpp
-    src/string_manip.cpp
     src/submission_effects.cpp
-    src/user_directory.cpp
-    src/utility.cpp
-    src/bridge_serialize.cpp
-    src/webview_bridge.cpp
     src/workspace_settings.cpp
 )
 
-set(XEN_UI_SOURCES
+set(XEN_BRIDGE_PROTOCOL_SOURCES
+    src/bridge_serialize.cpp
+)
+
+set(XEN_JUCE_UI_SOURCES
+    src/webview_bridge.cpp
     src/xen_editor.cpp
     src/gui/webview_host.cpp
 )
@@ -237,9 +243,9 @@ function(xen_apply_compile_settings target_name definitions_scope)
     )
 endfunction()
 
-add_library(XenCore STATIC ${XEN_CORE_SOURCES})
-target_include_directories(XenCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(XenCore
+add_library(XenDomain STATIC ${XEN_DOMAIN_SOURCES})
+target_include_directories(XenDomain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(XenDomain
     PUBLIC
         sequencer
         signals-light
@@ -251,13 +257,33 @@ target_link_libraries(XenCore
         EmbedChords
         EmbedDemos
 )
-xen_apply_compile_settings(XenCore PUBLIC)
+xen_apply_compile_settings(XenDomain PUBLIC)
 
-add_library(XenUI STATIC ${XEN_UI_SOURCES})
-target_include_directories(XenUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(XenUI
+add_library(XenApplication STATIC ${XEN_APPLICATION_SOURCES})
+target_include_directories(XenApplication PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(XenApplication
     PUBLIC
-        XenCore
+        XenDomain
+        nlohmann_json::nlohmann_json
+        yaml-cpp
+)
+xen_apply_compile_settings(XenApplication PUBLIC)
+
+add_library(XenBridgeProtocol STATIC ${XEN_BRIDGE_PROTOCOL_SOURCES})
+target_include_directories(XenBridgeProtocol PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(XenBridgeProtocol
+    PUBLIC
+        XenApplication
+        nlohmann_json::nlohmann_json
+)
+xen_apply_compile_settings(XenBridgeProtocol PUBLIC)
+
+add_library(XenJuceUI STATIC ${XEN_JUCE_UI_SOURCES})
+target_include_directories(XenJuceUI PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(XenJuceUI
+    PUBLIC
+        XenApplication
+        XenBridgeProtocol
         juce::juce_audio_processors
         juce::juce_audio_utils
         juce::juce_gui_basics
@@ -265,21 +291,21 @@ target_link_libraries(XenUI
 )
 
 if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
-    target_link_libraries(XenUI PUBLIC juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+    target_link_libraries(XenJuceUI PUBLIC juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
 endif()
 
 if (TARGET EmbedWebUI)
-    target_link_libraries(XenUI PUBLIC EmbedWebUI)
+    target_link_libraries(XenJuceUI PUBLIC EmbedWebUI)
 endif()
 
-target_compile_definitions(XenUI
+target_compile_definitions(XenJuceUI
     PUBLIC
         XEN_WEB_UI_USE_DEV_SERVER=$<STREQUAL:${XEN_WEB_UI_MODE},DEV_SERVER>
         XEN_WEB_UI_USE_EMBEDDED=$<STREQUAL:${XEN_WEB_UI_MODE},EMBEDDED>
         XEN_WEB_UI_DEV_URL="${XEN_WEB_UI_DEV_URL}"
         XEN_WEB_UI_DIST_DIR="${XEN_WEB_UI_DIST_DIR}"
 )
-xen_apply_compile_settings(XenUI PRIVATE)
+xen_apply_compile_settings(XenJuceUI PRIVATE)
 
 # PLUGIN -------------------------------------------------------------------------------
 
@@ -309,8 +335,8 @@ target_sources(XenSequencer PRIVATE ${XEN_PROCESSOR_SOURCES})
 target_include_directories(XenSequencer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(XenSequencer
     PUBLIC
-        XenCore
-        XenUI
+        XenApplication
+        XenJuceUI
         juce::juce_recommended_lto_flags
         juce::juce_recommended_config_flags
 )
@@ -321,43 +347,63 @@ xen_apply_compile_settings(XenSequencer PUBLIC)
 if (XEN_BUILD_TESTS)
     enable_testing()
 
-    set(XEN_TEST_SOURCES
+    set(XEN_CORE_TEST_SOURCES
         test/core/command_handler_execution.test.cpp
         test/core/command_catalog.test.cpp
         test/core/command_parse.test.cpp
         test/core/keymap.test.cpp
-        test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
-        test/core/webview_bridge.test.cpp
-        test/data_model_refactor.test.cpp
         test/midi.test.cpp
         test/midi_engine.test.cpp
         test/numeric_safety.test.cpp
-        test/processor/processor_commands.test.cpp
-        test/processor/processor_state_roundtrip.test.cpp
         test/sync/engine_state_mailbox.test.cpp
-        test/sync/engine_snapshot_contract.test.cpp
         test/utility.test.cpp
     )
 
-    if (XEN_TEST_SOURCES)
-        add_executable(XenTests ${XEN_TEST_SOURCES})
+    set(XEN_ADAPTER_TEST_SOURCES
+        test/core/state_actions.test.cpp
+        test/core/webview_bridge.test.cpp
+        test/data_model_refactor.test.cpp
+        test/processor/command_effects.test.cpp
+        test/processor/processor_commands.test.cpp
+        test/processor/processor_state_roundtrip.test.cpp
+        test/processor/processor_timeline_commit.test.cpp
+        test/sync/engine_snapshot_contract.test.cpp
+    )
 
-        target_link_libraries(XenTests
+    if (XEN_CORE_TEST_SOURCES)
+        add_executable(XenCoreTests ${XEN_CORE_TEST_SOURCES})
+
+        target_link_libraries(XenCoreTests
+            PUBLIC
+                XenBridgeProtocol
+                Catch2::Catch2WithMain
+        )
+        xen_apply_compile_settings(XenCoreTests PRIVATE)
+
+        add_test(NAME XenCoreTests COMMAND $<TARGET_FILE:XenCoreTests>)
+    else()
+        message(STATUS "XEN_BUILD_TESTS is ON, but no Xen core test sources are configured.")
+    endif()
+
+    if (XEN_ADAPTER_TEST_SOURCES)
+        add_executable(XenAdapterTests ${XEN_ADAPTER_TEST_SOURCES})
+
+        target_link_libraries(XenAdapterTests
             PUBLIC
                 XenSequencer
                 Catch2::Catch2WithMain
         )
-        xen_apply_compile_settings(XenTests PRIVATE)
+        xen_apply_compile_settings(XenAdapterTests PRIVATE)
 
         if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR
             (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
-            juce_link_with_embedded_linux_subprocess(XenTests)
+            juce_link_with_embedded_linux_subprocess(XenAdapterTests)
         endif()
 
-        add_test(NAME XenTests COMMAND $<TARGET_FILE:XenTests>)
+        add_test(NAME XenAdapterTests COMMAND $<TARGET_FILE:XenAdapterTests>)
     else()
-        message(STATUS "XEN_BUILD_TESTS is ON, but no Xen test sources are configured.")
+        message(STATUS "XEN_BUILD_TESTS is ON, but no Xen adapter test sources are configured.")
     endif()
 endif()
 
