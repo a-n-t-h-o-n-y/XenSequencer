@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <limits>
@@ -14,6 +15,9 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <xen/coordinator_registry.hpp>
+#include <xen/ipc_sequencer_session_client.hpp>
+#include <xen/message_level.hpp>
 #include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
@@ -61,6 +65,97 @@ namespace
     return std::string{prefix} + "-" + juce::Uuid{}.toString().toStdString();
 }
 
+[[nodiscard]] auto startup_session_id() -> xen::SessionId
+{
+    if (auto const *disable_discovery =
+            std::getenv("XEN_SEQUENCER_DISABLE_ACTIVE_SESSION_DISCOVERY");
+        disable_discovery != nullptr && std::string{disable_discovery} == "1")
+    {
+        return make_id("session");
+    }
+
+    auto const active_sessions = xen::ipc::CoordinatorRegistry::active_entries();
+    if (active_sessions.empty())
+    {
+        return make_id("session");
+    }
+    if (active_sessions.size() == 1)
+    {
+        return active_sessions.front().session_id;
+    }
+    throw std::runtime_error{
+        "Multiple active XenSequencer sessions are running; refusing to guess."};
+}
+
+class OfflineSequencerSession final : public xen::SequencerSessionPort
+{
+  public:
+    OfflineSequencerSession(xen::InstanceBinding binding, std::string error_message)
+        : binding_{std::move(binding)}, error_message_{std::move(error_message)},
+          command_catalog_{xen::create_command_catalog()}
+    {
+    }
+
+    [[nodiscard]] auto project_snapshot() const -> xen::ProjectSnapshot override
+    {
+        return snapshot_;
+    }
+
+    [[nodiscard]] auto library_snapshot() const -> xen::LibrarySnapshot override
+    {
+        return library_;
+    }
+
+    [[nodiscard]] auto instance_binding() const -> xen::InstanceBinding const & override
+    {
+        return binding_;
+    }
+
+    [[nodiscard]] auto command_catalog_metadata() const
+        -> std::vector<xen::CatalogCommandMetadata> override
+    {
+        return command_catalog_.metadata();
+    }
+
+    [[nodiscard]] auto execute_command_string(std::string const &,
+                                              xen::CommandContext const &)
+        -> xen::CommandApplicationResult override
+    {
+        return {
+            .status = {xen::MessageLevel::Error, error_message_},
+            .suggested_selection = std::nullopt,
+        };
+    }
+
+    void set_output_id(xen::OutputId) override
+    {
+        throw std::runtime_error{error_message_};
+    }
+
+    [[nodiscard]] auto audio_project_update_version() const noexcept
+        -> std::uint64_t override
+    {
+        return 0;
+    }
+
+    [[nodiscard]] auto try_consume_audio_project_update() noexcept
+        -> std::optional<xen::EngineStateMailbox::ReadView> override
+    {
+        return std::nullopt;
+    }
+
+  private:
+    xen::InstanceBinding binding_;
+    std::string error_message_;
+    xen::CommandCatalog command_catalog_;
+    xen::ProjectSnapshot snapshot_{
+        .project = xen::ProjectState{},
+        .history_entry_id = xen::HistoryEntryId{1},
+        .project_revision = xen::ProjectRevision{1},
+    };
+    xen::LibrarySnapshot library_{};
+};
+
 } // namespace
 
 namespace xen
@@ -68,23 +163,41 @@ namespace xen
 
 XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
                            std::filesystem::path workspace_settings_file)
-    : session_{effect_failure, std::move(workspace_settings_file)}
 {
-    session_.replace_instance_binding(InstanceBinding{
-        .session_id = make_id("session"),
-        .instance_id = make_id("instance"),
-        .output_id = CURRENT_INSTANCE_OUTPUT_ID,
-    });
+    (void)effect_failure;
+    (void)workspace_settings_file;
+    try
+    {
+        auto binding = InstanceBinding{
+            .session_id = startup_session_id(),
+            .instance_id = make_id("instance"),
+            .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+        };
+        session_ = std::make_unique<ipc::IpcSequencerSessionClient>(binding);
+    }
+    catch (std::exception const &e)
+    {
+        auto binding = InstanceBinding{
+            .session_id = make_id("session"),
+            .instance_id = make_id("instance"),
+            .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+        };
+        auto message =
+            std::string{"XenSequencerCoordinator startup failed: "} + e.what();
+        juce::Logger::writeToLog(message);
+        session_ =
+            std::make_unique<OfflineSequencerSession>(std::move(binding), message);
+    }
 }
 
-auto XenProcessor::session() noexcept -> SequencerSession &
+auto XenProcessor::session() noexcept -> SequencerSessionPort &
 {
-    return session_;
+    return *session_;
 }
 
-auto XenProcessor::session() const noexcept -> SequencerSession const &
+auto XenProcessor::session() const noexcept -> SequencerSessionPort const &
 {
-    return session_;
+    return *session_;
 }
 
 auto XenProcessor::audio_thread_state_snapshot() const noexcept
@@ -162,7 +275,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         };
     }
 
-    if (auto const snapshot = session_.try_consume_audio_project_update())
+    if (auto const snapshot = session_->try_consume_audio_project_update())
     {
         audio_thread_state_.project = &snapshot->state().project;
         audio_thread_state_.output_id = snapshot->state().output_id;
@@ -211,8 +324,8 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_processor_state(session_.instance_binding(),
-                                                        session_.project_snapshot());
+        auto const json_str = serialize_processor_state(session_->instance_binding(),
+                                                        session_->project_snapshot());
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -231,8 +344,8 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
         auto state = deserialize_processor_state(json_str);
-        session_.replace_project_history_and_binding(std::move(state.project),
-                                                     std::move(state.binding));
+        session_ =
+            std::make_unique<ipc::IpcSequencerSessionClient>(state.binding, state);
     }
     catch (std::exception const &e)
     {

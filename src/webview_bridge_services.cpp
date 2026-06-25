@@ -102,7 +102,7 @@ auto make_library_file_entry(juce::File const &directory, juce::File const &file
 } // namespace
 
 SequencerApplicationBridgeService::SequencerApplicationBridgeService(
-    SequencerSession &session)
+    SequencerSessionPort &session)
     : session_{session}
 {
 }
@@ -125,7 +125,7 @@ auto SequencerApplicationBridgeService::library_snapshot() const -> LibrarySnaps
 auto SequencerApplicationBridgeService::command_catalog_metadata() const
     -> std::vector<CatalogCommandMetadata>
 {
-    return session_.command_catalog().metadata();
+    return session_.command_catalog_metadata();
 }
 
 auto SequencerApplicationBridgeService::execute_command_string(

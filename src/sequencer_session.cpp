@@ -128,6 +128,12 @@ auto SequencerSession::command_catalog() const noexcept -> CommandCatalog const 
     return command_catalog_;
 }
 
+auto SequencerSession::command_catalog_metadata() const
+    -> std::vector<CatalogCommandMetadata>
+{
+    return command_catalog_.metadata();
+}
+
 auto SequencerSession::command_session() const noexcept -> CommandSessionState const &
 {
     return state_.command_session;

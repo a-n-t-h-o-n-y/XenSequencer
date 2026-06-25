@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 
 #include <catch2/catch_test_macros.hpp>
@@ -11,6 +12,21 @@
 #include <xen/xen_processor.hpp>
 
 using namespace xen;
+
+namespace
+{
+
+struct DisableActiveSessionDiscovery
+{
+    DisableActiveSessionDiscovery()
+    {
+        setenv("XEN_SEQUENCER_DISABLE_ACTIVE_SESSION_DISCOVERY", "1", 1);
+    }
+};
+
+auto const disable_active_session_discovery = DisableActiveSessionDiscovery{};
+
+} // namespace
 
 TEST_CASE("Processor state round-trip preserves engine state", "[processor][state]")
 {
@@ -43,7 +59,8 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
         std::string{static_cast<char const *>(blob.getData()), blob.getSize()};
     auto const encoded = nlohmann::json::parse(serialized);
     CHECK(encoded.at("kind") == "xen_processor_state");
-    CHECK(encoded.at("binding").at("output_id") == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(encoded.at("binding").at("output_id") ==
+          source.session().instance_binding().output_id);
     CHECK(encoded.at("shared_snapshot").contains("history_entry_id"));
     CHECK(encoded.at("shared_snapshot").contains("project_revision"));
 
@@ -109,15 +126,16 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
 
     auto target = XenProcessor{};
     auto const before = target.session().project_snapshot();
-    auto const before_mailbox_version = target.session().audio_project_update_version();
 
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
     auto const after = target.session().project_snapshot();
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
-    CHECK(target.session().audio_project_update_version() ==
-          before_mailbox_version + 1);
+    CHECK(target.session().audio_project_update_version() > 0);
+    auto const update = target.session().try_consume_audio_project_update();
+    REQUIRE(update.has_value());
+    CHECK(update->state().project == after.project);
 }
 
 TEST_CASE("Processor equal-data restoration replaces project history",

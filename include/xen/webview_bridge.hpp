@@ -7,7 +7,7 @@
 
 #include <juce_core/juce_core.h>
 
-#include <xen/sequencer_session.hpp>
+#include <xen/sequencer_session_port.hpp>
 #include <xen/webview_bridge_services.hpp>
 
 namespace xen
@@ -23,7 +23,7 @@ class WebviewBridge
 
   public:
     explicit WebviewBridge(
-        SequencerSession &session,
+        SequencerSessionPort &session,
         std::filesystem::path keymap_file = KeymapStore::default_file());
 
     [[nodiscard]] auto handle_request_json(std::string const &request_json)

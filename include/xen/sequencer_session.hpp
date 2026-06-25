@@ -8,6 +8,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
 #include <xen/engine_state_mailbox.hpp>
+#include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/submission_effects.hpp>
 #include <xen/workspace_settings.hpp>
@@ -15,7 +16,7 @@
 namespace xen
 {
 
-class SequencerSession
+class SequencerSession final : public SequencerSessionPort
 {
   public:
     explicit SequencerSession(SubmissionEffects::FailurePoint effect_failure =
@@ -23,26 +24,29 @@ class SequencerSession
                               std::filesystem::path workspace_settings_file =
                                   WorkspaceSettingsStore::default_file());
 
-    [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot;
-    [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot;
-    [[nodiscard]] auto instance_binding() const -> InstanceBinding const &;
+    [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
+    [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding const & override;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
+    [[nodiscard]] auto command_catalog_metadata() const
+        -> std::vector<CatalogCommandMetadata> override;
     [[nodiscard]] auto command_session() const noexcept -> CommandSessionState const &;
 
     [[nodiscard]] auto execute_command_string(std::string const &command_string,
                                               CommandContext const &context)
-        -> CommandApplicationResult;
+        -> CommandApplicationResult override;
 
     void replace_project_history(ProjectState state);
     void replace_library(ContentLibrary library);
     void replace_instance_binding(InstanceBinding binding);
     void replace_project_history_and_binding(ProjectState state,
                                              InstanceBinding binding);
-    void set_output_id(OutputId output_id);
+    void set_output_id(OutputId output_id) override;
 
-    [[nodiscard]] auto audio_project_update_version() const noexcept -> std::uint64_t;
+    [[nodiscard]] auto audio_project_update_version() const noexcept
+        -> std::uint64_t override;
     [[nodiscard]] auto try_consume_audio_project_update() noexcept
-        -> std::optional<EngineStateMailbox::ReadView>;
+        -> std::optional<EngineStateMailbox::ReadView> override;
 
   private:
     PluginState state_;

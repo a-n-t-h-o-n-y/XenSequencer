@@ -2,13 +2,14 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <xen/audio_thread_state_exchange.hpp>
 #include <xen/midi_engine.hpp>
-#include <xen/sequencer_session.hpp>
+#include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/submission_effects.hpp>
 #include <xen/workspace_settings.hpp>
@@ -30,8 +31,8 @@ class XenProcessor : public juce::AudioProcessor
 
     ~XenProcessor() override = default;
 
-    [[nodiscard]] auto session() noexcept -> SequencerSession &;
-    [[nodiscard]] auto session() const noexcept -> SequencerSession const &;
+    [[nodiscard]] auto session() noexcept -> SequencerSessionPort &;
+    [[nodiscard]] auto session() const noexcept -> SequencerSessionPort const &;
     [[nodiscard]] auto audio_thread_state_snapshot() const noexcept
         -> AudioThreadStateForGUI;
 
@@ -75,7 +76,7 @@ class XenProcessor : public juce::AudioProcessor
         MidiEngine midi_engine;
     } audio_thread_state_;
 
-    SequencerSession session_;
+    std::unique_ptr<SequencerSessionPort> session_;
     AudioThreadStateExchange audio_thread_state_for_gui_;
 };
 

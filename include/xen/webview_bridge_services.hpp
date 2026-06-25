@@ -15,7 +15,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
 #include <xen/keymap.hpp>
-#include <xen/sequencer_session.hpp>
+#include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/webview_bridge_protocol.hpp>
 
@@ -94,7 +94,7 @@ class LibraryFilePort
 class SequencerApplicationBridgeService final : public ApplicationBridgeService
 {
   public:
-    explicit SequencerApplicationBridgeService(SequencerSession &session);
+    explicit SequencerApplicationBridgeService(SequencerSessionPort &session);
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto instance_binding() const -> InstanceBinding override;
@@ -107,7 +107,7 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
     void set_output_id(OutputId output_id) override;
 
   private:
-    SequencerSession &session_;
+    SequencerSessionPort &session_;
 };
 
 class StoreKeymapBridgeService final : public KeymapBridgeService

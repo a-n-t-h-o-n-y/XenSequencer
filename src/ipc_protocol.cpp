@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-#include <xen/bridge_serialize.hpp>
+#include <xen/project_validation.hpp>
 #include <xen/serialize.hpp>
 
 namespace xen::ipc
@@ -82,6 +82,143 @@ namespace
         .project_revision =
             ProjectRevision{json.at("project_revision").get<std::uint64_t>()},
     };
+}
+
+[[nodiscard]] auto scale_to_json(Scale const &scale) -> nlohmann::json
+{
+    return {
+        {"name", scale.name},
+        {"tuning_length", scale.tuning_length},
+        {"intervals", scale.intervals},
+        {"mode", scale.mode},
+    };
+}
+
+[[nodiscard]] auto scale_from_json(nlohmann::json const &json) -> Scale
+{
+    auto scale = Scale{
+        .name = json.at("name").get<std::string>(),
+        .tuning_length = json.at("tuning_length").get<std::size_t>(),
+        .intervals = json.at("intervals").get<std::vector<std::uint8_t>>(),
+        .mode = json.at("mode").get<std::uint8_t>(),
+    };
+    validate_scale(scale);
+    return scale;
+}
+
+[[nodiscard]] auto library_scale_to_json(LibraryScale const &scale) -> nlohmann::json
+{
+    return {
+        {"id", scale.id},
+        {"definition", scale_to_json(scale.definition)},
+    };
+}
+
+[[nodiscard]] auto library_scale_from_json(nlohmann::json const &json) -> LibraryScale
+{
+    return {
+        .id = json.at("id").get<std::string>(),
+        .definition = scale_from_json(json.at("definition")),
+    };
+}
+
+[[nodiscard]] auto chord_to_json(Chord const &chord) -> nlohmann::json
+{
+    return {
+        {"name", chord.name},
+        {"intervals", chord.intervals},
+    };
+}
+
+[[nodiscard]] auto chord_from_json(nlohmann::json const &json) -> Chord
+{
+    return {
+        .name = json.at("name").get<std::string>(),
+        .intervals = json.at("intervals").get<std::vector<int>>(),
+    };
+}
+
+[[nodiscard]] auto content_library_to_json(ContentLibrary const &library)
+    -> nlohmann::json
+{
+    auto scales = nlohmann::json::array();
+    for (auto const &scale : library.scales)
+    {
+        scales.push_back(library_scale_to_json(scale));
+    }
+
+    auto chords = nlohmann::json::array();
+    for (auto const &chord : library.chords)
+    {
+        chords.push_back(chord_to_json(chord));
+    }
+
+    return {
+        {"scales", std::move(scales)},
+        {"chords", std::move(chords)},
+    };
+}
+
+[[nodiscard]] auto content_library_from_json(nlohmann::json const &json)
+    -> ContentLibrary
+{
+    auto library = ContentLibrary{};
+    for (auto const &scale : json.at("scales"))
+    {
+        library.scales.push_back(library_scale_from_json(scale));
+    }
+    for (auto const &chord : json.at("chords"))
+    {
+        library.chords.push_back(chord_from_json(chord));
+    }
+    validate(library);
+    return library;
+}
+
+[[nodiscard]] auto library_to_json(LibrarySnapshot const &snapshot) -> nlohmann::json
+{
+    return {
+        {"library", content_library_to_json(snapshot.library)},
+        {"sequence_directory", snapshot.workspace.sequence_directory.string()},
+        {"tuning_directory", snapshot.workspace.tuning_directory.string()},
+        {"library_revision", snapshot.library_revision.value()},
+    };
+}
+
+[[nodiscard]] auto library_from_json(nlohmann::json const &json) -> LibrarySnapshot
+{
+    return {
+        .library = content_library_from_json(json.at("library")),
+        .workspace =
+            WorkspaceSettings{
+                .sequence_directory = json.at("sequence_directory").get<std::string>(),
+                .tuning_directory = json.at("tuning_directory").get<std::string>(),
+            },
+        .library_revision =
+            LibraryRevision{json.at("library_revision").get<std::uint64_t>()},
+    };
+}
+
+[[nodiscard]] auto bindings_to_json(std::vector<InstanceBinding> const &bindings)
+    -> nlohmann::json
+{
+    auto result = nlohmann::json::array();
+    for (auto const &binding : bindings)
+    {
+        result.push_back(binding_to_json(binding));
+    }
+    return result;
+}
+
+[[nodiscard]] auto bindings_from_json(nlohmann::json const &json)
+    -> std::vector<InstanceBinding>
+{
+    auto result = std::vector<InstanceBinding>{};
+    for (auto const &item : json)
+    {
+        result.push_back(binding_from_json(item));
+    }
+    return result;
 }
 
 [[nodiscard]] auto selection_to_json(std::optional<SelectionPath> const &selection)
@@ -160,8 +297,24 @@ namespace
 
 [[nodiscard]] auto status_to_json(CommandStatus const &status) -> nlohmann::json
 {
+    auto level = std::string{};
+    switch (status.first)
+    {
+    case MessageLevel::Debug:
+        level = "debug";
+        break;
+    case MessageLevel::Info:
+        level = "info";
+        break;
+    case MessageLevel::Warning:
+        level = "warning";
+        break;
+    case MessageLevel::Error:
+        level = "error";
+        break;
+    }
     return {
-        {"level", bridge::to_string(status.first)},
+        {"level", std::move(level)},
         {"message", status.second},
     };
 }
@@ -248,6 +401,8 @@ auto encode_coordinator_hello(CoordinatorHello const &message) -> nlohmann::json
                     {
                         {"binding", binding_to_json(message.binding)},
                         {"snapshot", snapshot_to_json(message.snapshot)},
+                        {"library", library_to_json(message.library)},
+                        {"instances", bindings_to_json(message.instances)},
                     });
 }
 
@@ -257,6 +412,8 @@ auto decode_coordinator_hello(nlohmann::json const &message) -> CoordinatorHello
     return {
         .binding = binding_from_json(payload.at("binding")),
         .snapshot = snapshot_from_json(payload.at("snapshot")),
+        .library = library_from_json(payload.at("library")),
+        .instances = bindings_from_json(payload.at("instances")),
     };
 }
 
@@ -314,6 +471,162 @@ auto decode_command_response(nlohmann::json const &message) -> CommandResponse
                     selection_from_json(payload.at("suggested_selection")),
             },
         .snapshot = snapshot_from_json(payload.at("snapshot")),
+    };
+}
+
+auto encode_project_changed(ProjectChanged const &message) -> nlohmann::json
+{
+    return envelope("project.changed",
+                    {{"snapshot", snapshot_to_json(message.snapshot)}});
+}
+
+auto decode_project_changed(nlohmann::json const &message) -> ProjectChanged
+{
+    auto const &payload = require_protocol(message, "project.changed");
+    return {.snapshot = snapshot_from_json(payload.at("snapshot"))};
+}
+
+auto encode_library_changed(LibraryChanged const &message) -> nlohmann::json
+{
+    return envelope("library.changed",
+                    {{"snapshot", library_to_json(message.snapshot)}});
+}
+
+auto decode_library_changed(nlohmann::json const &message) -> LibraryChanged
+{
+    auto const &payload = require_protocol(message, "library.changed");
+    return {.snapshot = library_from_json(payload.at("snapshot"))};
+}
+
+auto encode_binding_set_request(BindingSetRequest const &message) -> nlohmann::json
+{
+    if (message.request_id.empty())
+    {
+        throw std::invalid_argument{"Binding request ID must not be empty."};
+    }
+    if (message.instance_id.empty())
+    {
+        throw std::invalid_argument{"Binding instance ID must not be empty."};
+    }
+    if (message.output_id.empty())
+    {
+        throw std::invalid_argument{"Binding output ID must not be empty."};
+    }
+    return envelope("instance.binding.set", {
+                                                {"request_id", message.request_id},
+                                                {"instance_id", message.instance_id},
+                                                {"output_id", message.output_id},
+                                            });
+}
+
+auto decode_binding_set_request(nlohmann::json const &message) -> BindingSetRequest
+{
+    auto const &payload = require_protocol(message, "instance.binding.set");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .instance_id = payload.at("instance_id").get<InstanceId>(),
+        .output_id = payload.at("output_id").get<OutputId>(),
+    };
+}
+
+auto encode_binding_set_response(BindingSetResponse const &message) -> nlohmann::json
+{
+    return envelope("instance.binding.result",
+                    {
+                        {"request_id", message.request_id},
+                        {"binding", binding_to_json(message.binding)},
+                        {"snapshot", snapshot_to_json(message.snapshot)},
+                    });
+}
+
+auto decode_binding_set_response(nlohmann::json const &message) -> BindingSetResponse
+{
+    auto const &payload = require_protocol(message, "instance.binding.result");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .binding = binding_from_json(payload.at("binding")),
+        .snapshot = snapshot_from_json(payload.at("snapshot")),
+    };
+}
+
+auto encode_instances_changed(InstancesChanged const &message) -> nlohmann::json
+{
+    return envelope("instances.changed",
+                    {{"instances", bindings_to_json(message.instances)}});
+}
+
+auto decode_instances_changed(nlohmann::json const &message) -> InstancesChanged
+{
+    auto const &payload = require_protocol(message, "instances.changed");
+    return {.instances = bindings_from_json(payload.at("instances"))};
+}
+
+auto encode_heartbeat(Heartbeat const &message) -> nlohmann::json
+{
+    return envelope("heartbeat", {{"sequence", message.sequence}});
+}
+
+auto decode_heartbeat(nlohmann::json const &message) -> Heartbeat
+{
+    auto const &payload = require_protocol(message, "heartbeat");
+    return {.sequence = payload.at("sequence").get<std::uint64_t>()};
+}
+
+auto encode_shutdown_if_idle_request(ShutdownIfIdleRequest const &message)
+    -> nlohmann::json
+{
+    if (message.request_id.empty())
+    {
+        throw std::invalid_argument{"Shutdown request ID must not be empty."};
+    }
+    return envelope("coordinator.shutdown_if_idle",
+                    {{"request_id", message.request_id}});
+}
+
+auto decode_shutdown_if_idle_request(nlohmann::json const &message)
+    -> ShutdownIfIdleRequest
+{
+    auto const &payload = require_protocol(message, "coordinator.shutdown_if_idle");
+    return {.request_id = payload.at("request_id").get<std::string>()};
+}
+
+auto encode_shutdown_if_idle_response(ShutdownIfIdleResponse const &message)
+    -> nlohmann::json
+{
+    return envelope("coordinator.shutdown_if_idle.result",
+                    {
+                        {"request_id", message.request_id},
+                        {"will_exit", message.will_exit},
+                    });
+}
+
+auto decode_shutdown_if_idle_response(nlohmann::json const &message)
+    -> ShutdownIfIdleResponse
+{
+    auto const &payload =
+        require_protocol(message, "coordinator.shutdown_if_idle.result");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .will_exit = payload.at("will_exit").get<bool>(),
+    };
+}
+
+auto encode_error(IpcError const &message) -> nlohmann::json
+{
+    return envelope("error", {
+                                 {"request_id", message.request_id},
+                                 {"code", message.code},
+                                 {"message", message.message},
+                             });
+}
+
+auto decode_error(nlohmann::json const &message) -> IpcError
+{
+    auto const &payload = require_protocol(message, "error");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .code = payload.at("code").get<std::string>(),
+        .message = payload.at("message").get<std::string>(),
     };
 }
 

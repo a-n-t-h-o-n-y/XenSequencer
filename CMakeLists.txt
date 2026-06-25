@@ -198,7 +198,11 @@ set(XEN_APPLICATION_SOURCES
     src/command_catalog_specs_set_and_shift.cpp
     src/command_catalog_specs_transform.cpp
     src/command_transaction.cpp
+    src/coordinator_launcher.cpp
+    src/coordinator_registry.cpp
+    src/coordinator_server.cpp
     src/keymap.cpp
+    src/ipc_sequencer_session_client.cpp
     src/ipc_protocol.cpp
     src/parse_args.cpp
     src/sequencer_session.cpp
@@ -262,10 +266,31 @@ target_include_directories(XenApplication PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_link_libraries(XenApplication
     PUBLIC
         XenDomain
+        juce::juce_events
         nlohmann_json::nlohmann_json
         yaml-cpp
 )
 xen_apply_compile_settings(XenApplication PUBLIC)
+
+add_executable(XenSequencerCoordinator
+    src/ipc/coordinator_main.cpp
+)
+target_include_directories(XenSequencerCoordinator
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(XenSequencerCoordinator
+    PUBLIC
+        XenApplication
+        juce::juce_core
+        juce::juce_events
+)
+xen_apply_compile_settings(XenSequencerCoordinator PRIVATE)
+
+target_compile_definitions(XenApplication
+    PUBLIC
+        XEN_COORDINATOR_HELPER_PATH="$<TARGET_FILE:XenSequencerCoordinator>"
+)
 
 add_library(XenBridgeProtocol STATIC ${XEN_BRIDGE_PROTOCOL_SOURCES})
 target_include_directories(XenBridgeProtocol PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -340,6 +365,18 @@ target_link_libraries(XenSequencer
 )
 xen_apply_compile_settings(XenSequencer PUBLIC)
 
+foreach(format_target XenSequencer_VST3 XenSequencer_Standalone)
+    if (TARGET ${format_target})
+        add_custom_command(TARGET ${format_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:XenSequencerCoordinator>
+                $<TARGET_FILE_DIR:${format_target}>/$<TARGET_FILE_NAME:XenSequencerCoordinator>
+            VERBATIM
+        )
+        add_dependencies(${format_target} XenSequencerCoordinator)
+    endif()
+endforeach()
+
 # TESTS --------------------------------------------------------------------------------
 
 if (XEN_BUILD_TESTS)
@@ -395,6 +432,7 @@ if (XEN_BUILD_TESTS)
                 Catch2::Catch2WithMain
         )
         xen_apply_compile_settings(XenAdapterTests PRIVATE)
+        add_dependencies(XenAdapterTests XenSequencerCoordinator)
 
         if ((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR
             (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))

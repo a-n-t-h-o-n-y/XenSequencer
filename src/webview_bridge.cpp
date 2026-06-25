@@ -12,7 +12,7 @@
 namespace xen
 {
 
-WebviewBridge::WebviewBridge(SequencerSession &session,
+WebviewBridge::WebviewBridge(SequencerSessionPort &session,
                              std::filesystem::path keymap_file)
     : application_service_{session}, library_files_{}, library_service_{library_files_},
       keymap_service_{std::move(keymap_file)},
