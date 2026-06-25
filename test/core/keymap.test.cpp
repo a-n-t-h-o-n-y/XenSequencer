@@ -115,7 +115,12 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
 
     auto const edit_binding = find_binding(snapshot, "composition", {.key = "Enter"});
     REQUIRE(edit_binding != nullptr);
-    CHECK(edit_binding->target.value == "composition.cell.rename_or_create_measure");
+    CHECK(edit_binding->target.value == "composition.cell.edit_measure");
+
+    auto const rename_binding = find_binding(snapshot, "composition", {.key = "n"});
+    REQUIRE(rename_binding != nullptr);
+    CHECK(rename_binding->target.value ==
+          "composition.cell.rename_or_create_measure");
 
     auto const clear_binding = find_binding(snapshot, "composition", {.key = "Delete"});
     REQUIRE(clear_binding != nullptr);
@@ -256,7 +261,8 @@ TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
     CHECK_THROWS_AS(validate(invalid_move), std::invalid_argument);
 
     for (auto const *action :
-         {"composition.cell.rename_or_create_measure", "composition.cell.clear",
+         {"composition.cell.edit_measure",
+          "composition.cell.rename_or_create_measure", "composition.cell.clear",
           "composition.row.insert_before", "composition.row.insert_after",
           "composition.row.delete", "composition.row.rename", "composition.row.output",
           "composition.column.insert_before", "composition.column.insert_after",

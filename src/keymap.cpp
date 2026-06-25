@@ -317,6 +317,8 @@ auto default_keymap() -> KeymapContexts
     add(contexts, "composition", trigger("k"), composition_move("up"));
     add(contexts, "composition", trigger("ArrowUp"), composition_move("up"));
     add(contexts, "composition", trigger("Enter"),
+        command_ui_action("composition.cell.edit_measure"));
+    add(contexts, "composition", trigger("n"),
         command_ui_action("composition.cell.rename_or_create_measure"));
     add(contexts, "composition", trigger("Delete"),
         command_ui_action("composition.cell.clear"));
@@ -443,6 +445,7 @@ void validate(KeymapTarget const &value)
         value.value == "command.completion.dismiss" ||
         value.value == "command.completion.previous" ||
         value.value == "command.completion.next" ||
+        value.value == "composition.cell.edit_measure" ||
         value.value == "composition.cell.rename_or_create_measure" ||
         value.value == "composition.cell.clear" ||
         value.value == "composition.row.insert_before" ||
