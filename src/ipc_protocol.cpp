@@ -279,6 +279,14 @@ namespace
              ? nlohmann::json(context.expected_project_revision->value())
              : nlohmann::json{nullptr}},
         {"selection", selection_to_json(context.selection)},
+        {"active_measure_target",
+         context.active_measure_target.has_value()
+             ? nlohmann::json{
+                   {"row_index", context.active_measure_target->row_index},
+                   {"column_index", context.active_measure_target->column_index},
+                   {"measure_id", context.active_measure_target->measure_id},
+               }
+             : nlohmann::json{nullptr}},
     };
 }
 
@@ -292,6 +300,16 @@ namespace
             ProjectRevision{json.at("expected_project_revision").get<std::uint64_t>()};
     }
     context.selection = selection_from_json(json.at("selection"));
+    if (json.contains("active_measure_target") &&
+        !json.at("active_measure_target").is_null())
+    {
+        auto const &target = json.at("active_measure_target");
+        context.active_measure_target = ActiveMeasureTarget{
+            .row_index = target.at("row_index").get<std::size_t>(),
+            .column_index = target.at("column_index").get<std::size_t>(),
+            .measure_id = target.at("measure_id").get<MeasureId>(),
+        };
+    }
     return context;
 }
 

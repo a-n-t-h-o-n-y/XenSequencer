@@ -21,6 +21,7 @@ struct CommandContext
 {
     std::optional<SelectionPath> selection{};
     std::optional<ProjectRevision> expected_project_revision{};
+    std::optional<ActiveMeasureTarget> active_measure_target{};
 };
 
 struct CommandExecutionContext

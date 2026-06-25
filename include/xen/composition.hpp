@@ -19,6 +19,15 @@ using OutputId = std::string;
 inline constexpr auto DEFAULT_MEASURE_ID = MeasureId{1};
 inline constexpr auto CURRENT_INSTANCE_OUTPUT_ID = "current";
 
+struct ActiveMeasureTarget
+{
+    std::size_t row_index{};
+    std::size_t column_index{};
+    MeasureId measure_id{};
+
+    auto operator==(ActiveMeasureTarget const &) const -> bool = default;
+};
+
 struct MeasureBankEntry
 {
     MeasureId id{};
@@ -105,6 +114,12 @@ auto clear_measure_reference(Composition &composition, std::size_t row,
 [[nodiscard]] auto measure_reference_at(Composition const &composition, std::size_t row,
                                         std::size_t column) -> std::optional<MeasureId>;
 
+[[nodiscard]] auto arranged_measure(MeasureBank &bank, Composition const &composition,
+                                    ActiveMeasureTarget const &target) -> Measure &;
+[[nodiscard]] auto arranged_measure(MeasureBank const &bank,
+                                    Composition const &composition,
+                                    ActiveMeasureTarget const &target)
+    -> Measure const &;
 [[nodiscard]] auto default_arranged_measure(MeasureBank &bank,
                                             Composition const &composition)
     -> Measure &;

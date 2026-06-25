@@ -84,6 +84,43 @@ TEST_CASE("Processor rejects wrong-kind targets", "[processor][commands][selecti
     CHECK(result.status.second == "selection must resolve to a cell");
 }
 
+TEST_CASE("Processor applies selected-measure commands to active composition target",
+          "[processor][commands][context]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(execute(session, "composition column insert after 0").status.first ==
+            MessageLevel::Info);
+    REQUIRE(execute(session, "composition cell assign 0 1 Verse").status.first ==
+            MessageLevel::Info);
+
+    auto const before = session.project_snapshot();
+    auto const measure_id =
+        measure_reference_at(before.project.composition, 0, 1).value();
+    REQUIRE(measure_id != measure_reference_at(before.project.composition, 0, 0));
+
+    auto const result = session.execute_command_string(
+        "note 7", {
+                      .selection = SelectionPath{},
+                      .expected_project_revision = before.project_revision,
+                      .active_measure_target =
+                          ActiveMeasureTarget{
+                              .row_index = 0,
+                              .column_index = 1,
+                              .measure_id = measure_id,
+                          },
+                  });
+
+    REQUIRE(result.status.first == MessageLevel::Info);
+    auto const &project = session.project_snapshot().project;
+    CHECK(default_measure(project).cell.elements.empty());
+
+    auto const *active_measure = find_measure(project.measure_bank, measure_id);
+    REQUIRE(active_measure != nullptr);
+    REQUIRE(active_measure->cell.elements.size() == 1);
+    auto const &note = std::get<sequence::Note>(active_measure->cell.elements[0]);
+    CHECK(note.pitch == 7);
+}
+
 TEST_CASE("Processor reports unchanged-selection suggestions for transforms",
           "[processor][commands][selection]")
 {

@@ -131,6 +131,19 @@ auto parse_command_context(nlohmann::json const &payload) -> CommandContext
             ProjectRevision{revision.get<std::uint64_t>()};
     }
 
+    if (json_context.contains("active_measure_target") &&
+        !json_context.at("active_measure_target").is_null())
+    {
+        auto const &target = require_object(json_context, "active_measure_target");
+        context.active_measure_target = ActiveMeasureTarget{
+            .row_index =
+                static_cast<std::size_t>(require_unsigned(target, "row_index")),
+            .column_index =
+                static_cast<std::size_t>(require_unsigned(target, "column_index")),
+            .measure_id = require_unsigned(target, "measure_id"),
+        };
+    }
+
     if (json_context.contains("selection"))
     {
         auto const &selection = require_object(json_context, "selection");

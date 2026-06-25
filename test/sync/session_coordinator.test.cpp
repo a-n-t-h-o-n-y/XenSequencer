@@ -38,6 +38,12 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
             CommandContext{
                 .selection = SelectionPath{},
                 .expected_project_revision = ProjectRevision{12},
+                .active_measure_target =
+                    ActiveMeasureTarget{
+                        .row_index = 0,
+                        .column_index = 1,
+                        .measure_id = 2,
+                    },
             },
     };
 
@@ -50,6 +56,10 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
     CHECK(decoded_request.context.expected_project_revision->value() == 12);
     REQUIRE(decoded_request.context.selection.has_value());
     CHECK(decoded_request.context.selection->path.empty());
+    REQUIRE(decoded_request.context.active_measure_target.has_value());
+    CHECK(decoded_request.context.active_measure_target->row_index == 0);
+    CHECK(decoded_request.context.active_measure_target->column_index == 1);
+    CHECK(decoded_request.context.active_measure_target->measure_id == 2);
 
     auto response = ipc::CommandResponse{
         .request_id = "request-1",

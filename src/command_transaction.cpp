@@ -62,6 +62,12 @@ auto resolve_chord_cycle(std::vector<Chord> const &chords, TransformCycleSession
     return {std::move(chord_name), inversion};
 }
 
+auto persistent_project(ProjectState project) -> ProjectState
+{
+    project.active_measure_target = std::nullopt;
+    return project;
+}
+
 } // namespace
 
 auto ProjectReadCapability::get() const -> ProjectState const &
@@ -295,6 +301,8 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
         sessions_->transform_cycle.has_value() &&
         sessions_->transform_cycle->kind == kind &&
         sessions_->transform_cycle->target == selection &&
+        sessions_->transform_cycle->active_measure_target ==
+            project().active_measure_target &&
         sessions_->transform_cycle->project_revision == revision &&
         sessions_->transform_cycle->history_entry_id == entry_id &&
         sessions_->transform_cycle->library_revision == state_.library_revision;
@@ -309,6 +317,7 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
         sessions_->transform_cycle = TransformCycleSession{
             .kind = kind,
             .target = selection,
+            .active_measure_target = project().active_measure_target,
             .baseline = std::move(baseline),
             .project_revision = revision,
             .history_entry_id = entry_id,
@@ -445,18 +454,18 @@ void CommandTransaction::prepare()
         switch (history_.kind)
         {
         case HistoryPlanKind::Commit:
-            (void)prepared_timeline_->commit(project());
+            (void)prepared_timeline_->commit(persistent_project(project()));
             break;
         case HistoryPlanKind::Amend:
             if (!history_.expected_entry_id.has_value() ||
                 !prepared_timeline_->amend_current(*history_.expected_entry_id,
-                                                   project()))
+                                                   persistent_project(project())))
             {
                 throw std::runtime_error{"History amendment guard failed."};
             }
             break;
         case HistoryPlanKind::Replace:
-            prepared_timeline_->replace_history(project());
+            prepared_timeline_->replace_history(persistent_project(project()));
             break;
         case HistoryPlanKind::NavigateUndo:
             (void)prepared_timeline_->undo();
@@ -499,7 +508,7 @@ void CommandTransaction::install() noexcept
     }
     else if (project_.has_value())
     {
-        state_.timeline.stage(std::move(*project_));
+        state_.timeline.stage(persistent_project(std::move(*project_)));
     }
     if (library_.has_value())
     {

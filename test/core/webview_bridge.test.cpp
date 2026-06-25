@@ -471,13 +471,29 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
         fake_response(dispatcher, "command.execute",
                       {
                           {"command", "fake"},
-                          {"context", {{"expected_project_revision", 7}}},
+                          {"context",
+                           {
+                               {"expected_project_revision", 7},
+                               {"selection", {{"path", nlohmann::json::array()}}},
+                               {"active_measure_target",
+                                {
+                                    {"row_index", 0},
+                                    {"column_index", 1},
+                                    {"measure_id", 2},
+                                }},
+                           }},
                       })
             .at("payload");
     CHECK(command.at("status").at("message") == "fake command");
     CHECK(application.executed_command == "fake");
     REQUIRE(application.executed_context.expected_project_revision.has_value());
     CHECK(application.executed_context.expected_project_revision->value() == 7);
+    REQUIRE(application.executed_context.selection.has_value());
+    CHECK(application.executed_context.selection->path.empty());
+    REQUIRE(application.executed_context.active_measure_target.has_value());
+    CHECK(application.executed_context.active_measure_target->row_index == 0);
+    CHECK(application.executed_context.active_measure_target->column_index == 1);
+    CHECK(application.executed_context.active_measure_target->measure_id == 2);
 
     auto const library_payload = fake_response(dispatcher, "library.get").at("payload");
     CHECK(library_payload.at("fake_library") == true);

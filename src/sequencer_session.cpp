@@ -217,6 +217,12 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         }
 
         auto transaction = CommandTransaction{state_, effect_failure_};
+        if (context.active_measure_target.has_value())
+        {
+            transaction.edit_project().active_measure_target =
+                context.active_measure_target;
+            (void)default_measure(transaction.project());
+        }
         if (history_count == 1)
         {
             transaction.invalidate_transform_sessions();

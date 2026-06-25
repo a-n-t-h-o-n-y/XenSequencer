@@ -354,6 +354,40 @@ auto measure_reference_at(Composition const &composition, std::size_t row,
     return target_row.cells[column];
 }
 
+auto arranged_measure(MeasureBank &bank, Composition const &composition,
+                      ActiveMeasureTarget const &target) -> Measure &
+{
+    auto const measure_id =
+        measure_reference_at(composition, target.row_index, target.column_index);
+    if (!measure_id.has_value())
+    {
+        throw std::invalid_argument{"Active composition cell is empty."};
+    }
+    if (*measure_id != target.measure_id)
+    {
+        throw std::invalid_argument{
+            "Active composition cell does not reference the requested measure."};
+    }
+    return require_measure(bank, target.measure_id);
+}
+
+auto arranged_measure(MeasureBank const &bank, Composition const &composition,
+                      ActiveMeasureTarget const &target) -> Measure const &
+{
+    auto const measure_id =
+        measure_reference_at(composition, target.row_index, target.column_index);
+    if (!measure_id.has_value())
+    {
+        throw std::invalid_argument{"Active composition cell is empty."};
+    }
+    if (*measure_id != target.measure_id)
+    {
+        throw std::invalid_argument{
+            "Active composition cell does not reference the requested measure."};
+    }
+    return require_measure(bank, target.measure_id);
+}
+
 auto default_arranged_measure(MeasureBank &bank, Composition const &composition)
     -> Measure &
 {

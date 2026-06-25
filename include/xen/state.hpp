@@ -67,13 +67,21 @@ struct ProjectState
     MeasureBank measure_bank{make_default_measure_bank()};
     Composition composition{make_default_composition()};
     PitchSystem pitch{};
+    std::optional<ActiveMeasureTarget> active_measure_target{};
 
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
-    auto operator==(ProjectState const &) const -> bool = default;
-    auto operator!=(ProjectState const &) const -> bool = default;
+    [[nodiscard]] auto operator==(ProjectState const &other) const -> bool
+    {
+        return measure_bank == other.measure_bank && composition == other.composition &&
+               pitch == other.pitch;
+    }
+    [[nodiscard]] auto operator!=(ProjectState const &other) const -> bool
+    {
+        return !(*this == other);
+    }
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -81,24 +89,46 @@ struct ProjectState
 
 [[nodiscard]] inline auto default_measure(ProjectState &project) -> Measure &
 {
+    if (project.active_measure_target.has_value())
+    {
+        return arranged_measure(project.measure_bank, project.composition,
+                                *project.active_measure_target);
+    }
     return default_arranged_measure(project.measure_bank, project.composition);
 }
 
 [[nodiscard]] inline auto default_measure(ProjectState const &project)
     -> Measure const &
 {
+    if (project.active_measure_target.has_value())
+    {
+        return arranged_measure(project.measure_bank, project.composition,
+                                *project.active_measure_target);
+    }
     return default_arranged_measure(project.measure_bank, project.composition);
 }
 
 [[nodiscard]] inline auto default_measure_length(ProjectState &project)
     -> sequence::TimeSignature &
 {
+    if (project.active_measure_target.has_value())
+    {
+        return project.composition.columns
+            .at(project.active_measure_target->column_index)
+            .length;
+    }
     return default_column_length(project.composition);
 }
 
 [[nodiscard]] inline auto default_measure_length(ProjectState const &project)
     -> sequence::TimeSignature const &
 {
+    if (project.active_measure_target.has_value())
+    {
+        return project.composition.columns
+            .at(project.active_measure_target->column_index)
+            .length;
+    }
     return default_column_length(project.composition);
 }
 
@@ -143,6 +173,7 @@ struct TransformCycleSession
 {
     TransformKind kind{TransformKind::Chord};
     SelectionPath target{};
+    std::optional<ActiveMeasureTarget> active_measure_target{};
     TargetSnapshot baseline{sequence::Cell{}};
     ProjectRevision project_revision{};
     HistoryEntryId history_entry_id{};
