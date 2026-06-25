@@ -23,7 +23,9 @@ namespace xen
  * @param scale_translate_direction The direction to move a pitch when applying a scale.
  * @return std::vector<sequence::midi::TimedMidiNote>
  */
-[[nodiscard]] auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
+[[nodiscard]] auto state_to_timeline(Measure measure,
+                                     sequence::TimeSignature measure_length,
+                                     sequence::Tuning const &tuning,
                                      float base_frequency, DAWState const &daw_state,
                                      std::optional<Scale> const &scale, int key,
                                      TranslateDirection scale_translate_direction)
@@ -36,8 +38,7 @@ namespace xen
  * @return juce::MidiBuffer
  */
 [[nodiscard]] auto render_to_midi(
-    std::vector<sequence::midi::TimedMidiNote> const &timeline)
-    -> juce::MidiBuffer;
+    std::vector<sequence::midi::TimedMidiNote> const &timeline) -> juce::MidiBuffer;
 
 /**
  * Extract a range of MIDI values, over a buffer treated as an 'infinite' loop.

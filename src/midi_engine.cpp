@@ -1,6 +1,8 @@
 #include <xen/midi_engine.hpp>
 
 #include <algorithm>
+#include <cstdint>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 #include <tuple>
@@ -195,15 +197,35 @@ void reconcile_live_voices(juce::MidiBuffer &buffer, LiveVoiceSet &active_live_v
     active_live_voices = normalize_live_voices(next_active_live_voices);
 }
 
-[[nodiscard]] auto render_measure(xen::Measure const &measure,
-                                  sequence::Tuning const &tuning, float base_frequency,
-                                  xen::DAWState const &daw,
-                                  std::optional<xen::Scale> const &scale, int key,
-                                  xen::TranslateDirection scale_translate_direction)
-    -> std::vector<xen::midi_internal::AssignedMidiNote>
+[[nodiscard]] auto render_measure_timeline(
+    xen::Measure const &measure, sequence::TimeSignature measure_length,
+    sequence::Tuning const &tuning, float base_frequency, xen::DAWState const &daw,
+    std::optional<xen::Scale> const &scale, int key,
+    xen::TranslateDirection scale_translate_direction)
+    -> std::vector<sequence::midi::TimedMidiNote>
 {
-    return xen::midi_internal::assign_mpe_channels(xen::state_to_timeline(
-        measure, tuning, base_frequency, daw, scale, key, scale_translate_direction));
+    return xen::state_to_timeline(measure, measure_length, tuning, base_frequency, daw,
+                                  scale, key, scale_translate_direction);
+}
+
+[[nodiscard]] auto checked_add_sample_count(xen::SampleCount lhs, xen::SampleCount rhs)
+    -> xen::SampleCount
+{
+    if (lhs > std::numeric_limits<xen::SampleCount>::max() - rhs)
+    {
+        throw std::overflow_error{"Composition sample count overflow."};
+    }
+    return lhs + rhs;
+}
+
+void offset_timeline(std::vector<sequence::midi::TimedMidiNote> &timeline,
+                     xen::SampleCount offset)
+{
+    for (auto &note : timeline)
+    {
+        note.begin = checked_add_sample_count(note.begin, offset);
+        note.end = checked_add_sample_count(note.end, offset);
+    }
 }
 
 } // namespace
@@ -295,23 +317,64 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
     return out_buffer;
 }
 
-auto MidiEngine::render(ProjectState const &project, DAWState const &daw)
-    -> std::optional<MidiSequence>
+auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
+                        OutputId const &output_id) -> std::optional<MidiSequence>
 {
     try
     {
-        auto assigned_notes = render_measure(
-            project.measure, project.pitch.tuning.definition,
-            project.pitch.base_frequency, daw,
-            project.pitch.scale.has_value()
-                ? std::optional<Scale>{project.pitch.scale->definition}
-                : std::nullopt,
-            project.pitch.transposition, project.pitch.translation_direction);
+        auto column_offsets = std::vector<SampleCount>{};
+        column_offsets.reserve(project.composition.columns.size());
+
+        auto sample_count = SampleCount{};
+        for (auto const &column : project.composition.columns)
+        {
+            column_offsets.push_back(sample_count);
+            auto const column_samples = midi_internal::checked_measure_sample_count(
+                column.length, daw.sample_rate, daw.bpm);
+            sample_count = checked_add_sample_count(sample_count, column_samples);
+        }
+
+        auto timeline = std::vector<sequence::midi::TimedMidiNote>{};
+        for (auto const &row : project.composition.rows)
+        {
+            if (row.output_id != output_id)
+            {
+                continue;
+            }
+            for (auto column_index = std::size_t{0};
+                 column_index < project.composition.columns.size(); ++column_index)
+            {
+                auto const measure_id = row.cells[column_index];
+                if (!measure_id.has_value())
+                {
+                    continue;
+                }
+
+                auto const *measure = find_measure(project.measure_bank, *measure_id);
+                if (measure == nullptr)
+                {
+                    throw std::invalid_argument{
+                        "Composition references an unknown measure ID."};
+                }
+                auto measure_timeline = render_measure_timeline(
+                    *measure, project.composition.columns[column_index].length,
+                    project.pitch.tuning.definition, project.pitch.base_frequency, daw,
+                    project.pitch.scale.has_value()
+                        ? std::optional<Scale>{project.pitch.scale->definition}
+                        : std::nullopt,
+                    project.pitch.transposition, project.pitch.translation_direction);
+                offset_timeline(measure_timeline, column_offsets[column_index]);
+                timeline.insert(timeline.end(),
+                                std::make_move_iterator(measure_timeline.begin()),
+                                std::make_move_iterator(measure_timeline.end()));
+            }
+        }
+
+        auto assigned_notes = midi_internal::assign_mpe_channels(timeline);
         return MidiSequence{
             .midi = midi_internal::render_assigned_notes(assigned_notes),
             .assigned_notes = std::move(assigned_notes),
-            .sample_count = midi_internal::checked_measure_sample_count(
-                project.measure.time_signature, daw.sample_rate, daw.bpm),
+            .sample_count = sample_count,
         };
     }
     catch (...)
@@ -322,7 +385,13 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw)
 
 void MidiEngine::update(ProjectState const &project, DAWState const &daw)
 {
-    if (auto rendered = render(project, daw))
+    update(project, daw, CURRENT_INSTANCE_OUTPUT_ID);
+}
+
+void MidiEngine::update(ProjectState const &project, DAWState const &daw,
+                        OutputId const &output_id)
+{
+    if (auto rendered = render(project, daw, output_id))
     {
         rendered_midi_ = std::move(*rendered);
     }

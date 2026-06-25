@@ -169,6 +169,7 @@ endif()
 set(XEN_DOMAIN_SOURCES
     src/actions.cpp
     src/chord.cpp
+    src/composition.cpp
     src/command.cpp
     src/copy_paste.cpp
     src/message_level.cpp

@@ -302,9 +302,10 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
     {
         auto baseline =
             selection_kind(selection) == SelectionKind::Element
-                ? TargetSnapshot{get_selected_element_const(project().measure,
+                ? TargetSnapshot{get_selected_element_const(default_measure(project()),
                                                             selection)}
-                : TargetSnapshot{get_selected_cell_const(project().measure, selection)};
+                : TargetSnapshot{
+                      get_selected_cell_const(default_measure(project()), selection)};
         sessions_->transform_cycle = TransformCycleSession{
             .kind = kind,
             .target = selection,
@@ -322,12 +323,12 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
     auto baseline_project = project();
     if (std::holds_alternative<sequence::Cell>(cycle.baseline))
     {
-        get_selected_cell(baseline_project.measure, selection) =
+        get_selected_cell(default_measure(baseline_project), selection) =
             std::get<sequence::Cell>(cycle.baseline);
     }
     else
     {
-        get_selected_element(baseline_project.measure, selection) =
+        get_selected_element(default_measure(baseline_project), selection) =
             std::get<sequence::MusicElement>(cycle.baseline);
     }
     if (compatible && cycle.committed)

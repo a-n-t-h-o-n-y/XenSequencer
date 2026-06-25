@@ -242,7 +242,7 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             auto const &command = std::get<ExecutableCommand>(step);
             if (auto selection_error = validate_selection_target(
                     command.policy.target, execution_context.selection,
-                    transaction.project().measure);
+                    default_measure(transaction.project()));
                 selection_error.has_value())
             {
                 return *selection_error;

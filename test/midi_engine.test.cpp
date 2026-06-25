@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <limits>
+#include <utility>
 #include <vector>
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -19,8 +20,8 @@ namespace
     -> sequence::midi::TimedMidiNote
 {
     auto const timeline = xen::state_to_timeline(
-        engine.measure, engine.pitch.tuning.definition, engine.pitch.base_frequency,
-        daw,
+        default_measure(engine), default_measure_length(engine),
+        engine.pitch.tuning.definition, engine.pitch.base_frequency, daw,
         engine.pitch.scale.has_value()
             ? std::optional<xen::Scale>{engine.pitch.scale->definition}
             : std::nullopt,
@@ -48,7 +49,7 @@ namespace
     -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    engine.measure.cell = {
+    default_measure(engine).cell = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = velocity}},
         .weight = 1.f,
     };
@@ -59,7 +60,7 @@ namespace
 [[nodiscard]] auto make_two_note_tuning_engine(float cents) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    engine.measure.cell = {
+    default_measure(engine).cell = {
         .elements =
             {
                 sequence::Note{.pitch = 0, .velocity = 0.75f},
@@ -110,7 +111,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_sustained_note_engine(int pitch) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    engine.measure.cell = {
+    default_measure(engine).cell = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = 0.75f}},
         .weight = 1.f,
     };
@@ -120,7 +121,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_empty_engine() -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    engine.measure.cell = {
+    default_measure(engine).cell = {
         .elements = {},
         .weight = 1.f,
     };
@@ -130,7 +131,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_second_half_note_engine(int pitch) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    engine.measure.cell = {
+    default_measure(engine).cell = {
         .elements = {sequence::Sequence{{
             {.elements = {}, .weight = 1.f},
             {.elements = {sequence::Note{.pitch = pitch, .velocity = 0.75f}},
@@ -145,8 +146,8 @@ struct CapturedEvent
                                      xen::DAWState const &daw) -> int
 {
     auto const timeline = xen::state_to_timeline(
-        engine.measure, engine.pitch.tuning.definition, engine.pitch.base_frequency,
-        daw,
+        default_measure(engine), default_measure_length(engine),
+        engine.pitch.tuning.definition, engine.pitch.base_frequency, daw,
         engine.pitch.scale.has_value()
             ? std::optional<xen::Scale>{engine.pitch.scale->definition}
             : std::nullopt,
@@ -180,6 +181,55 @@ TEST_CASE("MidiEngine starts in-flight notes immediately when playback begins mi
     CHECK(events[1].message.isNoteOn());
     CHECK(events[1].message.getChannel() == 2);
     CHECK(events[1].message.getNoteNumber() == first_note_number(sequencer, daw));
+}
+
+TEST_CASE("MidiEngine renders only rows assigned to requested output",
+          "[midi][midi-engine][composition]")
+{
+    auto project = xen::ProjectState{};
+    default_measure(project).cell = {
+        .elements = {sequence::Note{.pitch = 0, .velocity = 0.75f}},
+        .weight = 1.f,
+    };
+    auto peer_measure = xen::Measure{
+        .cell =
+            {
+                .elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
+                .weight = 1.f,
+            },
+    };
+    auto const peer_id =
+        xen::create_measure(project.measure_bank, std::move(peer_measure));
+    xen::insert_row(project.composition, 1, "peer");
+    xen::assign_measure_reference(project.composition, 1, 0, peer_id);
+
+    auto const daw = playing_daw_state();
+    auto engine = xen::MidiEngine{};
+    engine.update(project, daw);
+    auto events = capture_events(engine.step({}, 0, 10, daw));
+    auto note_ons = std::vector<int>{};
+    for (auto const &event : events)
+    {
+        if (event.message.isNoteOn())
+        {
+            note_ons.push_back(event.message.getNoteNumber());
+        }
+    }
+    REQUIRE(note_ons == std::vector<int>{first_note_number(project, daw)});
+
+    engine = xen::MidiEngine{};
+    engine.update(project, daw, "peer");
+    events = capture_events(engine.step({}, 0, 10, daw));
+    note_ons.clear();
+    for (auto const &event : events)
+    {
+        if (event.message.isNoteOn())
+        {
+            note_ons.push_back(event.message.getNoteNumber());
+        }
+    }
+    REQUIRE(note_ons.size() == 1);
+    CHECK(note_ons.front() != first_note_number(project, daw));
 }
 
 TEST_CASE("MidiEngine does not duplicate a note-on across continuous mid-note blocks",

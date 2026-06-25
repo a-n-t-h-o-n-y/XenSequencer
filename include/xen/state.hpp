@@ -15,6 +15,7 @@
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
 #include <xen/command.hpp>
+#include <xen/composition.hpp>
 #include <xen/measure.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
@@ -59,7 +60,8 @@ struct PitchSystem
 
 struct ProjectState
 {
-    Measure measure{};
+    MeasureBank measure_bank{make_default_measure_bank()};
+    Composition composition{make_default_composition()};
     PitchSystem pitch{};
 
 #ifdef __clang__
@@ -72,6 +74,29 @@ struct ProjectState
 #pragma clang diagnostic pop
 #endif
 };
+
+[[nodiscard]] inline auto default_measure(ProjectState &project) -> Measure &
+{
+    return default_arranged_measure(project.measure_bank, project.composition);
+}
+
+[[nodiscard]] inline auto default_measure(ProjectState const &project)
+    -> Measure const &
+{
+    return default_arranged_measure(project.measure_bank, project.composition);
+}
+
+[[nodiscard]] inline auto default_measure_length(ProjectState &project)
+    -> sequence::TimeSignature &
+{
+    return default_column_length(project.composition);
+}
+
+[[nodiscard]] inline auto default_measure_length(ProjectState const &project)
+    -> sequence::TimeSignature const &
+{
+    return default_column_length(project.composition);
+}
 
 void validate_timeline_state(ProjectState const &project);
 

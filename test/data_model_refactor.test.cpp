@@ -21,11 +21,11 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     auto project = ProjectState{};
     CHECK_NOTHROW(validate(project));
 
-    project.measure.cell.weight = 0.f;
+    default_measure(project).cell.weight = 0.f;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.measure.cell.elements = {
+    default_measure(project).cell.elements = {
         sequence::Sequence{
             .cells =
                 {
@@ -39,7 +39,11 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.measure.time_signature = {65, 1};
+    default_measure_length(project) = {65, 1};
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
+
+    project = ProjectState{};
+    project.measure_bank.next_id = DEFAULT_MEASURE_ID;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
@@ -58,19 +62,76 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     CHECK_THROWS_AS(timeline.commit(project), std::invalid_argument);
 }
 
-TEST_CASE("Project schema 1 rejects old flat state", "[data-model][serialize]")
+TEST_CASE("Project schema 2 stores measure bank and composition",
+          "[data-model][serialize]")
 {
     auto const project = ProjectState{};
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("schema") == 1);
+    CHECK(encoded.at("schema") == 2);
     CHECK(encoded.at("project").contains("pitch"));
+    CHECK(encoded.at("project").contains("measure_bank"));
+    CHECK(encoded.at("project").contains("composition"));
+    CHECK_FALSE(encoded.at("project").contains("measure"));
     CHECK_FALSE(encoded.at("project").contains("tuning"));
+    CHECK(encoded.at("project")
+              .at("measure_bank")
+              .at("measures")
+              .front()
+              .at("measure")
+              .contains("time_signature") == false);
 
     auto const old = nlohmann::json{
-        {"measure", encoded.at("project").at("measure")},
+        {"measure", encoded.at("project").at("measure_bank").at("measures").front()},
         {"tuning", encoded.at("project").at("pitch").at("tuning")},
     };
     CHECK_THROWS(deserialize_project(old.dump()));
+}
+
+TEST_CASE("Default project has one current-output 4/4 arranged measure",
+          "[data-model][composition]")
+{
+    auto const project = ProjectState{};
+    REQUIRE(project.measure_bank.measures.size() == 1);
+    CHECK(project.measure_bank.measures.front().id == DEFAULT_MEASURE_ID);
+    CHECK(project.measure_bank.next_id == DEFAULT_MEASURE_ID + 1);
+    REQUIRE(project.composition.columns.size() == 1);
+    CHECK(project.composition.columns.front().length == sequence::TimeSignature{4, 4});
+    REQUIRE(project.composition.rows.size() == 1);
+    CHECK(project.composition.rows.front().output_id == CURRENT_INSTANCE_OUTPUT_ID);
+    REQUIRE(project.composition.rows.front().cells.size() == 1);
+    CHECK(project.composition.rows.front().cells.front() == DEFAULT_MEASURE_ID);
+}
+
+TEST_CASE("Measure bank and composition API covers editing operations",
+          "[data-model][composition]")
+{
+    auto project = ProjectState{};
+
+    auto const duplicate_id =
+        duplicate_measure(project.measure_bank, DEFAULT_MEASURE_ID);
+    REQUIRE(duplicate_id != DEFAULT_MEASURE_ID);
+    REQUIRE(find_measure(project.measure_bank, duplicate_id) != nullptr);
+
+    insert_column(project.composition, 1, sequence::TimeSignature{3, 4});
+    assign_measure_reference(project.composition, 0, 1, duplicate_id);
+    CHECK(measure_reference_at(project.composition, 0, 1) == duplicate_id);
+    set_column_length(project.composition, 1, sequence::TimeSignature{5, 8});
+    CHECK(project.composition.columns[1].length == sequence::TimeSignature{5, 8});
+
+    insert_row(project.composition, 1, "peer");
+    assign_measure_reference(project.composition, 1, 0, duplicate_id);
+    move_row(project.composition, 1, 0);
+    CHECK(project.composition.rows.front().output_id == "peer");
+    assign_row_output(project.composition, 0, CURRENT_INSTANCE_OUTPUT_ID);
+    move_column(project.composition, 1, 0);
+    CHECK(project.composition.columns.front().length == sequence::TimeSignature{5, 8});
+
+    clear_measure_reference(project.composition, 0, 0);
+    CHECK_FALSE(measure_reference_at(project.composition, 0, 0).has_value());
+    remove_column(project.composition, 0);
+    remove_row(project.composition, 0);
+    CHECK(remove_measure(project.measure_bank, duplicate_id));
+    CHECK(find_measure(project.measure_bank, duplicate_id) == nullptr);
 }
 
 TEST_CASE("Scale library requires unique stable IDs", "[data-model][scale]")
@@ -204,7 +265,7 @@ TEST_CASE("Transform cycles amend one history entry and again remains compatible
 {
     auto session = SequencerSession{};
     auto project = session.project_snapshot().project;
-    project.measure.cell.elements = {
+    default_measure(project).cell.elements = {
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},

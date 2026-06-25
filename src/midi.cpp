@@ -1,8 +1,8 @@
 #include <xen/midi.hpp>
 
 #include <algorithm>
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -54,8 +54,8 @@ struct MidiEvent
     out.elements.reserve(cell.elements.size());
     for (auto const &element : cell.elements)
     {
-        out.elements.push_back(scale_translate_element(
-            element, valid_pitches, tuning_length, direction));
+        out.elements.push_back(
+            scale_translate_element(element, valid_pitches, tuning_length, direction));
     }
     return out;
 }
@@ -66,23 +66,22 @@ struct MidiEvent
                                            xen::TranslateDirection direction)
     -> sequence::MusicElement
 {
-    return std::visit(
-        sequence::utility::overload{
-            [&](sequence::Note note) -> sequence::MusicElement {
-                note.pitch = xen::map_pitch_to_scale(
-                    note.pitch, valid_pitches, tuning_length, direction);
-                return note;
-            },
-            [&](sequence::Sequence sequence) -> sequence::MusicElement {
-                for (auto &cell : sequence.cells)
-                {
-                    cell = scale_translate_cell(cell, valid_pitches, tuning_length,
-                                                direction);
-                }
-                return sequence;
-            },
-        },
-        element);
+    return std::visit(sequence::utility::overload{
+                          [&](sequence::Note note) -> sequence::MusicElement {
+                              note.pitch = xen::map_pitch_to_scale(
+                                  note.pitch, valid_pitches, tuning_length, direction);
+                              return note;
+                          },
+                          [&](sequence::Sequence sequence) -> sequence::MusicElement {
+                              for (auto &cell : sequence.cells)
+                              {
+                                  cell = scale_translate_cell(cell, valid_pitches,
+                                                              tuning_length, direction);
+                              }
+                              return sequence;
+                          },
+                      },
+                      element);
 }
 
 [[nodiscard]] auto key_transpose_element(sequence::MusicElement const &element, int key)
@@ -103,22 +102,21 @@ struct MidiEvent
 [[nodiscard]] auto key_transpose_element(sequence::MusicElement const &element, int key)
     -> sequence::MusicElement
 {
-    return std::visit(
-        sequence::utility::overload{
-            [&](sequence::Note note) -> sequence::MusicElement {
-                note.pitch = xen::numeric::checked_add(
-                    note.pitch, key, "Key transposition exceeds int.");
-                return note;
-            },
-            [&](sequence::Sequence sequence) -> sequence::MusicElement {
-                for (auto &cell : sequence.cells)
-                {
-                    cell = key_transpose_cell(cell, key);
-                }
-                return sequence;
-            },
-        },
-        element);
+    return std::visit(sequence::utility::overload{
+                          [&](sequence::Note note) -> sequence::MusicElement {
+                              note.pitch = xen::numeric::checked_add(
+                                  note.pitch, key, "Key transposition exceeds int.");
+                              return note;
+                          },
+                          [&](sequence::Sequence sequence) -> sequence::MusicElement {
+                              for (auto &cell : sequence.cells)
+                              {
+                                  cell = key_transpose_cell(cell, key);
+                              }
+                              return sequence;
+                          },
+                      },
+                      element);
 }
 
 } // namespace
@@ -138,13 +136,11 @@ struct ActiveChannel
 } // namespace
 
 auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
-                                  std::uint32_t sample_rate, float bpm)
-    -> std::uint32_t
+                                  std::uint32_t sample_rate, float bpm) -> std::uint32_t
 {
     if (time_signature.numerator == 0 || time_signature.denominator == 0)
     {
-        throw std::invalid_argument{
-            "time signature values must be greater than zero"};
+        throw std::invalid_argument{"time signature values must be greater than zero"};
     }
     if (sample_rate == 0)
     {
@@ -155,11 +151,10 @@ auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
         throw std::invalid_argument{"BPM must be finite and greater than zero"};
     }
 
-    auto const duration =
-        static_cast<long double>(sample_rate) * 60.0L *
-        static_cast<long double>(time_signature.numerator) * 4.0L /
-        (static_cast<long double>(bpm) *
-         static_cast<long double>(time_signature.denominator));
+    auto const duration = static_cast<long double>(sample_rate) * 60.0L *
+                          static_cast<long double>(time_signature.numerator) * 4.0L /
+                          (static_cast<long double>(bpm) *
+                           static_cast<long double>(time_signature.denominator));
     if (!std::isfinite(duration) || duration < 1.0L ||
         duration > static_cast<long double>(std::numeric_limits<int>::max()))
     {
@@ -167,8 +162,7 @@ auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
             "Measure duration must fit in a positive JUCE sample position."};
     }
 
-    auto const sample_count =
-        sequence::samples_count(time_signature, sample_rate, bpm);
+    auto const sample_count = sequence::samples_count(time_signature, sample_rate, bpm);
     if (sample_count == 0 ||
         sample_count > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
     {
@@ -182,13 +176,14 @@ auto assign_mpe_channels(std::vector<sequence::midi::TimedMidiNote> const &timel
     -> std::vector<AssignedMidiNote>
 {
     auto sorted = timeline;
-    std::sort(std::begin(sorted), std::end(sorted), [](auto const &lhs, auto const &rhs) {
-        return std::tie(lhs.begin, lhs.end, lhs.note, lhs.pitch_bend, lhs.velocity) <
-               std::tie(rhs.begin, rhs.end, rhs.note, rhs.pitch_bend, rhs.velocity);
-    });
+    std::sort(
+        std::begin(sorted), std::end(sorted), [](auto const &lhs, auto const &rhs) {
+            return std::tie(lhs.begin, lhs.end, lhs.note, lhs.pitch_bend,
+                            lhs.velocity) <
+                   std::tie(rhs.begin, rhs.end, rhs.note, rhs.pitch_bend, rhs.velocity);
+        });
 
-    auto free_channels =
-        std::priority_queue<int, std::vector<int>, std::greater<>>{};
+    auto free_channels = std::priority_queue<int, std::vector<int>, std::greater<>>{};
     for (auto channel = mpe_first_member_channel; channel <= mpe_last_member_channel;
          ++channel)
     {
@@ -196,12 +191,10 @@ auto assign_mpe_channels(std::vector<sequence::midi::TimedMidiNote> const &timel
     }
 
     auto active = std::priority_queue<
-        ActiveChannel,
-        std::vector<ActiveChannel>,
+        ActiveChannel, std::vector<ActiveChannel>,
         std::function<bool(ActiveChannel const &, ActiveChannel const &)>>{
         [](ActiveChannel const &lhs, ActiveChannel const &rhs) {
-            return std::tie(lhs.end, lhs.channel) >
-                   std::tie(rhs.end, rhs.channel);
+            return std::tie(lhs.end, lhs.channel) > std::tie(rhs.end, rhs.channel);
         }};
 
     auto assigned = std::vector<AssignedMidiNote>{};
@@ -274,12 +267,13 @@ auto render_assigned_notes(std::vector<AssignedMidiNote> const &assigned_notes)
         });
     }
 
-    std::sort(std::begin(events), std::end(events), [](auto const &lhs, auto const &rhs) {
-        return std::tie(lhs.sample_position, lhs.priority, lhs.channel,
-                        lhs.note_number) <
-               std::tie(rhs.sample_position, rhs.priority, rhs.channel,
-                        rhs.note_number);
-    });
+    std::sort(std::begin(events), std::end(events),
+              [](auto const &lhs, auto const &rhs) {
+                  return std::tie(lhs.sample_position, lhs.priority, lhs.channel,
+                                  lhs.note_number) < std::tie(rhs.sample_position,
+                                                              rhs.priority, rhs.channel,
+                                                              rhs.note_number);
+              });
 
     auto buffer = juce::MidiBuffer{};
     buffer.ensureSize(events.size());
@@ -303,10 +297,10 @@ auto live_voice_from(AssignedMidiNote const &assigned) -> LiveVoice
 namespace xen
 {
 
-auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
-                       float base_frequency, DAWState const &daw_state,
-                       std::optional<Scale> const &scale, int key,
-                       TranslateDirection scale_translate_direction)
+auto state_to_timeline(Measure measure, sequence::TimeSignature measure_length,
+                       sequence::Tuning const &tuning, float base_frequency,
+                       DAWState const &daw_state, std::optional<Scale> const &scale,
+                       int key, TranslateDirection scale_translate_direction)
     -> std::vector<sequence::midi::TimedMidiNote>
 {
     if (scale)
@@ -317,15 +311,15 @@ auto state_to_timeline(Measure measure, sequence::Tuning const &tuning,
             throw std::invalid_argument{
                 "Scale tuning length must match the active tuning."};
         }
-        measure.cell = scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
-                                            tuning.intervals.size(),
-                                            scale_translate_direction);
+        measure.cell =
+            scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
+                                 tuning.intervals.size(), scale_translate_direction);
     }
 
     measure.cell = key_transpose_cell(measure.cell, key);
 
     auto const sample_count = midi_internal::checked_measure_sample_count(
-        measure.time_signature, daw_state.sample_rate, daw_state.bpm);
+        measure_length, daw_state.sample_rate, daw_state.bpm);
 
     return sequence::midi::flatten_to_midi(measure.cell.elements, 0, sample_count,
                                            tuning, base_frequency, 48.f);
@@ -342,8 +336,7 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
                     SampleIndex begin, SampleIndex end) -> juce::MidiBuffer
 {
     if (buffer_length == 0 ||
-        buffer_length >
-            static_cast<SampleCount>(std::numeric_limits<int>::max()))
+        buffer_length > static_cast<SampleCount>(std::numeric_limits<int>::max()))
     {
         throw std::invalid_argument{
             "MIDI loop length must fit in a positive JUCE sample position."};
@@ -352,8 +345,7 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
     {
         throw std::invalid_argument{"MIDI window end must not precede begin."};
     }
-    if (end - begin >
-        static_cast<SampleCount>(std::numeric_limits<int>::max()))
+    if (end - begin > static_cast<SampleCount>(std::numeric_limits<int>::max()))
     {
         throw std::overflow_error{"MIDI window length exceeds JUCE int."};
     }
@@ -365,9 +357,8 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
     {
         auto const wrapped_position = current_sample % buffer_length;
 
-        for (auto at = buffer.findNextSamplePosition(
-                 numeric::checked_cast<int>(
-                     wrapped_position, "Wrapped MIDI position exceeds JUCE int."));
+        for (auto at = buffer.findNextSamplePosition(numeric::checked_cast<int>(
+                 wrapped_position, "Wrapped MIDI position exceeds JUCE int."));
              at != buffer.cend(); ++at)
         {
             auto const &event = *at;
@@ -376,11 +367,9 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
                 throw std::invalid_argument{
                     "MIDI event position must not be negative."};
             }
-            auto const event_position =
-                static_cast<SampleIndex>(event.samplePosition);
+            auto const event_position = static_cast<SampleIndex>(event.samplePosition);
             auto const cycle_start = current_sample - wrapped_position;
-            if (event_position >
-                std::numeric_limits<SampleIndex>::max() - cycle_start)
+            if (event_position > std::numeric_limits<SampleIndex>::max() - cycle_start)
             {
                 throw std::overflow_error{"Absolute MIDI position exceeds uint64."};
             }
@@ -392,8 +381,7 @@ auto extract_window(juce::MidiBuffer const &buffer, SampleCount buffer_length,
             }
 
             auto const relative_position = numeric::checked_cast<int>(
-                absolute_position - begin,
-                "Relative MIDI position exceeds JUCE int.");
+                absolute_position - begin, "Relative MIDI position exceeds JUCE int.");
             out_buffer.addEvent(event.data, event.numBytes, relative_position);
         }
 

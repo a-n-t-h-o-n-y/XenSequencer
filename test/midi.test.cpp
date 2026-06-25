@@ -52,8 +52,8 @@ TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
                 }}},
                 .weight = 1.f,
             },
-        .time_signature = sequence::TimeSignature{4, 4},
     };
+    auto const measure_length = sequence::TimeSignature{4, 4};
     auto const tuning = sequence::Tuning{
         .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
         .octave = 1200,
@@ -62,13 +62,12 @@ TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
     auto const daw_state = xen::DAWState{.bpm = 120.f, .sample_rate = 44'100};
 
     auto const timeline =
-        xen::state_to_timeline(measure, tuning, 440.f, daw_state, std::nullopt, 0,
-                               xen::TranslateDirection::Up);
+        xen::state_to_timeline(measure, measure_length, tuning, 440.f, daw_state,
+                               std::nullopt, 0, xen::TranslateDirection::Up);
 
     auto const expected = sequence::midi::flatten_to_midi(
         measure.cell.elements, 0,
-        sequence::samples_count(measure.time_signature, daw_state.sample_rate,
-                                daw_state.bpm),
+        sequence::samples_count(measure_length, daw_state.sample_rate, daw_state.bpm),
         tuning, 440.f, 48.f);
 
     REQUIRE(timeline == expected);
@@ -92,8 +91,7 @@ TEST_CASE("render_to_midi emits pitch bend before note on", "[midi]")
     CHECK(events[1].message.isNoteOn());
     CHECK(events[1].message.getChannel() == 2);
     CHECK(events[1].message.getNoteNumber() == 69);
-    CHECK(events[1].message.getFloatVelocity() ==
-          Catch::Approx(101.0f / 127.0f));
+    CHECK(events[1].message.getFloatVelocity() == Catch::Approx(101.0f / 127.0f));
 
     CHECK(events[2].sample_position == 34);
     CHECK(events[2].message.isNoteOff());

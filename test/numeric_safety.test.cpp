@@ -114,7 +114,7 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
 {
     auto const all = sequence::Pattern{0, {1}};
     auto engine = xen::ProjectState{};
-    engine.measure.cell = one_note_cell(std::numeric_limits<int>::max());
+    default_measure(engine).cell = one_note_cell(std::numeric_limits<int>::max());
     CHECK_THROWS_AS(xen::action::shift_octave(engine, xen::SelectionPath{}, all, 1),
                     std::overflow_error);
     CHECK_THROWS_AS(xen::action::arp(one_note_cell(0), all, {}), std::invalid_argument);
@@ -130,7 +130,7 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
                     std::overflow_error);
 
     engine = xen::ProjectState{};
-    engine.measure.cell = one_note_cell(0);
+    default_measure(engine).cell = one_note_cell(0);
     CHECK_THROWS_AS(xen::action::set_note_octave(engine, xen::SelectionPath{}, all,
                                                  std::numeric_limits<int>::max()),
                     std::overflow_error);

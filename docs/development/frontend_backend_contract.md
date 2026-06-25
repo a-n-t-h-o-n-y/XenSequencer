@@ -9,7 +9,7 @@ to the contract below as one migration.
 
 ## Breaking changes
 
-- Project snapshots use project schema `1` and a grouped `project` object. The old
+- Project snapshots use project schema `2` and a grouped `project` object. The old
   `snapshot_version`, `commit_id`, `engine`, and `editor` fields are gone.
 - Project history identity and project revision are separate:
   `history_entry_id` identifies the timeline entry, while `project_revision` changes
@@ -92,7 +92,7 @@ Response payload:
 type SessionHello = {
   protocol: "xen.bridge.v1";
   plugin_version: string;
-  project_schema_version: 1;
+  project_schema_version: 2;
   library_schema_version: 1;
   catalog: {
     schema_version: 2;
@@ -180,16 +180,30 @@ type ScaleDefinition = {
 };
 
 type ProjectSnapshot = {
-  schema_version: 1;
+  schema_version: 2;
   history_entry_id: number;
   project_revision: number;
   project: {
-    measure: {
-      cell: Cell;
-      time_signature: {
-        numerator: number;
-        denominator: number;
-      };
+    measure_bank: {
+      next_id: number;
+      measures: Array<{
+        id: number;
+        measure: {
+          cell: Cell;
+        };
+      }>;
+    };
+    composition: {
+      columns: Array<{
+        length: {
+          numerator: number;
+          denominator: number;
+        };
+      }>;
+      rows: Array<{
+        output_id: string;
+        cells: Array<number | null>;
+      }>;
     };
     pitch: {
       tuning: {
@@ -211,8 +225,10 @@ type ProjectSnapshot = {
 };
 ```
 
-An empty `Cell.elements` array represents silence. The project has one top-level
-measure; the old sequence bank is gone.
+An empty `Cell.elements` array represents silence. Musical content lives in
+`measure_bank.measures[].measure.cell`; arrangement lives in `composition`. A
+composition cell is either a measure ID from the bank or `null` for an empty/rest cell.
+Column length replaces the old measure-level `time_signature`.
 
 The active scale embeds the complete musical definition. `source_id` identifies the
 library entry used to create it and may be null for an embedded/untracked scale.
@@ -405,10 +421,11 @@ At minimum:
 
 - remove the old `snapshot_schema_version` hello field and validate the three returned
   resource/catalog schema versions;
-- replace snapshot schema `4` parsing with project schema `1`;
+- replace snapshot schema `4` parsing with project schema `2`;
 - replace `snapshot_version`/`commit_id` with
   `project_revision`/`history_entry_id`;
-- replace flat `engine` fields with `project.measure` and `project.pitch`;
+- replace flat `engine` fields with `project.measure_bank`, `project.composition`,
+  and `project.pitch`;
 - remove all reads of `snapshot.editor`;
 - keep selection and input mode in frontend state;
 - implement local selection navigation and input-mode actions;

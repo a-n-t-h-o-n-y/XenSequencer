@@ -209,7 +209,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
             {
                 throw std::runtime_error{"Measure file size exceeds 128MB"};
             }
-            state.measure = deserialize_measure(*text);
+            default_measure(state) = deserialize_measure(*text);
             context.edit_project() = std::move(state);
             return make_result(minfo("Measure Loaded"));
         }));
@@ -286,7 +286,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                 return make_result(merror("Invalid Current Sequence Directory"));
             }
             auto const filepath = cd / (filename + ".xss");
-            context.write_text(filepath, serialize_measure(context.project().measure));
+            context.write_text(filepath,
+                               serialize_measure(default_measure(context.project())));
             return make_result(
                 minfo("Measure Saved to " + single_quote(filepath.string())));
         }));

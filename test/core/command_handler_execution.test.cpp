@@ -130,7 +130,7 @@ TEST_CASE("Direct edit handlers use execution-context selection",
 {
     auto state = make_plugin_state();
     auto engine = state.timeline.get_state();
-    engine.measure.cell.elements = {
+    default_measure(engine).cell.elements = {
         sequence::Note{1, 0.5f, 0.f, 1.f},
     };
     state.timeline.stage(std::move(engine));
@@ -140,11 +140,12 @@ TEST_CASE("Direct edit handlers use execution-context selection",
     CHECK(execute(state, "note 12 0.5 0.25 0.75", selection).status.first ==
           MessageLevel::Info);
     auto const after_note = state.timeline.get_state();
-    auto const &created = std::get<sequence::Note>(after_note.measure.cell.elements[0]);
+    auto const &created =
+        std::get<sequence::Note>(default_measure(after_note).cell.elements[0]);
     CHECK(created.pitch == 12);
 
     CHECK(execute(state, "delete", selection).status.first == MessageLevel::Info);
-    CHECK(state.timeline.get_state().measure.cell.elements.empty());
+    CHECK(default_measure(state.timeline.get_state()).cell.elements.empty());
 }
 
 TEST_CASE("Direct chord handler preserves transform session baseline",
@@ -156,7 +157,7 @@ TEST_CASE("Direct chord handler preserves transform session baseline",
         Chord{.name = "minor", .intervals = {0, 3, 7}},
     };
     auto engine = state.timeline.get_state();
-    engine.measure.cell.elements = {
+    default_measure(engine).cell.elements = {
         sequence::Note{10, 0.5f, 0.1f, 0.8f},
         sequence::Note{10, 0.5f, 0.1f, 0.8f},
         sequence::Note{10, 0.5f, 0.1f, 0.8f},

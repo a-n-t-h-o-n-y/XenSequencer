@@ -90,19 +90,72 @@ void validate_tuning(sequence::Tuning const &tuning)
 
 void validate(ProjectState const &project)
 {
-    validate_cell(project.measure.cell);
+    auto measure_ids = std::unordered_set<MeasureId>{};
+    for (auto const &entry : project.measure_bank.measures)
+    {
+        if (entry.id == 0)
+        {
+            throw std::invalid_argument{"Measure IDs must be nonzero."};
+        }
+        if (!measure_ids.insert(entry.id).second)
+        {
+            throw std::invalid_argument{"Duplicate measure ID."};
+        }
+        validate_cell(entry.measure.cell);
+    }
+    if (project.measure_bank.next_id == 0)
+    {
+        throw std::invalid_argument{"Next measure ID must be nonzero."};
+    }
+    if (measure_ids.contains(project.measure_bank.next_id))
+    {
+        throw std::invalid_argument{"Next measure ID is already in use."};
+    }
 
-    auto const &time_signature = project.measure.time_signature;
-    if (time_signature.numerator == 0 || time_signature.denominator == 0)
+    if (project.composition.columns.empty())
     {
-        throw std::invalid_argument{"Time signature values must be nonzero."};
+        throw std::invalid_argument{"Composition must contain at least one column."};
     }
-    auto const whole_notes = static_cast<long double>(time_signature.numerator) /
-                             static_cast<long double>(time_signature.denominator);
-    if (whole_notes > 64.0L)
+    if (project.composition.rows.empty())
     {
-        throw std::invalid_argument{"Measure duration must not exceed 64 whole notes."};
+        throw std::invalid_argument{"Composition must contain at least one row."};
     }
+    for (auto const &column : project.composition.columns)
+    {
+        auto const &time_signature = column.length;
+        if (time_signature.numerator == 0 || time_signature.denominator == 0)
+        {
+            throw std::invalid_argument{"Column length values must be nonzero."};
+        }
+        auto const whole_notes = static_cast<long double>(time_signature.numerator) /
+                                 static_cast<long double>(time_signature.denominator);
+        if (whole_notes > 64.0L)
+        {
+            throw std::invalid_argument{
+                "Column duration must not exceed 64 whole notes."};
+        }
+    }
+    for (auto const &row : project.composition.rows)
+    {
+        if (row.output_id.empty())
+        {
+            throw std::invalid_argument{"Composition row output ID must not be empty."};
+        }
+        if (row.cells.size() != project.composition.columns.size())
+        {
+            throw std::invalid_argument{
+                "Composition row width must match column count."};
+        }
+        for (auto const &cell : row.cells)
+        {
+            if (cell.has_value() && !measure_ids.contains(*cell))
+            {
+                throw std::invalid_argument{
+                    "Composition references an unknown measure ID."};
+            }
+        }
+    }
+    (void)default_measure(project);
 
     auto const &pitch = project.pitch;
     validate_tuning(pitch.tuning.definition);

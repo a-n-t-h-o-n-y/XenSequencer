@@ -75,11 +75,60 @@ auto measure_to_json(xen::Measure const &measure) -> nlohmann::json
 {
     return nlohmann::json{
         {"cell", cell_to_json(measure.cell)},
-        {"time_signature",
-         {
-             {"numerator", measure.time_signature.numerator},
-             {"denominator", measure.time_signature.denominator},
-         }},
+    };
+}
+
+auto time_signature_to_json(sequence::TimeSignature const &time_signature)
+    -> nlohmann::json
+{
+    return nlohmann::json{
+        {"numerator", time_signature.numerator},
+        {"denominator", time_signature.denominator},
+    };
+}
+
+auto measure_bank_to_json(xen::MeasureBank const &bank) -> nlohmann::json
+{
+    auto measures = nlohmann::json::array();
+    for (auto const &entry : bank.measures)
+    {
+        measures.push_back({
+            {"id", entry.id},
+            {"measure", measure_to_json(entry.measure)},
+        });
+    }
+    return nlohmann::json{
+        {"next_id", bank.next_id},
+        {"measures", std::move(measures)},
+    };
+}
+
+auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
+{
+    auto columns = nlohmann::json::array();
+    for (auto const &column : composition.columns)
+    {
+        columns.push_back({{"length", time_signature_to_json(column.length)}});
+    }
+
+    auto rows = nlohmann::json::array();
+    for (auto const &row : composition.rows)
+    {
+        auto cells = nlohmann::json::array();
+        for (auto const &cell : row.cells)
+        {
+            cells.push_back(cell.has_value() ? nlohmann::json(*cell)
+                                             : nlohmann::json{nullptr});
+        }
+        rows.push_back({
+            {"output_id", row.output_id},
+            {"cells", std::move(cells)},
+        });
+    }
+
+    return nlohmann::json{
+        {"columns", std::move(columns)},
+        {"rows", std::move(rows)},
     };
 }
 
@@ -149,7 +198,8 @@ auto project_to_json(xen::ProjectState const &project) -> nlohmann::json
         pitch["scale"] = active_scale_to_json(*project.pitch.scale);
     }
     return nlohmann::json{
-        {"measure", measure_to_json(project.measure)},
+        {"measure_bank", measure_bank_to_json(project.measure_bank)},
+        {"composition", composition_to_json(project.composition)},
         {"pitch", std::move(pitch)},
     };
 }

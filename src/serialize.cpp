@@ -136,14 +136,90 @@ static void to_json(nlohmann::json &j, Measure const &measure)
 {
     j = nlohmann::json{
         {"cell", measure.cell},
-        {"time_signature", measure.time_signature},
     };
 }
 
 static void from_json(nlohmann::json const &j, Measure &measure)
 {
     measure.cell = j.at("cell").get<sequence::Cell>();
-    measure.time_signature = j.at("time_signature").get<sequence::TimeSignature>();
+}
+
+static void to_json(nlohmann::json &j, MeasureBankEntry const &entry)
+{
+    j = nlohmann::json{
+        {"id", entry.id},
+        {"measure", entry.measure},
+    };
+}
+
+static void from_json(nlohmann::json const &j, MeasureBankEntry &entry)
+{
+    entry.id = j.at("id").get<MeasureId>();
+    entry.measure = j.at("measure").get<Measure>();
+}
+
+static void to_json(nlohmann::json &j, MeasureBank const &bank)
+{
+    j = nlohmann::json{
+        {"next_id", bank.next_id},
+        {"measures", bank.measures},
+    };
+}
+
+static void from_json(nlohmann::json const &j, MeasureBank &bank)
+{
+    bank.next_id = j.at("next_id").get<MeasureId>();
+    bank.measures = j.at("measures").get<std::vector<MeasureBankEntry>>();
+}
+
+static void to_json(nlohmann::json &j, CompositionColumn const &column)
+{
+    j = nlohmann::json{{"length", column.length}};
+}
+
+static void from_json(nlohmann::json const &j, CompositionColumn &column)
+{
+    column.length = j.at("length").get<sequence::TimeSignature>();
+}
+
+static void to_json(nlohmann::json &j, CompositionRow const &row)
+{
+    auto cells = nlohmann::json::array();
+    for (auto const &cell : row.cells)
+    {
+        cells.push_back(cell.has_value() ? nlohmann::json(*cell)
+                                         : nlohmann::json{nullptr});
+    }
+    j = nlohmann::json{
+        {"output_id", row.output_id},
+        {"cells", std::move(cells)},
+    };
+}
+
+static void from_json(nlohmann::json const &j, CompositionRow &row)
+{
+    row.output_id = j.at("output_id").get<OutputId>();
+    row.cells.clear();
+    for (auto const &cell : j.at("cells"))
+    {
+        row.cells.push_back(cell.is_null()
+                                ? std::optional<MeasureId>{}
+                                : std::optional<MeasureId>{cell.get<MeasureId>()});
+    }
+}
+
+static void to_json(nlohmann::json &j, Composition const &composition)
+{
+    j = nlohmann::json{
+        {"columns", composition.columns},
+        {"rows", composition.rows},
+    };
+}
+
+static void from_json(nlohmann::json const &j, Composition &composition)
+{
+    composition.columns = j.at("columns").get<std::vector<CompositionColumn>>();
+    composition.rows = j.at("rows").get<std::vector<CompositionRow>>();
 }
 
 } // namespace xen
@@ -181,6 +257,12 @@ static void from_json(json const &j, std::optional<T> &opt)
 
 namespace xen
 {
+namespace
+{
+
+constexpr auto PROJECT_SCHEMA_VERSION = 2;
+
+} // namespace
 
 static void to_json(nlohmann::json &j, TranslateDirection direction)
 {
@@ -291,14 +373,16 @@ static void from_json(nlohmann::json const &j, PitchSystem &pitch)
 static void to_json(nlohmann::json &j, ProjectState const &project)
 {
     j = nlohmann::json{
-        {"measure", project.measure},
+        {"measure_bank", project.measure_bank},
+        {"composition", project.composition},
         {"pitch", project.pitch},
     };
 }
 
 static void from_json(nlohmann::json const &j, ProjectState &project)
 {
-    project.measure = j.at("measure").get<Measure>();
+    project.measure_bank = j.at("measure_bank").get<MeasureBank>();
+    project.composition = j.at("composition").get<Composition>();
     project.pitch = j.at("pitch").get<PitchSystem>();
 }
 
@@ -336,7 +420,7 @@ auto serialize_project(ProjectState const &project) -> std::string
 {
     validate(project);
     return nlohmann::json{
-        {"schema", 1},
+        {"schema", PROJECT_SCHEMA_VERSION},
         {"project", project},
     }
         .dump();
@@ -345,7 +429,7 @@ auto serialize_project(ProjectState const &project) -> std::string
 auto deserialize_project(std::string const &json_str) -> ProjectState
 {
     auto const json = nlohmann::json::parse(json_str);
-    if (json.at("schema").get<int>() != 1)
+    if (json.at("schema").get<int>() != PROJECT_SCHEMA_VERSION)
     {
         throw std::invalid_argument{"Unsupported project schema."};
     }

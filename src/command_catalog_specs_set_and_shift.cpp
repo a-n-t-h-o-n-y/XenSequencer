@@ -212,7 +212,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            sequence::TimeSignature time_signature) {
             auto state = context.project();
-            state.measure.time_signature = time_signature;
+            default_measure_length(state) = time_signature;
             context.edit_project() = std::move(state);
             return make_result(minfo("Measure TimeSignature Set: " +
                                      std::to_string(time_signature.numerator) + "/" +
@@ -353,7 +353,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         project_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto &time_signature = state.measure.time_signature;
+            auto &time_signature = default_measure_length(state);
             if (time_signature.numerator >
                 std::numeric_limits<decltype(time_signature.numerator)>::max() / 2)
             {
@@ -377,7 +377,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         project_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto &time_signature = state.measure.time_signature;
+            auto &time_signature = default_measure_length(state);
             if (time_signature.numerator % 2 == 0)
             {
                 time_signature.numerator /= 2;

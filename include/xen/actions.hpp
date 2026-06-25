@@ -51,7 +51,7 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_element)
         {
-            auto &selected = get_selected_element(state.measure, selection);
+            auto &selected = get_selected_element(default_measure(state), selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -63,7 +63,7 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_cell)
         {
-            auto &selected = get_selected_cell(state.measure, selection);
+            auto &selected = get_selected_cell(default_measure(state), selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else

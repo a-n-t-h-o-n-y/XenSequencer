@@ -184,9 +184,9 @@ auto copy(ProjectState const &state, SelectionPath const &selection)
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        return get_selected_element_const(state.measure, selection);
+        return get_selected_element_const(default_measure(state), selection);
     }
-    return get_selected_cell_const(state.measure, selection);
+    return get_selected_cell_const(default_measure(state), selection);
 }
 
 auto paste(ProjectState &state, SelectionPath const &selection,
@@ -199,13 +199,14 @@ auto paste(ProjectState &state, SelectionPath const &selection,
         auto replacement = std::get<sequence::Cell>(content);
         if (selection_kind(selection) == SelectionKind::Element)
         {
-            auto *parent_cell = get_parent_cell_of_selection(state.measure, selection);
+            auto *parent_cell =
+                get_parent_cell_of_selection(default_measure(state), selection);
             *parent_cell = std::move(replacement);
             suggested_selection = select_parent_cell(selection);
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, selection);
+            auto &selected = get_selected_cell(default_measure(state), selection);
             selected = std::move(replacement);
         }
     }
@@ -214,7 +215,8 @@ auto paste(ProjectState &state, SelectionPath const &selection,
         auto element = std::get<sequence::MusicElement>(content);
         if (selection_kind(selection) == SelectionKind::Element)
         {
-            auto &parent_cell = *get_parent_cell_of_selection(state.measure, selection);
+            auto &parent_cell =
+                *get_parent_cell_of_selection(default_measure(state), selection);
             auto const index = get_selected_element_index(selection);
             parent_cell.elements.insert(
                 std::next(
@@ -224,7 +226,7 @@ auto paste(ProjectState &state, SelectionPath const &selection,
         }
         else
         {
-            auto &selected = get_selected_cell(state.measure, selection);
+            auto &selected = get_selected_cell(default_measure(state), selection);
             selected.elements.push_back(std::move(element));
         }
     }
@@ -236,7 +238,7 @@ auto duplicate(ProjectState &state, SelectionPath const &selection) -> Selection
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.measure, selection);
+        auto &cell = get_selected_cell(default_measure(state), selection);
         auto const index = get_selected_element_index(selection);
         auto copy = cell.elements.at(index);
         cell.elements.insert(
@@ -250,10 +252,10 @@ auto duplicate(ProjectState &state, SelectionPath const &selection) -> Selection
         };
     }
 
-    auto selected_copy = get_selected_cell(state.measure, selection);
+    auto selected_copy = get_selected_cell(default_measure(state), selection);
 
-    auto new_selection = ::xen::move_right(state.measure, selection, 1);
-    auto &selected = get_selected_cell(state.measure, new_selection);
+    auto new_selection = ::xen::move_right(default_measure(state), selection, 1);
+    auto &selected = get_selected_cell(default_measure(state), new_selection);
     selected = selected_copy;
     return SelectionMutation{.selection = std::move(new_selection)};
 }
@@ -262,7 +264,7 @@ auto lift(ProjectState &state, SelectionPath const &selection) -> SelectionMutat
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &cell = get_selected_cell(state.measure, selection);
+        auto &cell = get_selected_cell(default_measure(state), selection);
         auto element =
             std::move(cell.elements.at(get_selected_element_index(selection)));
         cell.elements.clear();
@@ -270,13 +272,13 @@ auto lift(ProjectState &state, SelectionPath const &selection) -> SelectionMutat
         return SelectionMutation{.selection = select_parent_cell(selection)};
     }
 
-    sequence::Cell *parent = get_parent_of_selected(state.measure, selection);
+    sequence::Cell *parent = get_parent_of_selected(default_measure(state), selection);
     if (parent == nullptr)
     {
         throw std::runtime_error{"Can't lift top level Cell."};
     }
 
-    auto &cell = get_selected_cell(state.measure, selection);
+    auto &cell = get_selected_cell(default_measure(state), selection);
 
     auto cell_copy = std::move(cell);
     *parent = std::move(cell_copy);
@@ -293,12 +295,12 @@ auto shift_octave(ProjectState state, SelectionPath const &selection,
         numeric::checked_mul(amount, tuning_length, "Octave shift exceeds int.");
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, selection);
+        auto &element = get_selected_element(default_measure(state), selection);
         element = checked_shift_pitch(std::move(element), pattern, shift);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, selection);
+        auto &cell = get_selected_cell(default_measure(state), selection);
         cell = checked_shift_pitch(std::move(cell), pattern, shift);
     }
     return state;
@@ -310,13 +312,13 @@ auto set_note_octave(ProjectState state, SelectionPath const &selection,
     auto const tuning_length = state.pitch.tuning.definition.intervals.size();
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &element = get_selected_element(state.measure, selection);
+        auto &element = get_selected_element(default_measure(state), selection);
         validate_octave(element, pattern, octave, tuning_length);
         element = sequence::modify::set_octave(element, pattern, octave, tuning_length);
     }
     else
     {
-        auto &cell = get_selected_cell(state.measure, selection);
+        auto &cell = get_selected_cell(default_measure(state), selection);
         validate_octave(cell, pattern, octave, tuning_length);
         cell = sequence::modify::set_octave(cell, pattern, octave, tuning_length);
     }
@@ -328,7 +330,8 @@ auto delete_cell(ProjectState &state, SelectionPath const &selection)
 {
     if (selection_kind(selection) == SelectionKind::Element)
     {
-        auto &selected_cell = *get_parent_cell_of_selection(state.measure, selection);
+        auto &selected_cell =
+            *get_parent_cell_of_selection(default_measure(state), selection);
         auto const index = get_selected_element_index(selection);
         erase_selected_element(selected_cell, index);
 
@@ -344,7 +347,7 @@ auto delete_cell(ProjectState &state, SelectionPath const &selection)
         };
     }
 
-    auto &selected_cell = get_selected_cell(state.measure, selection);
+    auto &selected_cell = get_selected_cell(default_measure(state), selection);
     selected_cell.elements.clear();
     return SelectionMutation{.selection = selection};
 }

@@ -27,7 +27,7 @@ auto make_state(int id) -> AudioProjectSnapshot
         100.f,
         200.f,
     };
-    state.measure.time_signature.numerator = static_cast<unsigned>((id % 7) + 1);
+    default_measure_length(state).numerator = static_cast<unsigned>((id % 7) + 1);
     state.pitch.scale = ActiveScale{
         .source_id = "scale-" + std::to_string(id),
         .definition =
@@ -54,7 +54,7 @@ void check_state(AudioProjectSnapshot const &snapshot, int id)
                                                          100.f,
                                                          200.f,
                                                      });
-    CHECK(state.measure.time_signature.numerator ==
+    CHECK(default_measure_length(state).numerator ==
           static_cast<unsigned>((id % 7) + 1));
     REQUIRE(state.pitch.scale.has_value());
     CHECK(state.pitch.scale->definition.name == "scale-" + std::to_string(id));
@@ -132,7 +132,7 @@ TEST_CASE("EngineStateMailbox snapshots are immutable to source mutations",
     published.project.pitch.transposition = -1;
     published.project.pitch.base_frequency = 999.f;
     published.project.pitch.tuning.name = "mutated";
-    published.project.measure.time_signature = {3, 4};
+    default_measure_length(published.project) = {3, 4};
     published.project.pitch.tuning.definition.description = "after-publish";
     published.project.pitch.tuning.definition.intervals = {0, 1, 2, 3};
     REQUIRE(published.project.pitch.scale.has_value());

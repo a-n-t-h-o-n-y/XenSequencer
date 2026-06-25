@@ -53,6 +53,8 @@ class MidiEngine
      * @param daw The current state of the DAW.
      */
     void update(ProjectState const &project, DAWState const &daw);
+    void update(ProjectState const &project, DAWState const &daw,
+                OutputId const &output_id);
 
     [[nodiscard]] auto get_loop_phase(SampleIndex offset, DAWState const &daw) const
         -> double;
@@ -65,7 +67,8 @@ class MidiEngine
         SampleCount sample_count{};
     };
 
-    [[nodiscard]] static auto render(ProjectState const &project, DAWState const &daw)
+    [[nodiscard]] static auto render(ProjectState const &project, DAWState const &daw,
+                                     OutputId const &output_id)
         -> std::optional<MidiSequence>;
 
     MidiSequence rendered_midi_{};
