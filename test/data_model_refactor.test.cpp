@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -146,6 +147,41 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     CHECK(find_measure(project.measure_bank, duplicate_id) == nullptr);
 }
 
+TEST_CASE("Column insertion adjusts inclusive loop bounds", "[data-model][composition]")
+{
+    auto project = ProjectState{};
+    insert_column(project.composition, 1, sequence::TimeSignature{4, 4});
+    insert_column(project.composition, 2, sequence::TimeSignature{4, 4});
+    insert_column(project.composition, 3, sequence::TimeSignature{4, 4});
+    set_loop_start(project.composition, 1);
+    set_loop_end(project.composition, 2);
+
+    auto inside = project;
+    insert_column(inside.composition, 2, sequence::TimeSignature{4, 4});
+    CHECK(inside.composition.loop_region.start_column == 1);
+    CHECK(inside.composition.loop_region.end_column == 3);
+
+    auto before = project;
+    insert_column(before.composition, 0, sequence::TimeSignature{4, 4});
+    CHECK(before.composition.loop_region.start_column == 2);
+    CHECK(before.composition.loop_region.end_column == 3);
+
+    auto after = project;
+    insert_column(after.composition, 4, sequence::TimeSignature{4, 4});
+    CHECK(after.composition.loop_region.start_column == 1);
+    CHECK(after.composition.loop_region.end_column == 2);
+
+    auto start_edge = project;
+    insert_column(start_edge.composition, 1, sequence::TimeSignature{4, 4});
+    CHECK(start_edge.composition.loop_region.start_column == 1);
+    CHECK(start_edge.composition.loop_region.end_column == 3);
+
+    auto end_edge = project;
+    insert_column(end_edge.composition, 3, sequence::TimeSignature{4, 4});
+    CHECK(end_edge.composition.loop_region.start_column == 1);
+    CHECK(end_edge.composition.loop_region.end_column == 3);
+}
+
 TEST_CASE("Measure and composition row names serialize and validate",
           "[data-model][composition][serialize]")
 {
@@ -180,6 +216,22 @@ TEST_CASE("Measure and composition row names serialize and validate",
     CHECK(duplicate_id != DEFAULT_MEASURE_ID);
     project.measure_bank.measures.back().name = "M1";
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
+
+    project = ProjectState{};
+    project.measure_bank.measures.front().name = "Wow";
+    auto const duplicate_case_id = create_measure(project.measure_bank, Measure{});
+    CHECK(duplicate_case_id != DEFAULT_MEASURE_ID);
+    project.measure_bank.measures.back().name = "wow";
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
+
+    project = ProjectState{};
+    project.measure_bank.measures.front().name = "Named";
+    auto const duplicated_named_id =
+        duplicate_measure(project.measure_bank, DEFAULT_MEASURE_ID);
+    auto const duplicated_named = std::ranges::find(
+        project.measure_bank.measures, duplicated_named_id, &MeasureBankEntry::id);
+    REQUIRE(duplicated_named != project.measure_bank.measures.end());
+    CHECK_FALSE(duplicated_named->name.has_value());
 
     project = ProjectState{};
     project.composition.rows.front().name = "";

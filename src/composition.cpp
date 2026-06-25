@@ -118,10 +118,35 @@ auto checked_move(std::vector<T> &items, std::size_t from, std::size_t to) -> vo
                  std::move(item));
 }
 
-[[nodiscard]] auto shifted_after_insert(std::size_t column, std::size_t index)
-    -> std::size_t
+auto adjust_loop_after_insert(LoopRegion &loop, std::size_t index) -> void
 {
-    return column >= index ? column + 1 : column;
+    auto const start = loop.start_column;
+    auto const end = loop.end_column;
+    if (start <= end)
+    {
+        if (index < start)
+        {
+            loop.start_column = start + 1;
+            loop.end_column = end + 1;
+            return;
+        }
+        if (index <= end + 1)
+        {
+            loop.end_column = end + 1;
+        }
+        return;
+    }
+
+    if (index <= end)
+    {
+        loop.end_column = end + 1;
+        return;
+    }
+    if (index < start)
+    {
+        loop.start_column = start + 1;
+        return;
+    }
 }
 
 [[nodiscard]] auto shifted_after_remove(std::size_t column, std::size_t index,
@@ -203,7 +228,8 @@ auto remove_measure(MeasureBank &bank, MeasureId id) -> bool
 
 auto duplicate_measure(MeasureBank &bank, MeasureId id) -> MeasureId
 {
-    return create_measure(bank, require_measure(bank, id));
+    auto measure = require_measure(bank, id);
+    return create_measure(bank, std::move(measure));
 }
 
 auto find_measure(MeasureBank &bank, MeasureId id) -> Measure *
@@ -276,10 +302,7 @@ auto insert_column(Composition &composition, std::size_t index,
     {
         checked_insert(row.cells, index, std::optional<MeasureId>{});
     }
-    composition.loop_region.start_column =
-        shifted_after_insert(composition.loop_region.start_column, index);
-    composition.loop_region.end_column =
-        shifted_after_insert(composition.loop_region.end_column, index);
+    adjust_loop_after_insert(composition.loop_region, index);
 }
 
 auto remove_column(Composition &composition, std::size_t index) -> void

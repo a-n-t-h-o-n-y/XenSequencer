@@ -1,6 +1,8 @@
 #include "command_catalog_specs_internal.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -58,6 +60,20 @@ auto effective_measure_name(MeasureBankEntry const &entry) -> std::string
     return entry.name.value_or(fallback_measure_name(entry.id));
 }
 
+auto measure_name_key(std::string const &name) -> std::string
+{
+    auto key = name;
+    std::ranges::transform(key, key.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return key;
+}
+
+auto measure_names_equal(std::string const &lhs, std::string const &rhs) -> bool
+{
+    return measure_name_key(lhs) == measure_name_key(rhs);
+}
+
 auto require_name(std::string const &name, char const *kind) -> void
 {
     if (name.empty())
@@ -71,7 +87,7 @@ auto find_measure_by_name(MeasureBank &bank, std::string const &name)
 {
     for (auto &entry : bank.measures)
     {
-        if (effective_measure_name(entry) == name)
+        if (measure_names_equal(effective_measure_name(entry), name))
         {
             return &entry;
         }
@@ -82,6 +98,10 @@ auto find_measure_by_name(MeasureBank &bank, std::string const &name)
 auto create_named_measure(MeasureBank &bank, std::string name, Measure measure)
     -> MeasureId
 {
+    if (find_measure_by_name(bank, name) != nullptr)
+    {
+        throw std::invalid_argument{"Measure name is already in use."};
+    }
     auto const id = create_measure(bank, std::move(measure));
     require_measure_entry(bank, id).name = std::move(name);
     return id;
@@ -93,31 +113,44 @@ auto assign_cell_by_measure_name(ProjectState &state, std::size_t row,
     require_name(name, "Measure");
     auto const current_id = measure_reference_at(state.composition, row, column);
     auto *named = find_measure_by_name(state.measure_bank, name);
+    if (named != nullptr)
+    {
+        assign_measure_reference(state.composition, row, column, named->id);
+        return;
+    }
 
     if (!current_id.has_value())
     {
         auto const id =
-            named == nullptr
-                ? create_named_measure(state.measure_bank, std::move(name), Measure{})
-                : named->id;
+            create_named_measure(state.measure_bank, std::move(name), Measure{});
         assign_measure_reference(state.composition, row, column, id);
         return;
     }
 
     auto &current = require_measure_entry(state.measure_bank, *current_id);
-    if (effective_measure_name(current) == name)
+    if (measure_names_equal(effective_measure_name(current), name))
     {
         assign_measure_reference(state.composition, row, column, current.id);
         return;
-    }
-    if (named != nullptr)
-    {
-        throw std::invalid_argument{"Measure name is already in use."};
     }
 
     auto const id =
         create_named_measure(state.measure_bank, std::move(name), current.measure);
     assign_measure_reference(state.composition, row, column, id);
+}
+
+auto require_valid_output_id(CommandExecutionContext const &execution,
+                             OutputId const &output_id) -> void
+{
+    if (output_id.empty())
+    {
+        throw std::invalid_argument{"Output ID must not be empty."};
+    }
+    if (std::ranges::find(execution.valid_output_ids, output_id) ==
+        execution.valid_output_ids.end())
+    {
+        throw std::invalid_argument{"Unknown output ID."};
+    }
 }
 
 auto row_insert_index(std::size_t row, bool after) -> std::size_t
@@ -219,6 +252,7 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
                                 required_arg<std::string>("output_id")),
                 [](CommandHandlerContext &context, CommandInvocation const &,
                    std::size_t row_index, std::string const &output_id) {
+                    require_valid_output_id(context.execution, output_id);
                     auto state = context.project();
                     assign_row_output(state.composition, row_index, output_id);
                     context.edit_project() = std::move(state);

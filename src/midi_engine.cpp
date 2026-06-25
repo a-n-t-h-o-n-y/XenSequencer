@@ -258,6 +258,18 @@ void offset_timeline(std::vector<sequence::midi::TimedMidiNote> &timeline,
     }
 }
 
+[[nodiscard]] auto phase_relative_offset(xen::SampleIndex offset,
+                                         xen::SampleCount sample_count,
+                                         xen::SampleCount phase_origin)
+    -> xen::SampleIndex
+{
+    if (sample_count == 0)
+    {
+        return offset;
+    }
+    return offset >= phase_origin ? offset - phase_origin : offset;
+}
+
 } // namespace
 
 namespace xen
@@ -289,19 +301,21 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
         return out_buffer;
     }
 
-    auto const desired_start_live = live_voices_at(rendered_midi_.assigned_notes,
-                                                   rendered_midi_.sample_count, offset);
+    auto const relative_offset = phase_relative_offset(
+        offset, rendered_midi_.sample_count, rendered_midi_.phase_origin);
+    auto const desired_start_live = live_voices_at(
+        rendered_midi_.assigned_notes, rendered_midi_.sample_count, relative_offset);
     reconcile_live_voices(out_buffer, active_live_voices_, desired_start_live);
 
-    if (length > std::numeric_limits<SampleIndex>::max() - offset)
+    if (length > std::numeric_limits<SampleIndex>::max() - relative_offset)
     {
         active_live_voices_ = {};
         return out_buffer;
     }
-    auto const window_end = offset + length;
+    auto const window_end = relative_offset + length;
 
     auto const looped = extract_window(rendered_midi_.midi, rendered_midi_.sample_count,
-                                       offset, window_end);
+                                       relative_offset, window_end);
     out_buffer.addEvents(looped, 0, -1, 0);
 
     auto desired_end_live = live_voices_at(rendered_midi_.assigned_notes,
@@ -356,6 +370,17 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
         auto column_offsets = std::vector<SampleCount>{};
         column_offsets.reserve(loop_columns.size());
 
+        auto phase_origin = SampleCount{};
+        for (auto column_index = std::size_t{0};
+             column_index < project.composition.loop_region.start_column;
+             ++column_index)
+        {
+            auto const &column = project.composition.columns[column_index];
+            auto const column_samples = midi_internal::checked_measure_sample_count(
+                column.length, daw.sample_rate, daw.bpm);
+            phase_origin = checked_add_sample_count(phase_origin, column_samples);
+        }
+
         auto sample_count = SampleCount{};
         for (auto const column_index : loop_columns)
         {
@@ -408,6 +433,7 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
             .midi = midi_internal::render_assigned_notes(assigned_notes),
             .assigned_notes = std::move(assigned_notes),
             .sample_count = sample_count,
+            .phase_origin = phase_origin,
         };
     }
     catch (...)
@@ -438,7 +464,9 @@ auto MidiEngine::get_loop_phase(SampleIndex offset, DAWState const &daw) const -
         return 0.0;
     }
 
-    return static_cast<double>(offset % rendered_midi_.sample_count) /
+    auto const relative_offset = phase_relative_offset(
+        offset, rendered_midi_.sample_count, rendered_midi_.phase_origin);
+    return static_cast<double>(relative_offset) /
            static_cast<double>(rendered_midi_.sample_count);
 }
 

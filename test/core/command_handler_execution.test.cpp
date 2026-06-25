@@ -37,7 +37,10 @@ auto execute(PluginState &state, std::string const &text,
     REQUIRE(std::holds_alternative<ExecutableCommand>(step));
     auto const &command = std::get<ExecutableCommand>(step);
     auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
-    auto context = CommandExecutionContext{.selection = std::move(selection)};
+    auto context = CommandExecutionContext{
+        .selection = std::move(selection),
+        .valid_output_ids = {CURRENT_INSTANCE_OUTPUT_ID, "peer"},
+    };
     auto application = command.execute(transaction, context);
     transaction.prepare();
     transaction.apply_effects();
@@ -126,7 +129,7 @@ TEST_CASE("Direct handlers set composition loop endpoints",
     auto const start = execute(state, "composition loop start 1");
     CHECK(start.status.first == MessageLevel::Info);
     CHECK(state.timeline.get_state().composition.loop_region.start_column == 1);
-    CHECK(state.timeline.get_state().composition.loop_region.end_column == 0);
+    CHECK(state.timeline.get_state().composition.loop_region.end_column == 1);
 
     auto const end = execute(state, "composition loop end 1");
     CHECK(end.status.first == MessageLevel::Info);
@@ -156,19 +159,22 @@ TEST_CASE("Direct handlers edit composition rows and columns",
 
     CHECK(execute(state, "composition row rename 1 \"Drums\"").status.first ==
           MessageLevel::Info);
-    CHECK(execute(state, "composition row output 1 \"bus-a\"").status.first ==
+    CHECK(execute(state, "composition row output 1 \"peer\"").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
     REQUIRE(project.composition.rows[1].name.has_value());
     CHECK(*project.composition.rows[1].name == "Drums");
-    CHECK(project.composition.rows[1].output_id == "bus-a");
+    CHECK(project.composition.rows[1].output_id == "peer");
 
     CHECK(execute(state, "composition row insert before 1").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
     REQUIRE(project.composition.rows.size() == 3);
-    CHECK(project.composition.rows[1].output_id == "bus-a");
+    CHECK(project.composition.rows[1].output_id == "peer");
     CHECK_FALSE(project.composition.rows[1].name.has_value());
+
+    CHECK_THROWS_AS((void)execute(state, "composition row output 1 \"bus-a\""),
+                    std::invalid_argument);
 
     CHECK(execute(state, "composition row delete 1").status.first ==
           MessageLevel::Info);
@@ -234,8 +240,12 @@ TEST_CASE("Direct handlers assign and clear composition cells by measure name",
     REQUIRE(copy_entry->name.has_value());
     CHECK(*copy_entry->name == "Intro Copy");
 
-    CHECK_THROWS_AS((void)execute(state, "composition cell assign 0 0 Verse"),
-                    std::invalid_argument);
+    CHECK(execute(state, "composition cell assign 0 0 verse").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    CHECK(project.composition.rows[0].cells[0] == verse_id);
+    CHECK(project.measure_bank.measures.size() == 3);
+
     CHECK_THROWS_AS((void)execute(state, "composition cell assign 0 0 \"\""),
                     std::invalid_argument);
 

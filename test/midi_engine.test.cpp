@@ -315,6 +315,23 @@ TEST_CASE("MidiEngine renders only the composition loop region",
           std::vector<int>{root + 12});
 }
 
+TEST_CASE("MidiEngine uses loop start as transport phase origin",
+          "[midi][midi-engine][composition]")
+{
+    auto const daw = playing_daw_state();
+    auto project = make_three_column_project();
+    auto const root = first_note_number(project, daw);
+    xen::set_loop_start(project.composition, 1);
+    xen::set_loop_end(project.composition, 2);
+
+    auto engine = xen::MidiEngine{};
+    engine.update(project, daw);
+
+    CHECK(engine.get_loop_phase(22'050, daw) == 0.0);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 22'050, 10, daw))) ==
+          std::vector<int>{root + 12});
+}
+
 TEST_CASE("MidiEngine does not duplicate a note-on across continuous mid-note blocks",
           "[midi][midi-engine]")
 {

@@ -1,9 +1,11 @@
 #include <xen/project_validation.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <functional>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
@@ -91,6 +93,15 @@ auto fallback_measure_name(MeasureId id) -> std::string
     return "M" + std::to_string(id);
 }
 
+auto measure_name_key(std::string const &name) -> std::string
+{
+    auto key = name;
+    std::ranges::transform(key, key.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return key;
+}
+
 } // namespace
 
 void validate(ProjectState const &project)
@@ -113,7 +124,7 @@ void validate(ProjectState const &project)
         }
         auto const effective_name =
             entry.name.has_value() ? *entry.name : fallback_measure_name(entry.id);
-        if (!measure_names.insert(effective_name).second)
+        if (!measure_names.insert(measure_name_key(effective_name)).second)
         {
             throw std::invalid_argument{"Duplicate measure name."};
         }

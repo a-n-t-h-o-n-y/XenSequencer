@@ -48,6 +48,12 @@ auto SessionCoordinator::execute(CommandRequest request) -> CommandResponse
     {
         throw std::invalid_argument{"Unknown source instance ID."};
     }
+    request.context.valid_output_ids.clear();
+    request.context.valid_output_ids.reserve(bindings_.size());
+    for (auto const &[_, binding] : bindings_)
+    {
+        request.context.valid_output_ids.push_back(binding.output_id);
+    }
     live_edit_started_ = true;
     auto result = session_.execute_command_string(request.command, request.context);
     return {

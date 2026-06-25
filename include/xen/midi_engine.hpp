@@ -65,6 +65,7 @@ class MidiEngine
         juce::MidiBuffer midi;
         std::vector<midi_internal::AssignedMidiNote> assigned_notes{};
         SampleCount sample_count{};
+        SampleCount phase_origin{};
     };
 
     [[nodiscard]] static auto render(ProjectState const &project, DAWState const &daw,

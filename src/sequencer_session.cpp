@@ -227,8 +227,15 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         {
             transaction.invalidate_transform_sessions();
         }
-        auto execution_context =
-            CommandExecutionContext{.selection = context.selection};
+        auto valid_output_ids = context.valid_output_ids;
+        if (valid_output_ids.empty())
+        {
+            valid_output_ids.push_back(instance_binding_.output_id);
+        }
+        auto execution_context = CommandExecutionContext{
+            .selection = context.selection,
+            .valid_output_ids = std::move(valid_output_ids),
+        };
         auto result = CommandApplicationResult{};
         auto const initial_engine = state_.timeline.get_state();
         auto const initial_revision = state_.timeline.get_project_revision();

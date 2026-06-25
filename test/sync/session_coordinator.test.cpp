@@ -191,6 +191,40 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
     CHECK(coordinator.live_edit_started());
 }
 
+TEST_CASE("SessionCoordinator validates composition row output commands",
+          "[sync][ipc][coordinator]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
+    (void)coordinator.connect({.binding = binding("instance-b", "peer")});
+
+    auto const valid = coordinator.execute({
+        .request_id = "request-1",
+        .source_instance_id = hello_a.binding.instance_id,
+        .command = "composition row output 0 peer",
+        .context =
+            CommandContext{
+                .expected_project_revision = coordinator.snapshot().project_revision,
+            },
+    });
+
+    CHECK(valid.result.status.first == MessageLevel::Info);
+    CHECK(valid.snapshot.project.composition.rows.front().output_id == "peer");
+
+    auto const invalid = coordinator.execute({
+        .request_id = "request-2",
+        .source_instance_id = hello_a.binding.instance_id,
+        .command = "composition row output 0 missing",
+        .context =
+            CommandContext{
+                .expected_project_revision = coordinator.snapshot().project_revision,
+            },
+    });
+
+    CHECK(invalid.result.status.first == MessageLevel::Error);
+    CHECK(invalid.result.status.second == "Unknown output ID.");
+}
+
 TEST_CASE("SessionCoordinator binding changes republish shared output rows",
           "[sync][ipc][coordinator]")
 {
