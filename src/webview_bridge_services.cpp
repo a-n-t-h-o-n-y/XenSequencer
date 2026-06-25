@@ -112,6 +112,11 @@ auto SequencerApplicationBridgeService::project_snapshot() const -> ProjectSnaps
     return session_.project_snapshot();
 }
 
+auto SequencerApplicationBridgeService::instance_binding() const -> InstanceBinding
+{
+    return session_.instance_binding();
+}
+
 auto SequencerApplicationBridgeService::library_snapshot() const -> LibrarySnapshot
 {
     return session_.library_snapshot();
@@ -128,6 +133,11 @@ auto SequencerApplicationBridgeService::execute_command_string(
     -> CommandApplicationResult
 {
     return session_.execute_command_string(command, context);
+}
+
+void SequencerApplicationBridgeService::set_output_id(OutputId output_id)
+{
+    session_.set_output_id(std::move(output_id));
 }
 
 StoreKeymapBridgeService::StoreKeymapBridgeService(std::filesystem::path keymap_file)
@@ -301,6 +311,14 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
          }},
         {"state.get",
          [this](ParsedRequest const &request) { return handle_state_get(request); }},
+        {"session.binding.get",
+         [this](ParsedRequest const &request) {
+             return handle_session_binding_get(request);
+         }},
+        {"session.binding.set",
+         [this](ParsedRequest const &request) {
+             return handle_session_binding_set(request);
+         }},
         {"command.execute",
          [this](ParsedRequest const &request) {
              return handle_command_execute(request);
@@ -396,6 +414,7 @@ auto BridgeRequestDispatcher::handle_session_hello(ParsedRequest const &request)
         {"project_schema_version", project_schema_version},
         {"library_schema_version", library_schema_version},
         {"catalog", make_catalog_payload(application_.command_catalog_metadata())},
+        {"binding", make_instance_binding(application_.instance_binding())},
         {"keymap", make_keymap_payload(keymap_.snapshot())},
     };
 }
@@ -405,6 +424,31 @@ auto BridgeRequestDispatcher::handle_state_get(ParsedRequest const &request)
 {
     validate_empty_object_payload(request.payload, request);
     return make_project_snapshot(application_.project_snapshot());
+}
+
+auto BridgeRequestDispatcher::handle_session_binding_get(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    validate_empty_object_payload(request.payload, request);
+    return make_instance_binding(application_.instance_binding());
+}
+
+auto BridgeRequestDispatcher::handle_session_binding_set(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto output_id = require_string(request.payload, "output_id");
+    if (output_id.empty())
+    {
+        throw BridgeError{
+            "invalid_request",
+            "Field must not be empty: output_id",
+            request.name,
+            request.request_id,
+        };
+    }
+
+    application_.set_output_id(std::move(output_id));
+    return make_instance_binding(application_.instance_binding());
 }
 
 auto BridgeRequestDispatcher::handle_command_execute(ParsedRequest const &request)

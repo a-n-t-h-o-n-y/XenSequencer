@@ -58,6 +58,13 @@ namespace xen
  */
 [[nodiscard]] auto deserialize_project(std::string const &json_str) -> ProjectState;
 
+[[nodiscard]] auto serialize_processor_state(InstanceBinding const &binding,
+                                             ProjectSnapshot const &snapshot)
+    -> std::string;
+
+[[nodiscard]] auto deserialize_processor_state(std::string const &json_str)
+    -> PersistedProcessorState;
+
 [[nodiscard]] auto serialize_copy_buffer_content(CopyBufferContent const &content)
     -> std::string;
 

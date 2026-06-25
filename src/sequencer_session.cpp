@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -115,6 +116,11 @@ auto SequencerSession::library_snapshot() const -> LibrarySnapshot
         .workspace = state_.workspace,
         .library_revision = state_.library_revision,
     };
+}
+
+auto SequencerSession::instance_binding() const -> InstanceBinding const &
+{
+    return instance_binding_;
 }
 
 auto SequencerSession::command_catalog() const noexcept -> CommandCatalog const &
@@ -357,6 +363,39 @@ void SequencerSession::replace_library(ContentLibrary library)
     state_.library_revision = detail::allocate_library_revision();
 }
 
+void SequencerSession::replace_instance_binding(InstanceBinding binding)
+{
+    if (binding.output_id.empty())
+    {
+        throw std::invalid_argument{"Instance output ID must not be empty."};
+    }
+    instance_binding_ = std::move(binding);
+    publish_project_snapshot();
+}
+
+void SequencerSession::replace_project_history_and_binding(ProjectState state,
+                                                           InstanceBinding binding)
+{
+    if (binding.output_id.empty())
+    {
+        throw std::invalid_argument{"Instance output ID must not be empty."};
+    }
+    instance_binding_ = std::move(binding);
+    state_.timeline.replace_history(std::move(state));
+    state_.command_session = CommandSessionState{};
+    publish_project_snapshot();
+}
+
+void SequencerSession::set_output_id(OutputId output_id)
+{
+    if (output_id.empty())
+    {
+        throw std::invalid_argument{"Instance output ID must not be empty."};
+    }
+    instance_binding_.output_id = std::move(output_id);
+    publish_project_snapshot();
+}
+
 auto SequencerSession::audio_project_update_version() const noexcept -> std::uint64_t
 {
     return pending_engine_state_update_.version();
@@ -371,8 +410,10 @@ auto SequencerSession::try_consume_audio_project_update() noexcept
 void SequencerSession::publish_project_snapshot()
 {
     validate(state_.timeline.get_state());
-    pending_engine_state_update_.publish(
-        AudioProjectSnapshot{state_.timeline.get_state()});
+    pending_engine_state_update_.publish(AudioProjectSnapshot{
+        .project = state_.timeline.get_state(),
+        .output_id = instance_binding_.output_id,
+    });
 }
 
 } // namespace xen

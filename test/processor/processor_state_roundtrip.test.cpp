@@ -2,10 +2,12 @@
 #include <string>
 
 #include <catch2/catch_test_macros.hpp>
+#include <nlohmann/json.hpp>
 
 #include <juce_core/juce_core.h>
 
 #include <xen/message_level.hpp>
+#include <xen/serialize.hpp>
 #include <xen/xen_processor.hpp>
 
 using namespace xen;
@@ -39,14 +41,36 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
     REQUIRE(blob.getSize() > 0);
     auto const serialized =
         std::string{static_cast<char const *>(blob.getData()), blob.getSize()};
-    CHECK(serialized.find("history_entry_id") == std::string::npos);
-    CHECK(serialized.find("project_revision") == std::string::npos);
+    auto const encoded = nlohmann::json::parse(serialized);
+    CHECK(encoded.at("kind") == "xen_processor_state");
+    CHECK(encoded.at("binding").at("output_id") == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(encoded.at("shared_snapshot").contains("history_entry_id"));
+    CHECK(encoded.at("shared_snapshot").contains("project_revision"));
 
     auto target = XenProcessor{};
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
     auto const actual = target.session().project_snapshot().project;
     CHECK(actual == expected);
+    CHECK(target.session().instance_binding() == source.session().instance_binding());
+}
+
+TEST_CASE("Processor setStateInformation rejects raw project payloads",
+          "[processor][state]")
+{
+    auto processor = XenProcessor{};
+    auto const before_snapshot = processor.session().project_snapshot();
+    auto const before_binding = processor.session().instance_binding();
+    auto const raw_project = serialize_project(before_snapshot.project);
+
+    REQUIRE_NOTHROW(
+        processor.setStateInformation(raw_project.data(), (int)raw_project.size()));
+
+    auto const after_snapshot = processor.session().project_snapshot();
+    CHECK(after_snapshot.project == before_snapshot.project);
+    CHECK(after_snapshot.history_entry_id == before_snapshot.history_entry_id);
+    CHECK(after_snapshot.project_revision == before_snapshot.project_revision);
+    CHECK(processor.session().instance_binding() == before_binding);
 }
 
 TEST_CASE("Processor setStateInformation ignores invalid payload safely",

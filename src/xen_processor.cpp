@@ -56,6 +56,11 @@ namespace
     return static_cast<xen::SampleIndex>(samples);
 }
 
+[[nodiscard]] auto make_id(char const *prefix) -> std::string
+{
+    return std::string{prefix} + "-" + juce::Uuid{}.toString().toStdString();
+}
+
 } // namespace
 
 namespace xen
@@ -65,6 +70,11 @@ XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
                            std::filesystem::path workspace_settings_file)
     : session_{effect_failure, std::move(workspace_settings_file)}
 {
+    session_.replace_instance_binding(InstanceBinding{
+        .session_id = make_id("session"),
+        .instance_id = make_id("instance"),
+        .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+    });
 }
 
 auto XenProcessor::session() noexcept -> SequencerSession &
@@ -155,13 +165,15 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     if (auto const snapshot = session_.try_consume_audio_project_update())
     {
         audio_thread_state_.project = &snapshot->state().project;
+        audio_thread_state_.output_id = snapshot->state().output_id;
         update_needed = true;
     }
 
     if (update_needed && audio_thread_state_.project != nullptr)
     {
         audio_thread_state_.midi_engine.update(*audio_thread_state_.project,
-                                               audio_thread_state_.daw);
+                                               audio_thread_state_.daw,
+                                               audio_thread_state_.output_id);
     }
 
     // Calculate MIDI buffer slice
@@ -199,7 +211,8 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_project(session_.project_snapshot().project);
+        auto const json_str = serialize_processor_state(session_.instance_binding(),
+                                                        session_.project_snapshot());
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }
@@ -217,8 +230,9 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     {
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
-        auto state = deserialize_project(json_str);
-        session_.replace_project_history(std::move(state));
+        auto state = deserialize_processor_state(json_str);
+        session_.replace_project_history_and_binding(std::move(state.project),
+                                                     std::move(state.binding));
     }
     catch (std::exception const &e)
     {

@@ -199,8 +199,10 @@ set(XEN_APPLICATION_SOURCES
     src/command_catalog_specs_transform.cpp
     src/command_transaction.cpp
     src/keymap.cpp
+    src/ipc_protocol.cpp
     src/parse_args.cpp
     src/sequencer_session.cpp
+    src/session_coordinator.cpp
     src/submission_effects.cpp
     src/workspace_settings.cpp
 )
@@ -361,6 +363,7 @@ if (XEN_BUILD_TESTS)
         test/sync/audio_thread_state_exchange.test.cpp
         test/sync/engine_state_mailbox.test.cpp
         test/sync/engine_snapshot_contract.test.cpp
+        test/sync/session_coordinator.test.cpp
         test/utility.test.cpp
     )
 

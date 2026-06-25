@@ -71,6 +71,7 @@ class XenProcessor : public juce::AudioProcessor
     {
         DAWState daw;
         ProjectState const *project{};
+        OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
         MidiEngine midi_engine;
     } audio_thread_state_;
 

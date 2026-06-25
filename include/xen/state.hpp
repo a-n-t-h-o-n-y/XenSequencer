@@ -27,6 +27,10 @@ using SampleIndex = std::uint64_t;
 
 using SampleCount = std::uint64_t;
 
+using SessionId = std::string;
+
+using InstanceId = std::string;
+
 struct NamedTuning
 {
     std::string name{"12-TET"};
@@ -188,6 +192,25 @@ struct ProjectSnapshot
     ProjectRevision project_revision{};
 };
 
+struct InstanceBinding
+{
+    SessionId session_id{};
+    InstanceId instance_id{};
+    OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
+
+    auto operator==(InstanceBinding const &) const -> bool = default;
+};
+
+struct PersistedProcessorState
+{
+    InstanceBinding binding{};
+    ProjectState project{};
+    HistoryEntryId saved_history_entry_id{};
+    ProjectRevision saved_project_revision{};
+
+    auto operator==(PersistedProcessorState const &) const -> bool = default;
+};
+
 struct LibrarySnapshot
 {
     ContentLibrary library{};
@@ -198,6 +221,7 @@ struct LibrarySnapshot
 struct AudioProjectSnapshot
 {
     ProjectState project{};
+    OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
 
     auto operator==(AudioProjectSnapshot const &) const -> bool = default;
 };

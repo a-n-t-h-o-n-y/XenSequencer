@@ -37,3 +37,18 @@ TEST_CASE("Unknown commands do not mutate engine state", "[sync][snapshot]")
     CHECK(after.history_entry_id == before.history_entry_id);
     CHECK(after.project_revision == before.project_revision);
 }
+
+TEST_CASE("Instance output binding publishes audio snapshots", "[sync][snapshot]")
+{
+    auto session = SequencerSession{};
+    (void)session.try_consume_audio_project_update();
+    auto const before_version = session.audio_project_update_version();
+
+    session.set_output_id("peer");
+
+    CHECK(session.audio_project_update_version() == before_version + 1);
+    auto const update = session.try_consume_audio_project_update();
+    REQUIRE(update.has_value());
+    CHECK(update->state().output_id == "peer");
+    CHECK(update->state().project == session.project_snapshot().project);
+}

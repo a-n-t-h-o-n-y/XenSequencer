@@ -24,6 +24,9 @@ inline constexpr int catalog_schema_version = 2;
 [[nodiscard]] auto make_project_snapshot(ProjectSnapshot const &snapshot)
     -> nlohmann::json;
 
+[[nodiscard]] auto make_instance_binding(InstanceBinding const &binding)
+    -> nlohmann::json;
+
 [[nodiscard]] auto make_catalog_payload(
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 

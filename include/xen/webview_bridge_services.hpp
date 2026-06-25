@@ -28,12 +28,14 @@ class ApplicationBridgeService
     virtual ~ApplicationBridgeService() = default;
 
     [[nodiscard]] virtual auto project_snapshot() const -> ProjectSnapshot = 0;
+    [[nodiscard]] virtual auto instance_binding() const -> InstanceBinding = 0;
     [[nodiscard]] virtual auto library_snapshot() const -> LibrarySnapshot = 0;
     [[nodiscard]] virtual auto command_catalog_metadata() const
         -> std::vector<CatalogCommandMetadata> = 0;
     [[nodiscard]] virtual auto execute_command_string(std::string const &command,
                                                       CommandContext const &context)
         -> CommandApplicationResult = 0;
+    virtual void set_output_id(OutputId output_id) = 0;
 };
 
 class KeymapBridgeService
@@ -95,12 +97,14 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
     explicit SequencerApplicationBridgeService(SequencerSession &session);
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding override;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
     [[nodiscard]] auto command_catalog_metadata() const
         -> std::vector<CatalogCommandMetadata> override;
     [[nodiscard]] auto execute_command_string(std::string const &command,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
+    void set_output_id(OutputId output_id) override;
 
   private:
     SequencerSession &session_;
@@ -167,6 +171,10 @@ class BridgeRequestDispatcher
     [[nodiscard]] auto handle_session_hello(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_state_get(ParsedRequest const &request) -> nlohmann::json;
+    [[nodiscard]] auto handle_session_binding_get(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_session_binding_set(ParsedRequest const &request)
+        -> nlohmann::json;
     [[nodiscard]] auto handle_command_execute(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_library_get(ParsedRequest const &request)

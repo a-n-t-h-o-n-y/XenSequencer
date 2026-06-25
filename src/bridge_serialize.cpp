@@ -306,6 +306,15 @@ auto make_project_snapshot(ProjectSnapshot const &snapshot) -> nlohmann::json
     };
 }
 
+auto make_instance_binding(InstanceBinding const &binding) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"session_id", binding.session_id},
+        {"instance_id", binding.instance_id},
+        {"output_id", binding.output_id},
+    };
+}
+
 auto make_catalog_payload(std::vector<CatalogCommandMetadata> const &commands)
     -> nlohmann::json
 {

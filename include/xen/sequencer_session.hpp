@@ -25,6 +25,7 @@ class SequencerSession
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot;
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding const &;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
     [[nodiscard]] auto command_session() const noexcept -> CommandSessionState const &;
 
@@ -34,6 +35,10 @@ class SequencerSession
 
     void replace_project_history(ProjectState state);
     void replace_library(ContentLibrary library);
+    void replace_instance_binding(InstanceBinding binding);
+    void replace_project_history_and_binding(ProjectState state,
+                                             InstanceBinding binding);
+    void set_output_id(OutputId output_id);
 
     [[nodiscard]] auto audio_project_update_version() const noexcept -> std::uint64_t;
     [[nodiscard]] auto try_consume_audio_project_update() noexcept
@@ -41,6 +46,7 @@ class SequencerSession
 
   private:
     PluginState state_;
+    InstanceBinding instance_binding_;
     WorkspaceSettingsStore workspace_settings_store_;
     CommandCatalog command_catalog_;
     SubmissionEffects::FailurePoint effect_failure_;

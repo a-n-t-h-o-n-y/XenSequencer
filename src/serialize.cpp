@@ -285,6 +285,7 @@ namespace
 {
 
 constexpr auto PROJECT_SCHEMA_VERSION = 2;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 1;
 
 } // namespace
 
@@ -410,6 +411,34 @@ static void from_json(nlohmann::json const &j, ProjectState &project)
     project.pitch = j.at("pitch").get<PitchSystem>();
 }
 
+static void to_json(nlohmann::json &j, InstanceBinding const &binding)
+{
+    j = nlohmann::json{
+        {"session_id", binding.session_id},
+        {"instance_id", binding.instance_id},
+        {"output_id", binding.output_id},
+    };
+}
+
+static void from_json(nlohmann::json const &j, InstanceBinding &binding)
+{
+    binding.session_id = j.at("session_id").get<SessionId>();
+    binding.instance_id = j.at("instance_id").get<InstanceId>();
+    binding.output_id = j.at("output_id").get<OutputId>();
+    if (binding.session_id.empty())
+    {
+        throw std::invalid_argument{"Session ID must not be empty."};
+    }
+    if (binding.instance_id.empty())
+    {
+        throw std::invalid_argument{"Instance ID must not be empty."};
+    }
+    if (binding.output_id.empty())
+    {
+        throw std::invalid_argument{"Output ID must not be empty."};
+    }
+}
+
 auto serialize_cell(sequence::Cell const &c) -> std::string
 {
     auto json = nlohmann::json{};
@@ -460,6 +489,59 @@ auto deserialize_project(std::string const &json_str) -> ProjectState
     auto project = json.at("project").get<ProjectState>();
     validate(project);
     return project;
+}
+
+auto serialize_processor_state(InstanceBinding const &binding,
+                               ProjectSnapshot const &snapshot) -> std::string
+{
+    validate(snapshot.project);
+    if (binding.session_id.empty())
+    {
+        throw std::invalid_argument{"Session ID must not be empty."};
+    }
+    if (binding.instance_id.empty())
+    {
+        throw std::invalid_argument{"Instance ID must not be empty."};
+    }
+    if (binding.output_id.empty())
+    {
+        throw std::invalid_argument{"Output ID must not be empty."};
+    }
+
+    return nlohmann::json{
+        {"schema", PROCESSOR_STATE_SCHEMA_VERSION},
+        {"kind", "xen_processor_state"},
+        {"binding", binding},
+        {"shared_snapshot",
+         {
+             {"history_entry_id", snapshot.history_entry_id.value()},
+             {"project_revision", snapshot.project_revision.value()},
+             {"project", snapshot.project},
+         }},
+    }
+        .dump();
+}
+
+auto deserialize_processor_state(std::string const &json_str) -> PersistedProcessorState
+{
+    auto const json = nlohmann::json::parse(json_str);
+    if (json.at("kind").get<std::string>() != "xen_processor_state" ||
+        json.at("schema").get<int>() != PROCESSOR_STATE_SCHEMA_VERSION)
+    {
+        throw std::invalid_argument{"Unsupported processor state schema."};
+    }
+
+    auto const &snapshot = json.at("shared_snapshot");
+    auto state = PersistedProcessorState{
+        .binding = json.at("binding").get<InstanceBinding>(),
+        .project = snapshot.at("project").get<ProjectState>(),
+        .saved_history_entry_id =
+            HistoryEntryId{snapshot.at("history_entry_id").get<std::uint64_t>()},
+        .saved_project_revision =
+            ProjectRevision{snapshot.at("project_revision").get<std::uint64_t>()},
+    };
+    validate(state.project);
+    return state;
 }
 
 auto serialize_copy_buffer_content(CopyBufferContent const &content) -> std::string

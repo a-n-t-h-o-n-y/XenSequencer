@@ -85,12 +85,22 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
             },
         .library_revision = LibraryRevision{11},
     };
+    InstanceBinding binding{
+        .session_id = "session-test",
+        .instance_id = "instance-test",
+        .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+    };
     std::string executed_command{};
     CommandContext executed_context{};
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override
     {
         return project;
+    }
+
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding override
+    {
+        return binding;
     }
 
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override
@@ -114,6 +124,11 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
             .status = {MessageLevel::Info, "fake command"},
             .suggested_selection = std::nullopt,
         };
+    }
+
+    void set_output_id(OutputId output_id) override
+    {
+        binding.output_id = std::move(output_id);
     }
 };
 
@@ -437,9 +452,20 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
     CHECK(hello.at("payload").at("catalog").at("schema_version") ==
           bridge::catalog_schema_version);
     CHECK(hello.at("payload").at("keymap").at("revision") == 5);
+    CHECK(hello.at("payload").at("binding").at("output_id") ==
+          CURRENT_INSTANCE_OUTPUT_ID);
 
     auto const state = fake_response(dispatcher, "state.get").at("payload");
     CHECK(state.at("project_revision") == 7);
+
+    auto const binding = fake_response(dispatcher, "session.binding.get").at("payload");
+    CHECK(binding.at("instance_id") == "instance-test");
+
+    auto const updated_binding =
+        fake_response(dispatcher, "session.binding.set", {{"output_id", "peer"}})
+            .at("payload");
+    CHECK(updated_binding.at("output_id") == "peer");
+    CHECK(application.binding.output_id == "peer");
 
     auto const command =
         fake_response(dispatcher, "command.execute",
