@@ -50,10 +50,19 @@ struct CompositionRow
     auto operator==(CompositionRow const &) const -> bool = default;
 };
 
+struct LoopRegion
+{
+    std::size_t start_column{0};
+    std::size_t end_column{0};
+
+    auto operator==(LoopRegion const &) const -> bool = default;
+};
+
 struct Composition
 {
     std::vector<CompositionColumn> columns{};
     std::vector<CompositionRow> rows{};
+    LoopRegion loop_region{};
 
     auto operator==(Composition const &) const -> bool = default;
 };
@@ -84,6 +93,8 @@ auto remove_column(Composition &composition, std::size_t index) -> void;
 auto move_column(Composition &composition, std::size_t from, std::size_t to) -> void;
 auto set_column_length(Composition &composition, std::size_t column,
                        sequence::TimeSignature length) -> void;
+auto set_loop_start(Composition &composition, std::size_t column) -> void;
+auto set_loop_end(Composition &composition, std::size_t column) -> void;
 
 auto assign_measure_reference(Composition &composition, std::size_t row,
                               std::size_t column, MeasureId id) -> void;

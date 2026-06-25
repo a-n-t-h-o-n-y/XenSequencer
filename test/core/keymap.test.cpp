@@ -101,6 +101,30 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
         find_binding(snapshot, "command.completions", {.key = "ArrowDown"});
     REQUIRE(next_completion != nullptr);
     CHECK(next_completion->target.value == "command.completion.next");
+
+    auto const composition_binding = find_binding(snapshot, "sequence", {.key = "Tab"});
+    REQUIRE(composition_binding != nullptr);
+    CHECK(composition_binding->target.value == "workspace.view.composition");
+
+    auto const move_binding =
+        find_binding(snapshot, "composition", {.key = "ArrowRight"});
+    REQUIRE(move_binding != nullptr);
+    CHECK(move_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(move_binding->target.value == "composition.selection.move");
+    CHECK(move_binding->target.arguments.at("direction") == "right");
+
+    auto const edit_binding = find_binding(snapshot, "composition", {.key = "Enter"});
+    REQUIRE(edit_binding != nullptr);
+    CHECK(edit_binding->target.value == "composition.cell.edit_measure");
+
+    auto const loop_start_binding = find_binding(snapshot, "composition", {.key = "["});
+    REQUIRE(loop_start_binding != nullptr);
+    CHECK(loop_start_binding->target.value == "composition.loop.set_start");
+
+    auto const sequencer_binding =
+        find_binding(snapshot, "composition", {.key = "Tab"});
+    REQUIRE(sequencer_binding != nullptr);
+    CHECK(sequencer_binding->target.value == "workspace.view.sequencer");
 }
 
 TEST_CASE("Keymap accepts command UI action overrides in dotted contexts",
@@ -171,4 +195,31 @@ TEST_CASE("Keymap rejects workspace view toggle arguments", "[core][keymap]")
     };
 
     CHECK_THROWS_AS(validate(target), std::invalid_argument);
+}
+
+TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
+{
+    auto const move = KeymapTarget{
+        .type = KeymapTargetType::UiAction,
+        .value = "composition.selection.move",
+        .arguments = {{"direction", "down"}, {"amount", 2}},
+    };
+    CHECK_NOTHROW(validate(move));
+
+    auto invalid_move = move;
+    invalid_move.arguments = {{"direction", "sideways"}, {"amount", 1}};
+    CHECK_THROWS_AS(validate(invalid_move), std::invalid_argument);
+
+    for (auto const *action :
+         {"composition.cell.edit_measure", "composition.loop.set_start",
+          "composition.loop.set_end", "workspace.view.composition",
+          "workspace.view.sequencer"})
+    {
+        auto const target = KeymapTarget{
+            .type = KeymapTargetType::UiAction,
+            .value = action,
+            .arguments = nlohmann::json::object(),
+        };
+        CHECK_NOTHROW(validate(target));
+    }
 }

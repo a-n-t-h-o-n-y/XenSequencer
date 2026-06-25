@@ -32,6 +32,7 @@ auto build_specs() -> std::vector<CommandSpec>
 {
     auto specs = std::vector<CommandSpec>{};
     catalog_detail::append_bootstrap_specs(specs);
+    catalog_detail::append_composition_specs(specs);
     catalog_detail::append_edit_specs(specs);
     catalog_detail::append_set_and_shift_specs(specs);
     catalog_detail::append_transform_specs(specs);

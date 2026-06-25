@@ -302,6 +302,7 @@ TEST_CASE("Bridge project and library resources are separated", "[core][bridge]"
     CHECK(state.contains("project"));
     CHECK(state.contains("project_revision"));
     CHECK(state.contains("history_entry_id"));
+    CHECK(state.at("project").at("composition").contains("loop_region"));
     CHECK_FALSE(state.contains("library"));
     CHECK_FALSE(state.contains("paths"));
 

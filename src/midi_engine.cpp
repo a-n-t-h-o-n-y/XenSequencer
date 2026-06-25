@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include <sequence/timing.hpp>
 
@@ -43,6 +44,35 @@ void push_live_voice(LiveVoiceSet &set, xen::midi_internal::LiveVoice voice) noe
     auto const unique_end = std::unique(begin, end);
     voices.size = static_cast<std::size_t>(std::distance(begin, unique_end));
     return voices;
+}
+
+[[nodiscard]] auto loop_column_indices(xen::Composition const &composition)
+    -> std::vector<std::size_t>
+{
+    auto indices = std::vector<std::size_t>{};
+    auto const column_count = composition.columns.size();
+    indices.reserve(column_count);
+
+    auto const start = composition.loop_region.start_column;
+    auto const end = composition.loop_region.end_column;
+    if (start <= end)
+    {
+        for (auto index = start; index <= end; ++index)
+        {
+            indices.push_back(index);
+        }
+        return indices;
+    }
+
+    for (auto index = start; index < column_count; ++index)
+    {
+        indices.push_back(index);
+    }
+    for (auto index = std::size_t{0}; index <= end; ++index)
+    {
+        indices.push_back(index);
+    }
+    return indices;
 }
 
 [[nodiscard]] auto live_voices_at(
@@ -322,13 +352,15 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
 {
     try
     {
+        auto const loop_columns = loop_column_indices(project.composition);
         auto column_offsets = std::vector<SampleCount>{};
-        column_offsets.reserve(project.composition.columns.size());
+        column_offsets.reserve(loop_columns.size());
 
         auto sample_count = SampleCount{};
-        for (auto const &column : project.composition.columns)
+        for (auto const column_index : loop_columns)
         {
             column_offsets.push_back(sample_count);
+            auto const &column = project.composition.columns[column_index];
             auto const column_samples = midi_internal::checked_measure_sample_count(
                 column.length, daw.sample_rate, daw.bpm);
             sample_count = checked_add_sample_count(sample_count, column_samples);
@@ -341,9 +373,10 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
             {
                 continue;
             }
-            for (auto column_index = std::size_t{0};
-                 column_index < project.composition.columns.size(); ++column_index)
+            for (auto loop_index = std::size_t{0}; loop_index < loop_columns.size();
+                 ++loop_index)
             {
+                auto const column_index = loop_columns[loop_index];
                 auto const measure_id = row.cells[column_index];
                 if (!measure_id.has_value())
                 {
@@ -363,7 +396,7 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
                         ? std::optional<Scale>{project.pitch.scale->definition}
                         : std::nullopt,
                     project.pitch.transposition, project.pitch.translation_direction);
-                offset_timeline(measure_timeline, column_offsets[column_index]);
+                offset_timeline(measure_timeline, column_offsets[loop_index]);
                 timeline.insert(timeline.end(),
                                 std::make_move_iterator(measure_timeline.begin()),
                                 std::make_move_iterator(measure_timeline.end()));

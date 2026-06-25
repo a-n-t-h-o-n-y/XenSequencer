@@ -188,7 +188,7 @@ static void to_json(nlohmann::json &j, CompositionRow const &row)
     for (auto const &cell : row.cells)
     {
         cells.push_back(cell.has_value() ? nlohmann::json(*cell)
-                                         : nlohmann::json{nullptr});
+                                         : nlohmann::json(nullptr));
     }
     j = nlohmann::json{
         {"output_id", row.output_id},
@@ -208,18 +208,42 @@ static void from_json(nlohmann::json const &j, CompositionRow &row)
     }
 }
 
+static void to_json(nlohmann::json &j, LoopRegion const &region)
+{
+    j = nlohmann::json::object();
+    j["start_column"] = region.start_column;
+    j["end_column"] = region.end_column;
+}
+
+static void from_json(nlohmann::json const &j, LoopRegion &region)
+{
+    region.start_column = j.at("start_column").get<std::size_t>();
+    region.end_column = j.at("end_column").get<std::size_t>();
+}
+
 static void to_json(nlohmann::json &j, Composition const &composition)
 {
-    j = nlohmann::json{
-        {"columns", composition.columns},
-        {"rows", composition.rows},
-    };
+    j = nlohmann::json::object();
+    j["columns"] = composition.columns;
+    j["rows"] = composition.rows;
+    j["loop_region"] = composition.loop_region;
 }
 
 static void from_json(nlohmann::json const &j, Composition &composition)
 {
     composition.columns = j.at("columns").get<std::vector<CompositionColumn>>();
     composition.rows = j.at("rows").get<std::vector<CompositionRow>>();
+    if (j.contains("loop_region"))
+    {
+        composition.loop_region = j.at("loop_region").get<LoopRegion>();
+    }
+    else if (!composition.columns.empty())
+    {
+        composition.loop_region = LoopRegion{
+            .start_column = 0,
+            .end_column = composition.columns.size() - 1,
+        };
+    }
 }
 
 } // namespace xen

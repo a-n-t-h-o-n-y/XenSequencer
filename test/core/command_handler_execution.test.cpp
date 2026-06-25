@@ -113,6 +113,28 @@ TEST_CASE("Direct handlers mutate engine without requiring session editor state"
     CHECK(state.timeline.get_state().pitch.transposition == 12);
 }
 
+TEST_CASE("Direct handlers set composition loop endpoints",
+          "[core][command][handler][composition]")
+{
+    auto state = make_plugin_state();
+    auto engine = state.timeline.get_state();
+    insert_column(engine.composition, 1, sequence::TimeSignature{3, 4});
+    state.timeline.stage(std::move(engine));
+
+    auto const start = execute(state, "composition loop start 1");
+    CHECK(start.status.first == MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.loop_region.start_column == 1);
+    CHECK(state.timeline.get_state().composition.loop_region.end_column == 0);
+
+    auto const end = execute(state, "composition loop end 1");
+    CHECK(end.status.first == MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.loop_region.start_column == 1);
+    CHECK(state.timeline.get_state().composition.loop_region.end_column == 1);
+
+    CHECK_THROWS_AS((void)execute(state, "composition loop start 2"),
+                    std::out_of_range);
+}
+
 TEST_CASE("Direct handlers validate without retaining partial mutation",
           "[core][command][handler]")
 {

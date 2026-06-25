@@ -219,6 +219,10 @@ auto default_keymap() -> KeymapContexts
         return ui_action("selection.move",
                          {{"direction", std::move(direction)}, {"amount", 1}});
     };
+    auto const composition_move = [](std::string direction) {
+        return ui_action("composition.selection.move",
+                         {{"direction", std::move(direction)}, {"amount", 1}});
+    };
     auto const input_mode = [](std::string mode) {
         return ui_action("input_mode.set", {{"mode", std::move(mode)}});
     };
@@ -301,6 +305,26 @@ auto default_keymap() -> KeymapContexts
     add(contexts, trigger("k", false, true), command_ui_action("command.open"));
     add(contexts, trigger(":"), command_ui_action("command.open"));
 
+    add(contexts, "sequence", trigger("Tab"),
+        command_ui_action("workspace.view.composition"));
+
+    add(contexts, "composition", trigger("h"), composition_move("left"));
+    add(contexts, "composition", trigger("ArrowLeft"), composition_move("left"));
+    add(contexts, "composition", trigger("l"), composition_move("right"));
+    add(contexts, "composition", trigger("ArrowRight"), composition_move("right"));
+    add(contexts, "composition", trigger("j"), composition_move("down"));
+    add(contexts, "composition", trigger("ArrowDown"), composition_move("down"));
+    add(contexts, "composition", trigger("k"), composition_move("up"));
+    add(contexts, "composition", trigger("ArrowUp"), composition_move("up"));
+    add(contexts, "composition", trigger("Enter"),
+        command_ui_action("composition.cell.edit_measure"));
+    add(contexts, "composition", trigger("["),
+        command_ui_action("composition.loop.set_start"));
+    add(contexts, "composition", trigger("]"),
+        command_ui_action("composition.loop.set_end"));
+    add(contexts, "composition", trigger("Tab"),
+        command_ui_action("workspace.view.sequencer"));
+
     add(contexts, "command.input", trigger("Escape"),
         command_ui_action("command.cancel"));
     add(contexts, "command.input", trigger("Enter"),
@@ -366,7 +390,7 @@ void validate(KeymapTarget const &value)
     {
         throw std::invalid_argument{"UI action arguments must be an object."};
     }
-    if (value.value == "selection.move")
+    if (value.value == "selection.move" || value.value == "composition.selection.move")
     {
         auto const direction = value.arguments.at("direction").get<std::string>();
         auto const amount = value.arguments.at("amount").get<int>();
@@ -374,7 +398,7 @@ void validate(KeymapTarget const &value)
              direction != "down") ||
             amount < 1 || amount > 1'000 || value.arguments.size() != 2)
         {
-            throw std::invalid_argument{"Invalid selection.move arguments."};
+            throw std::invalid_argument{"Invalid selection move arguments."};
         }
         return;
     }
@@ -397,7 +421,12 @@ void validate(KeymapTarget const &value)
         value.value == "command.completion.dismiss" ||
         value.value == "command.completion.previous" ||
         value.value == "command.completion.next" ||
-        value.value == "workspace.view.toggle")
+        value.value == "composition.cell.edit_measure" ||
+        value.value == "composition.loop.set_start" ||
+        value.value == "composition.loop.set_end" ||
+        value.value == "workspace.view.toggle" ||
+        value.value == "workspace.view.composition" ||
+        value.value == "workspace.view.sequencer")
     {
         if (!value.arguments.empty())
         {

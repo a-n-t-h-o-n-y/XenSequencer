@@ -116,6 +116,14 @@ void validate(ProjectState const &project)
     {
         throw std::invalid_argument{"Composition must contain at least one column."};
     }
+    if (project.composition.loop_region.start_column >=
+            project.composition.columns.size() ||
+        project.composition.loop_region.end_column >=
+            project.composition.columns.size())
+    {
+        throw std::invalid_argument{
+            "Composition loop region must reference existing columns."};
+    }
     if (project.composition.rows.empty())
     {
         throw std::invalid_argument{"Composition must contain at least one row."};

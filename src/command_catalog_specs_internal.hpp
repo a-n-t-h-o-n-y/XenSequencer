@@ -11,6 +11,7 @@ namespace xen::catalog_detail
 {
 
 void append_bootstrap_specs(std::vector<CommandSpec> &specs);
+void append_composition_specs(std::vector<CommandSpec> &specs);
 void append_edit_specs(std::vector<CommandSpec> &specs);
 void append_set_and_shift_specs(std::vector<CommandSpec> &specs);
 void append_transform_specs(std::vector<CommandSpec> &specs);
@@ -25,10 +26,9 @@ void append_transform_specs(std::vector<CommandSpec> &specs);
     return *context.selection;
 }
 
-[[nodiscard]] inline auto make_result(
-    CommandStatus status,
-    std::optional<SelectionPath> suggested_selection = std::nullopt)
-    -> CommandApplicationResult
+[[nodiscard]] inline auto make_result(CommandStatus status,
+                                      std::optional<SelectionPath> suggested_selection =
+                                          std::nullopt) -> CommandApplicationResult
 {
     return CommandApplicationResult{
         .status = std::move(status),

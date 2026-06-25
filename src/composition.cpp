@@ -118,6 +118,40 @@ auto checked_move(std::vector<T> &items, std::size_t from, std::size_t to) -> vo
                  std::move(item));
 }
 
+[[nodiscard]] auto shifted_after_insert(std::size_t column, std::size_t index)
+    -> std::size_t
+{
+    return column >= index ? column + 1 : column;
+}
+
+[[nodiscard]] auto shifted_after_remove(std::size_t column, std::size_t index,
+                                        std::size_t new_size) -> std::size_t
+{
+    if (column == index)
+    {
+        return std::min(index, new_size - 1);
+    }
+    return column > index ? column - 1 : column;
+}
+
+[[nodiscard]] auto shifted_after_move(std::size_t column, std::size_t from,
+                                      std::size_t to) -> std::size_t
+{
+    if (column == from)
+    {
+        return to;
+    }
+    if (from < to && column > from && column <= to)
+    {
+        return column - 1;
+    }
+    if (to < from && column >= to && column < from)
+    {
+        return column + 1;
+    }
+    return column;
+}
+
 } // namespace
 
 auto make_default_measure_bank() -> MeasureBank
@@ -136,6 +170,7 @@ auto make_default_composition() -> Composition
             .output_id = CURRENT_INSTANCE_OUTPUT_ID,
             .cells = {DEFAULT_MEASURE_ID},
         }},
+        .loop_region = LoopRegion{.start_column = 0, .end_column = 0},
     };
 }
 
@@ -237,15 +272,28 @@ auto insert_column(Composition &composition, std::size_t index,
     {
         checked_insert(row.cells, index, std::optional<MeasureId>{});
     }
+    composition.loop_region.start_column =
+        shifted_after_insert(composition.loop_region.start_column, index);
+    composition.loop_region.end_column =
+        shifted_after_insert(composition.loop_region.end_column, index);
 }
 
 auto remove_column(Composition &composition, std::size_t index) -> void
 {
+    if (composition.columns.size() <= 1)
+    {
+        throw std::invalid_argument{"Composition must contain at least one column."};
+    }
     checked_erase(composition.columns, index);
     for (auto &row : composition.rows)
     {
         checked_erase(row.cells, index);
     }
+    auto const new_size = composition.columns.size();
+    composition.loop_region.start_column =
+        shifted_after_remove(composition.loop_region.start_column, index, new_size);
+    composition.loop_region.end_column =
+        shifted_after_remove(composition.loop_region.end_column, index, new_size);
 }
 
 auto move_column(Composition &composition, std::size_t from, std::size_t to) -> void
@@ -255,12 +303,28 @@ auto move_column(Composition &composition, std::size_t from, std::size_t to) -> 
     {
         checked_move(row.cells, from, to);
     }
+    composition.loop_region.start_column =
+        shifted_after_move(composition.loop_region.start_column, from, to);
+    composition.loop_region.end_column =
+        shifted_after_move(composition.loop_region.end_column, from, to);
 }
 
 auto set_column_length(Composition &composition, std::size_t column,
                        sequence::TimeSignature length) -> void
 {
     require_column(composition, column).length = length;
+}
+
+auto set_loop_start(Composition &composition, std::size_t column) -> void
+{
+    (void)require_column(composition, column);
+    composition.loop_region.start_column = column;
+}
+
+auto set_loop_end(Composition &composition, std::size_t column) -> void
+{
+    (void)require_column(composition, column);
+    composition.loop_region.end_column = column;
 }
 
 auto assign_measure_reference(Composition &composition, std::size_t row,

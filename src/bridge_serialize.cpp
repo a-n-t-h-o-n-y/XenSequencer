@@ -118,7 +118,7 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
         for (auto const &cell : row.cells)
         {
             cells.push_back(cell.has_value() ? nlohmann::json(*cell)
-                                             : nlohmann::json{nullptr});
+                                             : nlohmann::json(nullptr));
         }
         rows.push_back({
             {"output_id", row.output_id},
@@ -126,9 +126,14 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
         });
     }
 
+    auto loop_region = nlohmann::json::object();
+    loop_region["start_column"] = composition.loop_region.start_column;
+    loop_region["end_column"] = composition.loop_region.end_column;
+
     return nlohmann::json{
         {"columns", std::move(columns)},
         {"rows", std::move(rows)},
+        {"loop_region", std::move(loop_region)},
     };
 }
 

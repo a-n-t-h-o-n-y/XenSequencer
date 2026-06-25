@@ -241,6 +241,8 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("save measure example").project == ProjectOperation::Read);
     CHECK(policy_for("load chords").library == LibraryAccess::Mutate);
     CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
+    CHECK(policy_for("composition loop start 0").history == HistoryPolicy::Commit);
+    CHECK(policy_for("composition loop end 0").project == ProjectOperation::Edit);
 
     auto const chord = policy_for("chord");
     CHECK(chord.project == ProjectOperation::Edit);

@@ -193,6 +193,7 @@ set(XEN_APPLICATION_SOURCES
     src/command_catalog_metadata.cpp
     src/command_catalog_parse.cpp
     src/command_catalog_specs_bootstrap.cpp
+    src/command_catalog_specs_composition.cpp
     src/command_catalog_specs_edit.cpp
     src/command_catalog_specs_set_and_shift.cpp
     src/command_catalog_specs_transform.cpp

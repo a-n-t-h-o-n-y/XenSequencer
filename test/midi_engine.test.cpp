@@ -159,6 +159,55 @@ struct CapturedEvent
     return timeline.front().note;
 }
 
+[[nodiscard]] auto make_three_column_project() -> xen::ProjectState
+{
+    auto project = xen::ProjectState{};
+    xen::default_measure(project).cell = {
+        .elements = {sequence::Note{.pitch = 0, .velocity = 0.75f}},
+        .weight = 1.f,
+    };
+    xen::set_column_length(project.composition, 0, sequence::TimeSignature{1, 4});
+
+    auto second = xen::Measure{
+        .cell =
+            {
+                .elements = {sequence::Note{.pitch = 12, .velocity = 0.75f}},
+                .weight = 1.f,
+            },
+    };
+    auto third = xen::Measure{
+        .cell =
+            {
+                .elements = {sequence::Note{.pitch = 24, .velocity = 0.75f}},
+                .weight = 1.f,
+            },
+    };
+    auto const second_id = xen::create_measure(project.measure_bank, std::move(second));
+    auto const third_id = xen::create_measure(project.measure_bank, std::move(third));
+
+    xen::insert_column(project.composition, 1, sequence::TimeSignature{1, 4});
+    xen::insert_column(project.composition, 2, sequence::TimeSignature{1, 4});
+    xen::assign_measure_reference(project.composition, 0, 1, second_id);
+    xen::assign_measure_reference(project.composition, 0, 2, third_id);
+    xen::set_loop_start(project.composition, 0);
+    xen::set_loop_end(project.composition, 2);
+    return project;
+}
+
+[[nodiscard]] auto note_on_numbers(std::vector<CapturedEvent> const &events)
+    -> std::vector<int>
+{
+    auto numbers = std::vector<int>{};
+    for (auto const &event : events)
+    {
+        if (event.message.isNoteOn())
+        {
+            numbers.push_back(event.message.getNoteNumber());
+        }
+    }
+    return numbers;
+}
+
 } // namespace
 
 TEST_CASE("MidiEngine starts in-flight notes immediately when playback begins mid-note",
@@ -230,6 +279,40 @@ TEST_CASE("MidiEngine renders only rows assigned to requested output",
     }
     REQUIRE(note_ons.size() == 1);
     CHECK(note_ons.front() != first_note_number(project, daw));
+}
+
+TEST_CASE("MidiEngine renders only the composition loop region",
+          "[midi][midi-engine][composition]")
+{
+    auto const daw = playing_daw_state();
+    auto project = make_three_column_project();
+    auto const root = first_note_number(project, daw);
+
+    auto engine = xen::MidiEngine{};
+    engine.update(project, daw);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 66'150, daw))) ==
+          std::vector<int>{root, root + 12, root + 24});
+
+    xen::set_loop_start(project.composition, 1);
+    xen::set_loop_end(project.composition, 2);
+    engine = xen::MidiEngine{};
+    engine.update(project, daw);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 44'100, daw))) ==
+          std::vector<int>{root + 12, root + 24});
+
+    xen::set_loop_start(project.composition, 2);
+    xen::set_loop_end(project.composition, 0);
+    engine = xen::MidiEngine{};
+    engine.update(project, daw);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 44'100, daw))) ==
+          std::vector<int>{root + 24, root});
+
+    xen::set_loop_start(project.composition, 1);
+    xen::set_loop_end(project.composition, 1);
+    engine = xen::MidiEngine{};
+    engine.update(project, daw);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 22'050, daw))) ==
+          std::vector<int>{root + 12});
 }
 
 TEST_CASE("MidiEngine does not duplicate a note-on across continuous mid-note blocks",

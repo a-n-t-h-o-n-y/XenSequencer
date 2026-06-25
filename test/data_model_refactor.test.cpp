@@ -96,6 +96,8 @@ TEST_CASE("Default project has one current-output 4/4 arranged measure",
     CHECK(project.measure_bank.next_id == DEFAULT_MEASURE_ID + 1);
     REQUIRE(project.composition.columns.size() == 1);
     CHECK(project.composition.columns.front().length == sequence::TimeSignature{4, 4});
+    CHECK(project.composition.loop_region.start_column == 0);
+    CHECK(project.composition.loop_region.end_column == 0);
     REQUIRE(project.composition.rows.size() == 1);
     CHECK(project.composition.rows.front().output_id == CURRENT_INSTANCE_OUTPUT_ID);
     REQUIRE(project.composition.rows.front().cells.size() == 1);
@@ -117,6 +119,10 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     CHECK(measure_reference_at(project.composition, 0, 1) == duplicate_id);
     set_column_length(project.composition, 1, sequence::TimeSignature{5, 8});
     CHECK(project.composition.columns[1].length == sequence::TimeSignature{5, 8});
+    set_loop_start(project.composition, 1);
+    set_loop_end(project.composition, 0);
+    CHECK(project.composition.loop_region.start_column == 1);
+    CHECK(project.composition.loop_region.end_column == 0);
 
     insert_row(project.composition, 1, "peer");
     assign_measure_reference(project.composition, 1, 0, duplicate_id);
@@ -125,13 +131,51 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     assign_row_output(project.composition, 0, CURRENT_INSTANCE_OUTPUT_ID);
     move_column(project.composition, 1, 0);
     CHECK(project.composition.columns.front().length == sequence::TimeSignature{5, 8});
+    CHECK(project.composition.loop_region.start_column == 0);
+    CHECK(project.composition.loop_region.end_column == 1);
 
     clear_measure_reference(project.composition, 0, 0);
     CHECK_FALSE(measure_reference_at(project.composition, 0, 0).has_value());
     remove_column(project.composition, 0);
+    CHECK(project.composition.loop_region.start_column == 0);
+    CHECK(project.composition.loop_region.end_column == 0);
     remove_row(project.composition, 0);
     CHECK(remove_measure(project.measure_bank, duplicate_id));
     CHECK(find_measure(project.measure_bank, duplicate_id) == nullptr);
+}
+
+TEST_CASE("Composition loop region serializes, defaults, and validates",
+          "[data-model][composition][serialize]")
+{
+    auto project = ProjectState{};
+    insert_column(project.composition, 1, sequence::TimeSignature{3, 4});
+    set_loop_start(project.composition, 1);
+    set_loop_end(project.composition, 0);
+
+    auto const encoded = nlohmann::json::parse(serialize_project(project));
+    CHECK(encoded.at("project")
+              .at("composition")
+              .at("loop_region")
+              .at("start_column")
+              .get<std::size_t>() == 1);
+    CHECK(encoded.at("project")
+              .at("composition")
+              .at("loop_region")
+              .at("end_column")
+              .get<std::size_t>() == 0);
+
+    auto decoded = deserialize_project(encoded.dump());
+    CHECK(decoded.composition.loop_region.start_column == 1);
+    CHECK(decoded.composition.loop_region.end_column == 0);
+
+    auto legacy = encoded;
+    legacy.at("project").at("composition").erase("loop_region");
+    decoded = deserialize_project(legacy.dump());
+    CHECK(decoded.composition.loop_region.start_column == 0);
+    CHECK(decoded.composition.loop_region.end_column == 1);
+
+    project.composition.loop_region.start_column = project.composition.columns.size();
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
 }
 
 TEST_CASE("Scale library requires unique stable IDs", "[data-model][scale]")
