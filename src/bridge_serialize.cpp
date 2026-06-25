@@ -92,10 +92,15 @@ auto measure_bank_to_json(xen::MeasureBank const &bank) -> nlohmann::json
     auto measures = nlohmann::json::array();
     for (auto const &entry : bank.measures)
     {
-        measures.push_back({
+        auto measure = nlohmann::json{
             {"id", entry.id},
             {"measure", measure_to_json(entry.measure)},
-        });
+        };
+        if (entry.name.has_value())
+        {
+            measure["name"] = *entry.name;
+        }
+        measures.push_back(std::move(measure));
     }
     return nlohmann::json{
         {"next_id", bank.next_id},
@@ -120,10 +125,15 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
             cells.push_back(cell.has_value() ? nlohmann::json(*cell)
                                              : nlohmann::json(nullptr));
         }
-        rows.push_back({
+        auto row_json = nlohmann::json{
             {"output_id", row.output_id},
             {"cells", std::move(cells)},
-        });
+        };
+        if (row.name.has_value())
+        {
+            row_json["name"] = *row.name;
+        }
+        rows.push_back(std::move(row_json));
     }
 
     auto loop_region = nlohmann::json::object();

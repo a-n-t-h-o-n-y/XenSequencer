@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -133,6 +135,113 @@ TEST_CASE("Direct handlers set composition loop endpoints",
 
     CHECK_THROWS_AS((void)execute(state, "composition loop start 2"),
                     std::out_of_range);
+}
+
+TEST_CASE("Direct handlers edit composition rows and columns",
+          "[core][command][handler][composition]")
+{
+    auto state = make_plugin_state();
+
+    CHECK_THROWS_AS((void)execute(state, "composition row delete 0"),
+                    std::invalid_argument);
+    CHECK_THROWS_AS((void)execute(state, "composition column delete 0"),
+                    std::invalid_argument);
+
+    CHECK(execute(state, "composition row insert after 0").status.first ==
+          MessageLevel::Info);
+    auto project = state.timeline.get_state();
+    REQUIRE(project.composition.rows.size() == 2);
+    CHECK(project.composition.rows[1].output_id == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(project.composition.rows[1].cells.front() == std::nullopt);
+
+    CHECK(execute(state, "composition row rename 1 \"Drums\"").status.first ==
+          MessageLevel::Info);
+    CHECK(execute(state, "composition row output 1 \"bus-a\"").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    REQUIRE(project.composition.rows[1].name.has_value());
+    CHECK(*project.composition.rows[1].name == "Drums");
+    CHECK(project.composition.rows[1].output_id == "bus-a");
+
+    CHECK(execute(state, "composition row insert before 1").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    REQUIRE(project.composition.rows.size() == 3);
+    CHECK(project.composition.rows[1].output_id == "bus-a");
+    CHECK_FALSE(project.composition.rows[1].name.has_value());
+
+    CHECK(execute(state, "composition row delete 1").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    REQUIRE(project.composition.rows.size() == 2);
+
+    CHECK(execute(state, "composition column insert after 0").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    REQUIRE(project.composition.columns.size() == 2);
+    CHECK(project.composition.columns[1].length == sequence::TimeSignature{4, 4});
+    CHECK(project.composition.rows[0].cells[1] == std::nullopt);
+    CHECK(project.composition.rows[1].cells[1] == std::nullopt);
+
+    CHECK(execute(state, "composition column length 1 7/8").status.first ==
+          MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.columns[1].length ==
+          sequence::TimeSignature{7, 8});
+
+    CHECK(execute(state, "composition column insert before 1").status.first ==
+          MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.columns[1].length ==
+          sequence::TimeSignature{7, 8});
+
+    CHECK(execute(state, "composition column delete 1").status.first ==
+          MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.columns.size() == 2);
+}
+
+TEST_CASE("Direct handlers assign and clear composition cells by measure name",
+          "[core][command][handler][composition]")
+{
+    auto state = make_plugin_state();
+
+    CHECK(execute(state, "composition cell assign 0 0 M1").status.first ==
+          MessageLevel::Info);
+    CHECK(state.timeline.get_state().composition.rows[0].cells[0] ==
+          DEFAULT_MEASURE_ID);
+
+    CHECK(execute(state, "composition column insert after 0").status.first ==
+          MessageLevel::Info);
+    CHECK(execute(state, "composition cell assign 0 1 \"Verse\"").status.first ==
+          MessageLevel::Info);
+    auto project = state.timeline.get_state();
+    auto const verse_id = project.composition.rows[0].cells[1];
+    REQUIRE(verse_id.has_value());
+    CHECK(verse_id != DEFAULT_MEASURE_ID);
+    auto const verse_entry = std::ranges::find(project.measure_bank.measures, *verse_id,
+                                               &MeasureBankEntry::id);
+    REQUIRE(verse_entry != project.measure_bank.measures.end());
+    REQUIRE(verse_entry->name.has_value());
+    CHECK(*verse_entry->name == "Verse");
+
+    CHECK(execute(state, "composition cell assign 0 0 \"Intro Copy\"").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    auto const copy_id = project.composition.rows[0].cells[0];
+    REQUIRE(copy_id.has_value());
+    CHECK(copy_id != DEFAULT_MEASURE_ID);
+    auto const copy_entry = std::ranges::find(project.measure_bank.measures, *copy_id,
+                                              &MeasureBankEntry::id);
+    REQUIRE(copy_entry != project.measure_bank.measures.end());
+    REQUIRE(copy_entry->name.has_value());
+    CHECK(*copy_entry->name == "Intro Copy");
+
+    CHECK_THROWS_AS((void)execute(state, "composition cell assign 0 0 Verse"),
+                    std::invalid_argument);
+    CHECK_THROWS_AS((void)execute(state, "composition cell assign 0 0 \"\""),
+                    std::invalid_argument);
+
+    CHECK(execute(state, "composition cell clear 0 0").status.first ==
+          MessageLevel::Info);
+    CHECK_FALSE(state.timeline.get_state().composition.rows[0].cells[0].has_value());
 }
 
 TEST_CASE("Direct handlers validate without retaining partial mutation",

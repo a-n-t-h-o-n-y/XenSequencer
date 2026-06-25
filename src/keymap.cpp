@@ -317,7 +317,29 @@ auto default_keymap() -> KeymapContexts
     add(contexts, "composition", trigger("k"), composition_move("up"));
     add(contexts, "composition", trigger("ArrowUp"), composition_move("up"));
     add(contexts, "composition", trigger("Enter"),
-        command_ui_action("composition.cell.edit_measure"));
+        command_ui_action("composition.cell.rename_or_create_measure"));
+    add(contexts, "composition", trigger("Delete"),
+        command_ui_action("composition.cell.clear"));
+    add(contexts, "composition", trigger("Backspace"),
+        command_ui_action("composition.cell.clear"));
+    add(contexts, "composition", trigger("i"),
+        command_ui_action("composition.row.insert_before"));
+    add(contexts, "composition", trigger("a"),
+        command_ui_action("composition.row.insert_after"));
+    add(contexts, "composition", trigger("d", true),
+        command_ui_action("composition.row.delete"));
+    add(contexts, "composition", trigger("r"),
+        command_ui_action("composition.row.rename"));
+    add(contexts, "composition", trigger("o"),
+        command_ui_action("composition.row.output"));
+    add(contexts, "composition", trigger("i", true),
+        command_ui_action("composition.column.insert_before"));
+    add(contexts, "composition", trigger("a", true),
+        command_ui_action("composition.column.insert_after"));
+    add(contexts, "composition", trigger("d", false, true),
+        command_ui_action("composition.column.delete"));
+    add(contexts, "composition", trigger("t"),
+        command_ui_action("composition.column.length"));
     add(contexts, "composition", trigger("["),
         command_ui_action("composition.loop.set_start"));
     add(contexts, "composition", trigger("]"),
@@ -421,7 +443,17 @@ void validate(KeymapTarget const &value)
         value.value == "command.completion.dismiss" ||
         value.value == "command.completion.previous" ||
         value.value == "command.completion.next" ||
-        value.value == "composition.cell.edit_measure" ||
+        value.value == "composition.cell.rename_or_create_measure" ||
+        value.value == "composition.cell.clear" ||
+        value.value == "composition.row.insert_before" ||
+        value.value == "composition.row.insert_after" ||
+        value.value == "composition.row.delete" ||
+        value.value == "composition.row.rename" ||
+        value.value == "composition.row.output" ||
+        value.value == "composition.column.insert_before" ||
+        value.value == "composition.column.insert_after" ||
+        value.value == "composition.column.delete" ||
+        value.value == "composition.column.length" ||
         value.value == "composition.loop.set_start" ||
         value.value == "composition.loop.set_end" ||
         value.value == "workspace.view.toggle" ||

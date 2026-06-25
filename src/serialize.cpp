@@ -150,11 +150,18 @@ static void to_json(nlohmann::json &j, MeasureBankEntry const &entry)
         {"id", entry.id},
         {"measure", entry.measure},
     };
+    if (entry.name.has_value())
+    {
+        j["name"] = *entry.name;
+    }
 }
 
 static void from_json(nlohmann::json const &j, MeasureBankEntry &entry)
 {
     entry.id = j.at("id").get<MeasureId>();
+    entry.name = j.contains("name") && !j.at("name").is_null()
+                     ? std::optional<std::string>{j.at("name").get<std::string>()}
+                     : std::nullopt;
     entry.measure = j.at("measure").get<Measure>();
 }
 
@@ -194,10 +201,17 @@ static void to_json(nlohmann::json &j, CompositionRow const &row)
         {"output_id", row.output_id},
         {"cells", std::move(cells)},
     };
+    if (row.name.has_value())
+    {
+        j["name"] = *row.name;
+    }
 }
 
 static void from_json(nlohmann::json const &j, CompositionRow &row)
 {
+    row.name = j.contains("name") && !j.at("name").is_null()
+                   ? std::optional<std::string>{j.at("name").get<std::string>()}
+                   : std::nullopt;
     row.output_id = j.at("output_id").get<OutputId>();
     row.cells.clear();
     for (auto const &cell : j.at("cells"))

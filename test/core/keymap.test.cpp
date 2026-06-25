@@ -115,7 +115,52 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
 
     auto const edit_binding = find_binding(snapshot, "composition", {.key = "Enter"});
     REQUIRE(edit_binding != nullptr);
-    CHECK(edit_binding->target.value == "composition.cell.edit_measure");
+    CHECK(edit_binding->target.value == "composition.cell.rename_or_create_measure");
+
+    auto const clear_binding = find_binding(snapshot, "composition", {.key = "Delete"});
+    REQUIRE(clear_binding != nullptr);
+    CHECK(clear_binding->target.value == "composition.cell.clear");
+
+    auto const row_before_binding = find_binding(snapshot, "composition", {.key = "i"});
+    REQUIRE(row_before_binding != nullptr);
+    CHECK(row_before_binding->target.value == "composition.row.insert_before");
+
+    auto const row_after_binding = find_binding(snapshot, "composition", {.key = "a"});
+    REQUIRE(row_after_binding != nullptr);
+    CHECK(row_after_binding->target.value == "composition.row.insert_after");
+
+    auto const row_delete_binding =
+        find_binding(snapshot, "composition", {.key = "d", .shift = true});
+    REQUIRE(row_delete_binding != nullptr);
+    CHECK(row_delete_binding->target.value == "composition.row.delete");
+
+    auto const row_rename_binding = find_binding(snapshot, "composition", {.key = "r"});
+    REQUIRE(row_rename_binding != nullptr);
+    CHECK(row_rename_binding->target.value == "composition.row.rename");
+
+    auto const row_output_binding = find_binding(snapshot, "composition", {.key = "o"});
+    REQUIRE(row_output_binding != nullptr);
+    CHECK(row_output_binding->target.value == "composition.row.output");
+
+    auto const column_before_binding =
+        find_binding(snapshot, "composition", {.key = "i", .shift = true});
+    REQUIRE(column_before_binding != nullptr);
+    CHECK(column_before_binding->target.value == "composition.column.insert_before");
+
+    auto const column_after_binding =
+        find_binding(snapshot, "composition", {.key = "a", .shift = true});
+    REQUIRE(column_after_binding != nullptr);
+    CHECK(column_after_binding->target.value == "composition.column.insert_after");
+
+    auto const column_delete_binding =
+        find_binding(snapshot, "composition", {.key = "d", .command = true});
+    REQUIRE(column_delete_binding != nullptr);
+    CHECK(column_delete_binding->target.value == "composition.column.delete");
+
+    auto const column_length_binding =
+        find_binding(snapshot, "composition", {.key = "t"});
+    REQUIRE(column_length_binding != nullptr);
+    CHECK(column_length_binding->target.value == "composition.column.length");
 
     auto const loop_start_binding = find_binding(snapshot, "composition", {.key = "["});
     REQUIRE(loop_start_binding != nullptr);
@@ -211,9 +256,13 @@ TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
     CHECK_THROWS_AS(validate(invalid_move), std::invalid_argument);
 
     for (auto const *action :
-         {"composition.cell.edit_measure", "composition.loop.set_start",
-          "composition.loop.set_end", "workspace.view.composition",
-          "workspace.view.sequencer"})
+         {"composition.cell.rename_or_create_measure", "composition.cell.clear",
+          "composition.row.insert_before", "composition.row.insert_after",
+          "composition.row.delete", "composition.row.rename", "composition.row.output",
+          "composition.column.insert_before", "composition.column.insert_after",
+          "composition.column.delete", "composition.column.length",
+          "composition.loop.set_start", "composition.loop.set_end",
+          "workspace.view.composition", "workspace.view.sequencer"})
     {
         auto const target = KeymapTarget{
             .type = KeymapTargetType::UiAction,

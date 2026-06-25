@@ -246,6 +246,10 @@ auto insert_row(Composition &composition, std::size_t index, OutputId output_id)
 
 auto remove_row(Composition &composition, std::size_t index) -> void
 {
+    if (composition.rows.size() <= 1)
+    {
+        throw std::invalid_argument{"Composition must contain at least one row."};
+    }
     checked_erase(composition.rows, index);
 }
 

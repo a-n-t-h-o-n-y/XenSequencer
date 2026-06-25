@@ -86,11 +86,17 @@ void validate_tuning(sequence::Tuning const &tuning)
     }
 }
 
+auto fallback_measure_name(MeasureId id) -> std::string
+{
+    return "M" + std::to_string(id);
+}
+
 } // namespace
 
 void validate(ProjectState const &project)
 {
     auto measure_ids = std::unordered_set<MeasureId>{};
+    auto measure_names = std::unordered_set<std::string>{};
     for (auto const &entry : project.measure_bank.measures)
     {
         if (entry.id == 0)
@@ -100,6 +106,16 @@ void validate(ProjectState const &project)
         if (!measure_ids.insert(entry.id).second)
         {
             throw std::invalid_argument{"Duplicate measure ID."};
+        }
+        if (entry.name.has_value() && entry.name->empty())
+        {
+            throw std::invalid_argument{"Measure name must not be empty."};
+        }
+        auto const effective_name =
+            entry.name.has_value() ? *entry.name : fallback_measure_name(entry.id);
+        if (!measure_names.insert(effective_name).second)
+        {
+            throw std::invalid_argument{"Duplicate measure name."};
         }
         validate_cell(entry.measure.cell);
     }
@@ -145,6 +161,10 @@ void validate(ProjectState const &project)
     }
     for (auto const &row : project.composition.rows)
     {
+        if (row.name.has_value() && row.name->empty())
+        {
+            throw std::invalid_argument{"Composition row name must not be empty."};
+        }
         if (row.output_id.empty())
         {
             throw std::invalid_argument{"Composition row output ID must not be empty."};
@@ -163,7 +183,6 @@ void validate(ProjectState const &project)
             }
         }
     }
-    (void)default_measure(project);
 
     auto const &pitch = project.pitch;
     validate_tuning(pitch.tuning.definition);

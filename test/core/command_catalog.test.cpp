@@ -243,6 +243,24 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
     CHECK(policy_for("composition loop start 0").history == HistoryPolicy::Commit);
     CHECK(policy_for("composition loop end 0").project == ProjectOperation::Edit);
+    CHECK(policy_for("composition row insert before 0").project ==
+          ProjectOperation::Edit);
+    CHECK(policy_for("composition row insert after 0").history ==
+          HistoryPolicy::Commit);
+    CHECK(policy_for("composition row delete 0").project == ProjectOperation::Edit);
+    CHECK(policy_for("composition row rename 0 lead").history == HistoryPolicy::Commit);
+    CHECK(policy_for("composition row output 0 current").project ==
+          ProjectOperation::Edit);
+    CHECK(policy_for("composition column insert before 0").project ==
+          ProjectOperation::Edit);
+    CHECK(policy_for("composition column insert after 0").history ==
+          HistoryPolicy::Commit);
+    CHECK(policy_for("composition column delete 0").project == ProjectOperation::Edit);
+    CHECK(policy_for("composition column length 0 3/4").history ==
+          HistoryPolicy::Commit);
+    CHECK(policy_for("composition cell assign 0 0 M1").project ==
+          ProjectOperation::Edit);
+    CHECK(policy_for("composition cell clear 0 0").history == HistoryPolicy::Commit);
 
     auto const chord = policy_for("chord");
     CHECK(chord.project == ProjectOperation::Edit);

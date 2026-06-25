@@ -93,6 +93,7 @@ TEST_CASE("Default project has one current-output 4/4 arranged measure",
     auto const project = ProjectState{};
     REQUIRE(project.measure_bank.measures.size() == 1);
     CHECK(project.measure_bank.measures.front().id == DEFAULT_MEASURE_ID);
+    CHECK_FALSE(project.measure_bank.measures.front().name.has_value());
     CHECK(project.measure_bank.next_id == DEFAULT_MEASURE_ID + 1);
     REQUIRE(project.composition.columns.size() == 1);
     CHECK(project.composition.columns.front().length == sequence::TimeSignature{4, 4});
@@ -100,6 +101,7 @@ TEST_CASE("Default project has one current-output 4/4 arranged measure",
     CHECK(project.composition.loop_region.end_column == 0);
     REQUIRE(project.composition.rows.size() == 1);
     CHECK(project.composition.rows.front().output_id == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK_FALSE(project.composition.rows.front().name.has_value());
     REQUIRE(project.composition.rows.front().cells.size() == 1);
     CHECK(project.composition.rows.front().cells.front() == DEFAULT_MEASURE_ID);
 }
@@ -142,6 +144,54 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     remove_row(project.composition, 0);
     CHECK(remove_measure(project.measure_bank, duplicate_id));
     CHECK(find_measure(project.measure_bank, duplicate_id) == nullptr);
+}
+
+TEST_CASE("Measure and composition row names serialize and validate",
+          "[data-model][composition][serialize]")
+{
+    auto project = ProjectState{};
+    project.measure_bank.measures.front().name = "Intro";
+    project.composition.rows.front().name = "Lead";
+
+    auto const encoded = nlohmann::json::parse(serialize_project(project));
+    CHECK(encoded.at("project").at("measure_bank").at("measures").front().at("name") ==
+          "Intro");
+    CHECK(encoded.at("project").at("composition").at("rows").front().at("name") ==
+          "Lead");
+
+    auto decoded = deserialize_project(encoded.dump());
+    REQUIRE(decoded.measure_bank.measures.front().name.has_value());
+    CHECK(*decoded.measure_bank.measures.front().name == "Intro");
+    REQUIRE(decoded.composition.rows.front().name.has_value());
+    CHECK(*decoded.composition.rows.front().name == "Lead");
+
+    auto legacy = encoded;
+    legacy.at("project").at("measure_bank").at("measures").front().erase("name");
+    legacy.at("project").at("composition").at("rows").front().erase("name");
+    decoded = deserialize_project(legacy.dump());
+    CHECK_FALSE(decoded.measure_bank.measures.front().name.has_value());
+    CHECK_FALSE(decoded.composition.rows.front().name.has_value());
+
+    project.measure_bank.measures.front().name = "";
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
+
+    project = ProjectState{};
+    auto const duplicate_id = create_measure(project.measure_bank, Measure{});
+    CHECK(duplicate_id != DEFAULT_MEASURE_ID);
+    project.measure_bank.measures.back().name = "M1";
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
+
+    project = ProjectState{};
+    project.composition.rows.front().name = "";
+    CHECK_THROWS_AS(validate(project), std::invalid_argument);
+}
+
+TEST_CASE("Composition validation allows empty arranged cells",
+          "[data-model][composition]")
+{
+    auto project = ProjectState{};
+    clear_measure_reference(project.composition, 0, 0);
+    CHECK_NOTHROW(validate(project));
 }
 
 TEST_CASE("Composition loop region serializes, defaults, and validates",

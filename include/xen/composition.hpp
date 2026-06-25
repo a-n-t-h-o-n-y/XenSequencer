@@ -22,6 +22,7 @@ inline constexpr auto CURRENT_INSTANCE_OUTPUT_ID = "current";
 struct MeasureBankEntry
 {
     MeasureId id{};
+    std::optional<std::string> name{};
     Measure measure{};
 
     auto operator==(MeasureBankEntry const &) const -> bool = default;
@@ -44,6 +45,7 @@ struct CompositionColumn
 
 struct CompositionRow
 {
+    std::optional<std::string> name{};
     OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
     std::vector<std::optional<MeasureId>> cells{};
 
