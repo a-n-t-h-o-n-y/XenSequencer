@@ -316,6 +316,14 @@ auto default_keymap() -> KeymapContexts
     add(contexts, "composition", trigger("ArrowDown"), composition_move("down"));
     add(contexts, "composition", trigger("k"), composition_move("up"));
     add(contexts, "composition", trigger("ArrowUp"), composition_move("up"));
+    add(contexts, "composition", trigger("c", false, true),
+        command_ui_action("composition.cell.copy"));
+    add(contexts, "composition", trigger("x", false, true),
+        command_ui_action("composition.cell.cut"));
+    add(contexts, "composition", trigger("v", false, true),
+        command_ui_action("composition.cell.paste"));
+    add(contexts, "composition", trigger("d", false, true),
+        command_ui_action("composition.cell.duplicate_right"));
     add(contexts, "composition", trigger("Enter"),
         command_ui_action("composition.cell.edit_measure"));
     add(contexts, "composition", trigger("n"),
@@ -338,7 +346,7 @@ auto default_keymap() -> KeymapContexts
         command_ui_action("composition.column.insert_before"));
     add(contexts, "composition", trigger("a", true),
         command_ui_action("composition.column.insert_after"));
-    add(contexts, "composition", trigger("d", false, true),
+    add(contexts, "composition", trigger("d", true, true),
         command_ui_action("composition.column.delete"));
     add(contexts, "composition", trigger("t"),
         command_ui_action("composition.column.length"));
@@ -446,6 +454,10 @@ void validate(KeymapTarget const &value)
         value.value == "command.completion.previous" ||
         value.value == "command.completion.next" ||
         value.value == "composition.cell.edit_measure" ||
+        value.value == "composition.cell.copy" ||
+        value.value == "composition.cell.cut" ||
+        value.value == "composition.cell.paste" ||
+        value.value == "composition.cell.duplicate_right" ||
         value.value == "composition.cell.rename_or_create_measure" ||
         value.value == "composition.cell.clear" ||
         value.value == "composition.row.insert_before" ||

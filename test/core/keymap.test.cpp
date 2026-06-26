@@ -113,14 +113,37 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
     CHECK(move_binding->target.value == "composition.selection.move");
     CHECK(move_binding->target.arguments.at("direction") == "right");
 
+    auto const copy_binding =
+        find_binding(snapshot, "composition", {.key = "c", .command = true});
+    REQUIRE(copy_binding != nullptr);
+    CHECK(copy_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(copy_binding->target.value == "composition.cell.copy");
+
+    auto const cut_binding =
+        find_binding(snapshot, "composition", {.key = "x", .command = true});
+    REQUIRE(cut_binding != nullptr);
+    CHECK(cut_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(cut_binding->target.value == "composition.cell.cut");
+
+    auto const paste_binding =
+        find_binding(snapshot, "composition", {.key = "v", .command = true});
+    REQUIRE(paste_binding != nullptr);
+    CHECK(paste_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(paste_binding->target.value == "composition.cell.paste");
+
+    auto const duplicate_binding =
+        find_binding(snapshot, "composition", {.key = "d", .command = true});
+    REQUIRE(duplicate_binding != nullptr);
+    CHECK(duplicate_binding->target.type == KeymapTargetType::UiAction);
+    CHECK(duplicate_binding->target.value == "composition.cell.duplicate_right");
+
     auto const edit_binding = find_binding(snapshot, "composition", {.key = "Enter"});
     REQUIRE(edit_binding != nullptr);
     CHECK(edit_binding->target.value == "composition.cell.edit_measure");
 
     auto const rename_binding = find_binding(snapshot, "composition", {.key = "n"});
     REQUIRE(rename_binding != nullptr);
-    CHECK(rename_binding->target.value ==
-          "composition.cell.rename_or_create_measure");
+    CHECK(rename_binding->target.value == "composition.cell.rename_or_create_measure");
 
     auto const clear_binding = find_binding(snapshot, "composition", {.key = "Delete"});
     REQUIRE(clear_binding != nullptr);
@@ -157,8 +180,8 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
     REQUIRE(column_after_binding != nullptr);
     CHECK(column_after_binding->target.value == "composition.column.insert_after");
 
-    auto const column_delete_binding =
-        find_binding(snapshot, "composition", {.key = "d", .command = true});
+    auto const column_delete_binding = find_binding(
+        snapshot, "composition", {.key = "d", .shift = true, .command = true});
     REQUIRE(column_delete_binding != nullptr);
     CHECK(column_delete_binding->target.value == "composition.column.delete");
 
@@ -260,15 +283,26 @@ TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
     invalid_move.arguments = {{"direction", "sideways"}, {"amount", 1}};
     CHECK_THROWS_AS(validate(invalid_move), std::invalid_argument);
 
-    for (auto const *action :
-         {"composition.cell.edit_measure",
-          "composition.cell.rename_or_create_measure", "composition.cell.clear",
-          "composition.row.insert_before", "composition.row.insert_after",
-          "composition.row.delete", "composition.row.rename", "composition.row.output",
-          "composition.column.insert_before", "composition.column.insert_after",
-          "composition.column.delete", "composition.column.length",
-          "composition.loop.set_start", "composition.loop.set_end",
-          "workspace.view.composition", "workspace.view.sequencer"})
+    for (auto const *action : {"composition.cell.edit_measure",
+                               "composition.cell.rename_or_create_measure",
+                               "composition.cell.copy",
+                               "composition.cell.cut",
+                               "composition.cell.paste",
+                               "composition.cell.duplicate_right",
+                               "composition.cell.clear",
+                               "composition.row.insert_before",
+                               "composition.row.insert_after",
+                               "composition.row.delete",
+                               "composition.row.rename",
+                               "composition.row.output",
+                               "composition.column.insert_before",
+                               "composition.column.insert_after",
+                               "composition.column.delete",
+                               "composition.column.length",
+                               "composition.loop.set_start",
+                               "composition.loop.set_end",
+                               "workspace.view.composition",
+                               "workspace.view.sequencer"})
     {
         auto const target = KeymapTarget{
             .type = KeymapTargetType::UiAction,
