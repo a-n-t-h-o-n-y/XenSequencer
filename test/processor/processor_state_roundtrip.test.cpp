@@ -59,8 +59,8 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
         std::string{static_cast<char const *>(blob.getData()), blob.getSize()};
     auto const encoded = nlohmann::json::parse(serialized);
     CHECK(encoded.at("kind") == "xen_processor_state");
-    CHECK(encoded.at("binding").at("output_id") ==
-          source.session().instance_binding().output_id);
+    CHECK(encoded.at("binding").at("channel_id") ==
+          source.session().instance_binding().channel_id);
     CHECK(encoded.at("shared_snapshot").contains("history_entry_id"));
     CHECK(encoded.at("shared_snapshot").contains("project_revision"));
 

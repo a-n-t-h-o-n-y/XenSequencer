@@ -41,7 +41,7 @@ class SequencerSession final : public SequencerSessionPort
     void replace_instance_binding(InstanceBinding binding);
     void replace_project_history_and_binding(ProjectState state,
                                              InstanceBinding binding);
-    void set_output_id(OutputId output_id) override;
+    void set_channel_id(ChannelId channel_id) override;
 
     [[nodiscard]] auto audio_project_update_version() const noexcept
         -> std::uint64_t override;

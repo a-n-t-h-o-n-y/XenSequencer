@@ -249,7 +249,7 @@ TEST_CASE("Catalog exposes complete backend command policies",
           HistoryPolicy::Commit);
     CHECK(policy_for("composition row delete 0").project == ProjectOperation::Edit);
     CHECK(policy_for("composition row rename 0 lead").history == HistoryPolicy::Commit);
-    CHECK(policy_for("composition row output 0 current").project ==
+    CHECK(policy_for("composition row channel 0 channel-1").project ==
           ProjectOperation::Edit);
     CHECK(policy_for("composition column insert before 0").project ==
           ProjectOperation::Edit);

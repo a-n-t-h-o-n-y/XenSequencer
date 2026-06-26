@@ -35,11 +35,11 @@ class SessionCoordinator
     std::map<InstanceId, InstanceBinding> bindings_;
     ProjectRevision seed_revision_{};
     bool live_edit_started_{false};
-    int next_output_index_{1};
+    int next_channel_index_{1};
 
     void maybe_seed_from(ClientHello const &hello);
     [[nodiscard]] auto assign_binding(InstanceBinding binding) -> InstanceBinding;
-    void ensure_output_row(OutputId const &output_id);
+    void ensure_channel_row(ChannelId const &channel_id);
 };
 
 } // namespace xen::ipc

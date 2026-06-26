@@ -192,7 +192,7 @@ auto make_default_composition() -> Composition
     return Composition{
         .columns = {CompositionColumn{}},
         .rows = {CompositionRow{
-            .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+            .channel_id = DEFAULT_CHANNEL_ID,
             .cells = {DEFAULT_MEASURE_ID},
         }},
         .loop_region = LoopRegion{.start_column = 0, .end_column = 0},
@@ -260,10 +260,11 @@ auto all_measures(MeasureBank const &bank) -> std::vector<MeasureBankEntry> cons
     return bank.measures;
 }
 
-auto insert_row(Composition &composition, std::size_t index, OutputId output_id) -> void
+auto insert_row(Composition &composition, std::size_t index, ChannelId channel_id)
+    -> void
 {
     auto row = CompositionRow{
-        .output_id = std::move(output_id),
+        .channel_id = std::move(channel_id),
         .cells = std::vector<std::optional<MeasureId>>(composition.columns.size(),
                                                        std::nullopt),
     };
@@ -284,14 +285,14 @@ auto move_row(Composition &composition, std::size_t from, std::size_t to) -> voi
     checked_move(composition.rows, from, to);
 }
 
-auto assign_row_output(Composition &composition, std::size_t row, OutputId output_id)
+auto assign_row_channel(Composition &composition, std::size_t row, ChannelId channel_id)
     -> void
 {
-    if (output_id.empty())
+    if (channel_id.empty())
     {
-        throw std::invalid_argument{"Output ID must not be empty."};
+        throw std::invalid_argument{"Channel ID must not be empty."};
     }
-    require_row(composition, row).output_id = std::move(output_id);
+    require_row(composition, row).channel_id = std::move(channel_id);
 }
 
 auto insert_column(Composition &composition, std::size_t index,

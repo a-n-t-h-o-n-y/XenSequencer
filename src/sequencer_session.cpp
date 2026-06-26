@@ -32,9 +32,8 @@ void log_json_command_exception(std::string const &command_string,
                                 xen::CommandContext const &context,
                                 nlohmann::json::exception const &error)
 {
-    auto message =
-        juce::String{"XenSequencer command JSON exception: "} + error.what() +
-        "\ncommand: " + command_string;
+    auto message = juce::String{"XenSequencer command JSON exception: "} +
+                   error.what() + "\ncommand: " + command_string;
     if (context.expected_project_revision.has_value())
     {
         message += "\nexpected_project_revision: " +
@@ -265,14 +264,8 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         {
             transaction.invalidate_transform_sessions();
         }
-        auto valid_output_ids = context.valid_output_ids;
-        if (valid_output_ids.empty())
-        {
-            valid_output_ids.push_back(instance_binding_.output_id);
-        }
         auto execution_context = CommandExecutionContext{
             .selection = context.selection,
-            .valid_output_ids = std::move(valid_output_ids),
         };
         auto result = CommandApplicationResult{};
         auto const initial_engine = state_.timeline.get_state();
@@ -427,9 +420,9 @@ void SequencerSession::replace_library(ContentLibrary library)
 
 void SequencerSession::replace_instance_binding(InstanceBinding binding)
 {
-    if (binding.output_id.empty())
+    if (binding.channel_id.empty())
     {
-        throw std::invalid_argument{"Instance output ID must not be empty."};
+        throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
     instance_binding_ = std::move(binding);
     publish_project_snapshot();
@@ -438,9 +431,9 @@ void SequencerSession::replace_instance_binding(InstanceBinding binding)
 void SequencerSession::replace_project_history_and_binding(ProjectState state,
                                                            InstanceBinding binding)
 {
-    if (binding.output_id.empty())
+    if (binding.channel_id.empty())
     {
-        throw std::invalid_argument{"Instance output ID must not be empty."};
+        throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
     instance_binding_ = std::move(binding);
     state_.timeline.replace_history(std::move(state));
@@ -448,13 +441,13 @@ void SequencerSession::replace_project_history_and_binding(ProjectState state,
     publish_project_snapshot();
 }
 
-void SequencerSession::set_output_id(OutputId output_id)
+void SequencerSession::set_channel_id(ChannelId channel_id)
 {
-    if (output_id.empty())
+    if (channel_id.empty())
     {
-        throw std::invalid_argument{"Instance output ID must not be empty."};
+        throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
-    instance_binding_.output_id = std::move(output_id);
+    instance_binding_.channel_id = std::move(channel_id);
     publish_project_snapshot();
 }
 
@@ -474,7 +467,7 @@ void SequencerSession::publish_project_snapshot()
     validate(state_.timeline.get_state());
     pending_engine_state_update_.publish(AudioProjectSnapshot{
         .project = state_.timeline.get_state(),
-        .output_id = instance_binding_.output_id,
+        .channel_id = instance_binding_.channel_id,
     });
 }
 

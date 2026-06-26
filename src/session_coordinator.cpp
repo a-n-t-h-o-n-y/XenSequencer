@@ -1,6 +1,7 @@
 #include <xen/session_coordinator.hpp>
 
 #include <algorithm>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
@@ -25,11 +26,6 @@ auto SessionCoordinator::connect(ClientHello hello) -> CoordinatorHello
     {
         throw std::invalid_argument{"Instance ID must not be empty."};
     }
-    if (hello.binding.output_id.empty())
-    {
-        throw std::invalid_argument{"Output ID must not be empty."};
-    }
-
     maybe_seed_from(hello);
     auto binding = assign_binding(std::move(hello.binding));
     auto const instance_id = binding.instance_id;
@@ -48,12 +44,6 @@ auto SessionCoordinator::execute(CommandRequest request) -> CommandResponse
     {
         throw std::invalid_argument{"Unknown source instance ID."};
     }
-    request.context.valid_output_ids.clear();
-    request.context.valid_output_ids.reserve(bindings_.size());
-    for (auto const &[_, binding] : bindings_)
-    {
-        request.context.valid_output_ids.push_back(binding.output_id);
-    }
     live_edit_started_ = true;
     auto result = session_.execute_command_string(request.command, request.context);
     return {
@@ -70,26 +60,12 @@ auto SessionCoordinator::set_binding(BindingSetRequest request) -> BindingSetRes
     {
         throw std::invalid_argument{"Unknown binding instance ID."};
     }
-    if (request.output_id.empty())
+    if (request.channel_id.empty())
     {
-        throw std::invalid_argument{"Instance output ID must not be empty."};
+        throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
 
-    auto const old_output_id = found->second.output_id;
-    found->second.output_id = std::move(request.output_id);
-    auto project = session_.project_snapshot().project;
-    if (auto const row = std::ranges::find(project.composition.rows, old_output_id,
-                                           &CompositionRow::output_id);
-        row != project.composition.rows.end())
-    {
-        row->output_id = found->second.output_id;
-        session_.replace_project_history_and_binding(std::move(project),
-                                                     session_.instance_binding());
-    }
-    else
-    {
-        ensure_output_row(found->second.output_id);
-    }
+    found->second.channel_id = std::move(request.channel_id);
 
     if (session_.instance_binding().instance_id == found->second.instance_id)
     {
@@ -97,7 +73,7 @@ auto SessionCoordinator::set_binding(BindingSetRequest request) -> BindingSetRes
     }
     else
     {
-        project = session_.project_snapshot().project;
+        auto project = session_.project_snapshot().project;
         session_.replace_project_history(std::move(project));
     }
 
@@ -170,42 +146,41 @@ void SessionCoordinator::maybe_seed_from(ClientHello const &hello)
 
 auto SessionCoordinator::assign_binding(InstanceBinding binding) -> InstanceBinding
 {
-    if (binding.output_id == CURRENT_INSTANCE_OUTPUT_ID ||
-        std::ranges::any_of(bindings_, [&](auto const &entry) {
-            return entry.first != binding.instance_id &&
-                   entry.second.output_id == binding.output_id;
-        }))
+    auto auto_assigned = false;
+    if (binding.channel_id.empty())
     {
+        auto active_channels = std::set<ChannelId>{};
+        for (auto const &[_, active_binding] : bindings_)
+        {
+            active_channels.insert(active_binding.channel_id);
+        }
+
         do
         {
-            binding.output_id = "track-" + std::to_string(next_output_index_++);
-        } while (std::ranges::any_of(bindings_, [&](auto const &entry) {
-            return entry.first != binding.instance_id &&
-                   entry.second.output_id == binding.output_id;
-        }));
+            binding.channel_id = "channel-" + std::to_string(next_channel_index_++);
+        } while (active_channels.contains(binding.channel_id));
+        auto_assigned = true;
     }
 
     session_.replace_instance_binding(binding);
-    ensure_output_row(binding.output_id);
+    if (auto_assigned)
+    {
+        ensure_channel_row(binding.channel_id);
+    }
     return binding;
 }
 
-void SessionCoordinator::ensure_output_row(OutputId const &output_id)
+void SessionCoordinator::ensure_channel_row(ChannelId const &channel_id)
 {
     auto project = session_.project_snapshot().project;
     auto &rows = project.composition.rows;
-    if (rows.size() == 1 && rows.front().output_id == CURRENT_INSTANCE_OUTPUT_ID)
-    {
-        rows.front().output_id = output_id;
-        session_.replace_project_history_and_binding(std::move(project),
-                                                     session_.instance_binding());
-        return;
-    }
-
-    auto const found = std::ranges::find(rows, output_id, &CompositionRow::output_id);
+    auto const found = std::ranges::find(rows, channel_id, &CompositionRow::channel_id);
     if (found == rows.end())
     {
-        insert_row(project.composition, rows.size(), output_id);
+        auto const row_index = rows.size();
+        auto const measure_id = create_measure(project.measure_bank, Measure{});
+        insert_row(project.composition, rows.size(), channel_id);
+        assign_measure_reference(project.composition, row_index, 0, measure_id);
         session_.replace_project_history_and_binding(std::move(project),
                                                      session_.instance_binding());
     }

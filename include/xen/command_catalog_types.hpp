@@ -22,13 +22,11 @@ struct CommandContext
     std::optional<SelectionPath> selection{};
     std::optional<ProjectRevision> expected_project_revision{};
     std::optional<ActiveMeasureTarget> active_measure_target{};
-    std::vector<OutputId> valid_output_ids{};
 };
 
 struct CommandExecutionContext
 {
     std::optional<SelectionPath> selection{};
-    std::vector<OutputId> valid_output_ids{};
 };
 
 enum class CatalogBindErrorKind : std::uint8_t

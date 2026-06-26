@@ -57,7 +57,7 @@ struct BindingSetRequest
 {
     std::string request_id{};
     InstanceId instance_id{};
-    OutputId output_id{};
+    ChannelId channel_id{};
 };
 
 struct BindingSetResponse

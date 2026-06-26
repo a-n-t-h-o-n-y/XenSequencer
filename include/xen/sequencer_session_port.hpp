@@ -28,7 +28,7 @@ class SequencerSessionPort
                                                       CommandContext const &context)
         -> CommandApplicationResult = 0;
 
-    virtual void set_output_id(OutputId output_id) = 0;
+    virtual void set_channel_id(ChannelId channel_id) = 0;
 
     [[nodiscard]] virtual auto audio_project_update_version() const noexcept
         -> std::uint64_t = 0;

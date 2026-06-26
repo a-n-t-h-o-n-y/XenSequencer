@@ -341,7 +341,7 @@ auto default_keymap() -> KeymapContexts
     add(contexts, "composition", trigger("r"),
         command_ui_action("composition.row.rename"));
     add(contexts, "composition", trigger("o"),
-        command_ui_action("composition.row.output"));
+        command_ui_action("composition.row.channel"));
     add(contexts, "composition", trigger("i", true),
         command_ui_action("composition.column.insert_before"));
     add(contexts, "composition", trigger("a", true),
@@ -464,7 +464,7 @@ void validate(KeymapTarget const &value)
         value.value == "composition.row.insert_after" ||
         value.value == "composition.row.delete" ||
         value.value == "composition.row.rename" ||
-        value.value == "composition.row.output" ||
+        value.value == "composition.row.channel" ||
         value.value == "composition.column.insert_before" ||
         value.value == "composition.column.insert_after" ||
         value.value == "composition.column.delete" ||

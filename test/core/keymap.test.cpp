@@ -166,9 +166,10 @@ TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
     REQUIRE(row_rename_binding != nullptr);
     CHECK(row_rename_binding->target.value == "composition.row.rename");
 
-    auto const row_output_binding = find_binding(snapshot, "composition", {.key = "o"});
-    REQUIRE(row_output_binding != nullptr);
-    CHECK(row_output_binding->target.value == "composition.row.output");
+    auto const row_channel_binding =
+        find_binding(snapshot, "composition", {.key = "o"});
+    REQUIRE(row_channel_binding != nullptr);
+    CHECK(row_channel_binding->target.value == "composition.row.channel");
 
     auto const column_before_binding =
         find_binding(snapshot, "composition", {.key = "i", .shift = true});
@@ -294,7 +295,7 @@ TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
                                "composition.row.insert_after",
                                "composition.row.delete",
                                "composition.row.rename",
-                               "composition.row.output",
+                               "composition.row.channel",
                                "composition.column.insert_before",
                                "composition.column.insert_after",
                                "composition.column.delete",

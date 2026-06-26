@@ -362,7 +362,7 @@ auto MidiEngine::step(juce::MidiBuffer const &midi_input, SampleIndex offset,
 }
 
 auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
-                        OutputId const &output_id) -> std::optional<MidiSequence>
+                        ChannelId const &channel_id) -> std::optional<MidiSequence>
 {
     try
     {
@@ -394,7 +394,7 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
         auto timeline = std::vector<sequence::midi::TimedMidiNote>{};
         for (auto const &row : project.composition.rows)
         {
-            if (row.output_id != output_id)
+            if (row.channel_id != channel_id)
             {
                 continue;
             }
@@ -444,13 +444,13 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
 
 void MidiEngine::update(ProjectState const &project, DAWState const &daw)
 {
-    update(project, daw, CURRENT_INSTANCE_OUTPUT_ID);
+    update(project, daw, DEFAULT_CHANNEL_ID);
 }
 
 void MidiEngine::update(ProjectState const &project, DAWState const &daw,
-                        OutputId const &output_id)
+                        ChannelId const &channel_id)
 {
-    if (auto rendered = render(project, daw, output_id))
+    if (auto rendered = render(project, daw, channel_id))
     {
         rendered_midi_ = std::move(*rendered);
     }

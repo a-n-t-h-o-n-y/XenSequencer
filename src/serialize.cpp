@@ -198,7 +198,7 @@ static void to_json(nlohmann::json &j, CompositionRow const &row)
                                          : nlohmann::json(nullptr));
     }
     j = nlohmann::json{
-        {"output_id", row.output_id},
+        {"channel_id", row.channel_id},
         {"cells", std::move(cells)},
     };
     if (row.name.has_value())
@@ -212,7 +212,7 @@ static void from_json(nlohmann::json const &j, CompositionRow &row)
     row.name = j.contains("name") && !j.at("name").is_null()
                    ? std::optional<std::string>{j.at("name").get<std::string>()}
                    : std::nullopt;
-    row.output_id = j.at("output_id").get<OutputId>();
+    row.channel_id = j.at("channel_id").get<ChannelId>();
     row.cells.clear();
     for (auto const &cell : j.at("cells"))
     {
@@ -298,8 +298,8 @@ namespace xen
 namespace
 {
 
-constexpr auto PROJECT_SCHEMA_VERSION = 2;
-constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 1;
+constexpr auto PROJECT_SCHEMA_VERSION = 3;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 2;
 
 } // namespace
 
@@ -430,7 +430,7 @@ static void to_json(nlohmann::json &j, InstanceBinding const &binding)
     j = nlohmann::json{
         {"session_id", binding.session_id},
         {"instance_id", binding.instance_id},
-        {"output_id", binding.output_id},
+        {"channel_id", binding.channel_id},
     };
 }
 
@@ -438,7 +438,7 @@ static void from_json(nlohmann::json const &j, InstanceBinding &binding)
 {
     binding.session_id = j.at("session_id").get<SessionId>();
     binding.instance_id = j.at("instance_id").get<InstanceId>();
-    binding.output_id = j.at("output_id").get<OutputId>();
+    binding.channel_id = j.at("channel_id").get<ChannelId>();
     if (binding.session_id.empty())
     {
         throw std::invalid_argument{"Session ID must not be empty."};
@@ -447,9 +447,9 @@ static void from_json(nlohmann::json const &j, InstanceBinding &binding)
     {
         throw std::invalid_argument{"Instance ID must not be empty."};
     }
-    if (binding.output_id.empty())
+    if (binding.channel_id.empty())
     {
-        throw std::invalid_argument{"Output ID must not be empty."};
+        throw std::invalid_argument{"Channel ID must not be empty."};
     }
 }
 
@@ -517,9 +517,9 @@ auto serialize_processor_state(InstanceBinding const &binding,
     {
         throw std::invalid_argument{"Instance ID must not be empty."};
     }
-    if (binding.output_id.empty())
+    if (binding.channel_id.empty())
     {
-        throw std::invalid_argument{"Output ID must not be empty."};
+        throw std::invalid_argument{"Channel ID must not be empty."};
     }
 
     return nlohmann::json{

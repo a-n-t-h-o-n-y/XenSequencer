@@ -54,15 +54,14 @@ void log_json_bridge_exception(std::string const &request_json,
         request_excerpt = request_excerpt.substring(0, 4096) + "...<truncated>";
     }
 
-    auto message =
-        juce::String{"XenSequencer bridge JSON exception: "} + error.what() +
-        "\nrequest_name: " +
-        (request.name.empty() ? juce::String{"<unparsed>"}
-                              : juce::String{request.name}) +
-        "\nrequest_id: " +
-        (request.request_id.has_value() ? juce::String{*request.request_id}
-                                        : juce::String{"<none>"}) +
-        "\nraw_request: " + request_excerpt;
+    auto message = juce::String{"XenSequencer bridge JSON exception: "} + error.what() +
+                   "\nrequest_name: " +
+                   (request.name.empty() ? juce::String{"<unparsed>"}
+                                         : juce::String{request.name}) +
+                   "\nrequest_id: " +
+                   (request.request_id.has_value() ? juce::String{*request.request_id}
+                                                   : juce::String{"<none>"}) +
+                   "\nraw_request: " + request_excerpt;
     append_bridge_error_log(message);
 }
 
@@ -176,9 +175,9 @@ auto SequencerApplicationBridgeService::execute_command_string(
     return session_.execute_command_string(command, context);
 }
 
-void SequencerApplicationBridgeService::set_output_id(OutputId output_id)
+void SequencerApplicationBridgeService::set_channel_id(ChannelId channel_id)
 {
-    session_.set_output_id(std::move(output_id));
+    session_.set_channel_id(std::move(channel_id));
 }
 
 StoreKeymapBridgeService::StoreKeymapBridgeService(std::filesystem::path keymap_file)
@@ -478,18 +477,18 @@ auto BridgeRequestDispatcher::handle_session_binding_get(ParsedRequest const &re
 auto BridgeRequestDispatcher::handle_session_binding_set(ParsedRequest const &request)
     -> nlohmann::json
 {
-    auto output_id = require_string(request.payload, "output_id");
-    if (output_id.empty())
+    auto channel_id = require_string(request.payload, "channel_id");
+    if (channel_id.empty())
     {
         throw BridgeError{
             "invalid_request",
-            "Field must not be empty: output_id",
+            "Field must not be empty: channel_id",
             request.name,
             request.request_id,
         };
     }
 
-    application_.set_output_id(std::move(output_id));
+    application_.set_channel_id(std::move(channel_id));
     return make_instance_binding(application_.instance_binding());
 }
 

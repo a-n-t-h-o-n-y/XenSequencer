@@ -176,9 +176,10 @@ void validate(ProjectState const &project)
         {
             throw std::invalid_argument{"Composition row name must not be empty."};
         }
-        if (row.output_id.empty())
+        if (row.channel_id.empty())
         {
-            throw std::invalid_argument{"Composition row output ID must not be empty."};
+            throw std::invalid_argument{
+                "Composition row channel ID must not be empty."};
         }
         if (row.cells.size() != project.composition.columns.size())
         {

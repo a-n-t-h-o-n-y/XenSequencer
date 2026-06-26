@@ -139,17 +139,11 @@ auto assign_cell_by_measure_name(ProjectState &state, std::size_t row,
     assign_measure_reference(state.composition, row, column, id);
 }
 
-auto require_valid_output_id(CommandExecutionContext const &execution,
-                             OutputId const &output_id) -> void
+auto require_channel_id(ChannelId const &channel_id) -> void
 {
-    if (output_id.empty())
+    if (channel_id.empty())
     {
-        throw std::invalid_argument{"Output ID must not be empty."};
-    }
-    if (std::ranges::find(execution.valid_output_ids, output_id) ==
-        execution.valid_output_ids.end())
-    {
-        throw std::invalid_argument{"Unknown output ID."};
+        throw std::invalid_argument{"Channel ID must not be empty."};
     }
 }
 
@@ -200,9 +194,10 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t row_index) {
             auto state = context.project();
-            auto const output_id = require_row(state.composition, row_index).output_id;
+            auto const channel_id =
+                require_row(state.composition, row_index).channel_id;
             insert_row(state.composition, row_insert_index(row_index, false),
-                       output_id);
+                       channel_id);
             context.edit_project() = std::move(state);
             return make_result(minfo("Composition Row Inserted."));
         }));
@@ -214,8 +209,10 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t row_index) {
             auto state = context.project();
-            auto const output_id = require_row(state.composition, row_index).output_id;
-            insert_row(state.composition, row_insert_index(row_index, true), output_id);
+            auto const channel_id =
+                require_row(state.composition, row_index).channel_id;
+            insert_row(state.composition, row_insert_index(row_index, true),
+                       channel_id);
             context.edit_project() = std::move(state);
             return make_result(minfo("Composition Row Inserted."));
         }));
@@ -246,17 +243,17 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
                 }));
 
     specs.push_back(
-        command({"composition", "row", "output"}, false,
-                "Set a composition row output ID.", composition_edit_policy,
+        command({"composition", "row", "channel"}, false,
+                "Set a composition row channel ID.", composition_edit_policy,
                 std::make_tuple(required_arg<std::size_t>("row_index"),
-                                required_arg<std::string>("output_id")),
+                                required_arg<std::string>("channel_id")),
                 [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::size_t row_index, std::string const &output_id) {
-                    require_valid_output_id(context.execution, output_id);
+                   std::size_t row_index, std::string const &channel_id) {
+                    require_channel_id(channel_id);
                     auto state = context.project();
-                    assign_row_output(state.composition, row_index, output_id);
+                    assign_row_channel(state.composition, row_index, channel_id);
                     context.edit_project() = std::move(state);
-                    return make_result(minfo("Composition Row Output Set."));
+                    return make_result(minfo("Composition Row Channel Set."));
                 }));
 
     specs.push_back(command(

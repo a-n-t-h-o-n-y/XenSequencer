@@ -42,7 +42,7 @@ namespace xen
 [[nodiscard]] auto deserialize_measure(std::string const &json_str) -> Measure;
 
 /**
- * Serialize project state using project schema 2.
+ * Serialize project state using project schema 3.
  *
  * @param state The plugin state to serialize.
  * @return std::string The JSON string.
@@ -50,7 +50,7 @@ namespace xen
 [[nodiscard]] auto serialize_project(ProjectState const &project) -> std::string;
 
 /**
- * Deserialize project schema 2.
+ * Deserialize project schema 3.
  *
  * @param json_str The JSON string to deserialize.
  * @return ProjectState The deserialized project state.

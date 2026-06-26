@@ -14,10 +14,10 @@ namespace xen
 {
 
 using MeasureId = std::uint64_t;
-using OutputId = std::string;
+using ChannelId = std::string;
 
 inline constexpr auto DEFAULT_MEASURE_ID = MeasureId{1};
-inline constexpr auto CURRENT_INSTANCE_OUTPUT_ID = "current";
+inline constexpr auto DEFAULT_CHANNEL_ID = "channel-1";
 
 struct ActiveMeasureTarget
 {
@@ -55,7 +55,7 @@ struct CompositionColumn
 struct CompositionRow
 {
     std::optional<std::string> name{};
-    OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
+    ChannelId channel_id{DEFAULT_CHANNEL_ID};
     std::vector<std::optional<MeasureId>> cells{};
 
     auto operator==(CompositionRow const &) const -> bool = default;
@@ -92,10 +92,10 @@ auto update_measure(MeasureBank &bank, MeasureId id, Measure measure) -> bool;
     -> std::vector<MeasureBankEntry> const &;
 
 auto insert_row(Composition &composition, std::size_t index,
-                OutputId output_id = CURRENT_INSTANCE_OUTPUT_ID) -> void;
+                ChannelId channel_id = DEFAULT_CHANNEL_ID) -> void;
 auto remove_row(Composition &composition, std::size_t index) -> void;
 auto move_row(Composition &composition, std::size_t from, std::size_t to) -> void;
-auto assign_row_output(Composition &composition, std::size_t row, OutputId output_id)
+auto assign_row_channel(Composition &composition, std::size_t row, ChannelId channel_id)
     -> void;
 
 auto insert_column(Composition &composition, std::size_t index,

@@ -63,12 +63,12 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     CHECK_THROWS_AS(timeline.commit(project), std::invalid_argument);
 }
 
-TEST_CASE("Project schema 2 stores measure bank and composition",
+TEST_CASE("Project schema 3 stores measure bank and composition",
           "[data-model][serialize]")
 {
     auto const project = ProjectState{};
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("schema") == 2);
+    CHECK(encoded.at("schema") == 3);
     CHECK(encoded.at("project").contains("pitch"));
     CHECK(encoded.at("project").contains("measure_bank"));
     CHECK(encoded.at("project").contains("composition"));
@@ -81,6 +81,10 @@ TEST_CASE("Project schema 2 stores measure bank and composition",
               .at("measure")
               .contains("time_signature") == false);
 
+    auto old_schema = encoded;
+    old_schema["schema"] = 2;
+    CHECK_THROWS(deserialize_project(old_schema.dump()));
+
     auto const old = nlohmann::json{
         {"measure", encoded.at("project").at("measure_bank").at("measures").front()},
         {"tuning", encoded.at("project").at("pitch").at("tuning")},
@@ -88,7 +92,7 @@ TEST_CASE("Project schema 2 stores measure bank and composition",
     CHECK_THROWS(deserialize_project(old.dump()));
 }
 
-TEST_CASE("Default project has one current-output 4/4 arranged measure",
+TEST_CASE("Default project has one channel-1 4/4 arranged measure",
           "[data-model][composition]")
 {
     auto const project = ProjectState{};
@@ -101,7 +105,7 @@ TEST_CASE("Default project has one current-output 4/4 arranged measure",
     CHECK(project.composition.loop_region.start_column == 0);
     CHECK(project.composition.loop_region.end_column == 0);
     REQUIRE(project.composition.rows.size() == 1);
-    CHECK(project.composition.rows.front().output_id == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(project.composition.rows.front().channel_id == DEFAULT_CHANNEL_ID);
     CHECK_FALSE(project.composition.rows.front().name.has_value());
     REQUIRE(project.composition.rows.front().cells.size() == 1);
     CHECK(project.composition.rows.front().cells.front() == DEFAULT_MEASURE_ID);
@@ -130,8 +134,8 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     insert_row(project.composition, 1, "peer");
     assign_measure_reference(project.composition, 1, 0, duplicate_id);
     move_row(project.composition, 1, 0);
-    CHECK(project.composition.rows.front().output_id == "peer");
-    assign_row_output(project.composition, 0, CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(project.composition.rows.front().channel_id == "peer");
+    assign_row_channel(project.composition, 0, DEFAULT_CHANNEL_ID);
     move_column(project.composition, 1, 0);
     CHECK(project.composition.columns.front().length == sequence::TimeSignature{5, 8});
     CHECK(project.composition.loop_region.start_column == 0);

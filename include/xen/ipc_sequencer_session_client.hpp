@@ -39,7 +39,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     [[nodiscard]] auto execute_command_string(std::string const &command_string,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
-    void set_output_id(OutputId output_id) override;
+    void set_channel_id(ChannelId channel_id) override;
 
     [[nodiscard]] auto audio_project_update_version() const noexcept
         -> std::uint64_t override;

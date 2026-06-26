@@ -127,7 +127,7 @@ class OfflineSequencerSession final : public xen::SequencerSessionPort
         };
     }
 
-    void set_output_id(xen::OutputId) override
+    void set_channel_id(xen::ChannelId) override
     {
         throw std::runtime_error{error_message_};
     }
@@ -171,7 +171,7 @@ XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
         auto binding = InstanceBinding{
             .session_id = startup_session_id(),
             .instance_id = make_id("instance"),
-            .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+            .channel_id = {},
         };
         session_ = std::make_unique<ipc::IpcSequencerSessionClient>(binding);
     }
@@ -180,7 +180,7 @@ XenProcessor::XenProcessor(SubmissionEffects::FailurePoint effect_failure,
         auto binding = InstanceBinding{
             .session_id = make_id("session"),
             .instance_id = make_id("instance"),
-            .output_id = CURRENT_INSTANCE_OUTPUT_ID,
+            .channel_id = DEFAULT_CHANNEL_ID,
         };
         auto message =
             std::string{"XenSequencerCoordinator startup failed: "} + e.what();
@@ -278,7 +278,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     if (auto const snapshot = session_->try_consume_audio_project_update())
     {
         audio_thread_state_.project = &snapshot->state().project;
-        audio_thread_state_.output_id = snapshot->state().output_id;
+        audio_thread_state_.channel_id = snapshot->state().channel_id;
         update_needed = true;
     }
 
@@ -286,7 +286,7 @@ void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     {
         audio_thread_state_.midi_engine.update(*audio_thread_state_.project,
                                                audio_thread_state_.daw,
-                                               audio_thread_state_.output_id);
+                                               audio_thread_state_.channel_id);
     }
 
     // Calculate MIDI buffer slice

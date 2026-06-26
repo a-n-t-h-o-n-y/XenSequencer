@@ -44,11 +44,11 @@ TEST_CASE("Instance output binding publishes audio snapshots", "[sync][snapshot]
     (void)session.try_consume_audio_project_update();
     auto const before_version = session.audio_project_update_version();
 
-    session.set_output_id("peer");
+    session.set_channel_id("peer");
 
     CHECK(session.audio_project_update_version() == before_version + 1);
     auto const update = session.try_consume_audio_project_update();
     REQUIRE(update.has_value());
-    CHECK(update->state().output_id == "peer");
+    CHECK(update->state().channel_id == "peer");
     CHECK(update->state().project == session.project_snapshot().project);
 }

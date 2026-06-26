@@ -16,13 +16,12 @@ using namespace xen;
 namespace
 {
 
-auto binding(std::string instance_id,
-             std::string output_id = CURRENT_INSTANCE_OUTPUT_ID) -> InstanceBinding
+auto binding(std::string instance_id, std::string channel_id = {}) -> InstanceBinding
 {
     return {
         .session_id = "session",
         .instance_id = std::move(instance_id),
-        .output_id = std::move(output_id),
+        .channel_id = std::move(channel_id),
     };
 }
 
@@ -139,18 +138,18 @@ TEST_CASE("IPC protocol round-trips coordinator broadcasts and errors", "[sync][
     auto const binding_response =
         ipc::decode_binding_set_response(ipc::encode_binding_set_response(
             {.request_id = "binding-1",
-             .binding = binding("instance-a", "track-1"),
+             .binding = binding("instance-a", "channel-1"),
              .snapshot = ProjectSnapshot{.project = ProjectState{},
                                          .history_entry_id = HistoryEntryId{9},
                                          .project_revision = ProjectRevision{10}}}));
     CHECK(binding_response.request_id == "binding-1");
-    CHECK(binding_response.binding.output_id == "track-1");
+    CHECK(binding_response.binding.channel_id == "channel-1");
 
     auto const instances = ipc::decode_instances_changed(ipc::encode_instances_changed(
-        {.instances = {binding("instance-a", "track-1"),
-                       binding("instance-b", "track-2")}}));
+        {.instances = {binding("instance-a", "channel-1"),
+                       binding("instance-b", "channel-2")}}));
     REQUIRE(instances.instances.size() == 2);
-    CHECK(instances.instances[1].output_id == "track-2");
+    CHECK(instances.instances[1].channel_id == "channel-2");
 
     auto const heartbeat =
         ipc::decode_heartbeat(ipc::encode_heartbeat({.sequence = 42}));
@@ -203,15 +202,15 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
 {
     auto coordinator = ipc::SessionCoordinator{};
     auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
-    auto const hello_b =
-        coordinator.connect({.binding = binding("instance-b", "peer")});
+    auto const hello_b = coordinator.connect({.binding = binding("instance-b")});
 
-    CHECK(hello_a.binding.output_id == "track-1");
-    CHECK(hello_b.binding.output_id == "peer");
-    CHECK(hello_a.snapshot.project.composition.rows.front().output_id == "track-1");
-    CHECK(hello_b.snapshot.project.composition.rows.front().output_id == "track-1");
+    CHECK(hello_a.binding.channel_id == "channel-1");
+    CHECK(hello_b.binding.channel_id == "channel-2");
+    CHECK(hello_a.snapshot.project.composition.rows.front().channel_id == "channel-1");
+    CHECK(hello_b.snapshot.project.composition.rows[1].channel_id == "channel-2");
+    CHECK(hello_b.snapshot.project.composition.rows[1].cells.front().has_value());
     REQUIRE(coordinator.binding_for("instance-b") != nullptr);
-    CHECK(coordinator.binding_for("instance-b")->output_id == "peer");
+    CHECK(coordinator.binding_for("instance-b")->channel_id == "channel-2");
     CHECK(coordinator.snapshot().project.composition.rows.size() == 2);
 
     auto const result = coordinator.execute({
@@ -231,17 +230,16 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
     CHECK(coordinator.live_edit_started());
 }
 
-TEST_CASE("SessionCoordinator validates composition row output commands",
+TEST_CASE("SessionCoordinator accepts inactive composition row channels",
           "[sync][ipc][coordinator]")
 {
     auto coordinator = ipc::SessionCoordinator{};
     auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
-    (void)coordinator.connect({.binding = binding("instance-b", "peer")});
 
     auto const valid = coordinator.execute({
         .request_id = "request-1",
         .source_instance_id = hello_a.binding.instance_id,
-        .command = "composition row output 0 peer",
+        .command = "composition row channel 0 inactive",
         .context =
             CommandContext{
                 .expected_project_revision = coordinator.snapshot().project_revision,
@@ -249,12 +247,12 @@ TEST_CASE("SessionCoordinator validates composition row output commands",
     });
 
     CHECK(valid.result.status.first == MessageLevel::Info);
-    CHECK(valid.snapshot.project.composition.rows.front().output_id == "peer");
+    CHECK(valid.snapshot.project.composition.rows.front().channel_id == "inactive");
 
     auto const invalid = coordinator.execute({
         .request_id = "request-2",
         .source_instance_id = hello_a.binding.instance_id,
-        .command = "composition row output 0 missing",
+        .command = "composition row channel 0 \"\"",
         .context =
             CommandContext{
                 .expected_project_revision = coordinator.snapshot().project_revision,
@@ -262,10 +260,10 @@ TEST_CASE("SessionCoordinator validates composition row output commands",
     });
 
     CHECK(invalid.result.status.first == MessageLevel::Error);
-    CHECK(invalid.result.status.second == "Unknown output ID.");
+    CHECK(invalid.result.status.second == "Channel ID must not be empty.");
 }
 
-TEST_CASE("SessionCoordinator binding changes republish shared output rows",
+TEST_CASE("SessionCoordinator binding changes do not rewrite channel rows",
           "[sync][ipc][coordinator]")
 {
     auto coordinator = ipc::SessionCoordinator{};
@@ -274,13 +272,32 @@ TEST_CASE("SessionCoordinator binding changes republish shared output rows",
     auto const response = coordinator.set_binding({
         .request_id = "binding-1",
         .instance_id = hello.binding.instance_id,
-        .output_id = "lead",
+        .channel_id = "lead",
     });
 
     CHECK(response.request_id == "binding-1");
-    CHECK(response.binding.output_id == "lead");
-    CHECK(coordinator.binding_for("instance-a")->output_id == "lead");
-    CHECK(response.snapshot.project.composition.rows.front().output_id == "lead");
+    CHECK(response.binding.channel_id == "lead");
+    CHECK(coordinator.binding_for("instance-a")->channel_id == "lead");
+    CHECK(response.snapshot.project.composition.rows.front().channel_id == "channel-1");
+}
+
+TEST_CASE("SessionCoordinator allows duplicate listener channels",
+          "[sync][ipc][coordinator]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const hello_a =
+        coordinator.connect({.binding = binding("instance-a", "lead")});
+    auto const hello_b =
+        coordinator.connect({.binding = binding("instance-b", "lead")});
+
+    CHECK(hello_a.binding.channel_id == "lead");
+    CHECK(hello_b.binding.channel_id == "lead");
+    REQUIRE(coordinator.binding_for("instance-a") != nullptr);
+    REQUIRE(coordinator.binding_for("instance-b") != nullptr);
+    CHECK(coordinator.binding_for("instance-a")->channel_id == "lead");
+    CHECK(coordinator.binding_for("instance-b")->channel_id == "lead");
+    CHECK(coordinator.snapshot().project.composition.rows.front().channel_id ==
+          DEFAULT_CHANNEL_ID);
 }
 
 TEST_CASE("SessionCoordinator seeds from the newest restore snapshot before edits",

@@ -227,7 +227,7 @@ struct InstanceBinding
 {
     SessionId session_id{};
     InstanceId instance_id{};
-    OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
+    ChannelId channel_id{DEFAULT_CHANNEL_ID};
 
     auto operator==(InstanceBinding const &) const -> bool = default;
 };
@@ -252,7 +252,7 @@ struct LibrarySnapshot
 struct AudioProjectSnapshot
 {
     ProjectState project{};
-    OutputId output_id{CURRENT_INSTANCE_OUTPUT_ID};
+    ChannelId channel_id{DEFAULT_CHANNEL_ID};
 
     auto operator==(AudioProjectSnapshot const &) const -> bool = default;
 };

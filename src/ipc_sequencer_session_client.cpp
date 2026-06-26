@@ -126,12 +126,12 @@ auto IpcSequencerSessionClient::execute_command_string(
     return std::move(response.result);
 }
 
-void IpcSequencerSessionClient::set_output_id(OutputId output_id)
+void IpcSequencerSessionClient::set_channel_id(ChannelId channel_id)
 {
     auto request = BindingSetRequest{
         .request_id = next_request_id(),
         .instance_id = binding_.instance_id,
-        .output_id = std::move(output_id),
+        .channel_id = std::move(channel_id),
     };
 
     {
@@ -278,7 +278,7 @@ void IpcSequencerSessionClient::publish_audio_snapshot()
 {
     pending_engine_state_update_.publish(AudioProjectSnapshot{
         .project = project_snapshot_.project,
-        .output_id = binding_.output_id,
+        .channel_id = binding_.channel_id,
     });
 }
 

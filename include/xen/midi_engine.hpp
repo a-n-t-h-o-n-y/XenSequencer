@@ -54,7 +54,7 @@ class MidiEngine
      */
     void update(ProjectState const &project, DAWState const &daw);
     void update(ProjectState const &project, DAWState const &daw,
-                OutputId const &output_id);
+                ChannelId const &channel_id);
 
     [[nodiscard]] auto get_loop_phase(SampleIndex offset, DAWState const &daw) const
         -> double;
@@ -69,7 +69,7 @@ class MidiEngine
     };
 
     [[nodiscard]] static auto render(ProjectState const &project, DAWState const &daw,
-                                     OutputId const &output_id)
+                                     ChannelId const &channel_id)
         -> std::optional<MidiSequence>;
 
     MidiSequence rendered_midi_{};

@@ -126,7 +126,7 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
                                              : nlohmann::json(nullptr));
         }
         auto row_json = nlohmann::json{
-            {"output_id", row.output_id},
+            {"channel_id", row.channel_id},
             {"cells", std::move(cells)},
         };
         if (row.name.has_value())
@@ -321,7 +321,7 @@ auto make_instance_binding(InstanceBinding const &binding) -> nlohmann::json
     return nlohmann::json{
         {"session_id", binding.session_id},
         {"instance_id", binding.instance_id},
-        {"output_id", binding.output_id},
+        {"channel_id", binding.channel_id},
     };
 }
 

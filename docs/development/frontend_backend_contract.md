@@ -92,7 +92,7 @@ Response payload:
 type SessionHello = {
   protocol: "xen.bridge.v1";
   plugin_version: string;
-  project_schema_version: 2;
+  project_schema_version: 3;
   library_schema_version: 1;
   catalog: {
     schema_version: 2;
@@ -180,7 +180,7 @@ type ScaleDefinition = {
 };
 
 type ProjectSnapshot = {
-  schema_version: 2;
+  schema_version: 3;
   history_entry_id: number;
   project_revision: number;
   project: {
@@ -201,7 +201,7 @@ type ProjectSnapshot = {
         };
       }>;
       rows: Array<{
-        output_id: string;
+        channel_id: string;
         cells: Array<number | null>;
       }>;
     };

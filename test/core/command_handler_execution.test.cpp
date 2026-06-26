@@ -39,7 +39,6 @@ auto execute(PluginState &state, std::string const &text,
     auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto context = CommandExecutionContext{
         .selection = std::move(selection),
-        .valid_output_ids = {CURRENT_INSTANCE_OUTPUT_ID, "peer"},
     };
     auto application = command.execute(transaction, context);
     transaction.prepare();
@@ -154,26 +153,28 @@ TEST_CASE("Direct handlers edit composition rows and columns",
           MessageLevel::Info);
     auto project = state.timeline.get_state();
     REQUIRE(project.composition.rows.size() == 2);
-    CHECK(project.composition.rows[1].output_id == CURRENT_INSTANCE_OUTPUT_ID);
+    CHECK(project.composition.rows[1].channel_id == DEFAULT_CHANNEL_ID);
     CHECK(project.composition.rows[1].cells.front() == std::nullopt);
 
     CHECK(execute(state, "composition row rename 1 \"Drums\"").status.first ==
           MessageLevel::Info);
-    CHECK(execute(state, "composition row output 1 \"peer\"").status.first ==
+    CHECK(execute(state, "composition row channel 1 \"peer\"").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
     REQUIRE(project.composition.rows[1].name.has_value());
     CHECK(*project.composition.rows[1].name == "Drums");
-    CHECK(project.composition.rows[1].output_id == "peer");
+    CHECK(project.composition.rows[1].channel_id == "peer");
 
     CHECK(execute(state, "composition row insert before 1").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
     REQUIRE(project.composition.rows.size() == 3);
-    CHECK(project.composition.rows[1].output_id == "peer");
+    CHECK(project.composition.rows[1].channel_id == "peer");
     CHECK_FALSE(project.composition.rows[1].name.has_value());
 
-    CHECK_THROWS_AS((void)execute(state, "composition row output 1 \"bus-a\""),
+    CHECK(execute(state, "composition row channel 1 \"bus-a\"").status.first ==
+          MessageLevel::Info);
+    CHECK_THROWS_AS((void)execute(state, "composition row channel 1 \"\""),
                     std::invalid_argument);
 
     CHECK(execute(state, "composition row delete 1").status.first ==

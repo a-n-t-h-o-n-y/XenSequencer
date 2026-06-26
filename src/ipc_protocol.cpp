@@ -32,7 +32,8 @@ namespace
     return message.at("payload");
 }
 
-[[nodiscard]] auto binding_to_json(InstanceBinding const &binding) -> nlohmann::json
+[[nodiscard]] auto binding_to_json(InstanceBinding const &binding,
+                                   bool require_channel = true) -> nlohmann::json
 {
     if (binding.session_id.empty())
     {
@@ -42,25 +43,26 @@ namespace
     {
         throw std::invalid_argument{"Instance ID must not be empty."};
     }
-    if (binding.output_id.empty())
+    if (require_channel && binding.channel_id.empty())
     {
-        throw std::invalid_argument{"Output ID must not be empty."};
+        throw std::invalid_argument{"Channel ID must not be empty."};
     }
     return {
         {"session_id", binding.session_id},
         {"instance_id", binding.instance_id},
-        {"output_id", binding.output_id},
+        {"channel_id", binding.channel_id},
     };
 }
 
-[[nodiscard]] auto binding_from_json(nlohmann::json const &json) -> InstanceBinding
+[[nodiscard]] auto binding_from_json(nlohmann::json const &json,
+                                     bool require_channel = true) -> InstanceBinding
 {
     auto binding = InstanceBinding{
         .session_id = json.at("session_id").get<SessionId>(),
         .instance_id = json.at("instance_id").get<InstanceId>(),
-        .output_id = json.at("output_id").get<OutputId>(),
+        .channel_id = json.at("channel_id").get<ChannelId>(),
     };
-    (void)binding_to_json(binding);
+    (void)binding_to_json(binding, require_channel);
     return binding;
 }
 
@@ -379,7 +381,7 @@ namespace
 auto encode_client_hello(ClientHello const &message) -> nlohmann::json
 {
     auto payload = nlohmann::json{
-        {"binding", binding_to_json(message.binding)},
+        {"binding", binding_to_json(message.binding, false)},
         {"restore_state", nullptr},
     };
     if (message.restore_state.has_value())
@@ -400,7 +402,8 @@ auto encode_client_hello(ClientHello const &message) -> nlohmann::json
 auto decode_client_hello(nlohmann::json const &message) -> ClientHello
 {
     auto const &payload = require_protocol(message, "client.hello");
-    auto hello = ClientHello{.binding = binding_from_json(payload.at("binding"))};
+    auto hello =
+        ClientHello{.binding = binding_from_json(payload.at("binding"), false)};
     if (!payload.at("restore_state").is_null())
     {
         auto const &restore = payload.at("restore_state");
@@ -531,14 +534,14 @@ auto encode_binding_set_request(BindingSetRequest const &message) -> nlohmann::j
     {
         throw std::invalid_argument{"Binding instance ID must not be empty."};
     }
-    if (message.output_id.empty())
+    if (message.channel_id.empty())
     {
-        throw std::invalid_argument{"Binding output ID must not be empty."};
+        throw std::invalid_argument{"Binding channel ID must not be empty."};
     }
     return envelope("instance.binding.set", {
                                                 {"request_id", message.request_id},
                                                 {"instance_id", message.instance_id},
-                                                {"output_id", message.output_id},
+                                                {"channel_id", message.channel_id},
                                             });
 }
 
@@ -548,7 +551,7 @@ auto decode_binding_set_request(nlohmann::json const &message) -> BindingSetRequ
     return {
         .request_id = payload.at("request_id").get<std::string>(),
         .instance_id = payload.at("instance_id").get<InstanceId>(),
-        .output_id = payload.at("output_id").get<OutputId>(),
+        .channel_id = payload.at("channel_id").get<ChannelId>(),
     };
 }
 

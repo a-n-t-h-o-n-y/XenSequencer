@@ -35,7 +35,7 @@ class ApplicationBridgeService
     [[nodiscard]] virtual auto execute_command_string(std::string const &command,
                                                       CommandContext const &context)
         -> CommandApplicationResult = 0;
-    virtual void set_output_id(OutputId output_id) = 0;
+    virtual void set_channel_id(ChannelId channel_id) = 0;
 };
 
 class KeymapBridgeService
@@ -104,7 +104,7 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
     [[nodiscard]] auto execute_command_string(std::string const &command,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
-    void set_output_id(OutputId output_id) override;
+    void set_channel_id(ChannelId channel_id) override;
 
   private:
     SequencerSessionPort &session_;
