@@ -6,7 +6,11 @@
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <utility>
+
+#include <juce_core/juce_core.h>
+#include <nlohmann/json.hpp>
 
 #include <sequence/tuning.hpp>
 
@@ -23,6 +27,43 @@ namespace
 auto as_juce_file(std::filesystem::path const &path) -> juce::File
 {
     return juce::File{path.string()};
+}
+
+void append_bridge_error_log(juce::String const &message)
+{
+    juce::Logger::writeToLog(message);
+
+    try
+    {
+        auto const log_file =
+            xen::get_user_settings_directory().getChildFile("bridge-errors.log");
+        log_file.appendText(message + "\n\n", false, false, "\n");
+    }
+    catch (std::exception const &)
+    {
+    }
+}
+
+void log_json_bridge_exception(std::string const &request_json,
+                               ParsedRequest const &request,
+                               nlohmann::json::exception const &error)
+{
+    auto request_excerpt = juce::String{request_json};
+    if (request_excerpt.length() > 4096)
+    {
+        request_excerpt = request_excerpt.substring(0, 4096) + "...<truncated>";
+    }
+
+    auto message =
+        juce::String{"XenSequencer bridge JSON exception: "} + error.what() +
+        "\nrequest_name: " +
+        (request.name.empty() ? juce::String{"<unparsed>"}
+                              : juce::String{request.name}) +
+        "\nrequest_id: " +
+        (request.request_id.has_value() ? juce::String{*request.request_id}
+                                        : juce::String{"<none>"}) +
+        "\nraw_request: " + request_excerpt;
+    append_bridge_error_log(message);
 }
 
 auto to_sorted_files(juce::Array<juce::File> const &files) -> std::vector<juce::File>
@@ -372,6 +413,7 @@ auto BridgeRequestDispatcher::handle_request_json(std::string const &request_jso
     }
     catch (nlohmann::json::exception const &error)
     {
+        log_json_bridge_exception(request_json, request, error);
         return make_envelope("response",
                              request.name.empty() ? "bridge.error" : request.name,
                              request.request_id,

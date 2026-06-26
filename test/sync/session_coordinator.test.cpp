@@ -87,6 +87,46 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
     CHECK(decoded_response.snapshot.project_revision.value() == 4);
 }
 
+TEST_CASE("IPC protocol encodes absent command context fields as null", "[sync][ipc]")
+{
+    auto const encoded_request = ipc::encode_command_request({
+        .request_id = "request-1",
+        .source_instance_id = "instance-a",
+        .command = "note 0",
+        .context = CommandContext{},
+    });
+
+    auto const &context = encoded_request.at("payload").at("context");
+
+    CHECK(context.at("expected_project_revision").is_null());
+    CHECK(context.at("selection").is_null());
+    CHECK(context.at("active_measure_target").is_null());
+    CHECK_FALSE(context.at("active_measure_target").is_array());
+}
+
+TEST_CASE("IPC protocol rejects malformed active measure targets", "[sync][ipc]")
+{
+    auto message = ipc::encode_command_request({
+        .request_id = "request-1",
+        .source_instance_id = "instance-a",
+        .command = "note 0",
+        .context = CommandContext{},
+    });
+    message["payload"]["context"]["active_measure_target"] =
+        nlohmann::json::array({nullptr});
+
+    try
+    {
+        (void)ipc::decode_command_request(message);
+        FAIL("Expected malformed active measure target to throw.");
+    }
+    catch (std::invalid_argument const &error)
+    {
+        CHECK(std::string{error.what()} ==
+              "Field must be an object or null: context.active_measure_target.");
+    }
+}
+
 TEST_CASE("IPC protocol round-trips coordinator broadcasts and errors", "[sync][ipc]")
 {
     auto const project_changed =

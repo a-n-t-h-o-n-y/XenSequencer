@@ -8,10 +8,27 @@
 
 #include <juce_core/juce_core.h>
 
+#include <xen/user_directory.hpp>
+
 namespace xen::ipc
 {
 namespace
 {
+
+void append_coordinator_error_log(juce::String const &message)
+{
+    juce::Logger::writeToLog(message);
+
+    try
+    {
+        auto const log_file =
+            xen::get_user_settings_directory().getChildFile("coordinator-errors.log");
+        log_file.appendText(message + "\n\n", false, false, "\n");
+    }
+    catch (std::exception const &)
+    {
+    }
+}
 
 [[nodiscard]] auto memory_block_from_json(nlohmann::json const &message)
     -> juce::MemoryBlock
@@ -112,6 +129,11 @@ class CoordinatorConnection final : public juce::InterprocessConnection
         }
         catch (std::exception const &e)
         {
+            append_coordinator_error_log(
+                juce::String{"XenSequencer coordinator IPC exception: "} + e.what() +
+                "\nraw_message: " +
+                juce::String::fromUTF8(static_cast<char const *>(message.getData()),
+                                       static_cast<int>(message.getSize())));
             (void)sendMessage(memory_block_from_json(
                 encode_error({.code = "ipc-error", .message = e.what()})));
         }

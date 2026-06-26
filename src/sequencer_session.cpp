@@ -8,10 +8,14 @@
 #include <utility>
 #include <vector>
 
+#include <juce_core/juce_core.h>
+#include <nlohmann/json.hpp>
+
 #include <xen/command_transaction.hpp>
 #include <xen/project_validation.hpp>
 #include <xen/selection.hpp>
 #include <xen/string_manip.hpp>
+#include <xen/user_directory.hpp>
 
 namespace
 {
@@ -22,6 +26,40 @@ auto error_result(std::string message) -> xen::CommandApplicationResult
         .status = {xen::MessageLevel::Error, std::move(message)},
         .suggested_selection = std::nullopt,
     };
+}
+
+void log_json_command_exception(std::string const &command_string,
+                                xen::CommandContext const &context,
+                                nlohmann::json::exception const &error)
+{
+    auto message =
+        juce::String{"XenSequencer command JSON exception: "} + error.what() +
+        "\ncommand: " + command_string;
+    if (context.expected_project_revision.has_value())
+    {
+        message += "\nexpected_project_revision: " +
+                   juce::String{static_cast<juce::int64>(
+                       context.expected_project_revision->value())};
+    }
+    else
+    {
+        message += "\nexpected_project_revision: <none>";
+    }
+    message += "\nselection: ";
+    message += context.selection.has_value() ? "present" : "none";
+    message += "\nactive_measure_target: ";
+    message += context.active_measure_target.has_value() ? "present" : "none";
+    juce::Logger::writeToLog(message);
+
+    try
+    {
+        auto const log_file =
+            xen::get_user_settings_directory().getChildFile("command-errors.log");
+        log_file.appendText(message + "\n\n", false, false, "\n");
+    }
+    catch (std::exception const &)
+    {
+    }
 }
 
 auto validate_selection_target(xen::TargetRequirement requirement,
@@ -358,6 +396,11 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             state_.command_session = CommandSessionState{};
         }
         return result;
+    }
+    catch (nlohmann::json::exception const &e)
+    {
+        log_json_command_exception(command_string, context, e);
+        return error_result(e.what());
     }
     catch (std::exception const &e)
     {

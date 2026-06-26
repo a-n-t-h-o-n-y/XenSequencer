@@ -9,12 +9,39 @@
 #include <string>
 #include <vector>
 
+#include <xen/user_directory.hpp>
+
 #if XEN_WEB_UI_USE_EMBEDDED
 #include <embed_webui.hpp>
 #endif
 
 namespace
 {
+void append_webview_error_log(juce::String const &message)
+{
+    juce::Logger::writeToLog(message);
+
+    try
+    {
+        auto const log_file =
+            xen::get_user_settings_directory().getChildFile("webview-errors.log");
+        log_file.appendText(message + "\n\n", false, false, "\n");
+    }
+    catch (std::exception const &)
+    {
+    }
+}
+
+auto truncate_for_log(std::string const &text) -> juce::String
+{
+    auto value = juce::String{text};
+    if (value.length() > 4096)
+    {
+        value = value.substring(0, 4096) + "...<truncated>";
+    }
+    return value;
+}
+
 auto parse_json_to_var_or_throw(std::string const &json_text,
                                 std::string const &context) -> juce::var
 {
@@ -343,10 +370,21 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
                     {
                         request_json = args[0].toString().toStdString();
                     }
-                    auto const response_json =
-                        bridge_.handle_request_json(request_json);
-                    completion(
-                        parse_json_to_var_or_throw(response_json, "xenBridgeRequest"));
+                    try
+                    {
+                        auto const response_json =
+                            bridge_.handle_request_json(request_json);
+                        completion(parse_json_to_var_or_throw(response_json,
+                                                              "xenBridgeRequest"));
+                    }
+                    catch (std::exception const &error)
+                    {
+                        append_webview_error_log(
+                            juce::String{"XenSequencer WebView bridge exception: "} +
+                            error.what() + "\nraw_request: " +
+                            truncate_for_log(request_json));
+                        throw;
+                    }
                 });
 
 #if XEN_WEB_UI_USE_EMBEDDED

@@ -277,7 +277,7 @@ namespace
         {"expected_project_revision",
          context.expected_project_revision.has_value()
              ? nlohmann::json(context.expected_project_revision->value())
-             : nlohmann::json{nullptr}},
+             : nlohmann::json(nullptr)},
         {"selection", selection_to_json(context.selection)},
         {"active_measure_target",
          context.active_measure_target.has_value()
@@ -286,7 +286,7 @@ namespace
                    {"column_index", context.active_measure_target->column_index},
                    {"measure_id", context.active_measure_target->measure_id},
                }
-             : nlohmann::json{nullptr}},
+             : nlohmann::json(nullptr)},
     };
 }
 
@@ -304,6 +304,11 @@ namespace
         !json.at("active_measure_target").is_null())
     {
         auto const &target = json.at("active_measure_target");
+        if (!target.is_object())
+        {
+            throw std::invalid_argument{
+                "Field must be an object or null: context.active_measure_target."};
+        }
         context.active_measure_target = ActiveMeasureTarget{
             .row_index = target.at("row_index").get<std::size_t>(),
             .column_index = target.at("column_index").get<std::size_t>(),
