@@ -63,9 +63,84 @@ auto default_mime_type() -> juce::String
     return "application/octet-stream";
 }
 
+auto webview_debug_script() -> juce::String
+{
+    return R"JS(
+(function () {
+  const emit = function (level, message, detail) {
+    try {
+      if (!window.__JUCE__ || !window.__JUCE__.backend) {
+        return;
+      }
+      window.__JUCE__.backend.emitEvent("xenWebviewDebug", {
+        level: level,
+        message: String(message),
+        detail: detail == null ? "" : String(detail)
+      });
+    } catch (_) {
+    }
+  };
+
+  const stringify = function (value) {
+    try {
+      if (value instanceof Error) {
+        return value.name + ": " + value.message + "\n" + (value.stack || "");
+      }
+      if (typeof value === "object") {
+        return JSON.stringify(value);
+      }
+      return String(value);
+    } catch (_) {
+      return String(value);
+    }
+  };
+
+  window.addEventListener("error", function (event) {
+    emit("error", event.message || "window error", [
+      event.filename || "",
+      event.lineno || 0,
+      event.colno || 0,
+      stringify(event.error)
+    ].join(":"));
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+    emit("error", "unhandled promise rejection", stringify(event.reason));
+  });
+
+  ["error", "warn", "log"].forEach(function (level) {
+    const original = console[level];
+    console[level] = function () {
+      const args = Array.prototype.slice.call(arguments).map(stringify);
+      emit(level, "console." + level, args.join(" "));
+      if (typeof original === "function") {
+        original.apply(console, arguments);
+      }
+    };
+  });
+
+  emit("info", "webview debug hook installed", window.location.href);
+}());
+)JS";
+}
+
+auto debug_payload_to_log_message(juce::var const &payload) -> juce::String
+{
+    if (auto const *object = payload.getDynamicObject(); object != nullptr)
+    {
+        auto const level = object->getProperty("level").toString();
+        auto const message = object->getProperty("message").toString();
+        auto const detail = object->getProperty("detail").toString();
+        return "XenSequencer WebView debug [" + level + "]: " + message +
+               (detail.isNotEmpty() ? "\n" + detail : "");
+    }
+
+    return "XenSequencer WebView debug: " + payload.toString();
+}
+
 auto mime_type_for_path(juce::String path) -> juce::String
 {
-    auto const extension = path.fromLastOccurrenceOf(".", false, false).toLowerCase();
+    auto const extension = juce::File{path}.getFileExtension().toLowerCase();
 
     if (extension == ".html" || extension == ".htm")
         return "text/html; charset=utf-8";
@@ -151,6 +226,31 @@ auto resource_path_matches_embedded_file(juce::String const &normalized_request_
     }
 
     return false;
+}
+
+auto embedded_resource_manifest_summary() -> juce::String
+{
+    auto summary = juce::String{};
+
+    for (auto i = 0; i < embed_webui::namedResourceListSize; ++i)
+    {
+        auto const *resource_name = embed_webui::namedResourceList[i];
+        auto const *original_filename =
+            embed_webui::getNamedResourceOriginalFilename(resource_name);
+        auto size = 0;
+        (void)embed_webui::getNamedResource(resource_name, size);
+
+        summary += "\n  ";
+        summary += resource_name != nullptr ? resource_name : "<null resource>";
+        summary += " <- ";
+        summary += original_filename != nullptr ? original_filename
+                                                : "<null original filename>";
+        summary += " (";
+        summary += juce::String{size};
+        summary += " bytes)";
+    }
+
+    return summary;
 }
 
 #endif
@@ -301,6 +401,12 @@ WebviewHost::WebviewHost(XenProcessor &processor)
         });
 #else
     browser_ = std::make_unique<juce::WebBrowserComponent>(create_browser_options());
+    append_webview_error_log(
+        juce::String{"XenSequencer embedded WebView startup"} +
+        "\nresource_provider_root: " +
+        juce::WebBrowserComponent::getResourceProviderRoot() +
+        "\ndist_root: " + juce::String{XEN_WEB_UI_DIST_DIR} +
+        "\nembedded_resources:" + embedded_resource_manifest_summary());
 #endif
 
     this->addAndMakeVisible(*browser_);
@@ -381,13 +487,17 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
                     {
                         append_webview_error_log(
                             juce::String{"XenSequencer WebView bridge exception: "} +
-                            error.what() + "\nraw_request: " +
-                            truncate_for_log(request_json));
+                            error.what() +
+                            "\nraw_request: " + truncate_for_log(request_json));
                         throw;
                     }
                 });
 
 #if XEN_WEB_UI_USE_EMBEDDED
+    options = options.withEventListener("xenWebviewDebug", [](juce::var payload) {
+        append_webview_error_log(debug_payload_to_log_message(payload));
+    });
+    options = options.withUserScript(webview_debug_script());
     options = options.withResourceProvider([this](juce::String const &resource_path) {
         return provide_embedded_resource(resource_path);
     });
@@ -400,13 +510,21 @@ auto WebviewHost::create_browser_options() -> juce::WebBrowserComponent::Options
 auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) const
     -> std::optional<juce::WebBrowserComponent::Resource>
 {
+    append_webview_error_log("XenSequencer embedded WebView resource request: " +
+                             resource_path);
+
     auto const normalized_opt = normalize_resource_path(resource_path);
     if (!normalized_opt.has_value())
     {
+        append_webview_error_log("XenSequencer embedded WebView resource rejected: " +
+                                 resource_path);
         return std::nullopt;
     }
 
     auto const normalized = *normalized_opt;
+    append_webview_error_log("XenSequencer embedded WebView normalized path: " +
+                             normalized);
+
     auto const dist_root = juce::File{XEN_WEB_UI_DIST_DIR};
 
     for (auto i = 0; i < embed_webui::namedResourceListSize; ++i)
@@ -434,6 +552,10 @@ auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) c
         auto const *data = embed_webui::getNamedResource(resource_name, size);
         if (data == nullptr || size <= 0)
         {
+            append_webview_error_log(
+                "XenSequencer embedded WebView resource data unavailable: " +
+                normalized + "\nresource_name: " + resource_name +
+                "\noriginal_filename: " + original_filename);
             return std::nullopt;
         }
 
@@ -441,12 +563,21 @@ auto WebviewHost::provide_embedded_resource(juce::String const &resource_path) c
         bytes.resize((std::size_t)size);
         std::memcpy(bytes.data(), data, (std::size_t)size);
 
+        append_webview_error_log("XenSequencer embedded WebView resource hit: " +
+                                 normalized + "\nresource_name: " + resource_name +
+                                 "\noriginal_filename: " + original_filename +
+                                 "\nrelative_path: " + relative_path +
+                                 "\nmime_type: " + mime_type_for_path(normalized) +
+                                 "\nsize: " + juce::String{size});
+
         return juce::WebBrowserComponent::Resource{
             .data = std::move(bytes),
             .mimeType = mime_type_for_path(normalized),
         };
     }
 
+    append_webview_error_log("XenSequencer embedded WebView resource miss: " +
+                             normalized + "\nraw_request: " + resource_path);
     return std::nullopt;
 }
 #endif
