@@ -19,10 +19,10 @@ TEST_CASE("Effect failures leave backend state unchanged and report rollback fai
     REQUIRE(tunings.createDirectory());
     auto const settings_file = directory.getChildFile("workspace.json");
     REQUIRE(settings_file.replaceWithText(
-        "{\"schema\":1,\"sequence_directory\":\"" +
+        "{\"schema\":2,\"content_directory\":\"" +
         directory.getFullPathName().toStdString() + "\",\"tuning_directory\":\"" +
         tunings.getFullPathName().toStdString() + "\"}"));
-    REQUIRE(directory.getChildFile("effect-test.xss").replaceWithText("baseline"));
+    REQUIRE(directory.getChildFile("effect-test.xencell").replaceWithText("baseline"));
 
     for (auto const failure : {SubmissionEffects::FailurePoint::Prepare,
                                SubmissionEffects::FailurePoint::Apply,
@@ -32,7 +32,7 @@ TEST_CASE("Effect failures leave backend state unchanged and report rollback fai
             SequencerSession{failure, settings_file.getFullPathName().toStdString()};
         auto const before = session.project_snapshot();
         auto const result = session.execute_command_string(
-            "save measure effect-test",
+            "save cell effect-test",
             {.expected_project_revision = before.project_revision});
 
         CHECK(result.status.first == MessageLevel::Error);

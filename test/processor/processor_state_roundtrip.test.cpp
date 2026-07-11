@@ -45,7 +45,7 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
                 .status.first == MessageLevel::Info);
     REQUIRE(source.session()
                 .execute_command_string(
-                    "set measure timeSignature 7/8",
+                    "set duration 7/8",
                     {.expected_project_revision =
                          source.session().project_snapshot().project_revision})
                 .status.first == MessageLevel::Info);

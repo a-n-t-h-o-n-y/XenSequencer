@@ -40,7 +40,8 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
            float velocity, float delay, float gate) {
             auto state = context.project();
             state = increment_state(
-                std::move(state), require_selection(context.execution),
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
                 [](auto selected, int note_pitch, float note_velocity, float note_delay,
                    float note_gate) {
                     auto note = sequence::modify::note(note_pitch, note_velocity,
@@ -61,16 +62,17 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
             return unchanged_selection_result(minfo("Note Created"), context.execution);
         }));
 
-    specs.push_back(command(
-        {"delete"}, false, "Delete the current selection.", {"remove"},
-        targeted_edit_policy, std::make_tuple(),
-        [](CommandHandlerContext &context, CommandInvocation const &) {
-            auto state = context.project();
-            auto const mutation =
-                action::delete_cell(state, require_selection(context.execution));
-            context.edit_project() = std::move(state);
-            return make_result(minfo("Deleted Selection"), mutation.selection);
-        }));
+    specs.push_back(
+        command({"delete"}, false, "Delete the current selection.", {"remove"},
+                targeted_edit_policy, std::make_tuple(),
+                [](CommandHandlerContext &context, CommandInvocation const &) {
+                    auto state = context.project();
+                    auto const mutation =
+                        action::delete_cell(state, context.execution.cursor,
+                                            require_selection(context.execution));
+                    context.edit_project() = std::move(state);
+                    return make_result(minfo("Deleted Selection"), mutation.selection);
+                }));
 
     specs.push_back(
         command({"split"}, false, "Split the current selection.", targeted_edit_policy,
@@ -79,7 +81,8 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
                    std::size_t count) {
                     auto state = context.project();
                     state = increment_state(
-                        std::move(state), require_selection(context.execution),
+                        std::move(state), context.execution.cursor,
+                        require_selection(context.execution),
                         [](auto target, std::size_t repeat_count) {
                             return sequence::modify::repeat(target, repeat_count);
                         },
@@ -95,8 +98,8 @@ void append_edit_specs(std::vector<CommandSpec> &specs)
         targeted_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto const mutation =
-                action::lift(state, require_selection(context.execution));
+            auto const mutation = action::lift(state, context.execution.cursor,
+                                               require_selection(context.execution));
             context.edit_project() = std::move(state);
             return make_result(minfo("Selection Lifted One Layer"), mutation.selection);
         }));

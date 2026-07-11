@@ -75,7 +75,7 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
         .library = ContentLibrary{},
         .workspace =
             WorkspaceSettings{
-                .sequence_directory =
+                .content_directory =
                     std::filesystem::path{
                         juce::File::getSpecialLocation(juce::File::tempDirectory)
                             .getFullPathName()
@@ -206,15 +206,21 @@ class FakeLibraryFilePort final : public bridge::LibraryFilePort
         return "/fake/library";
     }
 
-    [[nodiscard]] auto measure_files(std::filesystem::path const &) const
+    [[nodiscard]] auto cell_files(std::filesystem::path const &) const
         -> std::vector<bridge::LibraryFileEntry> override
     {
         return {{
-            .name = "measure.xss",
-            .relative_path = "folder/measure.xss",
-            .stem = "folder/measure",
-            .path = "/fake/sequences/folder/measure.xss",
+            .name = "cell.xencell",
+            .relative_path = "folder/cell.xencell",
+            .stem = "folder/cell",
+            .path = "/fake/content/folder/cell.xencell",
         }};
+    }
+
+    [[nodiscard]] auto composition_files(std::filesystem::path const &) const
+        -> std::vector<bridge::LibraryFileEntry> override
+    {
+        return {};
     }
 
     [[nodiscard]] auto tuning_files(std::filesystem::path const &) const
@@ -280,7 +286,7 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.at("project_schema_version") == bridge::project_schema_version);
     CHECK(payload.at("library_schema_version") == bridge::library_schema_version);
     CHECK(payload.contains("catalog"));
-    CHECK(payload.at("catalog").at("schema_version") == 2);
+    CHECK(payload.at("catalog").at("schema_version") == 3);
     for (auto const &command : payload.at("catalog").at("commands"))
     {
         for (auto const &argument : command.at("arguments"))
@@ -326,7 +332,7 @@ TEST_CASE("Bridge project and library resources are separated", "[core][bridge]"
     CHECK(library.contains("library_revision"));
     CHECK(library.contains("scales"));
     CHECK(library.contains("chords"));
-    CHECK(library.contains("measures"));
+    CHECK(library.contains("cells"));
     CHECK(library.contains("tunings"));
     CHECK(library.contains("paths"));
     CHECK_FALSE(library.contains("project"));
@@ -338,12 +344,14 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
     auto session = make_session();
     auto host_bridge = make_bridge(session);
     auto const revision = session.project_snapshot().project_revision.value();
-    auto const message =
-        response(host_bridge, "command.execute",
-                 {
-                     {"command", "set key 7"},
-                     {"context", {{"expected_project_revision", revision}}},
-                 });
+    auto const message = response(
+        host_bridge, "command.execute",
+        {
+            {"command", "set key 7"},
+            {"context",
+             {{"expected_project_revision", revision},
+              {"cursor", {{"row_index", 0}, {"column_index", 0}, {"sequence_id", 1}}}}},
+        });
 
     auto const &payload = message.at("payload");
     CHECK(payload.at("status").at("level") == "info");
@@ -467,11 +475,11 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
                            {
                                {"expected_project_revision", 7},
                                {"selection", {{"path", nlohmann::json::array()}}},
-                               {"active_measure_target",
+                               {"cursor",
                                 {
                                     {"row_index", 0},
                                     {"column_index", 1},
-                                    {"measure_id", 2},
+                                    {"sequence_id", 2},
                                 }},
                            }},
                       })
@@ -482,10 +490,9 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
     CHECK(application.executed_context.expected_project_revision->value() == 7);
     REQUIRE(application.executed_context.selection.has_value());
     CHECK(application.executed_context.selection->path.empty());
-    REQUIRE(application.executed_context.active_measure_target.has_value());
-    CHECK(application.executed_context.active_measure_target->row_index == 0);
-    CHECK(application.executed_context.active_measure_target->column_index == 1);
-    CHECK(application.executed_context.active_measure_target->measure_id == 2);
+    CHECK(application.executed_context.cursor.row_index == 0);
+    CHECK(application.executed_context.cursor.column_index == 1);
+    CHECK(application.executed_context.cursor.sequence_id == 2);
 
     auto const library_payload = fake_response(dispatcher, "library.get").at("payload");
     CHECK(library_payload.at("fake_library") == true);
@@ -500,7 +507,7 @@ TEST_CASE("Bridge library payload uses file port entries", "[core][bridge]")
         .library = ContentLibrary{},
         .workspace =
             WorkspaceSettings{
-                .sequence_directory = "/fake/sequences",
+                .content_directory = "/fake/sequences",
                 .tuning_directory = "/fake/tunings",
             },
         .library_revision = LibraryRevision{12},
@@ -508,9 +515,8 @@ TEST_CASE("Bridge library payload uses file port entries", "[core][bridge]")
 
     auto const payload = service.make_payload(snapshot);
     CHECK(payload.at("paths").at("library") == "/fake/library");
-    REQUIRE(payload.at("measures").size() == 1);
-    CHECK(payload.at("measures").front().at("command") ==
-          "load measure \"folder/measure\"");
+    REQUIRE(payload.at("cells").size() == 1);
+    CHECK(payload.at("cells").front().at("command") == "load cell \"folder/cell\"");
     REQUIRE(payload.at("tunings").size() == 1);
     CHECK(payload.at("tunings").front().at("description") == "fake tuning");
 }

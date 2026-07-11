@@ -15,7 +15,7 @@ namespace xen
 /**
  * Converts the state of the plugin to a timeline of timed MIDI notes.
  *
- * @param measure The measure to convert.
+ * @param cell The cell to convert.
  * @param tuning The tuning to use.
  * @param base_frequency The base frequency of the tuning.
  * @param daw_state The state of the DAW.
@@ -23,8 +23,8 @@ namespace xen
  * @param scale_translate_direction The direction to move a pitch when applying a scale.
  * @return std::vector<sequence::midi::TimedMidiNote>
  */
-[[nodiscard]] auto state_to_timeline(Measure measure,
-                                     sequence::TimeSignature measure_length,
+[[nodiscard]] auto state_to_timeline(sequence::Cell cell,
+                                     sequence::TimeSignature duration,
                                      sequence::Tuning const &tuning,
                                      float base_frequency, DAWState const &daw_state,
                                      std::optional<Scale> const &scale, int key,

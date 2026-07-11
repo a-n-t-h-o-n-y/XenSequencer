@@ -64,7 +64,6 @@ auto resolve_chord_cycle(std::vector<Chord> const &chords, TransformCycleSession
 
 auto persistent_project(ProjectState project) -> ProjectState
 {
-    project.active_measure_target = std::nullopt;
     return project;
 }
 
@@ -207,7 +206,7 @@ auto CommandHandlerContext::prepare_transform(TransformKind kind,
         throw std::logic_error{"Resolved target is required."};
     }
     return project_edit->transaction_.prepare_transform(
-        kind, *execution.selection, std::move(chord_name), inversion);
+        kind, execution.cursor, *execution.selection, std::move(chord_name), inversion);
 }
 
 CommandTransaction::CommandTransaction(PluginState &state,
@@ -287,6 +286,7 @@ auto CommandTransaction::effects() noexcept -> SubmissionEffects &
 }
 
 auto CommandTransaction::prepare_transform(TransformKind kind,
+                                           CompositionCursor const &cursor,
                                            SelectionPath const &selection,
                                            std::string chord_name, int inversion)
     -> TransformInputs
@@ -301,23 +301,21 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
         sessions_->transform_cycle.has_value() &&
         sessions_->transform_cycle->kind == kind &&
         sessions_->transform_cycle->target == selection &&
-        sessions_->transform_cycle->active_measure_target ==
-            project().active_measure_target &&
+        sessions_->transform_cycle->cursor == cursor &&
         sessions_->transform_cycle->project_revision == revision &&
         sessions_->transform_cycle->history_entry_id == entry_id &&
         sessions_->transform_cycle->library_revision == state_.library_revision;
     if (!compatible)
     {
-        auto baseline =
-            selection_kind(selection) == SelectionKind::Element
-                ? TargetSnapshot{get_selected_element_const(default_measure(project()),
-                                                            selection)}
-                : TargetSnapshot{
-                      get_selected_cell_const(default_measure(project()), selection)};
+        auto baseline = selection_kind(selection) == SelectionKind::Element
+                            ? TargetSnapshot{get_selected_element_const(
+                                  selected_sequence(project(), cursor), selection)}
+                            : TargetSnapshot{get_selected_cell_const(
+                                  selected_sequence(project(), cursor), selection)};
         sessions_->transform_cycle = TransformCycleSession{
             .kind = kind,
             .target = selection,
-            .active_measure_target = project().active_measure_target,
+            .cursor = cursor,
             .baseline = std::move(baseline),
             .project_revision = revision,
             .history_entry_id = entry_id,
@@ -332,12 +330,12 @@ auto CommandTransaction::prepare_transform(TransformKind kind,
     auto baseline_project = project();
     if (std::holds_alternative<sequence::Cell>(cycle.baseline))
     {
-        get_selected_cell(default_measure(baseline_project), selection) =
+        get_selected_cell(selected_sequence(baseline_project, cursor), selection) =
             std::get<sequence::Cell>(cycle.baseline);
     }
     else
     {
-        get_selected_element(default_measure(baseline_project), selection) =
+        get_selected_element(selected_sequence(baseline_project, cursor), selection) =
             std::get<sequence::MusicElement>(cycle.baseline);
     }
     if (compatible && cycle.committed)

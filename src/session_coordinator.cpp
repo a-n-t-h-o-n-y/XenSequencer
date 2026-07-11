@@ -178,9 +178,10 @@ void SessionCoordinator::ensure_channel_row(ChannelId const &channel_id)
     if (found == rows.end())
     {
         auto const row_index = rows.size();
-        auto const measure_id = create_measure(project.measure_bank, Measure{});
+        auto const sequence_id =
+            create_sequence(project.sequence_bank, sequence::Cell{});
         insert_row(project.composition, rows.size(), channel_id);
-        assign_measure_reference(project.composition, row_index, 0, measure_id);
+        assign_sequence_reference(project.composition, row_index, 0, sequence_id);
         session_.replace_project_history_and_binding(std::move(project),
                                                      session_.instance_binding());
     }

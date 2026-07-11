@@ -97,15 +97,17 @@ TEST_CASE("Plugin state loading rejects scale values before narrowing",
           "[numeric][scale][serialize]")
 {
     auto state = xen::ProjectState{};
-    state.pitch.scale =
+    state.composition.columns.front().pitch.scale =
         xen::ActiveScale{.source_id = std::nullopt, .definition = valid_scale()};
     auto json = nlohmann::json::parse(xen::serialize_project(state));
 
-    json["project"]["pitch"]["scale"]["definition"]["intervals"][0] = 256;
+    json["project"]["composition"]["columns"][0]["pitch"]["scale"]["definition"]
+        ["intervals"][0] = 256;
     CHECK_THROWS_AS(xen::deserialize_project(json.dump()), std::invalid_argument);
 
     json = nlohmann::json::parse(xen::serialize_project(state));
-    json["project"]["pitch"]["scale"]["definition"]["mode"] = 257;
+    json["project"]["composition"]["columns"][0]["pitch"]["scale"]["definition"]
+        ["mode"] = 257;
     CHECK_THROWS_AS(xen::deserialize_project(json.dump()), std::invalid_argument);
 }
 
@@ -114,8 +116,10 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
 {
     auto const all = sequence::Pattern{0, {1}};
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = one_note_cell(std::numeric_limits<int>::max());
-    CHECK_THROWS_AS(xen::action::shift_octave(engine, xen::SelectionPath{}, all, 1),
+    selected_sequence(engine, xen::CompositionCursor{}) =
+        one_note_cell(std::numeric_limits<int>::max());
+    CHECK_THROWS_AS(xen::action::shift_octave(engine, xen::CompositionCursor{},
+                                              xen::SelectionPath{}, all, 1),
                     std::overflow_error);
     CHECK_THROWS_AS(xen::action::arp(one_note_cell(0), all, {}), std::invalid_argument);
     CHECK_THROWS_AS(
@@ -130,8 +134,9 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
                     std::overflow_error);
 
     engine = xen::ProjectState{};
-    default_measure(engine).cell = one_note_cell(0);
-    CHECK_THROWS_AS(xen::action::set_note_octave(engine, xen::SelectionPath{}, all,
+    selected_sequence(engine, xen::CompositionCursor{}) = one_note_cell(0);
+    CHECK_THROWS_AS(xen::action::set_note_octave(engine, xen::CompositionCursor{},
+                                                 xen::SelectionPath{}, all,
                                                  std::numeric_limits<int>::max()),
                     std::overflow_error);
 }
@@ -202,7 +207,7 @@ TEST_CASE("MIDI timing rejects unsupported signed sample positions", "[numeric][
         buffer, 64, std::numeric_limits<xen::SampleIndex>::max() - 100,
         std::numeric_limits<xen::SampleIndex>::max() - 50));
 
-    CHECK_THROWS_AS(xen::midi_internal::checked_measure_sample_count(
+    CHECK_THROWS_AS(xen::midi_internal::checked_duration_sample_count(
                         sequence::TimeSignature{4, 4},
                         std::numeric_limits<std::uint32_t>::max(), 1.f),
                     std::overflow_error);

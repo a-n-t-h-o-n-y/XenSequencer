@@ -21,12 +21,13 @@ struct CommandContext
 {
     std::optional<SelectionPath> selection{};
     std::optional<ProjectRevision> expected_project_revision{};
-    std::optional<ActiveMeasureTarget> active_measure_target{};
+    CompositionCursor cursor{};
 };
 
 struct CommandExecutionContext
 {
     std::optional<SelectionPath> selection{};
+    CompositionCursor cursor{};
 };
 
 enum class CatalogBindErrorKind : std::uint8_t

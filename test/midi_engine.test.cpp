@@ -20,12 +20,16 @@ namespace
     -> sequence::midi::TimedMidiNote
 {
     auto const timeline = xen::state_to_timeline(
-        default_measure(engine), default_measure_length(engine),
-        engine.pitch.tuning.definition, engine.pitch.base_frequency, daw,
-        engine.pitch.scale.has_value()
-            ? std::optional<xen::Scale>{engine.pitch.scale->definition}
+        selected_sequence(engine, xen::CompositionCursor{}),
+        selected_duration(engine, xen::CompositionCursor{}),
+        engine.composition.columns.front().pitch.tuning.definition,
+        engine.composition.columns.front().pitch.base_frequency, daw,
+        engine.composition.columns.front().pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.composition.columns.front()
+                                            .pitch.scale->definition}
             : std::nullopt,
-        engine.pitch.transposition, engine.pitch.translation_direction);
+        engine.composition.columns.front().pitch.transposition,
+        engine.composition.columns.front().pitch.translation_direction);
     if (timeline.empty())
     {
         return {};
@@ -49,18 +53,19 @@ namespace
     -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = {
+    selected_sequence(engine, xen::CompositionCursor{}) = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = velocity}},
         .weight = 1.f,
     };
-    engine.pitch.tuning.definition = make_tuning_with_offset(cents);
+    engine.composition.columns.front().pitch.tuning.definition =
+        make_tuning_with_offset(cents);
     return engine;
 }
 
 [[nodiscard]] auto make_two_note_tuning_engine(float cents) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = {
+    selected_sequence(engine, xen::CompositionCursor{}) = {
         .elements =
             {
                 sequence::Note{.pitch = 0, .velocity = 0.75f},
@@ -68,7 +73,8 @@ namespace
             },
         .weight = 1.f,
     };
-    engine.pitch.tuning.definition = make_tuning_with_offset(cents);
+    engine.composition.columns.front().pitch.tuning.definition =
+        make_tuning_with_offset(cents);
     return engine;
 }
 
@@ -111,7 +117,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_sustained_note_engine(int pitch) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = {
+    selected_sequence(engine, xen::CompositionCursor{}) = {
         .elements = {sequence::Note{.pitch = pitch, .velocity = 0.75f}},
         .weight = 1.f,
     };
@@ -121,7 +127,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_empty_engine() -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = {
+    selected_sequence(engine, xen::CompositionCursor{}) = {
         .elements = {},
         .weight = 1.f,
     };
@@ -131,7 +137,7 @@ struct CapturedEvent
 [[nodiscard]] auto make_second_half_note_engine(int pitch) -> xen::ProjectState
 {
     auto engine = xen::ProjectState{};
-    default_measure(engine).cell = {
+    selected_sequence(engine, xen::CompositionCursor{}) = {
         .elements = {sequence::Sequence{{
             {.elements = {}, .weight = 1.f},
             {.elements = {sequence::Note{.pitch = pitch, .velocity = 0.75f}},
@@ -146,12 +152,16 @@ struct CapturedEvent
                                      xen::DAWState const &daw) -> int
 {
     auto const timeline = xen::state_to_timeline(
-        default_measure(engine), default_measure_length(engine),
-        engine.pitch.tuning.definition, engine.pitch.base_frequency, daw,
-        engine.pitch.scale.has_value()
-            ? std::optional<xen::Scale>{engine.pitch.scale->definition}
+        selected_sequence(engine, xen::CompositionCursor{}),
+        selected_duration(engine, xen::CompositionCursor{}),
+        engine.composition.columns.front().pitch.tuning.definition,
+        engine.composition.columns.front().pitch.base_frequency, daw,
+        engine.composition.columns.front().pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.composition.columns.front()
+                                            .pitch.scale->definition}
             : std::nullopt,
-        engine.pitch.transposition, engine.pitch.translation_direction);
+        engine.composition.columns.front().pitch.transposition,
+        engine.composition.columns.front().pitch.translation_direction);
     if (timeline.size() != 1)
     {
         return -1;
@@ -162,33 +172,28 @@ struct CapturedEvent
 [[nodiscard]] auto make_three_column_project() -> xen::ProjectState
 {
     auto project = xen::ProjectState{};
-    xen::default_measure(project).cell = {
+    xen::selected_sequence(project, xen::CompositionCursor{}) = {
         .elements = {sequence::Note{.pitch = 0, .velocity = 0.75f}},
         .weight = 1.f,
     };
-    xen::set_column_length(project.composition, 0, sequence::TimeSignature{1, 4});
+    xen::set_column_duration(project.composition, 0, sequence::TimeSignature{1, 4});
 
-    auto second = xen::Measure{
-        .cell =
-            {
-                .elements = {sequence::Note{.pitch = 12, .velocity = 0.75f}},
-                .weight = 1.f,
-            },
+    auto second = sequence::Cell{
+        .elements = {sequence::Note{.pitch = 12, .velocity = 0.75f}},
+        .weight = 1.f,
     };
-    auto third = xen::Measure{
-        .cell =
-            {
-                .elements = {sequence::Note{.pitch = 24, .velocity = 0.75f}},
-                .weight = 1.f,
-            },
+    auto third = sequence::Cell{
+        .elements = {sequence::Note{.pitch = 24, .velocity = 0.75f}},
+        .weight = 1.f,
     };
-    auto const second_id = xen::create_measure(project.measure_bank, std::move(second));
-    auto const third_id = xen::create_measure(project.measure_bank, std::move(third));
+    auto const second_id =
+        xen::create_sequence(project.sequence_bank, std::move(second));
+    auto const third_id = xen::create_sequence(project.sequence_bank, std::move(third));
 
     xen::insert_column(project.composition, 1, sequence::TimeSignature{1, 4});
     xen::insert_column(project.composition, 2, sequence::TimeSignature{1, 4});
-    xen::assign_measure_reference(project.composition, 0, 1, second_id);
-    xen::assign_measure_reference(project.composition, 0, 2, third_id);
+    xen::assign_sequence_reference(project.composition, 0, 1, second_id);
+    xen::assign_sequence_reference(project.composition, 0, 2, third_id);
     xen::set_loop_start(project.composition, 0);
     xen::set_loop_end(project.composition, 2);
     return project;
@@ -236,21 +241,18 @@ TEST_CASE("MidiEngine renders only rows assigned to requested output",
           "[midi][midi-engine][composition]")
 {
     auto project = xen::ProjectState{};
-    default_measure(project).cell = {
+    selected_sequence(project, xen::CompositionCursor{}) = {
         .elements = {sequence::Note{.pitch = 0, .velocity = 0.75f}},
         .weight = 1.f,
     };
-    auto peer_measure = xen::Measure{
-        .cell =
-            {
-                .elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
-                .weight = 1.f,
-            },
+    auto peer_measure = sequence::Cell{
+        .elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
+        .weight = 1.f,
     };
     auto const peer_id =
-        xen::create_measure(project.measure_bank, std::move(peer_measure));
+        xen::create_sequence(project.sequence_bank, std::move(peer_measure));
     xen::insert_row(project.composition, 1, "peer");
-    xen::assign_measure_reference(project.composition, 1, 0, peer_id);
+    xen::assign_sequence_reference(project.composition, 1, 0, peer_id);
 
     auto const daw = playing_daw_state();
     auto engine = xen::MidiEngine{};

@@ -58,7 +58,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
            std::size_t count) {
             auto state = context.project();
             state = increment_state(
-                std::move(state), require_selection(context.execution),
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
                 [](auto target, sequence::Pattern const &pattern,
                    std::size_t repeat_count) {
                     return sequence::modify::stretch(target, pattern, repeat_count);
@@ -81,7 +82,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
             }
             auto state = context.project();
             state = increment_state(
-                std::move(state), require_selection(context.execution),
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
                 [](auto target, sequence::Pattern const &pattern) {
                     return sequence::modify::compress(target, pattern);
                 },
@@ -97,7 +99,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     auto state = context.project();
                     state = increment_state(
-                        std::move(state), require_selection(context.execution),
+                        std::move(state), context.execution.cursor,
+                        require_selection(context.execution),
                         [](auto target) { return sequence::modify::shuffle(target); });
                     context.edit_project() = std::move(state);
                     return unchanged_selection_result(minfo("Selection Shuffled"),
@@ -110,7 +113,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
             state = increment_state(
-                std::move(state), require_selection(context.execution),
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
                 [](auto target, int rotation) {
                     return sequence::modify::rotate(target, rotation);
                 },
@@ -126,7 +130,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     auto state = context.project();
                     state = increment_state(
-                        std::move(state), require_selection(context.execution),
+                        std::move(state), context.execution.cursor,
+                        require_selection(context.execution),
                         [](auto target) { return sequence::modify::reverse(target); });
                     context.edit_project() = std::move(state);
                     return unchanged_selection_result(minfo("Selection Reversed"),
@@ -140,7 +145,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                    int center_pitch) {
                     auto state = context.project();
                     state = increment_state(
-                        std::move(state), require_selection(context.execution),
+                        std::move(state), context.execution.cursor,
+                        require_selection(context.execution),
                         [](auto target, sequence::Pattern const &pattern, int center) {
                             return sequence::modify::mirror(target, pattern, center);
                         },
@@ -160,7 +166,8 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
            int pitch_distance, float velocity_distance) {
             auto state = context.project();
             state = increment_state(
-                std::move(state), require_selection(context.execution),
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
                 [](auto target, sequence::Pattern const &pattern, int pitch_offset,
                    float velocity_offset) {
                     return action::step(target, pattern, pitch_offset, velocity_offset);
@@ -181,11 +188,11 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                                     std::move(chord_name), inversion);
             auto state = std::move(inputs.baseline);
             auto const chord = find_chord(context.library().chords, inputs.chord_name);
-            auto const intervals =
-                invert_chord(chord, inputs.inversion,
-                             state.pitch.tuning.definition.intervals.size());
+            auto const &pitch = selected_column(state, context.execution.cursor).pitch;
+            auto const intervals = invert_chord(
+                chord, inputs.inversion, pitch.tuning.definition.intervals.size());
             state = increment_state(
-                std::move(state), inputs.selection,
+                std::move(state), context.execution.cursor, inputs.selection,
                 [](auto target, sequence::Pattern const &pattern,
                    std::vector<int> const &chord_intervals) {
                     return action::arp(target, pattern, chord_intervals);
@@ -209,10 +216,11 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                                                     std::move(chord_name), inversion);
             auto state = std::move(inputs.baseline);
             auto const chord = find_chord(context.library().chords, inputs.chord_name);
-            auto const tuning_size = state.pitch.tuning.definition.intervals.size();
+            auto const tuning_size = selected_column(state, context.execution.cursor)
+                                         .pitch.tuning.definition.intervals.size();
             auto const intervals = invert_chord(chord, inputs.inversion, tuning_size);
             state = increment_state(
-                std::move(state), inputs.selection,
+                std::move(state), context.execution.cursor, inputs.selection,
                 [](sequence::Cell cell, std::vector<int> const &chord_intervals,
                    std::size_t size) {
                     return action::chord(std::move(cell), chord_intervals, size);
@@ -233,13 +241,14 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t requested_octave_size, int offset) {
             auto state = context.project();
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
             auto const octave_size =
                 std::clamp<std::size_t>(requested_octave_size, 1, 128);
-            state.pitch.base_frequency = 440.f;
-            state.pitch.scale = std::nullopt;
+            pitch.base_frequency = 440.f;
+            pitch.scale = std::nullopt;
             auto const a3 = 57;
-            state.pitch.transposition = 23 + offset - a3;
-            state.pitch.tuning.definition = {
+            pitch.transposition = 23 + offset - a3;
+            pitch.tuning.definition = {
                 .intervals =
                     [octave_size] {
                         auto intervals = std::vector<float>{};
@@ -252,7 +261,7 @@ void append_transform_specs(std::vector<CommandSpec> &specs)
                 .octave = 100.f * static_cast<float>(octave_size),
                 .description = "",
             };
-            state.pitch.tuning.name = "Drums (" + std::to_string(octave_size) + ")";
+            pitch.tuning.name = "Drums (" + std::to_string(octave_size) + ")";
             context.edit_project() = std::move(state);
             return make_result(minfo("Drum Mode Active"));
         }));

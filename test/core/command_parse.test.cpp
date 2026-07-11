@@ -28,15 +28,15 @@ auto parse_error(std::string const &input) -> std::string
 TEST_CASE("parse_command_input parses quoted arguments with default pattern",
           "[core][command]")
 {
-    auto const parsed = parse_command_input("load measure \"my seq\"");
+    auto const parsed = parse_command_input("load cell \"my seq\"");
 
     CHECK(parsed.pattern == sequence::Pattern{0, {1}});
     REQUIRE(parsed.words.size() == 3);
     CHECK(parsed.words[0] == "load");
-    CHECK(parsed.words[1] == "measure");
+    CHECK(parsed.words[1] == "cell");
     CHECK(parsed.words[2] == "my seq");
-    CHECK(parsed.word_spans[2].begin == 13);
-    CHECK(parsed.word_spans[2].end == 21);
+    CHECK(parsed.word_spans[2].begin == 10);
+    CHECK(parsed.word_spans[2].end == 18);
 }
 
 TEST_CASE("parse_command_input parses explicit pattern prefix", "[core][command]")
@@ -75,21 +75,20 @@ TEST_CASE(
     "parse_command_chain ignores semicolons inside quoted and structured arguments",
     "[core][command]")
 {
-    auto const quoted_chain =
-        parse_command_chain("load measure \"semi;colon\"; version");
+    auto const quoted_chain = parse_command_chain("load cell \"semi;colon\"; version");
 
     REQUIRE(quoted_chain.size() == 2);
-    CHECK(quoted_chain[0].canonical_segment == "load measure \"semi;colon\"");
+    CHECK(quoted_chain[0].canonical_segment == "load cell \"semi;colon\"");
     REQUIRE(quoted_chain[0].input.words.size() == 3);
     CHECK(quoted_chain[0].input.words[2] == "semi;colon");
     CHECK(quoted_chain[1].canonical_segment == "version");
 
     auto const structured_chain =
-        parse_command_chain("load measure {\"label\":\"semi;colon\"}; version");
+        parse_command_chain("load cell {\"label\":\"semi;colon\"}; version");
 
     REQUIRE(structured_chain.size() == 2);
     CHECK(structured_chain[0].canonical_segment ==
-          "load measure {\"label\":\"semi;colon\"}");
+          "load cell {\"label\":\"semi;colon\"}");
     REQUIRE(structured_chain[0].input.words.size() == 3);
     CHECK(structured_chain[0].input.words[2] == "{\"label\":\"semi;colon\"}");
     CHECK(structured_chain[1].canonical_segment == "version");
@@ -116,6 +115,6 @@ TEST_CASE("strict command parsing reports malformed syntax offsets", "[core][com
     CHECK(parse_error("version \"oops") == "Unterminated quoted string at offset 8");
     CHECK(parse_error("version \"oops\\") ==
           "Dangling escape in quoted string at offset 13");
-    CHECK(parse_error("load measure {x") == "Unmatched opening brace at offset 13");
+    CHECK(parse_error("load cell {x") == "Unmatched opening brace at offset 10");
     CHECK(parse_error("version }") == "Unexpected closing brace at offset 8");
 }

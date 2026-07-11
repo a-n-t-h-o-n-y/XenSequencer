@@ -46,8 +46,9 @@ void log_json_command_exception(std::string const &command_string,
     }
     message += "\nselection: ";
     message += context.selection.has_value() ? "present" : "none";
-    message += "\nactive_measure_target: ";
-    message += context.active_measure_target.has_value() ? "present" : "none";
+    message += juce::String{"\ncursor: "} +
+               juce::String{static_cast<juce::int64>(context.cursor.row_index)} + "," +
+               juce::String{static_cast<juce::int64>(context.cursor.column_index)};
     juce::Logger::writeToLog(message);
 
     try
@@ -63,7 +64,8 @@ void log_json_command_exception(std::string const &command_string,
 
 auto validate_selection_target(xen::TargetRequirement requirement,
                                std::optional<xen::SelectionPath> const &selection,
-                               xen::Measure const &measure)
+                               xen::ProjectState const &project,
+                               xen::CompositionCursor const &cursor)
     -> std::optional<xen::CommandApplicationResult>
 {
     using enum xen::TargetRequirement;
@@ -79,22 +81,23 @@ auto validate_selection_target(xen::TargetRequirement requirement,
 
     try
     {
+        auto const &cell = xen::selected_sequence(project, cursor);
         switch (requirement)
         {
         case Cell:
-            (void)xen::get_selected_cell_const(measure, *selection);
+            (void)xen::get_selected_cell_const(cell, *selection);
             return std::nullopt;
         case Element:
-            (void)xen::get_selected_element_const(measure, *selection);
+            (void)xen::get_selected_element_const(cell, *selection);
             return std::nullopt;
         case CellOrElement:
             if (xen::selection_kind(*selection) == xen::SelectionKind::Element)
             {
-                (void)xen::get_selected_element_const(measure, *selection);
+                (void)xen::get_selected_element_const(cell, *selection);
             }
             else
             {
-                (void)xen::get_selected_cell_const(measure, *selection);
+                (void)xen::get_selected_cell_const(cell, *selection);
             }
             return std::nullopt;
         case None:
@@ -254,18 +257,14 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         }
 
         auto transaction = CommandTransaction{state_, effect_failure_};
-        if (context.active_measure_target.has_value())
-        {
-            transaction.edit_project().active_measure_target =
-                context.active_measure_target;
-            (void)default_measure(transaction.project());
-        }
+        (void)selected_column(transaction.project(), context.cursor);
         if (history_count == 1)
         {
             transaction.invalidate_transform_sessions();
         }
         auto execution_context = CommandExecutionContext{
             .selection = context.selection,
+            .cursor = context.cursor,
         };
         auto result = CommandApplicationResult{};
         auto const initial_engine = state_.timeline.get_state();
@@ -298,7 +297,7 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             auto const &command = std::get<ExecutableCommand>(step);
             if (auto selection_error = validate_selection_target(
                     command.policy.target, execution_context.selection,
-                    default_measure(transaction.project()));
+                    transaction.project(), execution_context.cursor);
                 selection_error.has_value())
             {
                 return *selection_error;

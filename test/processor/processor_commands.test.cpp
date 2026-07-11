@@ -94,30 +94,30 @@ TEST_CASE("Processor applies selected-measure commands to active composition tar
             MessageLevel::Info);
 
     auto const before = session.project_snapshot();
-    auto const measure_id =
-        measure_reference_at(before.project.composition, 0, 1).value();
-    REQUIRE(measure_id != measure_reference_at(before.project.composition, 0, 0));
+    auto const sequence_id =
+        sequence_reference_at(before.project.composition, 0, 1).value();
+    REQUIRE(sequence_id != sequence_reference_at(before.project.composition, 0, 0));
 
     auto const result = session.execute_command_string(
         "note 7", {
                       .selection = SelectionPath{},
                       .expected_project_revision = before.project_revision,
-                      .active_measure_target =
-                          ActiveMeasureTarget{
+                      .cursor =
+                          xen::CompositionCursor{
                               .row_index = 0,
                               .column_index = 1,
-                              .measure_id = measure_id,
+                              .sequence_id = sequence_id,
                           },
                   });
 
     REQUIRE(result.status.first == MessageLevel::Info);
     auto const &project = session.project_snapshot().project;
-    CHECK(default_measure(project).cell.elements.empty());
+    CHECK(selected_sequence(project, xen::CompositionCursor{}).elements.empty());
 
-    auto const *active_measure = find_measure(project.measure_bank, measure_id);
+    auto const *active_measure = find_sequence(project.sequence_bank, sequence_id);
     REQUIRE(active_measure != nullptr);
-    REQUIRE(active_measure->cell.elements.size() == 1);
-    auto const &note = std::get<sequence::Note>(active_measure->cell.elements[0]);
+    REQUIRE(active_measure->elements.size() == 1);
+    auto const &note = std::get<sequence::Note>(active_measure->elements[0]);
     CHECK(note.pitch == 7);
 }
 

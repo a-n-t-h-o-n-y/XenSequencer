@@ -37,5 +37,5 @@ TEST_CASE("Mutating commands advance history identity and project revision",
     auto const after = session.project_snapshot();
     CHECK(after.history_entry_id != initial.history_entry_id);
     CHECK(after.project_revision != initial.project_revision);
-    CHECK(after.project.pitch.transposition == 12);
+    CHECK(after.project.composition.columns.front().pitch.transposition == 12);
 }

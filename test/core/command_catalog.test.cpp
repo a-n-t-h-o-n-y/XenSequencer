@@ -123,7 +123,7 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     CHECK(velocity_error.message ==
           "Invalid argument 'velocity': Must be in range [0, 1].");
 
-    auto const missing_invocation = parse_command_chain("load measure")[0];
+    auto const missing_invocation = parse_command_chain("load cell")[0];
     auto const missing_result = bind_invocation(missing_invocation);
     REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
     auto const &missing_error = std::get<CatalogBindError>(missing_result);
@@ -154,7 +154,7 @@ TEST_CASE("Catalog binds non-bootstrap commands to executors",
           "[core][command][catalog]")
 {
     auto const chain =
-        parse_command_chain("set baseFrequency 333; load scales; save measure foo");
+        parse_command_chain("set baseFrequency 333; load scales; save cell foo");
     auto const result = bind_chain(chain);
 
     REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
@@ -237,8 +237,8 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("set key 1").history == HistoryPolicy::Commit);
     CHECK(policy_for("cut").files == FileAccess::Write);
     CHECK(policy_for("paste").files == FileAccess::Read);
-    CHECK(policy_for("load measure example").workspace == WorkspaceAccess::Read);
-    CHECK(policy_for("save measure example").project == ProjectOperation::Read);
+    CHECK(policy_for("load cell example").workspace == WorkspaceAccess::Read);
+    CHECK(policy_for("save cell example").project == ProjectOperation::Read);
     CHECK(policy_for("load chords").library == LibraryAccess::Mutate);
     CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
     CHECK(policy_for("composition loop start 0").history == HistoryPolicy::Commit);
@@ -256,9 +256,8 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("composition column insert after 0").history ==
           HistoryPolicy::Commit);
     CHECK(policy_for("composition column delete 0").project == ProjectOperation::Edit);
-    CHECK(policy_for("composition column length 0 3/4").history ==
-          HistoryPolicy::Commit);
-    CHECK(policy_for("composition cell assign 0 0 M1").project ==
+    CHECK(policy_for("set duration 3/4").history == HistoryPolicy::Commit);
+    CHECK(policy_for("composition cell assign 0 0 S1").project ==
           ProjectOperation::Edit);
     CHECK(policy_for("composition cell clear 0 0").history == HistoryPolicy::Commit);
 
@@ -341,7 +340,7 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
           "[core][command][catalog][bridge]")
 {
     auto const payload = bridge::make_catalog_payload(command_metadata());
-    CHECK(payload.at("schema_version") == 2);
+    CHECK(payload.at("schema_version") == 3);
 
     auto const &commands = payload.at("commands");
     REQUIRE_FALSE(commands.empty());

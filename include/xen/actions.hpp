@@ -11,8 +11,8 @@
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
+#include <sequence/sequence.hpp>
 #include <xen/copy_paste.hpp>
-#include <xen/measure.hpp>
 #include <xen/modulator.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
@@ -34,8 +34,9 @@ namespace xen
  * @throw std::runtime_error If no Cell is selected.
  */
 template <typename Fn, typename... Args>
-[[nodiscard]] auto increment_state(ProjectState state, SelectionPath const &selection,
-                                   Fn &&fn, Args &&...args) -> ProjectState
+[[nodiscard]] auto increment_state(ProjectState state, CompositionCursor const &cursor,
+                                   SelectionPath const &selection, Fn &&fn,
+                                   Args &&...args) -> ProjectState
 {
     constexpr bool supports_cell =
         std::is_invocable_r_v<sequence::Cell, Fn, sequence::Cell, Args...>;
@@ -51,7 +52,8 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_element)
         {
-            auto &selected = get_selected_element(default_measure(state), selection);
+            auto &selected =
+                get_selected_element(selected_sequence(state, cursor), selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -63,7 +65,8 @@ template <typename Fn, typename... Args>
     {
         if constexpr (supports_cell)
         {
-            auto &selected = get_selected_cell(default_measure(state), selection);
+            auto &selected =
+                get_selected_cell(selected_sequence(state, cursor), selection);
             selected = std::forward<Fn>(fn)(selected, std::forward<Args>(args)...);
         }
         else
@@ -85,30 +88,33 @@ struct SelectionMutation
     SelectionPath selection{};
 };
 
-[[nodiscard]] auto copy(ProjectState const &state, SelectionPath const &selection)
-    -> CopyBufferContent;
+[[nodiscard]] auto copy(ProjectState const &state, CompositionCursor const &cursor,
+                        SelectionPath const &selection) -> CopyBufferContent;
 
-[[nodiscard]] auto paste(ProjectState &state, SelectionPath const &selection,
+[[nodiscard]] auto paste(ProjectState &state, CompositionCursor const &cursor,
+                         SelectionPath const &selection,
                          CopyBufferContent const &content) -> SelectionMutation;
 
-[[nodiscard]] auto duplicate(ProjectState &state, SelectionPath const &selection)
-    -> SelectionMutation;
+[[nodiscard]] auto duplicate(ProjectState &state, CompositionCursor const &cursor,
+                             SelectionPath const &selection) -> SelectionMutation;
 
-[[nodiscard]] auto lift(ProjectState &state, SelectionPath const &selection)
-    -> SelectionMutation;
+[[nodiscard]] auto lift(ProjectState &state, CompositionCursor const &cursor,
+                        SelectionPath const &selection) -> SelectionMutation;
 
-[[nodiscard]] auto shift_octave(ProjectState state, SelectionPath const &selection,
+[[nodiscard]] auto shift_octave(ProjectState state, CompositionCursor const &cursor,
+                                SelectionPath const &selection,
                                 sequence::Pattern const &pattern, int amount)
     -> ProjectState;
 
-[[nodiscard]] auto set_note_octave(ProjectState state, SelectionPath const &selection,
+[[nodiscard]] auto set_note_octave(ProjectState state, CompositionCursor const &cursor,
+                                   SelectionPath const &selection,
                                    sequence::Pattern const &pattern, int octave)
     -> ProjectState;
 
-[[nodiscard]] auto delete_cell(ProjectState &state, SelectionPath const &selection)
-    -> SelectionMutation;
+[[nodiscard]] auto delete_cell(ProjectState &state, CompositionCursor const &cursor,
+                               SelectionPath const &selection) -> SelectionMutation;
 
-[[nodiscard]] auto set_base_frequency(ProjectState state, float freq) -> ProjectState;
+void set_base_frequency(PitchSystem &pitch, float freq);
 
 [[nodiscard]] auto shift_scale_mode(Scale scale, int amount) -> Scale;
 

@@ -88,12 +88,12 @@ void validate_tuning(sequence::Tuning const &tuning)
     }
 }
 
-auto fallback_measure_name(MeasureId id) -> std::string
+auto fallback_sequence_name(SequenceId id) -> std::string
 {
-    return "M" + std::to_string(id);
+    return "S" + std::to_string(id);
 }
 
-auto measure_name_key(std::string const &name) -> std::string
+auto sequence_name_key(std::string const &name) -> std::string
 {
     auto key = name;
     std::ranges::transform(key, key.begin(), [](unsigned char ch) {
@@ -106,37 +106,37 @@ auto measure_name_key(std::string const &name) -> std::string
 
 void validate(ProjectState const &project)
 {
-    auto measure_ids = std::unordered_set<MeasureId>{};
-    auto measure_names = std::unordered_set<std::string>{};
-    for (auto const &entry : project.measure_bank.measures)
+    auto sequence_ids = std::unordered_set<SequenceId>{};
+    auto sequence_names = std::unordered_set<std::string>{};
+    for (auto const &entry : project.sequence_bank.sequences)
     {
         if (entry.id == 0)
         {
-            throw std::invalid_argument{"Measure IDs must be nonzero."};
+            throw std::invalid_argument{"Sequence IDs must be nonzero."};
         }
-        if (!measure_ids.insert(entry.id).second)
+        if (!sequence_ids.insert(entry.id).second)
         {
-            throw std::invalid_argument{"Duplicate measure ID."};
+            throw std::invalid_argument{"Duplicate sequence ID."};
         }
         if (entry.name.has_value() && entry.name->empty())
         {
-            throw std::invalid_argument{"Measure name must not be empty."};
+            throw std::invalid_argument{"Sequence name must not be empty."};
         }
         auto const effective_name =
-            entry.name.has_value() ? *entry.name : fallback_measure_name(entry.id);
-        if (!measure_names.insert(measure_name_key(effective_name)).second)
+            entry.name.has_value() ? *entry.name : fallback_sequence_name(entry.id);
+        if (!sequence_names.insert(sequence_name_key(effective_name)).second)
         {
-            throw std::invalid_argument{"Duplicate measure name."};
+            throw std::invalid_argument{"Duplicate sequence name."};
         }
-        validate_cell(entry.measure.cell);
+        validate_cell(entry.cell);
     }
-    if (project.measure_bank.next_id == 0)
+    if (project.sequence_bank.next_id == 0)
     {
-        throw std::invalid_argument{"Next measure ID must be nonzero."};
+        throw std::invalid_argument{"Next sequence ID must be nonzero."};
     }
-    if (measure_ids.contains(project.measure_bank.next_id))
+    if (sequence_ids.contains(project.sequence_bank.next_id))
     {
-        throw std::invalid_argument{"Next measure ID is already in use."};
+        throw std::invalid_argument{"Next sequence ID is already in use."};
     }
 
     if (project.composition.columns.empty())
@@ -157,10 +157,10 @@ void validate(ProjectState const &project)
     }
     for (auto const &column : project.composition.columns)
     {
-        auto const &time_signature = column.length;
+        auto const &time_signature = column.duration;
         if (time_signature.numerator == 0 || time_signature.denominator == 0)
         {
-            throw std::invalid_argument{"Column length values must be nonzero."};
+            throw std::invalid_argument{"Column duration values must be nonzero."};
         }
         auto const whole_notes = static_cast<long double>(time_signature.numerator) /
                                  static_cast<long double>(time_signature.denominator);
@@ -168,6 +168,23 @@ void validate(ProjectState const &project)
         {
             throw std::invalid_argument{
                 "Column duration must not exceed 64 whole notes."};
+        }
+        auto const &pitch = column.pitch;
+        validate_tuning(pitch.tuning.definition);
+        if (!std::isfinite(pitch.base_frequency) || pitch.base_frequency <= 0.f)
+            throw std::invalid_argument{"Base frequency must be finite and positive."};
+        if (pitch.transposition < -127 || pitch.transposition > 127)
+            throw std::invalid_argument{"Transposition must be in [-127, 127]."};
+        if (pitch.scale.has_value())
+        {
+            validate_scale(pitch.scale->definition);
+            if (pitch.scale->definition.tuning_length !=
+                pitch.tuning.definition.intervals.size())
+                throw std::invalid_argument{
+                    "Active scale tuning length must match the active tuning."};
+            if (pitch.scale->source_id.has_value() && pitch.scale->source_id->empty())
+                throw std::invalid_argument{
+                    "Active scale source ID must not be empty."};
         }
     }
     for (auto const &row : project.composition.rows)
@@ -188,36 +205,11 @@ void validate(ProjectState const &project)
         }
         for (auto const &cell : row.cells)
         {
-            if (cell.has_value() && !measure_ids.contains(*cell))
+            if (cell.has_value() && !sequence_ids.contains(*cell))
             {
                 throw std::invalid_argument{
-                    "Composition references an unknown measure ID."};
+                    "Composition references an unknown sequence ID."};
             }
-        }
-    }
-
-    auto const &pitch = project.pitch;
-    validate_tuning(pitch.tuning.definition);
-    if (!std::isfinite(pitch.base_frequency) || pitch.base_frequency <= 0.f)
-    {
-        throw std::invalid_argument{"Base frequency must be finite and positive."};
-    }
-    if (pitch.transposition < -127 || pitch.transposition > 127)
-    {
-        throw std::invalid_argument{"Transposition must be in [-127, 127]."};
-    }
-    if (pitch.scale.has_value())
-    {
-        validate_scale(pitch.scale->definition);
-        if (pitch.scale->definition.tuning_length !=
-            pitch.tuning.definition.intervals.size())
-        {
-            throw std::invalid_argument{
-                "Active scale tuning length must match the active tuning."};
-        }
-        if (pitch.scale->source_id.has_value() && pitch.scale->source_id->empty())
-        {
-            throw std::invalid_argument{"Active scale source ID must not be empty."};
         }
     }
 }
@@ -266,10 +258,10 @@ void validate(ContentLibrary const &library)
 
 void validate(WorkspaceSettings const &workspace)
 {
-    if (!std::filesystem::is_directory(workspace.sequence_directory))
+    if (!std::filesystem::is_directory(workspace.content_directory))
     {
-        throw std::invalid_argument{"Sequence directory does not exist: " +
-                                    workspace.sequence_directory.string()};
+        throw std::invalid_argument{"Content directory does not exist: " +
+                                    workspace.content_directory.string()};
     }
     if (!std::filesystem::is_directory(workspace.tuning_directory))
     {

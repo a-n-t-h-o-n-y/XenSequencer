@@ -71,12 +71,7 @@ auto cell_to_json(sequence::Cell const &cell) -> nlohmann::json
     };
 }
 
-auto measure_to_json(xen::Measure const &measure) -> nlohmann::json
-{
-    return nlohmann::json{
-        {"cell", cell_to_json(measure.cell)},
-    };
-}
+auto pitch_to_json(xen::PitchSystem const &pitch) -> nlohmann::json;
 
 auto time_signature_to_json(sequence::TimeSignature const &time_signature)
     -> nlohmann::json
@@ -87,24 +82,24 @@ auto time_signature_to_json(sequence::TimeSignature const &time_signature)
     };
 }
 
-auto measure_bank_to_json(xen::MeasureBank const &bank) -> nlohmann::json
+auto sequence_bank_to_json(xen::SequenceBank const &bank) -> nlohmann::json
 {
-    auto measures = nlohmann::json::array();
-    for (auto const &entry : bank.measures)
+    auto sequences = nlohmann::json::array();
+    for (auto const &entry : bank.sequences)
     {
-        auto measure = nlohmann::json{
+        auto sequence = nlohmann::json{
             {"id", entry.id},
-            {"measure", measure_to_json(entry.measure)},
+            {"cell", cell_to_json(entry.cell)},
         };
         if (entry.name.has_value())
         {
-            measure["name"] = *entry.name;
+            sequence["name"] = *entry.name;
         }
-        measures.push_back(std::move(measure));
+        sequences.push_back(std::move(sequence));
     }
     return nlohmann::json{
         {"next_id", bank.next_id},
-        {"measures", std::move(measures)},
+        {"sequences", std::move(sequences)},
     };
 }
 
@@ -113,7 +108,8 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
     auto columns = nlohmann::json::array();
     for (auto const &column : composition.columns)
     {
-        columns.push_back({{"length", time_signature_to_json(column.length)}});
+        columns.push_back({{"duration", time_signature_to_json(column.duration)},
+                           {"pitch", pitch_to_json(column.pitch)}});
     }
 
     auto rows = nlohmann::json::array();
@@ -194,28 +190,31 @@ auto active_scale_to_json(xen::ActiveScale const &scale) -> nlohmann::json
     };
 }
 
-auto project_to_json(xen::ProjectState const &project) -> nlohmann::json
+auto pitch_to_json(xen::PitchSystem const &pitch) -> nlohmann::json
 {
-    auto pitch = nlohmann::json{
+    auto json = nlohmann::json{
         {"tuning",
          {
-             {"name", project.pitch.tuning.name},
-             {"definition", tuning_to_json(project.pitch.tuning.definition)},
+             {"name", pitch.tuning.name},
+             {"definition", tuning_to_json(pitch.tuning.definition)},
          }},
         {"scale", nullptr},
-        {"transposition", project.pitch.transposition},
-        {"translation_direction",
-         direction_to_json(project.pitch.translation_direction)},
-        {"base_frequency", project.pitch.base_frequency},
+        {"transposition", pitch.transposition},
+        {"translation_direction", direction_to_json(pitch.translation_direction)},
+        {"base_frequency", pitch.base_frequency},
     };
-    if (project.pitch.scale.has_value())
+    if (pitch.scale.has_value())
     {
-        pitch["scale"] = active_scale_to_json(*project.pitch.scale);
+        json["scale"] = active_scale_to_json(*pitch.scale);
     }
+    return json;
+}
+
+auto project_to_json(xen::ProjectState const &project) -> nlohmann::json
+{
     return nlohmann::json{
-        {"measure_bank", measure_bank_to_json(project.measure_bank)},
+        {"sequence_bank", sequence_bank_to_json(project.sequence_bank)},
         {"composition", composition_to_json(project.composition)},
-        {"pitch", std::move(pitch)},
     };
 }
 

@@ -14,16 +14,16 @@ namespace xen
 namespace
 {
 
-template <typename MeasureType>
-auto resolve_path(MeasureType &measure, SelectionPath const &selected)
+template <typename CellType>
+auto resolve_path(CellType &root, SelectionPath const &selected)
 {
-    using CellPointer = std::conditional_t<std::is_const_v<MeasureType>,
+    using CellPointer = std::conditional_t<std::is_const_v<CellType>,
                                            sequence::Cell const *, sequence::Cell *>;
     using ElementPointer =
-        std::conditional_t<std::is_const_v<MeasureType>, sequence::MusicElement const *,
+        std::conditional_t<std::is_const_v<CellType>, sequence::MusicElement const *,
                            sequence::MusicElement *>;
 
-    auto current_cell = CellPointer{&measure.cell};
+    auto current_cell = CellPointer{&root};
     auto current_element = ElementPointer{nullptr};
 
     for (auto const &step : selected.path)
@@ -84,8 +84,7 @@ auto selection_kind(SelectionPath const &selected) -> SelectionKind
     return SelectionKind::Element;
 }
 
-auto select_element_in_cell(SelectionPath selected, std::size_t index)
-    -> SelectionPath
+auto select_element_in_cell(SelectionPath selected, std::size_t index) -> SelectionPath
 {
     if (selection_kind(selected) != SelectionKind::Cell)
     {
@@ -96,8 +95,7 @@ auto select_element_in_cell(SelectionPath selected, std::size_t index)
     return selected;
 }
 
-auto select_sequence_cell(SelectionPath selected, std::size_t index)
-    -> SelectionPath
+auto select_sequence_cell(SelectionPath selected, std::size_t index) -> SelectionPath
 {
     if (selection_kind(selected) != SelectionKind::Element)
     {
@@ -128,10 +126,10 @@ auto select_parent_cell(SelectionPath selected) -> SelectionPath
     return selected;
 }
 
-auto get_selected_cell(Measure &measure, SelectionPath const &selected)
+auto get_selected_cell(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::Cell &
 {
-    auto const [current_cell, current_element] = resolve_path(measure, selected);
+    auto const [current_cell, current_element] = resolve_path(root, selected);
     if (current_element != nullptr || current_cell == nullptr)
     {
         throw std::invalid_argument("Selection does not resolve to a Cell.");
@@ -139,10 +137,10 @@ auto get_selected_cell(Measure &measure, SelectionPath const &selected)
     return *current_cell;
 }
 
-auto get_selected_cell_const(Measure const &measure, SelectionPath const &selected)
+auto get_selected_cell_const(sequence::Cell const &root, SelectionPath const &selected)
     -> sequence::Cell const &
 {
-    auto const [current_cell, current_element] = resolve_path(measure, selected);
+    auto const [current_cell, current_element] = resolve_path(root, selected);
     if (current_element != nullptr || current_cell == nullptr)
     {
         throw std::invalid_argument("Selection does not resolve to a Cell.");
@@ -150,10 +148,10 @@ auto get_selected_cell_const(Measure const &measure, SelectionPath const &select
     return *current_cell;
 }
 
-auto get_selected_element(Measure &measure, SelectionPath const &selected)
+auto get_selected_element(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::MusicElement &
 {
-    auto const [current_cell, current_element] = resolve_path(measure, selected);
+    auto const [current_cell, current_element] = resolve_path(root, selected);
     if (current_cell != nullptr || current_element == nullptr)
     {
         throw std::invalid_argument("Selection does not resolve to a MusicElement.");
@@ -161,11 +159,11 @@ auto get_selected_element(Measure &measure, SelectionPath const &selected)
     return *current_element;
 }
 
-auto get_selected_element_const(Measure const &measure,
+auto get_selected_element_const(sequence::Cell const &root,
                                 SelectionPath const &selected)
     -> sequence::MusicElement const &
 {
-    auto const [current_cell, current_element] = resolve_path(measure, selected);
+    auto const [current_cell, current_element] = resolve_path(root, selected);
     if (current_cell != nullptr || current_element == nullptr)
     {
         throw std::invalid_argument("Selection does not resolve to a MusicElement.");
@@ -173,10 +171,10 @@ auto get_selected_element_const(Measure const &measure,
     return *current_element;
 }
 
-auto get_selected_sequence(Measure &measure, SelectionPath const &selected)
+auto get_selected_sequence(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::Sequence &
 {
-    auto &element = get_selected_element(measure, selected);
+    auto &element = get_selected_element(root, selected);
     auto *sequence = std::get_if<sequence::Sequence>(&element);
     if (sequence == nullptr)
     {
@@ -185,11 +183,11 @@ auto get_selected_sequence(Measure &measure, SelectionPath const &selected)
     return *sequence;
 }
 
-auto get_selected_sequence_const(Measure const &measure,
+auto get_selected_sequence_const(sequence::Cell const &root,
                                  SelectionPath const &selected)
     -> sequence::Sequence const &
 {
-    auto const &element = get_selected_element_const(measure, selected);
+    auto const &element = get_selected_element_const(root, selected);
     auto const *sequence = std::get_if<sequence::Sequence>(&element);
     if (sequence == nullptr)
     {
@@ -216,7 +214,7 @@ auto get_selected_cell_index(SelectionPath const &selected) -> std::size_t
     return selected.path.back().index;
 }
 
-auto get_parent_of_selected(Measure &measure, SelectionPath const &selected)
+auto get_parent_of_selected(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::Cell *
 {
     if (selection_kind(selected) != SelectionKind::Cell)
@@ -229,10 +227,10 @@ auto get_parent_of_selected(Measure &measure, SelectionPath const &selected)
         return nullptr;
     }
 
-    return get_parent_cell_of_selection(measure, selection_parent(selected));
+    return get_parent_cell_of_selection(root, selection_parent(selected));
 }
 
-auto get_parent_of_selected_const(Measure const &measure,
+auto get_parent_of_selected_const(sequence::Cell const &root,
                                   SelectionPath const &selected)
     -> sequence::Cell const *
 {
@@ -246,10 +244,10 @@ auto get_parent_of_selected_const(Measure const &measure,
         return nullptr;
     }
 
-    return get_parent_cell_of_selection_const(measure, selection_parent(selected));
+    return get_parent_cell_of_selection_const(root, selection_parent(selected));
 }
 
-auto get_parent_sequence_of_selected_cell(Measure &measure,
+auto get_parent_sequence_of_selected_cell(sequence::Cell &root,
                                           SelectionPath const &selected)
     -> sequence::Sequence *
 {
@@ -259,10 +257,10 @@ auto get_parent_sequence_of_selected_cell(Measure &measure,
     }
 
     auto parent_selection = selection_parent(selected);
-    return &get_selected_sequence(measure, parent_selection);
+    return &get_selected_sequence(root, parent_selection);
 }
 
-auto get_parent_sequence_of_selected_cell_const(Measure const &measure,
+auto get_parent_sequence_of_selected_cell_const(sequence::Cell const &root,
                                                 SelectionPath const &selected)
     -> sequence::Sequence const *
 {
@@ -272,36 +270,36 @@ auto get_parent_sequence_of_selected_cell_const(Measure const &measure,
     }
 
     auto parent_selection = selection_parent(selected);
-    return &get_selected_sequence_const(measure, parent_selection);
+    return &get_selected_sequence_const(root, parent_selection);
 }
 
-auto get_parent_cell_of_selection(Measure &measure, SelectionPath const &selected)
+auto get_parent_cell_of_selection(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::Cell *
 {
     if (selection_kind(selected) == SelectionKind::Element)
     {
-        return &get_selected_cell(measure, selection_parent(selected));
+        return &get_selected_cell(root, selection_parent(selected));
     }
 
-    return get_parent_of_selected(measure, selected);
+    return get_parent_of_selected(root, selected);
 }
 
-auto get_parent_cell_of_selection_const(Measure const &measure,
+auto get_parent_cell_of_selection_const(sequence::Cell const &root,
                                         SelectionPath const &selected)
     -> sequence::Cell const *
 {
     if (selection_kind(selected) == SelectionKind::Element)
     {
-        return &get_selected_cell_const(measure, selection_parent(selected));
+        return &get_selected_cell_const(root, selection_parent(selected));
     }
 
-    return get_parent_of_selected_const(measure, selected);
+    return get_parent_of_selected_const(root, selected);
 }
 
-auto get_sibling_count(Measure const &measure, SelectionPath const &selected)
+auto get_sibling_count(sequence::Cell const &root, SelectionPath const &selected)
     -> std::size_t
 {
-    auto const *sequence = get_parent_sequence_of_selected_cell_const(measure, selected);
+    auto const *sequence = get_parent_sequence_of_selected_cell_const(root, selected);
     if (sequence == nullptr)
     {
         throw std::runtime_error("Cannot get sibling count of top-level Cell.");
@@ -309,7 +307,7 @@ auto get_sibling_count(Measure const &measure, SelectionPath const &selected)
     return sequence->cells.size();
 }
 
-auto move_left(Measure const &measure, SelectionPath selected, std::size_t amount)
+auto move_left(sequence::Cell const &root, SelectionPath selected, std::size_t amount)
     -> SelectionPath
 {
     if (selected.path.empty())
@@ -319,7 +317,7 @@ auto move_left(Measure const &measure, SelectionPath selected, std::size_t amoun
 
     if (selection_kind(selected) == SelectionKind::Cell)
     {
-        auto const parent_cells_size = get_sibling_count(measure, selected);
+        auto const parent_cells_size = get_sibling_count(root, selected);
         if (parent_cells_size == 0)
         {
             return selected;
@@ -328,12 +326,12 @@ auto move_left(Measure const &measure, SelectionPath selected, std::size_t amoun
         amount = amount % parent_cells_size;
 
         auto &index = selected.path.back().index;
-        index = (index >= amount) ? index - amount
-                                  : parent_cells_size - (amount - index);
+        index =
+            (index >= amount) ? index - amount : parent_cells_size - (amount - index);
     }
     else
     {
-        auto const parent_cell = get_parent_cell_of_selection_const(measure, selected);
+        auto const parent_cell = get_parent_cell_of_selection_const(root, selected);
         if (parent_cell == nullptr || parent_cell->elements.empty())
         {
             return selected;
@@ -342,13 +340,12 @@ auto move_left(Measure const &measure, SelectionPath selected, std::size_t amoun
         auto const element_count = parent_cell->elements.size();
         amount = amount % element_count;
         auto &index = selected.path.back().index;
-        index = (index >= amount) ? index - amount
-                                  : element_count - (amount - index);
+        index = (index >= amount) ? index - amount : element_count - (amount - index);
     }
     return selected;
 }
 
-auto move_right(Measure const &measure, SelectionPath selected, std::size_t amount)
+auto move_right(sequence::Cell const &root, SelectionPath selected, std::size_t amount)
     -> SelectionPath
 {
     if (selected.path.empty())
@@ -358,7 +355,7 @@ auto move_right(Measure const &measure, SelectionPath selected, std::size_t amou
 
     if (selection_kind(selected) == SelectionKind::Cell)
     {
-        auto const parent_cells_size = get_sibling_count(measure, selected);
+        auto const parent_cells_size = get_sibling_count(root, selected);
         if (parent_cells_size == 0)
         {
             return selected;
@@ -369,7 +366,7 @@ auto move_right(Measure const &measure, SelectionPath selected, std::size_t amou
     }
     else
     {
-        auto const parent_cell = get_parent_cell_of_selection_const(measure, selected);
+        auto const parent_cell = get_parent_cell_of_selection_const(root, selected);
         if (parent_cell == nullptr || parent_cell->elements.empty())
         {
             return selected;
@@ -381,7 +378,7 @@ auto move_right(Measure const &measure, SelectionPath selected, std::size_t amou
     return selected;
 }
 
-auto move_up(Measure const &measure, SelectionPath selected, std::size_t amount)
+auto move_up(sequence::Cell const &root, SelectionPath selected, std::size_t amount)
     -> SelectionPath
 {
     for (auto i = std::size_t{0}; i < amount && !selected.path.empty(); ++i)
@@ -392,7 +389,7 @@ auto move_up(Measure const &measure, SelectionPath selected, std::size_t amount)
             continue;
         }
 
-        auto const *parent_cell = get_parent_cell_of_selection_const(measure, selected);
+        auto const *parent_cell = get_parent_cell_of_selection_const(root, selected);
         if (parent_cell != nullptr && parent_cell->elements.size() == 1 &&
             std::holds_alternative<sequence::Sequence>(parent_cell->elements.front()))
         {
@@ -406,14 +403,14 @@ auto move_up(Measure const &measure, SelectionPath selected, std::size_t amount)
     return selected;
 }
 
-auto move_down(Measure const &measure, SelectionPath selected, std::size_t amount)
+auto move_down(sequence::Cell const &root, SelectionPath selected, std::size_t amount)
     -> SelectionPath
 {
     for (auto i = std::size_t{0}; i < amount; ++i)
     {
         if (selection_kind(selected) == SelectionKind::Cell)
         {
-            auto const &cell = get_selected_cell_const(measure, selected);
+            auto const &cell = get_selected_cell_const(root, selected);
             if (cell.elements.empty())
             {
                 break;
@@ -437,7 +434,7 @@ auto move_down(Measure const &measure, SelectionPath selected, std::size_t amoun
             continue;
         }
 
-        auto const &element = get_selected_element_const(measure, selected);
+        auto const &element = get_selected_element_const(root, selected);
         auto const *sequence = std::get_if<sequence::Sequence>(&element);
         if (sequence == nullptr || sequence->cells.empty())
         {

@@ -132,23 +132,14 @@ static void from_json(nlohmann::json const &j, Tuning &tuning)
 namespace xen
 {
 
-static void to_json(nlohmann::json &j, Measure const &measure)
-{
-    j = nlohmann::json{
-        {"cell", measure.cell},
-    };
-}
+static void to_json(nlohmann::json &j, PitchSystem const &pitch);
+static void from_json(nlohmann::json const &j, PitchSystem &pitch);
 
-static void from_json(nlohmann::json const &j, Measure &measure)
-{
-    measure.cell = j.at("cell").get<sequence::Cell>();
-}
-
-static void to_json(nlohmann::json &j, MeasureBankEntry const &entry)
+static void to_json(nlohmann::json &j, SequenceBankEntry const &entry)
 {
     j = nlohmann::json{
         {"id", entry.id},
-        {"measure", entry.measure},
+        {"cell", entry.cell},
     };
     if (entry.name.has_value())
     {
@@ -156,37 +147,38 @@ static void to_json(nlohmann::json &j, MeasureBankEntry const &entry)
     }
 }
 
-static void from_json(nlohmann::json const &j, MeasureBankEntry &entry)
+static void from_json(nlohmann::json const &j, SequenceBankEntry &entry)
 {
-    entry.id = j.at("id").get<MeasureId>();
+    entry.id = j.at("id").get<SequenceId>();
     entry.name = j.contains("name") && !j.at("name").is_null()
                      ? std::optional<std::string>{j.at("name").get<std::string>()}
                      : std::nullopt;
-    entry.measure = j.at("measure").get<Measure>();
+    entry.cell = j.at("cell").get<sequence::Cell>();
 }
 
-static void to_json(nlohmann::json &j, MeasureBank const &bank)
+static void to_json(nlohmann::json &j, SequenceBank const &bank)
 {
     j = nlohmann::json{
         {"next_id", bank.next_id},
-        {"measures", bank.measures},
+        {"sequences", bank.sequences},
     };
 }
 
-static void from_json(nlohmann::json const &j, MeasureBank &bank)
+static void from_json(nlohmann::json const &j, SequenceBank &bank)
 {
-    bank.next_id = j.at("next_id").get<MeasureId>();
-    bank.measures = j.at("measures").get<std::vector<MeasureBankEntry>>();
+    bank.next_id = j.at("next_id").get<SequenceId>();
+    bank.sequences = j.at("sequences").get<std::vector<SequenceBankEntry>>();
 }
 
 static void to_json(nlohmann::json &j, CompositionColumn const &column)
 {
-    j = nlohmann::json{{"length", column.length}};
+    j = nlohmann::json{{"duration", column.duration}, {"pitch", column.pitch}};
 }
 
 static void from_json(nlohmann::json const &j, CompositionColumn &column)
 {
-    column.length = j.at("length").get<sequence::TimeSignature>();
+    column.duration = j.at("duration").get<sequence::TimeSignature>();
+    column.pitch = j.at("pitch").get<PitchSystem>();
 }
 
 static void to_json(nlohmann::json &j, CompositionRow const &row)
@@ -217,8 +209,8 @@ static void from_json(nlohmann::json const &j, CompositionRow &row)
     for (auto const &cell : j.at("cells"))
     {
         row.cells.push_back(cell.is_null()
-                                ? std::optional<MeasureId>{}
-                                : std::optional<MeasureId>{cell.get<MeasureId>()});
+                                ? std::optional<SequenceId>{}
+                                : std::optional<SequenceId>{cell.get<SequenceId>()});
     }
 }
 
@@ -298,8 +290,9 @@ namespace xen
 namespace
 {
 
-constexpr auto PROJECT_SCHEMA_VERSION = 3;
-constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 2;
+constexpr auto PROJECT_SCHEMA_VERSION = 4;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 3;
+constexpr auto CELL_SCHEMA_VERSION = 1;
 
 } // namespace
 
@@ -412,17 +405,15 @@ static void from_json(nlohmann::json const &j, PitchSystem &pitch)
 static void to_json(nlohmann::json &j, ProjectState const &project)
 {
     j = nlohmann::json{
-        {"measure_bank", project.measure_bank},
+        {"sequence_bank", project.sequence_bank},
         {"composition", project.composition},
-        {"pitch", project.pitch},
     };
 }
 
 static void from_json(nlohmann::json const &j, ProjectState &project)
 {
-    project.measure_bank = j.at("measure_bank").get<MeasureBank>();
+    project.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
     project.composition = j.at("composition").get<Composition>();
-    project.pitch = j.at("pitch").get<PitchSystem>();
 }
 
 static void to_json(nlohmann::json &j, InstanceBinding const &binding)
@@ -468,19 +459,30 @@ auto deserialize_cell(std::string const &json_str) -> sequence::Cell
     return cell;
 }
 
-auto serialize_measure(Measure const &m) -> std::string
+auto serialize_cell_file(sequence::Cell const &cell) -> std::string
 {
-    auto json = nlohmann::json{};
-    to_json(json, m);
-    return json.dump();
+    return nlohmann::json{
+        {"schema", CELL_SCHEMA_VERSION}, {"kind", "xen_cell"}, {"cell", cell}}
+        .dump();
 }
 
-auto deserialize_measure(std::string const &json_str) -> Measure
+auto deserialize_cell_file(std::string const &json_str) -> sequence::Cell
 {
     auto const json = nlohmann::json::parse(json_str);
-    auto measure = Measure{};
-    from_json(json, measure);
-    return measure;
+    if (json.at("kind").get<std::string>() != "xen_cell" ||
+        json.at("schema").get<int>() != CELL_SCHEMA_VERSION)
+        throw std::invalid_argument{"Unsupported Cell schema."};
+    return json.at("cell").get<sequence::Cell>();
+}
+
+auto serialize_composition(ProjectState const &project) -> std::string
+{
+    return serialize_project(project);
+}
+
+auto deserialize_composition(std::string const &json_str) -> ProjectState
+{
+    return deserialize_project(json_str);
 }
 
 auto serialize_project(ProjectState const &project) -> std::string
@@ -488,6 +490,7 @@ auto serialize_project(ProjectState const &project) -> std::string
     validate(project);
     return nlohmann::json{
         {"schema", PROJECT_SCHEMA_VERSION},
+        {"kind", "xen_composition"},
         {"project", project},
     }
         .dump();
@@ -496,7 +499,8 @@ auto serialize_project(ProjectState const &project) -> std::string
 auto deserialize_project(std::string const &json_str) -> ProjectState
 {
     auto const json = nlohmann::json::parse(json_str);
-    if (json.at("schema").get<int>() != PROJECT_SCHEMA_VERSION)
+    if (json.at("kind").get<std::string>() != "xen_composition" ||
+        json.at("schema").get<int>() != PROJECT_SCHEMA_VERSION)
     {
         throw std::invalid_argument{"Unsupported project schema."};
     }

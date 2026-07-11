@@ -84,7 +84,7 @@ constexpr auto reload_library_policy = CommandPolicy{
     ProjectOperation::None, LibraryAccess::Mutate,   WorkspaceAccess::None,
     FileAccess::Read,       TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::None};
-constexpr auto save_measure_policy = CommandPolicy{
+constexpr auto save_document_policy = CommandPolicy{
     ProjectOperation::Read, LibraryAccess::None,     WorkspaceAccess::Read,
     FileAccess::Write,      TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::None};
@@ -131,17 +131,18 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         {"redo"}, "Reapply the last undone action.", history_navigation_policy,
         HistoryNavigationDirection::Redo, {"reapply"}));
 
-    specs.push_back(command(
-        {"copy"}, false, "Copy the current selection.", {"clipboard"}, copy_policy,
-        std::make_tuple(),
-        [](CommandHandlerContext &context, CommandInvocation const &) {
-            auto const &state = context.project();
-            context.write_text(copy_buffer_filepath(),
-                               serialize_copy_buffer_content(action::copy(
-                                   state, require_selection(context.execution))));
-            return unchanged_selection_result(minfo("Copied Selection"),
-                                              context.execution);
-        }));
+    specs.push_back(
+        command({"copy"}, false, "Copy the current selection.", {"clipboard"},
+                copy_policy, std::make_tuple(),
+                [](CommandHandlerContext &context, CommandInvocation const &) {
+                    auto const &state = context.project();
+                    context.write_text(copy_buffer_filepath(),
+                                       serialize_copy_buffer_content(action::copy(
+                                           state, context.execution.cursor,
+                                           require_selection(context.execution))));
+                    return unchanged_selection_result(minfo("Copied Selection"),
+                                                      context.execution);
+                }));
 
     specs.push_back(command(
         {"cut"}, false, "Cut the current selection.", {"remove", "clipboard"},
@@ -149,10 +150,11 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
             context.write_text(copy_buffer_filepath(),
-                               serialize_copy_buffer_content(action::copy(
-                                   state, require_selection(context.execution))));
-            auto const mutation =
-                action::delete_cell(state, require_selection(context.execution));
+                               serialize_copy_buffer_content(
+                                   action::copy(state, context.execution.cursor,
+                                                require_selection(context.execution))));
+            auto const mutation = action::delete_cell(
+                state, context.execution.cursor, require_selection(context.execution));
             context.edit_project() = std::move(state);
             return make_result(minfo("Selection Cut"), mutation.selection);
         }));
@@ -169,7 +171,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
             }
             auto const content = deserialize_copy_buffer_content(*text);
             auto const mutation =
-                action::paste(state, require_selection(context.execution), content);
+                action::paste(state, context.execution.cursor,
+                              require_selection(context.execution), content);
             context.edit_project() = std::move(state);
             return make_result(minfo("Selection Pasted Over"), mutation.selection);
         }));
@@ -179,26 +182,25 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         targeted_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto const mutation =
-                action::duplicate(state, require_selection(context.execution));
+            auto const mutation = action::duplicate(
+                state, context.execution.cursor, require_selection(context.execution));
             context.edit_project() = std::move(state);
             return make_result(minfo("Selection Duplicated"), mutation.selection);
         }));
 
     specs.push_back(command(
-        {"load", "measure"}, false,
-        "Load a measure from the current sequence directory.",
+        {"load", "cell"}, false, "Load a Cell into a new selected Sequence.",
         {"open", "file", "sequence"}, load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("measure_name", "filename")),
+        std::make_tuple(required_arg<std::string>("cell_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
-            auto const cd = context.workspace().sequence_directory;
+            auto const cd = context.workspace().content_directory;
             auto const directory = as_juce_file(cd);
             if (!directory.isDirectory())
             {
-                return make_result(merror("Invalid Current Sequence Directory"));
+                return make_result(merror("Invalid Current Content Directory"));
             }
-            auto const filepath = cd / (filename + ".xss");
+            auto const filepath = cd / (filename + ".xencell");
             auto const text = context.read_text(filepath);
             if (!text.has_value())
             {
@@ -207,11 +209,34 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
             auto state = context.project();
             if (text->size() > (128 * 1'024 * 1'024))
             {
-                throw std::runtime_error{"Measure file size exceeds 128MB"};
+                throw std::runtime_error{"Cell file size exceeds 128MB"};
             }
-            default_measure(state) = deserialize_measure(*text);
+            for (auto const &entry : state.sequence_bank.sequences)
+                if (entry.name.has_value() && *entry.name == filename)
+                    throw std::invalid_argument{"Sequence name is already in use."};
+            auto const id =
+                create_sequence(state.sequence_bank, deserialize_cell_file(*text));
+            state.sequence_bank.sequences.back().name = filename;
+            assign_sequence_reference(state.composition,
+                                      context.execution.cursor.row_index,
+                                      context.execution.cursor.column_index, id);
             context.edit_project() = std::move(state);
-            return make_result(minfo("Measure Loaded"));
+            return make_result(minfo("Cell Loaded"));
+        }));
+
+    specs.push_back(command(
+        {"load", "composition"}, false, "Load a Composition document.",
+        load_project_resource_policy,
+        std::make_tuple(required_arg<std::string>("composition_name", "filename")),
+        [](CommandHandlerContext &context, CommandInvocation const &,
+           std::string const &filename) {
+            auto const path =
+                context.workspace().content_directory / (filename + ".xencomp");
+            auto const text = context.read_text(path);
+            if (!text.has_value())
+                return make_result(merror("File Not Found: " + path.string()));
+            context.edit_project() = deserialize_composition(*text);
+            return make_result(minfo("Composition Loaded"));
         }));
 
     specs.push_back(command(
@@ -233,8 +258,9 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                 return make_result(merror("File Not Found: " + filepath.string()));
             }
             auto state = context.project();
-            state.pitch.tuning.name = file.getFileNameWithoutExtension().toStdString();
-            state.pitch.tuning.definition = sequence::from_scala(filepath.string());
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
+            pitch.tuning.name = file.getFileNameWithoutExtension().toStdString();
+            pitch.tuning.definition = sequence::from_scala(filepath.string());
             context.edit_project() = std::move(state);
             return make_result(minfo("Tuning Loaded"));
         }));
@@ -273,23 +299,37 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                                      std::to_string(context.library().chords.size())));
         }));
 
+    specs.push_back(
+        command({"save", "cell"}, false, "Save the selected Cell to file.",
+                {"write", "file", "sequence"}, save_document_policy,
+                std::make_tuple(required_arg<std::string>("cell_name", "filename")),
+                [](CommandHandlerContext &context, CommandInvocation const &,
+                   std::string const &filename) {
+                    auto const cd = context.workspace().content_directory;
+                    auto const directory = as_juce_file(cd);
+                    if (!directory.isDirectory())
+                    {
+                        return make_result(merror("Invalid Current Content Directory"));
+                    }
+                    auto const filepath = cd / (filename + ".xencell");
+                    context.write_text(
+                        filepath, serialize_cell_file(selected_sequence(
+                                      context.project(), context.execution.cursor)));
+                    return make_result(
+                        minfo("Cell Saved to " + single_quote(filepath.string())));
+                }));
+
     specs.push_back(command(
-        {"save", "measure"}, false, "Save the current measure to file.",
-        {"write", "file", "sequence"}, save_measure_policy,
-        std::make_tuple(required_arg<std::string>("measure_name", "filename")),
+        {"save", "composition"}, false, "Save the Composition document.",
+        save_document_policy,
+        std::make_tuple(required_arg<std::string>("composition_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
-            auto const cd = context.workspace().sequence_directory;
-            auto const directory = as_juce_file(cd);
-            if (!directory.isDirectory())
-            {
-                return make_result(merror("Invalid Current Sequence Directory"));
-            }
-            auto const filepath = cd / (filename + ".xss");
-            context.write_text(filepath,
-                               serialize_measure(default_measure(context.project())));
+            auto const path =
+                context.workspace().content_directory / (filename + ".xencomp");
+            context.write_text(path, serialize_composition(context.project()));
             return make_result(
-                minfo("Measure Saved to " + single_quote(filepath.string())));
+                minfo("Composition Saved to " + single_quote(path.string())));
         }));
 
     specs.push_back(
@@ -316,10 +356,10 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         };
     };
     specs.push_back(
-        command({"set", "sequenceDirectory"}, false,
-                "Set the sequence library directory.", workspace_mutation_policy,
+        command({"set", "contentDirectory"}, false, "Set the content directory.",
+                workspace_mutation_policy,
                 std::make_tuple(required_arg<std::string>("directory_path", "path")),
-                set_directory(&WorkspaceSettings::sequence_directory, "Sequence")));
+                set_directory(&WorkspaceSettings::content_directory, "Content")));
     specs.push_back(
         command({"set", "tuningDirectory"}, false, "Set the tuning library directory.",
                 workspace_mutation_policy,

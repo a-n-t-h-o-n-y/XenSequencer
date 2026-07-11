@@ -51,7 +51,7 @@ constexpr auto library_mutating_edit_policy =
                   TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 
-[[nodiscard]] auto exceeds_max_measure_length(
+[[nodiscard]] auto exceeds_max_column_duration(
     sequence::TimeSignature const &time_signature) -> bool
 {
     if (time_signature.denominator == 0)
@@ -77,7 +77,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             if (std::holds_alternative<int>(pitch))
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern, int value) {
                         return sequence::modify::set_pitch(target, pattern, value);
                     },
@@ -86,7 +87,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_pitches(target, pattern, modulator);
@@ -103,7 +105,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
            int octave) {
             auto state = context.project();
-            state = action::set_note_octave(std::move(state),
+            state = action::set_note_octave(std::move(state), context.execution.cursor,
                                             require_selection(context.execution),
                                             invocation.input.pattern, octave);
             context.edit_project() = std::move(state);
@@ -121,7 +123,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             if (std::holds_alternative<float>(velocity))
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return sequence::modify::set_velocity(target, pattern, value);
                     },
@@ -130,7 +133,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_velocities(target, pattern, modulator);
@@ -149,15 +153,17 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             auto state = context.project();
             if (std::holds_alternative<float>(value))
             {
-                state = increment_state(
-                    std::move(state), require_selection(context.execution), scalar_fn,
-                    invocation.input.pattern, std::get<float>(value));
+                state =
+                    increment_state(std::move(state), context.execution.cursor,
+                                    require_selection(context.execution), scalar_fn,
+                                    invocation.input.pattern, std::get<float>(value));
             }
             else
             {
-                state = increment_state(
-                    std::move(state), require_selection(context.execution),
-                    modulator_fn, invocation.input.pattern, std::get<Modulator>(value));
+                state = increment_state(std::move(state), context.execution.cursor,
+                                        require_selection(context.execution),
+                                        modulator_fn, invocation.input.pattern,
+                                        std::get<Modulator>(value));
             }
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo(message), context.execution);
@@ -194,29 +200,29 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                     "Gate Set")));
 
     specs.push_back(command(
-        {"set", "measure", "timeSignature"}, false, "Set measure time signature.",
+        {"set", "duration"}, false, "Set selected column duration.",
         project_edit_policy,
         std::make_tuple(constrained(
             optional_arg<sequence::TimeSignature>("time_signature", "timesignature",
                                                   sequence::TimeSignature{4, 4}),
-            CatalogArgumentConstraint{.kind = "measure_time_signature",
+            CatalogArgumentConstraint{.kind = "column_duration",
                                       .minimum = std::nullopt,
                                       .maximum = std::nullopt,
                                       .values = {}},
             [](sequence::TimeSignature const &time_signature) {
                 return time_signature.denominator != 0 &&
                        time_signature.numerator != 0 &&
-                       !exceeds_max_measure_length(time_signature);
+                       !exceeds_max_column_duration(time_signature);
             },
             "Must be non-zero and no longer than 64 whole notes.")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            sequence::TimeSignature time_signature) {
             auto state = context.project();
-            default_measure_length(state) = time_signature;
+            selected_duration(state, context.execution.cursor) = time_signature;
             context.edit_project() = std::move(state);
-            return make_result(minfo("Measure TimeSignature Set: " +
-                                     std::to_string(time_signature.numerator) + "/" +
-                                     std::to_string(time_signature.denominator)));
+            return make_result(minfo(
+                "Column Duration Set: " + std::to_string(time_signature.numerator) +
+                "/" + std::to_string(time_signature.denominator)));
         }));
 
     specs.push_back(command(
@@ -224,7 +230,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         project_edit_policy, std::make_tuple(frequency_hz_arg("freq", 440.f)),
         [](CommandHandlerContext &context, CommandInvocation const &, float frequency) {
             auto state = context.project();
-            state = action::set_base_frequency(std::move(state), frequency);
+            action::set_base_frequency(
+                selected_column(state, context.execution.cursor).pitch, frequency);
             context.edit_project() = std::move(state);
             return make_result(minfo("Base Frequency Set"));
         }));
@@ -238,7 +245,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             auto state = context.project();
             if (source_id == "chromatic")
             {
-                state.pitch.scale = std::nullopt;
+                selected_column(state, context.execution.cursor).pitch.scale =
+                    std::nullopt;
                 context.edit_project() = std::move(state);
                 return make_result(minfo("Scale Set to chromatic."));
             }
@@ -249,7 +257,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 return make_result(merror("No Scale Found: " + source_id + "."));
             }
             validate_scale(at->definition);
-            state.pitch.scale =
+            selected_column(state, context.execution.cursor).pitch.scale =
                 ActiveScale{.source_id = at->id, .definition = at->definition};
             context.edit_project() = std::move(state);
             return make_result(minfo("Scale Set to " + source_id + "."));
@@ -261,14 +269,15 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t mode_index) {
             auto state = context.project();
-            if (mode_index == 0 || !state.pitch.scale.has_value() ||
-                mode_index > state.pitch.scale->definition.intervals.size())
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
+            if (mode_index == 0 || !pitch.scale.has_value() ||
+                mode_index > pitch.scale->definition.intervals.size())
             {
                 return make_result(
                     merror("Invalid Mode Index. Must be in range [1, scale size)."));
             }
-            state.pitch.scale->definition.mode = static_cast<std::uint8_t>(mode_index);
-            validate_scale(state.pitch.scale->definition);
+            pitch.scale->definition.mode = static_cast<std::uint8_t>(mode_index);
+            validate_scale(pitch.scale->definition);
             context.edit_project() = std::move(state);
             return make_result(minfo("Scale Mode Set"));
         }));
@@ -281,13 +290,14 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
            std::string const &value) {
             auto const direction = to_lower(value);
             auto state = context.project();
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
             if (direction == "up")
             {
-                state.pitch.translation_direction = TranslateDirection::Up;
+                pitch.translation_direction = TranslateDirection::Up;
             }
             else if (direction == "down")
             {
-                state.pitch.translation_direction = TranslateDirection::Down;
+                pitch.translation_direction = TranslateDirection::Down;
             }
             else
             {
@@ -302,7 +312,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(transpose_key_arg("key", 0)),
         [](CommandHandlerContext &context, CommandInvocation const &, int key) {
             auto state = context.project();
-            state.pitch.transposition = key;
+            selected_column(state, context.execution.cursor).pitch.transposition = key;
             context.edit_project() = std::move(state);
             return make_result(minfo("Key Set to " + std::to_string(key) + "."));
         }));
@@ -312,9 +322,9 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(positive_weight_arg("cell_weight", "value")),
         [](CommandHandlerContext &context, CommandInvocation const &, float value) {
             auto state = context.project();
-            state =
-                increment_state(std::move(state), require_selection(context.execution),
-                                &action::set_weight, value);
+            state = increment_state(std::move(state), context.execution.cursor,
+                                    require_selection(context.execution),
+                                    &action::set_weight, value);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo("Weight Set"), context.execution);
         }));
@@ -328,7 +338,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             if (std::holds_alternative<float>(weight))
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return action::set_weights(target, pattern, value);
                     },
@@ -337,7 +348,8 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else
             {
                 state = increment_state(
-                    std::move(state), require_selection(context.execution),
+                    std::move(state), context.execution.cursor,
+                    require_selection(context.execution),
                     [](auto target, sequence::Pattern const &pattern,
                        Modulator const &modulator) {
                         return action::set_weights(target, pattern, modulator);
@@ -349,11 +361,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"double", "measure", "timeSignature"}, false, "Double measure time signature.",
+        {"double", "duration"}, false, "Double selected column duration.",
         project_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto &time_signature = default_measure_length(state);
+            auto &time_signature = selected_duration(state, context.execution.cursor);
             if (time_signature.numerator >
                 std::numeric_limits<decltype(time_signature.numerator)>::max() / 2)
             {
@@ -362,22 +374,22 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             auto const doubled = time_signature.numerator * 2;
             auto const candidate =
                 sequence::TimeSignature{doubled, time_signature.denominator};
-            if (exceeds_max_measure_length(candidate))
+            if (exceeds_max_column_duration(candidate))
             {
                 return make_result(
                     merror("TimeSignature Too Large, Max length is 64 Whole Notes."));
             }
             time_signature.numerator = doubled;
             context.edit_project() = std::move(state);
-            return make_result(minfo("Measure TimeSignature Doubled."));
+            return make_result(minfo("Column Duration Doubled."));
         }));
 
     specs.push_back(command(
-        {"halve", "measure", "timeSignature"}, false, "Halve measure time signature.",
+        {"halve", "duration"}, false, "Halve selected column duration.",
         project_edit_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto &time_signature = default_measure_length(state);
+            auto &time_signature = selected_duration(state, context.execution.cursor);
             if (time_signature.numerator % 2 == 0)
             {
                 time_signature.numerator /= 2;
@@ -393,7 +405,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 time_signature.denominator *= 2;
             }
             context.edit_project() = std::move(state);
-            return make_result(minfo("Measure TimeSignature Halved."));
+            return make_result(minfo("Column Duration Halved."));
         }));
 
     auto const shift_pattern = [](auto shift_fn, std::string message) {
@@ -401,9 +413,9 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                    CommandHandlerContext &context, CommandInvocation const &invocation,
                    auto amount) {
             auto state = context.project();
-            state =
-                increment_state(std::move(state), require_selection(context.execution),
-                                shift_fn, invocation.input.pattern, amount);
+            state = increment_state(std::move(state), context.execution.cursor,
+                                    require_selection(context.execution), shift_fn,
+                                    invocation.input.pattern, amount);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo(message), context.execution);
         };
@@ -417,19 +429,19 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                         return action::shift_pitch(std::move(target), pattern, amount);
                     },
                     "Pitch Shifted")));
-    specs.push_back(
-        command({"shift", "octave"}, true, "Shift selected note octaves.",
-                targeted_edit_policy, std::make_tuple(octave_offset_arg("amount", 1)),
-                [](CommandHandlerContext &context, CommandInvocation const &invocation,
-                   int amount) {
-                    auto state = context.project();
-                    state = action::shift_octave(std::move(state),
-                                                 require_selection(context.execution),
-                                                 invocation.input.pattern, amount);
-                    context.edit_project() = std::move(state);
-                    return unchanged_selection_result(minfo("Octave Shifted"),
-                                                      context.execution);
-                }));
+    specs.push_back(command(
+        {"shift", "octave"}, true, "Shift selected note octaves.", targeted_edit_policy,
+        std::make_tuple(octave_offset_arg("amount", 1)),
+        [](CommandHandlerContext &context, CommandInvocation const &invocation,
+           int amount) {
+            auto state = context.project();
+            state = action::shift_octave(std::move(state), context.execution.cursor,
+                                         require_selection(context.execution),
+                                         invocation.input.pattern, amount);
+            context.edit_project() = std::move(state);
+            return unchanged_selection_result(minfo("Octave Shifted"),
+                                              context.execution);
+        }));
     specs.push_back(command(
         {"shift", "velocity"}, true, "Shift selected note velocities.",
         targeted_edit_policy, std::make_tuple(velocity_offset_arg("amount", 0.1f)),
@@ -462,16 +474,17 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
             auto const &library = context.library();
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
             auto current = std::optional<std::size_t>{};
-            if (state.pitch.scale.has_value())
+            if (pitch.scale.has_value())
             {
-                if (!state.pitch.scale->source_id.has_value())
+                if (!pitch.scale->source_id.has_value())
                 {
                     return make_result(
                         merror("Active scale has no library source ID."));
                 }
                 auto const at = std::ranges::find(
-                    library.scales, *state.pitch.scale->source_id, &LibraryScale::id);
+                    library.scales, *pitch.scale->source_id, &LibraryScale::id);
                 if (at == library.scales.end())
                 {
                     return make_result(
@@ -482,12 +495,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             }
             auto const index =
                 action::shift_scale_index(current, amount, library.scales.size());
-            state.pitch.scale =
-                index.has_value()
-                    ? std::optional<ActiveScale>{ActiveScale{
-                          .source_id = library.scales[*index].id,
-                          .definition = library.scales[*index].definition}}
-                    : std::nullopt;
+            pitch.scale = index.has_value()
+                              ? std::optional<ActiveScale>{ActiveScale{
+                                    .source_id = library.scales[*index].id,
+                                    .definition = library.scales[*index].definition}}
+                              : std::nullopt;
             context.edit_project() = std::move(state);
             return make_result(minfo("Scale Shifted"));
         }));
@@ -497,10 +509,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         std::make_tuple(optional_arg<int>("scale_mode_offset", "amount", 1)),
         [](CommandHandlerContext &context, CommandInvocation const &, int amount) {
             auto state = context.project();
-            if (state.pitch.scale.has_value())
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
+            if (pitch.scale.has_value())
             {
-                state.pitch.scale->definition =
-                    action::shift_scale_mode(state.pitch.scale->definition, amount);
+                pitch.scale->definition =
+                    action::shift_scale_mode(pitch.scale->definition, amount);
                 context.edit_project() = std::move(state);
             }
             return make_result(minfo("Scale Mode Shifted"));
@@ -511,7 +524,9 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 project_edit_policy, std::make_tuple(),
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     auto state = context.project();
-                    action::flip_translate_direction(state.pitch.translation_direction);
+                    action::flip_translate_direction(
+                        selected_column(state, context.execution.cursor)
+                            .pitch.translation_direction);
                     context.edit_project() = std::move(state);
                     return make_result(minfo("Translate Direction Shifted"));
                 }));
@@ -522,16 +537,17 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &, int direction) {
             auto state = context.project();
             auto const &library = context.library();
-            auto &translate_direction = state.pitch.translation_direction;
-            if (state.pitch.scale.has_value())
+            auto &pitch = selected_column(state, context.execution.cursor).pitch;
+            auto &translate_direction = pitch.translation_direction;
+            if (pitch.scale.has_value())
             {
-                if (!state.pitch.scale->source_id.has_value())
+                if (!pitch.scale->source_id.has_value())
                 {
                     return make_result(
                         merror("Active scale has no library source ID."));
                 }
-                auto at = std::ranges::find(
-                    library.scales, *state.pitch.scale->source_id, &LibraryScale::id);
+                auto at = std::ranges::find(library.scales, *pitch.scale->source_id,
+                                            &LibraryScale::id);
                 if (at == library.scales.end())
                 {
                     return make_result(
@@ -540,11 +556,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                 action::flip_translate_direction(translate_direction);
                 if (translate_direction == TranslateDirection::Up)
                 {
-                    state.pitch.scale->definition = action::shift_scale_mode(
-                        state.pitch.scale->definition, direction);
-                    if ((state.pitch.scale->definition.mode == 1 && direction == 1) ||
-                        (state.pitch.scale->definition.mode ==
-                             state.pitch.scale->definition.intervals.size() &&
+                    pitch.scale->definition =
+                        action::shift_scale_mode(pitch.scale->definition, direction);
+                    if ((pitch.scale->definition.mode == 1 && direction == 1) ||
+                        (pitch.scale->definition.mode ==
+                             pitch.scale->definition.intervals.size() &&
                          direction == -1))
                     {
                         auto const current = static_cast<std::size_t>(
@@ -553,19 +569,19 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                             current, direction, library.scales.size());
                         if (index.has_value() && *index < library.scales.size())
                         {
-                            state.pitch.scale = ActiveScale{
+                            pitch.scale = ActiveScale{
                                 .source_id = library.scales[*index].id,
                                 .definition = library.scales[*index].definition,
                             };
                             if (direction == -1)
                             {
-                                state.pitch.scale->definition.mode =
-                                    state.pitch.scale->definition.intervals.size();
+                                pitch.scale->definition.mode =
+                                    pitch.scale->definition.intervals.size();
                             }
                         }
                         else
                         {
-                            state.pitch.scale = std::nullopt;
+                            pitch.scale = std::nullopt;
                         }
                     }
                 }
@@ -573,7 +589,7 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else if (!library.scales.empty())
             {
                 auto const index = direction == 1 ? 0 : library.scales.size() - 1;
-                state.pitch.scale = ActiveScale{
+                pitch.scale = ActiveScale{
                     .source_id = library.scales[index].id,
                     .definition = library.scales[index].definition,
                 };
@@ -588,9 +604,9 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                    CommandHandlerContext &context, CommandInvocation const &invocation,
                    auto min, auto max) {
             auto state = context.project();
-            state =
-                increment_state(std::move(state), require_selection(context.execution),
-                                randomize_fn, invocation.input.pattern, min, max);
+            state = increment_state(std::move(state), context.execution.cursor,
+                                    require_selection(context.execution), randomize_fn,
+                                    invocation.input.pattern, min, max);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo(message), context.execution);
         };

@@ -135,8 +135,9 @@ struct ActiveChannel
 
 } // namespace
 
-auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
-                                  std::uint32_t sample_rate, float bpm) -> std::uint32_t
+auto checked_duration_sample_count(sequence::TimeSignature const &time_signature,
+                                   std::uint32_t sample_rate, float bpm)
+    -> std::uint32_t
 {
     if (time_signature.numerator == 0 || time_signature.denominator == 0)
     {
@@ -159,7 +160,7 @@ auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
         duration > static_cast<long double>(std::numeric_limits<int>::max()))
     {
         throw std::overflow_error{
-            "Measure duration must fit in a positive JUCE sample position."};
+            "Column duration must fit in a positive JUCE sample position."};
     }
 
     auto const sample_count = sequence::samples_count(time_signature, sample_rate, bpm);
@@ -167,7 +168,7 @@ auto checked_measure_sample_count(sequence::TimeSignature const &time_signature,
         sample_count > static_cast<std::uint32_t>(std::numeric_limits<int>::max()))
     {
         throw std::overflow_error{
-            "Measure duration must fit in a positive JUCE sample position."};
+            "Column duration must fit in a positive JUCE sample position."};
     }
     return sample_count;
 }
@@ -297,7 +298,7 @@ auto live_voice_from(AssignedMidiNote const &assigned) -> LiveVoice
 namespace xen
 {
 
-auto state_to_timeline(Measure measure, sequence::TimeSignature measure_length,
+auto state_to_timeline(sequence::Cell cell, sequence::TimeSignature duration,
                        sequence::Tuning const &tuning, float base_frequency,
                        DAWState const &daw_state, std::optional<Scale> const &scale,
                        int key, TranslateDirection scale_translate_direction)
@@ -311,18 +312,17 @@ auto state_to_timeline(Measure measure, sequence::TimeSignature measure_length,
             throw std::invalid_argument{
                 "Scale tuning length must match the active tuning."};
         }
-        measure.cell =
-            scale_translate_cell(measure.cell, generate_valid_pitches(*scale),
-                                 tuning.intervals.size(), scale_translate_direction);
+        cell = scale_translate_cell(cell, generate_valid_pitches(*scale),
+                                    tuning.intervals.size(), scale_translate_direction);
     }
 
-    measure.cell = key_transpose_cell(measure.cell, key);
+    cell = key_transpose_cell(cell, key);
 
-    auto const sample_count = midi_internal::checked_measure_sample_count(
-        measure_length, daw_state.sample_rate, daw_state.bpm);
+    auto const sample_count = midi_internal::checked_duration_sample_count(
+        duration, daw_state.sample_rate, daw_state.bpm);
 
-    return sequence::midi::flatten_to_midi(measure.cell.elements, 0, sample_count,
-                                           tuning, base_frequency, 48.f);
+    return sequence::midi::flatten_to_midi(cell.elements, 0, sample_count, tuning,
+                                           base_frequency, 48.f);
 }
 
 auto render_to_midi(std::vector<sequence::midi::TimedMidiNote> const &timeline)

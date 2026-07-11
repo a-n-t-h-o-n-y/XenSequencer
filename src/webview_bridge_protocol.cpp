@@ -95,18 +95,16 @@ auto parse_command_context(nlohmann::json const &payload) -> CommandContext
             ProjectRevision{revision.get<std::uint64_t>()};
     }
 
-    if (json_context.contains("active_measure_target") &&
-        !json_context.at("active_measure_target").is_null())
-    {
-        auto const &target = require_object(json_context, "active_measure_target");
-        context.active_measure_target = ActiveMeasureTarget{
-            .row_index =
-                static_cast<std::size_t>(require_unsigned(target, "row_index")),
-            .column_index =
-                static_cast<std::size_t>(require_unsigned(target, "column_index")),
-            .measure_id = require_unsigned(target, "measure_id"),
-        };
-    }
+    auto const &cursor = require_object(json_context, "cursor");
+    context.cursor = CompositionCursor{
+        .row_index = static_cast<std::size_t>(require_unsigned(cursor, "row_index")),
+        .column_index =
+            static_cast<std::size_t>(require_unsigned(cursor, "column_index")),
+        .sequence_id =
+            cursor.at("sequence_id").is_null()
+                ? std::optional<SequenceId>{}
+                : std::optional<SequenceId>{require_unsigned(cursor, "sequence_id")},
+    };
 
     if (json_context.contains("selection"))
     {

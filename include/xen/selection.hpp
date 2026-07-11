@@ -28,39 +28,40 @@ enum class SelectionKind
 /**
  * Resolve the current selection to a Cell.
  *
- * @param measure The root Measure to select from.
+ * @param root The root Cell to select from.
  * @param selected The current typed path selection state.
  * @return Cell& to the selected Cell.
  * @exception std::runtime_error If the selection does not resolve to a Cell.
  */
-[[nodiscard]] auto get_selected_cell(Measure &measure,
+[[nodiscard]] auto get_selected_cell(sequence::Cell &root,
                                      SelectionPath const &selected) -> sequence::Cell &;
 
 /**
  * Resolve the current selection to a Cell.
  *
- * @param measure The root Measure to select from.
+ * @param root The root Cell to select from.
  * @param selected The current typed path selection state.
  * @return Cell const& to the selected Cell.
  * @exception std::runtime_error If the selection does not resolve to a Cell.
  */
-[[nodiscard]] auto get_selected_cell_const(
-    Measure const &measure, SelectionPath const &selected) -> sequence::Cell const &;
+[[nodiscard]] auto get_selected_cell_const(sequence::Cell const &root,
+                                           SelectionPath const &selected)
+    -> sequence::Cell const &;
 
-[[nodiscard]] auto get_selected_element(Measure &measure,
+[[nodiscard]] auto get_selected_element(sequence::Cell &root,
                                         SelectionPath const &selected)
     -> sequence::MusicElement &;
 
-[[nodiscard]] auto get_selected_element_const(
-    Measure const &measure, SelectionPath const &selected)
+[[nodiscard]] auto get_selected_element_const(sequence::Cell const &root,
+                                              SelectionPath const &selected)
     -> sequence::MusicElement const &;
 
-[[nodiscard]] auto get_selected_sequence(Measure &measure,
+[[nodiscard]] auto get_selected_sequence(sequence::Cell &root,
                                          SelectionPath const &selected)
     -> sequence::Sequence &;
 
-[[nodiscard]] auto get_selected_sequence_const(
-    Measure const &measure, SelectionPath const &selected)
+[[nodiscard]] auto get_selected_sequence_const(sequence::Cell const &root,
+                                               SelectionPath const &selected)
     -> sequence::Sequence const &;
 
 [[nodiscard]] auto get_selected_element_index(SelectionPath const &selected)
@@ -72,38 +73,41 @@ enum class SelectionKind
 /**
  * Get the parent Cell of the selected child Cell.
  *
- * @param measure The root Measure to select from.
+ * @param root The root Cell to select from.
  * @param selected The current selection state.
  * @return Pointer to the parent of the selected Cell, or nullptr if the selection
  * is at the top level.
  */
-[[nodiscard]] auto get_parent_of_selected(
-    Measure &measure, SelectionPath const &selected) -> sequence::Cell *;
+[[nodiscard]] auto get_parent_of_selected(sequence::Cell &root,
+                                          SelectionPath const &selected)
+    -> sequence::Cell *;
 
 /**
  * Get the parent Cell of the selected child Cell.
  *
- * @param measure The root Measure to select from.
+ * @param root The root Cell to select from.
  * @param selected The current selection state.
  * @return Pointer to the parent of the selected Cell, or nullptr if the selection
  * is at the top level.
  */
-[[nodiscard]] auto get_parent_of_selected_const(
-    Measure const &measure, SelectionPath const &selected) -> sequence::Cell const *;
+[[nodiscard]] auto get_parent_of_selected_const(sequence::Cell const &root,
+                                                SelectionPath const &selected)
+    -> sequence::Cell const *;
 
-[[nodiscard]] auto get_parent_sequence_of_selected_cell(
-    Measure &measure, SelectionPath const &selected) -> sequence::Sequence *;
+[[nodiscard]] auto get_parent_sequence_of_selected_cell(sequence::Cell &root,
+                                                        SelectionPath const &selected)
+    -> sequence::Sequence *;
 
 [[nodiscard]] auto get_parent_sequence_of_selected_cell_const(
-    Measure const &measure, SelectionPath const &selected)
+    sequence::Cell const &root, SelectionPath const &selected)
     -> sequence::Sequence const *;
 
-[[nodiscard]] auto get_parent_cell_of_selection(Measure &measure,
+[[nodiscard]] auto get_parent_cell_of_selection(sequence::Cell &root,
                                                 SelectionPath const &selected)
     -> sequence::Cell *;
 
-[[nodiscard]] auto get_parent_cell_of_selection_const(
-    Measure const &measure, SelectionPath const &selected)
+[[nodiscard]] auto get_parent_cell_of_selection_const(sequence::Cell const &root,
+                                                      SelectionPath const &selected)
     -> sequence::Cell const *;
 
 /**
@@ -111,33 +115,33 @@ enum class SelectionKind
  *
  * @details This count is the total number of child cells of the selected cell's parent.
  * This includes the selected cell itself.
- * @param measure The root Measure to select from.
+ * @param root The root Cell to select from.
  * @param selected The current selection state.
  * @return The number of siblings of the selected Cell.
  */
-[[nodiscard]] auto get_sibling_count(Measure const &measure,
+[[nodiscard]] auto get_sibling_count(sequence::Cell const &root,
                                      SelectionPath const &selected) -> std::size_t;
 
 /**
  * Move the selection left within the current container.
  *
- * @param measure The root Measure to work with.
+ * @param root The root Cell to work with.
  * @param selected The current selection state.
  * @param amount The number of positions to move left.
  * @return The new selection after moving left.
  */
-[[nodiscard]] auto move_left(Measure const &measure, SelectionPath selected,
+[[nodiscard]] auto move_left(sequence::Cell const &root, SelectionPath selected,
                              std::size_t amount = 1) -> SelectionPath;
 
 /**
  * Move the selection right within the current container.
  *
- * @param measure The root Measure to work with.
+ * @param root The root Cell to work with.
  * @param selected The current selection state.
  * @param amount The number of positions to move right.
  * @return The new selection after moving right.
  */
-[[nodiscard]] auto move_right(Measure const &measure, SelectionPath selected,
+[[nodiscard]] auto move_right(sequence::Cell const &root, SelectionPath selected,
                               std::size_t amount = 1) -> SelectionPath;
 
 /**
@@ -147,12 +151,12 @@ enum class SelectionKind
  * this skips back to the containing Cell instead of stopping on the Sequence
  * element.
  *
- * @param measure The root Measure to work with.
+ * @param root The root Cell to work with.
  * @param selected The current selection state.
  * @param amount The number of steps to move up.
  * @return The new selection path after moving up.
  */
-[[nodiscard]] auto move_up(Measure const &measure, SelectionPath selected,
+[[nodiscard]] auto move_up(sequence::Cell const &root, SelectionPath selected,
                            std::size_t amount = 1) -> SelectionPath;
 
 /**
@@ -164,13 +168,13 @@ enum class SelectionKind
  * current Cell contains exactly one non-Sequence element, the selection stays
  * on the current Cell.
  *
- * @param measure The root Measure to work with.
+ * @param root The root Cell to work with.
  * @param selected The current selection state.
  * @param amount The number of levels to move down.
  * @return The new selection path after moving down, or the original path if moving
  * down is not possible.
  */
-[[nodiscard]] auto move_down(Measure const &measure, SelectionPath selected,
+[[nodiscard]] auto move_down(sequence::Cell const &root, SelectionPath selected,
                              std::size_t amount = 1) -> SelectionPath;
 
 } // namespace xen

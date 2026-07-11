@@ -261,12 +261,14 @@ auto JuceLibraryBridgeService::make_payload(LibrarySnapshot const &snapshot) con
         {"paths",
          {
              {"library", normalize_utf8(files_.library_root().string())},
-             {"sequences", normalize_utf8(workspace.sequence_directory.string())},
+             {"content", normalize_utf8(workspace.content_directory.string())},
              {"tunings", normalize_utf8(workspace.tuning_directory.string())},
          }},
-        {"measures",
-         file_entries_to_json(files_.measure_files(workspace.sequence_directory),
-                              "load measure ")},
+        {"cells", file_entries_to_json(files_.cell_files(workspace.content_directory),
+                                       "load cell ")},
+        {"compositions",
+         file_entries_to_json(files_.composition_files(workspace.content_directory),
+                              "load composition ")},
         {"tunings",
          tuning_entries_to_json(files_.tuning_files(workspace.tuning_directory))},
         {"scales", std::move(scales)},
@@ -285,8 +287,8 @@ auto JuceLibraryFilePort::library_root() const -> std::filesystem::path
     return get_user_library_directory().getFullPathName().toStdString();
 }
 
-auto JuceLibraryFilePort::measure_files(
-    std::filesystem::path const &directory_path) const -> std::vector<LibraryFileEntry>
+auto JuceLibraryFilePort::cell_files(std::filesystem::path const &directory_path) const
+    -> std::vector<LibraryFileEntry>
 {
     auto const directory = as_juce_file(directory_path);
     if (!directory.isDirectory())
@@ -295,14 +297,30 @@ auto JuceLibraryFilePort::measure_files(
                                  directory.getFullPathName().toStdString());
     }
 
-    auto const files =
-        to_sorted_files(directory.findChildFiles(juce::File::findFiles, true, "*.xss"));
+    auto const files = to_sorted_files(
+        directory.findChildFiles(juce::File::findFiles, true, "*.xencell"));
     auto out = std::vector<LibraryFileEntry>{};
     out.reserve(files.size());
     for (auto const &file : files)
     {
         out.push_back(make_library_file_entry(directory, file));
     }
+    return out;
+}
+
+auto JuceLibraryFilePort::composition_files(
+    std::filesystem::path const &directory_path) const -> std::vector<LibraryFileEntry>
+{
+    auto const directory = as_juce_file(directory_path);
+    if (!directory.isDirectory())
+        throw std::runtime_error("Invalid library directory: " +
+                                 directory.getFullPathName().toStdString());
+    auto const files = to_sorted_files(
+        directory.findChildFiles(juce::File::findFiles, true, "*.xencomp"));
+    auto out = std::vector<LibraryFileEntry>{};
+    out.reserve(files.size());
+    for (auto const &file : files)
+        out.push_back(make_library_file_entry(directory, file));
     return out;
 }
 

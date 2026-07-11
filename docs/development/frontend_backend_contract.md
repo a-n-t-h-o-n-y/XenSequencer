@@ -46,7 +46,7 @@ All messages use:
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v2";
+  protocol: "xen.bridge.v3";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -82,12 +82,12 @@ Request:
 
 ```json
 {
-  "protocol": "xen.bridge.v2",
+  "protocol": "xen.bridge.v3",
   "type": "request",
   "name": "session.hello",
   "request_id": "hello-1",
   "payload": {
-    "protocol": "xen.bridge.v2",
+    "protocol": "xen.bridge.v3",
     "frontend_app": "xen-web-ui",
     "frontend_version": "..."
   }
@@ -98,12 +98,12 @@ Response payload:
 
 ```ts
 type SessionHello = {
-  protocol: "xen.bridge.v2";
+  protocol: "xen.bridge.v3";
   plugin_version: string;
-  project_schema_version: 3;
+  project_schema_version: 4;
   library_schema_version: 1;
   catalog: {
-    schema_version: 2;
+    schema_version: 3;
     commands: CatalogCommand[];
   };
   keymap: KeymapResource;
@@ -201,24 +201,39 @@ type ScaleDefinition = {
 };
 
 type ProjectSnapshot = {
-  schema_version: 3;
+  schema_version: 4;
   history_entry_id: number;
   project_revision: number;
   project: {
-    measure_bank: {
+    sequence_bank: {
       next_id: number;
-      measures: Array<{
+      sequences: Array<{
         id: number;
-        measure: {
-          cell: Cell;
-        };
+        name?: string;
+        cell: Cell;
       }>;
     };
     composition: {
       columns: Array<{
-        length: {
+        duration: {
           numerator: number;
           denominator: number;
+        };
+        pitch: {
+          tuning: {
+            name: string;
+            definition: {
+              intervals: number[];
+              octave: number;
+            };
+          };
+          scale: {
+            source_id: string | null;
+            definition: ScaleDefinition;
+          } | null;
+          transposition: number;
+          translation_direction: "up" | "down";
+          base_frequency: number;
         };
       }>;
       rows: Array<{
@@ -226,30 +241,14 @@ type ProjectSnapshot = {
         cells: Array<number | null>;
       }>;
     };
-    pitch: {
-      tuning: {
-        name: string;
-        definition: {
-          intervals: number[];
-          octave: number;
-        };
-      };
-      scale: {
-        source_id: string | null;
-        definition: ScaleDefinition;
-      } | null;
-      transposition: number;
-      translation_direction: "up" | "down";
-      base_frequency: number;
-    };
   };
 };
 ```
 
 An empty `Cell.elements` array represents silence. Musical content lives in
-`measure_bank.measures[].measure.cell`; arrangement lives in `composition`. A
-composition cell is either a measure ID from the bank or `null` for an empty/rest cell.
-Column length replaces the old measure-level `time_signature`.
+`sequence_bank.sequences[].cell`; arrangement lives in `composition`. A
+composition cell is either a sequence ID from the bank or `null` for an empty/rest cell.
+Column duration replaces the old sequence-level `time_signature`.
 
 The active scale embeds the complete musical definition. `source_id` identifies the
 library entry used to create it and may be null for an embedded/untracked scale.
@@ -260,12 +259,12 @@ Chromatic state is represented by `scale: null`.
 Use one ingestion function for `state.get`, `state.changed`, and command response
 snapshots:
 
-1. Reject schemas other than `1`.
+1. Reject schemas other than `4`.
 2. Install the first valid snapshot.
 3. Ignore an older `project_revision`.
 4. Treat an equal revision as an idempotent duplicate.
 5. Install a newer revision, then reconcile frontend-owned selection against the new
-   measure. Fall back to the root selection when the path no longer resolves.
+   sequence. Fall back to the root selection when the path no longer resolves.
 
 Do not use `history_entry_id` for freshness. It can stay unchanged while
 `project_revision` advances.
@@ -354,10 +353,17 @@ type LibrarySnapshot = {
   library_revision: number;
   paths: {
     library: string;
-    sequences: string;
+    content: string;
     tunings: string;
   };
-  measures: Array<{
+  cells: Array<{
+    name: string;
+    relative_path: string;
+    stem: string;
+    path: string;
+    command: string;
+  }>;
+  compositions: Array<{
     name: string;
     relative_path: string;
     stem: string;
@@ -405,7 +411,7 @@ type LibrarySnapshot = {
 Project and library revisions are independent. Use a separate revision-aware ingestion
 path for library responses/events.
 
-`library.get` scans measure and tuning files recursively on each request. Scales and
+`library.get` scans sequence and tuning files recursively on each request. Scales and
 chords reflect backend memory; execute `load scales` or `load chords` to reload those
 files. Library reloads advance `library_revision` even when the loaded values compare
 equal. Workspace path changes also publish a new library revision.
@@ -446,8 +452,8 @@ At minimum:
 - replace snapshot schema `4` parsing with project schema `2`;
 - replace `snapshot_version`/`commit_id` with
   `project_revision`/`history_entry_id`;
-- replace flat `engine` fields with `project.measure_bank`, `project.composition`,
-  and `project.pitch`;
+- replace flat `engine` fields with `project.sequence_bank` and
+  `project.composition`, including each column's `pitch` context;
 - remove all reads of `snapshot.editor`;
 - keep selection and input mode in frontend state;
 - implement local selection navigation and input-mode actions;

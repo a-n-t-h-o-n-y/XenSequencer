@@ -22,11 +22,11 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     auto project = ProjectState{};
     CHECK_NOTHROW(validate(project));
 
-    default_measure(project).cell.weight = 0.f;
+    selected_sequence(project, xen::CompositionCursor{}).weight = 0.f;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    default_measure(project).cell.elements = {
+    selected_sequence(project, xen::CompositionCursor{}).elements = {
         sequence::Sequence{
             .cells =
                 {
@@ -40,45 +40,47 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    default_measure_length(project) = {65, 1};
+    selected_duration(project, xen::CompositionCursor{}) = {65, 1};
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.measure_bank.next_id = DEFAULT_MEASURE_ID;
+    project.sequence_bank.next_id = DEFAULT_SEQUENCE_ID;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.pitch.tuning.definition.intervals = {0.f, 200.f, 100.f};
+    project.composition.columns.front().pitch.tuning.definition.intervals = {0.f, 200.f,
+                                                                             100.f};
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.pitch.base_frequency = 0.f;
+    project.composition.columns.front().pitch.base_frequency = 0.f;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.pitch.transposition = 128;
+    project.composition.columns.front().pitch.transposition = 128;
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     auto timeline = XenTimeline{ProjectState{}};
     CHECK_THROWS_AS(timeline.commit(project), std::invalid_argument);
 }
 
-TEST_CASE("Project schema 3 stores measure bank and composition",
+TEST_CASE("Project schema 4 stores sequence bank and composition",
           "[data-model][serialize]")
 {
     auto const project = ProjectState{};
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("schema") == 3);
-    CHECK(encoded.at("project").contains("pitch"));
-    CHECK(encoded.at("project").contains("measure_bank"));
+    CHECK(encoded.at("schema") == 4);
+    CHECK(encoded.at("kind") == "xen_composition");
+    CHECK_FALSE(encoded.at("project").contains("pitch"));
+    CHECK(encoded.at("project").contains("sequence_bank"));
     CHECK(encoded.at("project").contains("composition"));
     CHECK_FALSE(encoded.at("project").contains("measure"));
     CHECK_FALSE(encoded.at("project").contains("tuning"));
     CHECK(encoded.at("project")
-              .at("measure_bank")
-              .at("measures")
+              .at("sequence_bank")
+              .at("sequences")
               .front()
-              .at("measure")
+              .at("cell")
               .contains("time_signature") == false);
 
     auto old_schema = encoded;
@@ -86,8 +88,7 @@ TEST_CASE("Project schema 3 stores measure bank and composition",
     CHECK_THROWS(deserialize_project(old_schema.dump()));
 
     auto const old = nlohmann::json{
-        {"measure", encoded.at("project").at("measure_bank").at("measures").front()},
-        {"tuning", encoded.at("project").at("pitch").at("tuning")},
+        {"sequence", encoded.at("project").at("sequence_bank").at("sequences").front()},
     };
     CHECK_THROWS(deserialize_project(old.dump()));
 }
@@ -96,19 +97,49 @@ TEST_CASE("Default project has one channel-1 4/4 arranged measure",
           "[data-model][composition]")
 {
     auto const project = ProjectState{};
-    REQUIRE(project.measure_bank.measures.size() == 1);
-    CHECK(project.measure_bank.measures.front().id == DEFAULT_MEASURE_ID);
-    CHECK_FALSE(project.measure_bank.measures.front().name.has_value());
-    CHECK(project.measure_bank.next_id == DEFAULT_MEASURE_ID + 1);
+    REQUIRE(project.sequence_bank.sequences.size() == 1);
+    CHECK(project.sequence_bank.sequences.front().id == DEFAULT_SEQUENCE_ID);
+    CHECK_FALSE(project.sequence_bank.sequences.front().name.has_value());
+    CHECK(project.sequence_bank.next_id == DEFAULT_SEQUENCE_ID + 1);
     REQUIRE(project.composition.columns.size() == 1);
-    CHECK(project.composition.columns.front().length == sequence::TimeSignature{4, 4});
+    CHECK(project.composition.columns.front().duration ==
+          sequence::TimeSignature{4, 4});
     CHECK(project.composition.loop_region.start_column == 0);
     CHECK(project.composition.loop_region.end_column == 0);
     REQUIRE(project.composition.rows.size() == 1);
     CHECK(project.composition.rows.front().channel_id == DEFAULT_CHANNEL_ID);
     CHECK_FALSE(project.composition.rows.front().name.has_value());
     REQUIRE(project.composition.rows.front().cells.size() == 1);
-    CHECK(project.composition.rows.front().cells.front() == DEFAULT_MEASURE_ID);
+    CHECK(project.composition.rows.front().cells.front() == DEFAULT_SEQUENCE_ID);
+}
+
+TEST_CASE("Column insertion and duplication preserve musical context",
+          "[data-model][composition]")
+{
+    auto project = ProjectState{};
+    project.composition.columns[0].duration = {7, 8};
+    project.composition.columns[0].pitch.transposition = 9;
+
+    insert_column(project.composition, 1, project.composition.columns[0]);
+    CHECK(project.composition.columns[1] == project.composition.columns[0]);
+    CHECK_FALSE(project.composition.rows[0].cells[1].has_value());
+
+    duplicate_column(project.composition, 0, 2);
+    CHECK(project.composition.columns[2] == project.composition.columns[0]);
+    CHECK(project.composition.rows[0].cells[2] == DEFAULT_SEQUENCE_ID);
+}
+
+TEST_CASE("Typed Cell and Composition documents round-trip", "[data-model][serialize]")
+{
+    auto cell = sequence::Cell{
+        .elements = {sequence::Note{.pitch = 7}},
+        .weight = 2.f,
+    };
+    CHECK(deserialize_cell_file(serialize_cell_file(cell)) == cell);
+
+    auto project = ProjectState{};
+    project.composition.columns[0].pitch.transposition = 11;
+    CHECK(deserialize_composition(serialize_composition(project)) == project);
 }
 
 TEST_CASE("Measure bank and composition API covers editing operations",
@@ -117,38 +148,39 @@ TEST_CASE("Measure bank and composition API covers editing operations",
     auto project = ProjectState{};
 
     auto const duplicate_id =
-        duplicate_measure(project.measure_bank, DEFAULT_MEASURE_ID);
-    REQUIRE(duplicate_id != DEFAULT_MEASURE_ID);
-    REQUIRE(find_measure(project.measure_bank, duplicate_id) != nullptr);
+        duplicate_sequence(project.sequence_bank, DEFAULT_SEQUENCE_ID);
+    REQUIRE(duplicate_id != DEFAULT_SEQUENCE_ID);
+    REQUIRE(find_sequence(project.sequence_bank, duplicate_id) != nullptr);
 
     insert_column(project.composition, 1, sequence::TimeSignature{3, 4});
-    assign_measure_reference(project.composition, 0, 1, duplicate_id);
-    CHECK(measure_reference_at(project.composition, 0, 1) == duplicate_id);
-    set_column_length(project.composition, 1, sequence::TimeSignature{5, 8});
-    CHECK(project.composition.columns[1].length == sequence::TimeSignature{5, 8});
+    assign_sequence_reference(project.composition, 0, 1, duplicate_id);
+    CHECK(sequence_reference_at(project.composition, 0, 1) == duplicate_id);
+    set_column_duration(project.composition, 1, sequence::TimeSignature{5, 8});
+    CHECK(project.composition.columns[1].duration == sequence::TimeSignature{5, 8});
     set_loop_start(project.composition, 1);
     set_loop_end(project.composition, 0);
     CHECK(project.composition.loop_region.start_column == 1);
     CHECK(project.composition.loop_region.end_column == 0);
 
     insert_row(project.composition, 1, "peer");
-    assign_measure_reference(project.composition, 1, 0, duplicate_id);
+    assign_sequence_reference(project.composition, 1, 0, duplicate_id);
     move_row(project.composition, 1, 0);
     CHECK(project.composition.rows.front().channel_id == "peer");
     assign_row_channel(project.composition, 0, DEFAULT_CHANNEL_ID);
     move_column(project.composition, 1, 0);
-    CHECK(project.composition.columns.front().length == sequence::TimeSignature{5, 8});
+    CHECK(project.composition.columns.front().duration ==
+          sequence::TimeSignature{5, 8});
     CHECK(project.composition.loop_region.start_column == 0);
     CHECK(project.composition.loop_region.end_column == 1);
 
-    clear_measure_reference(project.composition, 0, 0);
-    CHECK_FALSE(measure_reference_at(project.composition, 0, 0).has_value());
+    clear_sequence_reference(project.composition, 0, 0);
+    CHECK_FALSE(sequence_reference_at(project.composition, 0, 0).has_value());
     remove_column(project.composition, 0);
     CHECK(project.composition.loop_region.start_column == 0);
     CHECK(project.composition.loop_region.end_column == 0);
     remove_row(project.composition, 0);
-    CHECK(remove_measure(project.measure_bank, duplicate_id));
-    CHECK(find_measure(project.measure_bank, duplicate_id) == nullptr);
+    CHECK(remove_sequence(project.sequence_bank, duplicate_id));
+    CHECK(find_sequence(project.sequence_bank, duplicate_id) == nullptr);
 }
 
 TEST_CASE("Column insertion adjusts inclusive loop bounds", "[data-model][composition]")
@@ -190,51 +222,53 @@ TEST_CASE("Measure and composition row names serialize and validate",
           "[data-model][composition][serialize]")
 {
     auto project = ProjectState{};
-    project.measure_bank.measures.front().name = "Intro";
+    project.sequence_bank.sequences.front().name = "Intro";
     project.composition.rows.front().name = "Lead";
 
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("project").at("measure_bank").at("measures").front().at("name") ==
-          "Intro");
+    CHECK(
+        encoded.at("project").at("sequence_bank").at("sequences").front().at("name") ==
+        "Intro");
     CHECK(encoded.at("project").at("composition").at("rows").front().at("name") ==
           "Lead");
 
     auto decoded = deserialize_project(encoded.dump());
-    REQUIRE(decoded.measure_bank.measures.front().name.has_value());
-    CHECK(*decoded.measure_bank.measures.front().name == "Intro");
+    REQUIRE(decoded.sequence_bank.sequences.front().name.has_value());
+    CHECK(*decoded.sequence_bank.sequences.front().name == "Intro");
     REQUIRE(decoded.composition.rows.front().name.has_value());
     CHECK(*decoded.composition.rows.front().name == "Lead");
 
     auto legacy = encoded;
-    legacy.at("project").at("measure_bank").at("measures").front().erase("name");
+    legacy.at("project").at("sequence_bank").at("sequences").front().erase("name");
     legacy.at("project").at("composition").at("rows").front().erase("name");
     decoded = deserialize_project(legacy.dump());
-    CHECK_FALSE(decoded.measure_bank.measures.front().name.has_value());
+    CHECK_FALSE(decoded.sequence_bank.sequences.front().name.has_value());
     CHECK_FALSE(decoded.composition.rows.front().name.has_value());
 
-    project.measure_bank.measures.front().name = "";
+    project.sequence_bank.sequences.front().name = "";
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    auto const duplicate_id = create_measure(project.measure_bank, Measure{});
-    CHECK(duplicate_id != DEFAULT_MEASURE_ID);
-    project.measure_bank.measures.back().name = "M1";
+    auto const duplicate_id = create_sequence(project.sequence_bank, sequence::Cell{});
+    CHECK(duplicate_id != DEFAULT_SEQUENCE_ID);
+    project.sequence_bank.sequences.back().name = "S1";
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.measure_bank.measures.front().name = "Wow";
-    auto const duplicate_case_id = create_measure(project.measure_bank, Measure{});
-    CHECK(duplicate_case_id != DEFAULT_MEASURE_ID);
-    project.measure_bank.measures.back().name = "wow";
+    project.sequence_bank.sequences.front().name = "Wow";
+    auto const duplicate_case_id =
+        create_sequence(project.sequence_bank, sequence::Cell{});
+    CHECK(duplicate_case_id != DEFAULT_SEQUENCE_ID);
+    project.sequence_bank.sequences.back().name = "wow";
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
 
     project = ProjectState{};
-    project.measure_bank.measures.front().name = "Named";
+    project.sequence_bank.sequences.front().name = "Named";
     auto const duplicated_named_id =
-        duplicate_measure(project.measure_bank, DEFAULT_MEASURE_ID);
+        duplicate_sequence(project.sequence_bank, DEFAULT_SEQUENCE_ID);
     auto const duplicated_named = std::ranges::find(
-        project.measure_bank.measures, duplicated_named_id, &MeasureBankEntry::id);
-    REQUIRE(duplicated_named != project.measure_bank.measures.end());
+        project.sequence_bank.sequences, duplicated_named_id, &SequenceBankEntry::id);
+    REQUIRE(duplicated_named != project.sequence_bank.sequences.end());
     CHECK_FALSE(duplicated_named->name.has_value());
 
     project = ProjectState{};
@@ -246,7 +280,7 @@ TEST_CASE("Composition validation allows empty arranged cells",
           "[data-model][composition]")
 {
     auto project = ProjectState{};
-    clear_measure_reference(project.composition, 0, 0);
+    clear_sequence_reference(project.composition, 0, 0);
     CHECK_NOTHROW(validate(project));
 }
 
@@ -340,28 +374,33 @@ TEST_CASE("Scale selection uses source IDs and mode shifts preserve provenance",
     REQUIRE(session.execute_command_string("set scale major", context).status.first ==
             MessageLevel::Info);
     auto snapshot = session.project_snapshot();
-    REQUIRE(snapshot.project.pitch.scale.has_value());
-    CHECK(snapshot.project.pitch.scale->source_id == "major");
+    REQUIRE(snapshot.project.composition.columns.front().pitch.scale.has_value());
+    CHECK(snapshot.project.composition.columns.front().pitch.scale->source_id ==
+          "major");
 
     context.expected_project_revision = snapshot.project_revision;
     REQUIRE(session.execute_command_string("shift scaleMode 1", context).status.first ==
             MessageLevel::Info);
     snapshot = session.project_snapshot();
-    REQUIRE(snapshot.project.pitch.scale.has_value());
-    CHECK(snapshot.project.pitch.scale->source_id == "major");
+    REQUIRE(snapshot.project.composition.columns.front().pitch.scale.has_value());
+    CHECK(snapshot.project.composition.columns.front().pitch.scale->source_id ==
+          "major");
 
     context.expected_project_revision = snapshot.project_revision;
     REQUIRE(session.execute_command_string("shift scale 1", context).status.first ==
             MessageLevel::Info);
     snapshot = session.project_snapshot();
-    REQUIRE(snapshot.project.pitch.scale.has_value());
-    CHECK(snapshot.project.pitch.scale->source_id == "other");
+    REQUIRE(snapshot.project.composition.columns.front().pitch.scale.has_value());
+    CHECK(snapshot.project.composition.columns.front().pitch.scale->source_id ==
+          "other");
 
     context.expected_project_revision = snapshot.project_revision;
     REQUIRE(
         session.execute_command_string("set scale chromatic", context).status.first ==
         MessageLevel::Info);
-    CHECK_FALSE(session.project_snapshot().project.pitch.scale.has_value());
+    CHECK_FALSE(session.project_snapshot()
+                    .project.composition.columns.front()
+                    .pitch.scale.has_value());
 }
 
 TEST_CASE("Workspace settings persist outside project state", "[data-model][workspace]")
@@ -380,7 +419,7 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
                                         settings_file.getFullPathName().toStdString()};
         CHECK(session
                   .execute_command_string(
-                      "set sequenceDirectory \"" +
+                      "set contentDirectory \"" +
                           sequences.getFullPathName().toStdString() + "\"",
                       CommandContext{})
                   .status.first == MessageLevel::Info);
@@ -395,7 +434,7 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
     auto const restored =
         WorkspaceSettingsStore{settings_file.getFullPathName().toStdString()}
             .load_or_initialize();
-    CHECK(restored.sequence_directory == sequences.getFullPathName().toStdString());
+    CHECK(restored.content_directory == sequences.getFullPathName().toStdString());
     CHECK(restored.tuning_directory == tunings.getFullPathName().toStdString());
     CHECK(nlohmann::json::parse(serialize_project(ProjectState{}))
               .dump()
@@ -406,7 +445,7 @@ TEST_CASE("Workspace settings persist outside project state", "[data-model][work
 TEST_CASE("Workspace settings default construction is pure", "[data-model][workspace]")
 {
     auto const settings = WorkspaceSettings{};
-    CHECK(settings.sequence_directory.empty());
+    CHECK(settings.content_directory.empty());
     CHECK(settings.tuning_directory.empty());
 }
 
@@ -415,7 +454,7 @@ TEST_CASE("Transform cycles amend one history entry and again remains compatible
 {
     auto session = SequencerSession{};
     auto project = session.project_snapshot().project;
-    default_measure(project).cell.elements = {
+    selected_sequence(project, xen::CompositionCursor{}).elements = {
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},
         sequence::Note{.pitch = 10},

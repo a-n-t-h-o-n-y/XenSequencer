@@ -10,13 +10,11 @@
 
 #include <juce_core/juce_core.h>
 
-#include <sequence/tuning.hpp>
-
 #include <xen/chord.hpp>
 #include <xen/clock.hpp>
 #include <xen/command.hpp>
 #include <xen/composition.hpp>
-#include <xen/measure.hpp>
+#include <xen/pitch_system.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
 
@@ -31,43 +29,10 @@ using SessionId = std::string;
 
 using InstanceId = std::string;
 
-struct NamedTuning
-{
-    std::string name{"12-TET"};
-    sequence::Tuning definition{
-        .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
-        .octave = 1200,
-        .description = "",
-    };
-
-    auto operator==(NamedTuning const &) const -> bool = default;
-};
-
-struct ActiveScale
-{
-    std::optional<std::string> source_id{};
-    Scale definition{};
-
-    auto operator==(ActiveScale const &) const -> bool = default;
-};
-
-struct PitchSystem
-{
-    NamedTuning tuning{};
-    std::optional<ActiveScale> scale{}; // null is chromatic
-    int transposition{0};
-    TranslateDirection translation_direction{TranslateDirection::Up};
-    float base_frequency{440.f};
-
-    auto operator==(PitchSystem const &) const -> bool = default;
-};
-
 struct ProjectState
 {
-    MeasureBank measure_bank{make_default_measure_bank()};
+    SequenceBank sequence_bank{make_default_sequence_bank()};
     Composition composition{make_default_composition()};
-    PitchSystem pitch{};
-    std::optional<ActiveMeasureTarget> active_measure_target{};
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -75,8 +40,7 @@ struct ProjectState
 #endif
     [[nodiscard]] auto operator==(ProjectState const &other) const -> bool
     {
-        return measure_bank == other.measure_bank && composition == other.composition &&
-               pitch == other.pitch;
+        return sequence_bank == other.sequence_bank && composition == other.composition;
     }
     [[nodiscard]] auto operator!=(ProjectState const &other) const -> bool
     {
@@ -87,49 +51,46 @@ struct ProjectState
 #endif
 };
 
-[[nodiscard]] inline auto default_measure(ProjectState &project) -> Measure &
+[[nodiscard]] inline auto selected_sequence(ProjectState &project,
+                                            CompositionCursor const &cursor)
+    -> sequence::Cell &
 {
-    if (project.active_measure_target.has_value())
-    {
-        return arranged_measure(project.measure_bank, project.composition,
-                                *project.active_measure_target);
-    }
-    return default_arranged_measure(project.measure_bank, project.composition);
+    return arranged_sequence(project.sequence_bank, project.composition, cursor);
 }
 
-[[nodiscard]] inline auto default_measure(ProjectState const &project)
-    -> Measure const &
+[[nodiscard]] inline auto selected_sequence(ProjectState const &project,
+                                            CompositionCursor const &cursor)
+    -> sequence::Cell const &
 {
-    if (project.active_measure_target.has_value())
-    {
-        return arranged_measure(project.measure_bank, project.composition,
-                                *project.active_measure_target);
-    }
-    return default_arranged_measure(project.measure_bank, project.composition);
+    return arranged_sequence(project.sequence_bank, project.composition, cursor);
 }
 
-[[nodiscard]] inline auto default_measure_length(ProjectState &project)
+[[nodiscard]] inline auto selected_column(ProjectState &project,
+                                          CompositionCursor const &cursor)
+    -> CompositionColumn &
+{
+    return project.composition.columns.at(cursor.column_index);
+}
+
+[[nodiscard]] inline auto selected_column(ProjectState const &project,
+                                          CompositionCursor const &cursor)
+    -> CompositionColumn const &
+{
+    return project.composition.columns.at(cursor.column_index);
+}
+
+[[nodiscard]] inline auto selected_duration(ProjectState &project,
+                                            CompositionCursor const &cursor)
     -> sequence::TimeSignature &
 {
-    if (project.active_measure_target.has_value())
-    {
-        return project.composition.columns
-            .at(project.active_measure_target->column_index)
-            .length;
-    }
-    return default_column_length(project.composition);
+    return selected_column(project, cursor).duration;
 }
 
-[[nodiscard]] inline auto default_measure_length(ProjectState const &project)
+[[nodiscard]] inline auto selected_duration(ProjectState const &project,
+                                            CompositionCursor const &cursor)
     -> sequence::TimeSignature const &
 {
-    if (project.active_measure_target.has_value())
-    {
-        return project.composition.columns
-            .at(project.active_measure_target->column_index)
-            .length;
-    }
-    return default_column_length(project.composition);
+    return selected_column(project, cursor).duration;
 }
 
 void validate_timeline_state(ProjectState const &project);
@@ -173,7 +134,7 @@ struct TransformCycleSession
 {
     TransformKind kind{TransformKind::Chord};
     SelectionPath target{};
-    std::optional<ActiveMeasureTarget> active_measure_target{};
+    CompositionCursor cursor{};
     TargetSnapshot baseline{sequence::Cell{}};
     ProjectRevision project_revision{};
     HistoryEntryId history_entry_id{};
@@ -193,7 +154,7 @@ using XenTimeline = Timeline<ProjectState>;
 
 struct WorkspaceSettings
 {
-    std::filesystem::path sequence_directory{};
+    std::filesystem::path content_directory{};
     std::filesystem::path tuning_directory{};
 
     auto operator==(WorkspaceSettings const &) const -> bool = default;

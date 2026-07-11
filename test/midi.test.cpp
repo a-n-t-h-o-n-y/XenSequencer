@@ -41,17 +41,13 @@ struct CapturedEvent
 
 TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
 {
-    auto const measure = xen::Measure{
-        .cell =
-            {
-                .elements = {sequence::Sequence{{
-                    {.elements = {sequence::Note{.pitch = 0, .velocity = 0.5f}},
-                     .weight = 1.f},
-                    {.elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
-                     .weight = 1.f},
-                }}},
-                .weight = 1.f,
-            },
+    auto const measure = sequence::Cell{
+        .elements = {sequence::Sequence{{
+            {.elements = {sequence::Note{.pitch = 0, .velocity = 0.5f}}, .weight = 1.f},
+            {.elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
+             .weight = 1.f},
+        }}},
+        .weight = 1.f,
     };
     auto const measure_length = sequence::TimeSignature{4, 4};
     auto const tuning = sequence::Tuning{
@@ -66,7 +62,7 @@ TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
                                std::nullopt, 0, xen::TranslateDirection::Up);
 
     auto const expected = sequence::midi::flatten_to_midi(
-        measure.cell.elements, 0,
+        measure.elements, 0,
         sequence::samples_count(measure_length, daw_state.sample_rate, daw_state.bpm),
         tuning, 440.f, 48.f);
 

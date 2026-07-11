@@ -47,7 +47,7 @@ class MidiEngine
     /**
      * Render the current ProjectState to MIDI and save in rendered_midi_.
      *
-     * @details This only renders Measures where there has been a change since the
+     * @details This only renders Cells where there has been a change since the
      * previous render, and stores updates in rendered_.
      * @param sequencer The current state of the sequencer.
      * @param daw The current state of the DAW.

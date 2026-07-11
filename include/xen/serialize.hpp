@@ -2,8 +2,8 @@
 
 #include <string>
 
+#include <sequence/sequence.hpp>
 #include <xen/copy_paste.hpp>
-#include <xen/measure.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -25,21 +25,24 @@ namespace xen
 [[nodiscard]] auto deserialize_cell(std::string const &json_str) -> sequence::Cell;
 
 /**
- * Serialize a Measure object to a JSON string.
+ * Serialize a Cell object to a JSON string.
  *
- * @param m The Measure object to serialize.
+ * @param cell The Cell object to serialize.
  * @return std::string The JSON string.
  */
-[[nodiscard]] auto serialize_measure(Measure const &m) -> std::string;
+[[nodiscard]] auto serialize_cell_file(sequence::Cell const &cell) -> std::string;
 
 /**
- * Deserialize a JSON string to a Measure object.
+ * Deserialize a JSON string to a Cell object.
  *
  * @param json_str The JSON string to deserialize.
- * @return Measure The deserialized Measure object.
+ * @return Cell The deserialized Cell object.
  * @throw std::invalid_argument If the JSON string is invalid.
  */
-[[nodiscard]] auto deserialize_measure(std::string const &json_str) -> Measure;
+[[nodiscard]] auto deserialize_cell_file(std::string const &json_str) -> sequence::Cell;
+
+[[nodiscard]] auto serialize_composition(ProjectState const &project) -> std::string;
+[[nodiscard]] auto deserialize_composition(std::string const &json_str) -> ProjectState;
 
 /**
  * Serialize project state using project schema 3.

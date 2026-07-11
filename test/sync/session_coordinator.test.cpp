@@ -39,11 +39,11 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
             CommandContext{
                 .selection = SelectionPath{},
                 .expected_project_revision = ProjectRevision{12},
-                .active_measure_target =
-                    ActiveMeasureTarget{
+                .cursor =
+                    xen::CompositionCursor{
                         .row_index = 0,
                         .column_index = 1,
-                        .measure_id = 2,
+                        .sequence_id = 2,
                     },
             },
     };
@@ -57,10 +57,9 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
     CHECK(decoded_request.context.expected_project_revision->value() == 12);
     REQUIRE(decoded_request.context.selection.has_value());
     CHECK(decoded_request.context.selection->path.empty());
-    REQUIRE(decoded_request.context.active_measure_target.has_value());
-    CHECK(decoded_request.context.active_measure_target->row_index == 0);
-    CHECK(decoded_request.context.active_measure_target->column_index == 1);
-    CHECK(decoded_request.context.active_measure_target->measure_id == 2);
+    CHECK(decoded_request.context.cursor.row_index == 0);
+    CHECK(decoded_request.context.cursor.column_index == 1);
+    CHECK(decoded_request.context.cursor.sequence_id == 2);
 
     auto response = ipc::CommandResponse{
         .request_id = "request-1",
@@ -101,11 +100,12 @@ TEST_CASE("IPC protocol encodes absent command context fields as null", "[sync][
 
     CHECK(context.at("expected_project_revision").is_null());
     CHECK(context.at("selection").is_null());
-    CHECK(context.at("active_measure_target").is_null());
-    CHECK_FALSE(context.at("active_measure_target").is_array());
+    CHECK(context.at("cursor").is_object());
+    CHECK(context.at("cursor").at("row_index") == 0);
+    CHECK(context.at("cursor").at("column_index") == 0);
 }
 
-TEST_CASE("IPC protocol rejects malformed active measure targets", "[sync][ipc]")
+TEST_CASE("IPC protocol rejects malformed composition cursors", "[sync][ipc]")
 {
     auto message = ipc::encode_command_request({
         .request_id = "request-1",
@@ -113,8 +113,7 @@ TEST_CASE("IPC protocol rejects malformed active measure targets", "[sync][ipc]"
         .command = "note 0",
         .context = CommandContext{},
     });
-    message["payload"]["context"]["active_measure_target"] =
-        nlohmann::json::array({nullptr});
+    message["payload"]["context"]["cursor"] = nlohmann::json::array({nullptr});
 
     try
     {
@@ -123,8 +122,7 @@ TEST_CASE("IPC protocol rejects malformed active measure targets", "[sync][ipc]"
     }
     catch (std::invalid_argument const &error)
     {
-        CHECK(std::string{error.what()} ==
-              "Field must be an object or null: context.active_measure_target.");
+        CHECK(std::string{error.what()} == "Field must be an object: context.cursor.");
     }
 }
 
@@ -273,7 +271,7 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
 
     CHECK(result.request_id == "request-1");
     CHECK(result.result.status.first == MessageLevel::Info);
-    CHECK(result.snapshot.project.pitch.transposition == 5);
+    CHECK(result.snapshot.project.composition.columns.front().pitch.transposition == 5);
     CHECK(coordinator.snapshot().project == result.snapshot.project);
     CHECK(coordinator.live_edit_started());
 }
@@ -360,15 +358,17 @@ TEST_CASE("SessionCoordinator seeds from the newest restore snapshot before edit
     };
     auto newer = older;
     newer.binding = binding("instance-b");
-    newer.project.pitch.transposition = 8;
+    newer.project.composition.columns.front().pitch.transposition = 8;
     newer.saved_project_revision = ProjectRevision{2};
 
     (void)coordinator.connect({.binding = older.binding, .restore_state = older});
     auto const hello =
         coordinator.connect({.binding = newer.binding, .restore_state = newer});
 
-    CHECK(hello.snapshot.project.pitch.transposition == 8);
-    CHECK(coordinator.snapshot().project.pitch.transposition == 8);
+    CHECK(hello.snapshot.project.composition.columns.front().pitch.transposition == 8);
+    CHECK(coordinator.snapshot()
+              .project.composition.columns.front()
+              .pitch.transposition == 8);
 }
 
 TEST_CASE("SessionCoordinator rejects equal-revision restore conflicts",
@@ -383,7 +383,7 @@ TEST_CASE("SessionCoordinator rejects equal-revision restore conflicts",
     };
     auto conflicting = first;
     conflicting.binding = binding("instance-b");
-    conflicting.project.pitch.transposition = 9;
+    conflicting.project.composition.columns.front().pitch.transposition = 9;
 
     (void)coordinator.connect({.binding = first.binding, .restore_state = first});
     CHECK_THROWS_AS(coordinator.connect(

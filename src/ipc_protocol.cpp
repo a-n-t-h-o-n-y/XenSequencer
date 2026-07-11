@@ -181,7 +181,7 @@ namespace
 {
     return {
         {"library", content_library_to_json(snapshot.library)},
-        {"sequence_directory", snapshot.workspace.sequence_directory.string()},
+        {"content_directory", snapshot.workspace.content_directory.string()},
         {"tuning_directory", snapshot.workspace.tuning_directory.string()},
         {"library_revision", snapshot.library_revision.value()},
     };
@@ -193,7 +193,7 @@ namespace
         .library = content_library_from_json(json.at("library")),
         .workspace =
             WorkspaceSettings{
-                .sequence_directory = json.at("sequence_directory").get<std::string>(),
+                .content_directory = json.at("content_directory").get<std::string>(),
                 .tuning_directory = json.at("tuning_directory").get<std::string>(),
             },
         .library_revision =
@@ -281,14 +281,12 @@ namespace
              ? nlohmann::json(context.expected_project_revision->value())
              : nlohmann::json(nullptr)},
         {"selection", selection_to_json(context.selection)},
-        {"active_measure_target",
-         context.active_measure_target.has_value()
-             ? nlohmann::json{
-                   {"row_index", context.active_measure_target->row_index},
-                   {"column_index", context.active_measure_target->column_index},
-                   {"measure_id", context.active_measure_target->measure_id},
-               }
-             : nlohmann::json(nullptr)},
+        {"cursor",
+         {{"row_index", context.cursor.row_index},
+          {"column_index", context.cursor.column_index},
+          {"sequence_id", context.cursor.sequence_id.has_value()
+                              ? nlohmann::json(*context.cursor.sequence_id)
+                              : nlohmann::json(nullptr)}}},
     };
 }
 
@@ -302,21 +300,17 @@ namespace
             ProjectRevision{json.at("expected_project_revision").get<std::uint64_t>()};
     }
     context.selection = selection_from_json(json.at("selection"));
-    if (json.contains("active_measure_target") &&
-        !json.at("active_measure_target").is_null())
-    {
-        auto const &target = json.at("active_measure_target");
-        if (!target.is_object())
-        {
-            throw std::invalid_argument{
-                "Field must be an object or null: context.active_measure_target."};
-        }
-        context.active_measure_target = ActiveMeasureTarget{
-            .row_index = target.at("row_index").get<std::size_t>(),
-            .column_index = target.at("column_index").get<std::size_t>(),
-            .measure_id = target.at("measure_id").get<MeasureId>(),
-        };
-    }
+    auto const &cursor = json.at("cursor");
+    if (!cursor.is_object())
+        throw std::invalid_argument{"Field must be an object: context.cursor."};
+    context.cursor = CompositionCursor{
+        .row_index = cursor.at("row_index").get<std::size_t>(),
+        .column_index = cursor.at("column_index").get<std::size_t>(),
+        .sequence_id =
+            cursor.at("sequence_id").is_null()
+                ? std::optional<SequenceId>{}
+                : std::optional<SequenceId>{cursor.at("sequence_id").get<SequenceId>()},
+    };
     return context;
 }
 

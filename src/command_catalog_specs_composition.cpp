@@ -40,27 +40,27 @@ auto require_column(Composition &composition, std::size_t column) -> Composition
     return composition.columns[column];
 }
 
-auto require_measure_entry(MeasureBank &bank, MeasureId id) -> MeasureBankEntry &
+auto require_sequence_entry(SequenceBank &bank, SequenceId id) -> SequenceBankEntry &
 {
-    auto const at = std::ranges::find(bank.measures, id, &MeasureBankEntry::id);
-    if (at == bank.measures.end())
+    auto const at = std::ranges::find(bank.sequences, id, &SequenceBankEntry::id);
+    if (at == bank.sequences.end())
     {
-        throw std::invalid_argument{"Measure ID does not exist."};
+        throw std::invalid_argument{"Sequence ID does not exist."};
     }
     return *at;
 }
 
-auto fallback_measure_name(MeasureId id) -> std::string
+auto fallback_sequence_name(SequenceId id) -> std::string
 {
-    return "M" + std::to_string(id);
+    return "S" + std::to_string(id);
 }
 
-auto effective_measure_name(MeasureBankEntry const &entry) -> std::string
+auto effective_sequence_name(SequenceBankEntry const &entry) -> std::string
 {
-    return entry.name.value_or(fallback_measure_name(entry.id));
+    return entry.name.value_or(fallback_sequence_name(entry.id));
 }
 
-auto measure_name_key(std::string const &name) -> std::string
+auto sequence_name_key(std::string const &name) -> std::string
 {
     auto key = name;
     std::ranges::transform(key, key.begin(), [](unsigned char ch) {
@@ -69,9 +69,9 @@ auto measure_name_key(std::string const &name) -> std::string
     return key;
 }
 
-auto measure_names_equal(std::string const &lhs, std::string const &rhs) -> bool
+auto sequence_names_equal(std::string const &lhs, std::string const &rhs) -> bool
 {
-    return measure_name_key(lhs) == measure_name_key(rhs);
+    return sequence_name_key(lhs) == sequence_name_key(rhs);
 }
 
 auto require_name(std::string const &name, char const *kind) -> void
@@ -82,12 +82,12 @@ auto require_name(std::string const &name, char const *kind) -> void
     }
 }
 
-auto find_measure_by_name(MeasureBank &bank, std::string const &name)
-    -> MeasureBankEntry *
+auto find_sequence_by_name(SequenceBank &bank, std::string const &name)
+    -> SequenceBankEntry *
 {
-    for (auto &entry : bank.measures)
+    for (auto &entry : bank.sequences)
     {
-        if (measure_names_equal(effective_measure_name(entry), name))
+        if (sequence_names_equal(effective_sequence_name(entry), name))
         {
             return &entry;
         }
@@ -95,48 +95,48 @@ auto find_measure_by_name(MeasureBank &bank, std::string const &name)
     return nullptr;
 }
 
-auto create_named_measure(MeasureBank &bank, std::string name, Measure measure)
-    -> MeasureId
+auto create_named_sequence(SequenceBank &bank, std::string name, sequence::Cell cell)
+    -> SequenceId
 {
-    if (find_measure_by_name(bank, name) != nullptr)
+    if (find_sequence_by_name(bank, name) != nullptr)
     {
-        throw std::invalid_argument{"Measure name is already in use."};
+        throw std::invalid_argument{"Sequence name is already in use."};
     }
-    auto const id = create_measure(bank, std::move(measure));
-    require_measure_entry(bank, id).name = std::move(name);
+    auto const id = create_sequence(bank, std::move(cell));
+    require_sequence_entry(bank, id).name = std::move(name);
     return id;
 }
 
-auto assign_cell_by_measure_name(ProjectState &state, std::size_t row,
-                                 std::size_t column, std::string name) -> void
+auto assign_cell_by_sequence_name(ProjectState &state, std::size_t row,
+                                  std::size_t column, std::string name) -> void
 {
-    require_name(name, "Measure");
-    auto const current_id = measure_reference_at(state.composition, row, column);
-    auto *named = find_measure_by_name(state.measure_bank, name);
+    require_name(name, "Sequence");
+    auto const current_id = sequence_reference_at(state.composition, row, column);
+    auto *named = find_sequence_by_name(state.sequence_bank, name);
     if (named != nullptr)
     {
-        assign_measure_reference(state.composition, row, column, named->id);
+        assign_sequence_reference(state.composition, row, column, named->id);
         return;
     }
 
     if (!current_id.has_value())
     {
-        auto const id =
-            create_named_measure(state.measure_bank, std::move(name), Measure{});
-        assign_measure_reference(state.composition, row, column, id);
+        auto const id = create_named_sequence(state.sequence_bank, std::move(name),
+                                              sequence::Cell{});
+        assign_sequence_reference(state.composition, row, column, id);
         return;
     }
 
-    auto &current = require_measure_entry(state.measure_bank, *current_id);
-    if (measure_names_equal(effective_measure_name(current), name))
+    auto &current = require_sequence_entry(state.sequence_bank, *current_id);
+    if (sequence_names_equal(effective_sequence_name(current), name))
     {
-        assign_measure_reference(state.composition, row, column, current.id);
+        assign_sequence_reference(state.composition, row, column, current.id);
         return;
     }
 
     auto const id =
-        create_named_measure(state.measure_bank, std::move(name), current.measure);
-    assign_measure_reference(state.composition, row, column, id);
+        create_named_sequence(state.sequence_bank, std::move(name), current.cell);
+    assign_sequence_reference(state.composition, row, column, id);
 }
 
 auto require_channel_id(ChannelId const &channel_id) -> void
@@ -256,20 +256,20 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
                     return make_result(minfo("Composition Row Channel Set."));
                 }));
 
-    specs.push_back(command(
-        {"composition", "column", "insert", "before"}, false,
-        "Insert a composition column before the target column.",
-        composition_edit_policy,
-        std::make_tuple(required_arg<std::size_t>("column_index")),
-        [](CommandHandlerContext &context, CommandInvocation const &,
-           std::size_t column_index) {
-            auto state = context.project();
-            auto const length = require_column(state.composition, column_index).length;
-            insert_column(state.composition, column_insert_index(column_index, false),
-                          length);
-            context.edit_project() = std::move(state);
-            return make_result(minfo("Composition Column Inserted."));
-        }));
+    specs.push_back(
+        command({"composition", "column", "insert", "before"}, false,
+                "Insert a composition column before the target column.",
+                composition_edit_policy,
+                std::make_tuple(required_arg<std::size_t>("column_index")),
+                [](CommandHandlerContext &context, CommandInvocation const &,
+                   std::size_t column_index) {
+                    auto state = context.project();
+                    auto const column = require_column(state.composition, column_index);
+                    insert_column(state.composition,
+                                  column_insert_index(column_index, false), column);
+                    context.edit_project() = std::move(state);
+                    return make_result(minfo("Composition Column Inserted."));
+                }));
 
     specs.push_back(command(
         {"composition", "column", "insert", "after"}, false,
@@ -278,9 +278,9 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t column_index) {
             auto state = context.project();
-            auto const length = require_column(state.composition, column_index).length;
+            auto const column = require_column(state.composition, column_index);
             insert_column(state.composition, column_insert_index(column_index, true),
-                          length);
+                          column);
             context.edit_project() = std::move(state);
             return make_result(minfo("Composition Column Inserted."));
         }));
@@ -298,45 +298,44 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
                             }));
 
     specs.push_back(
-        command({"composition", "column", "length"}, false,
-                "Set a composition column length.", composition_edit_policy,
-                std::make_tuple(required_arg<std::size_t>("column_index"),
-                                required_arg<sequence::TimeSignature>("length")),
+        command({"composition", "column", "duplicate"}, false,
+                "Duplicate a composition column.", composition_edit_policy,
+                std::make_tuple(required_arg<std::size_t>("column_index")),
                 [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::size_t column_index, sequence::TimeSignature const &length) {
+                   std::size_t column_index) {
                     auto state = context.project();
-                    set_column_length(state.composition, column_index, length);
+                    duplicate_column(state.composition, column_index, column_index + 1);
                     context.edit_project() = std::move(state);
-                    return make_result(minfo("Composition Column Length Set."));
+                    return make_result(minfo("Composition Column Duplicated."));
                 }));
 
     specs.push_back(command(
         {"composition", "cell", "assign"}, false,
-        "Assign a measure to a composition cell.", composition_edit_policy,
+        "Assign a sequence to a composition cell.", composition_edit_policy,
         std::make_tuple(required_arg<std::size_t>("row_index"),
                         required_arg<std::size_t>("column_index"),
-                        required_arg<std::string>("measure_name")),
+                        required_arg<std::string>("sequence_name")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::size_t row_index, std::size_t column_index,
-           std::string const &measure_name) {
+           std::string const &sequence_name) {
             auto state = context.project();
-            assign_cell_by_measure_name(state, row_index, column_index, measure_name);
+            assign_cell_by_sequence_name(state, row_index, column_index, sequence_name);
             context.edit_project() = std::move(state);
             return make_result(minfo("Composition Cell Assigned."));
         }));
 
-    specs.push_back(
-        command({"composition", "cell", "clear"}, false, "Clear a composition cell.",
-                composition_edit_policy,
-                std::make_tuple(required_arg<std::size_t>("row_index"),
-                                required_arg<std::size_t>("column_index")),
-                [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::size_t row_index, std::size_t column_index) {
-                    auto state = context.project();
-                    clear_measure_reference(state.composition, row_index, column_index);
-                    context.edit_project() = std::move(state);
-                    return make_result(minfo("Composition Cell Cleared."));
-                }));
+    specs.push_back(command(
+        {"composition", "cell", "clear"}, false, "Clear a composition cell.",
+        composition_edit_policy,
+        std::make_tuple(required_arg<std::size_t>("row_index"),
+                        required_arg<std::size_t>("column_index")),
+        [](CommandHandlerContext &context, CommandInvocation const &,
+           std::size_t row_index, std::size_t column_index) {
+            auto state = context.project();
+            clear_sequence_reference(state.composition, row_index, column_index);
+            context.edit_project() = std::move(state);
+            return make_result(minfo("Composition Cell Cleared."));
+        }));
 }
 
 } // namespace xen::catalog_detail

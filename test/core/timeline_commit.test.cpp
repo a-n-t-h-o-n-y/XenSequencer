@@ -14,10 +14,10 @@ TEST_CASE("Timeline commit requires explicit state and preserves redo on no-op",
 {
     auto timeline = XenTimeline{ProjectState{}};
     auto engine = timeline.get_state();
-    engine.pitch.transposition = 1;
+    engine.composition.columns.front().pitch.transposition = 1;
     timeline.stage(engine);
     REQUIRE(timeline.commit(timeline.get_state()));
-    engine.pitch.transposition = 2;
+    engine.composition.columns.front().pitch.transposition = 2;
     timeline.stage(engine);
     REQUIRE(timeline.commit(timeline.get_state()));
     REQUIRE(timeline.undo());
@@ -28,7 +28,7 @@ TEST_CASE("Timeline commit requires explicit state and preserves redo on no-op",
     CHECK(timeline.get_current_entry_id() == entry_before);
     CHECK(timeline.get_project_revision() == revision_before);
     CHECK(timeline.redo());
-    CHECK(timeline.get_state().pitch.transposition == 2);
+    CHECK(timeline.get_state().composition.columns.front().pitch.transposition == 2);
 }
 
 TEST_CASE("Guarded amendment and replacement keep history invariants",
@@ -36,13 +36,13 @@ TEST_CASE("Guarded amendment and replacement keep history invariants",
 {
     auto timeline = XenTimeline{ProjectState{}};
     auto state = timeline.get_state();
-    state.pitch.transposition = 1;
+    state.composition.columns.front().pitch.transposition = 1;
     timeline.stage(state);
     REQUIRE(timeline.commit(timeline.get_state()));
 
     auto const entry_id = timeline.get_current_entry_id();
     auto const revision = timeline.get_project_revision();
-    state.pitch.transposition = 2;
+    state.composition.columns.front().pitch.transposition = 2;
 
     REQUIRE(timeline.amend_current(entry_id, state));
     CHECK(timeline.get_current_entry_id() == entry_id);

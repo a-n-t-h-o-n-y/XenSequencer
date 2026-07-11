@@ -196,6 +196,7 @@ class CommandTransaction
     [[nodiscard]] auto edit_workspace() -> WorkspaceSettings &;
     [[nodiscard]] auto effects() noexcept -> SubmissionEffects &;
     [[nodiscard]] auto prepare_transform(TransformKind kind,
+                                         CompositionCursor const &cursor,
                                          SelectionPath const &selection,
                                          std::string chord_name, int inversion)
         -> TransformInputs;

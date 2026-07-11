@@ -227,15 +227,15 @@ void reconcile_live_voices(juce::MidiBuffer &buffer, LiveVoiceSet &active_live_v
     active_live_voices = normalize_live_voices(next_active_live_voices);
 }
 
-[[nodiscard]] auto render_measure_timeline(
-    xen::Measure const &measure, sequence::TimeSignature measure_length,
+[[nodiscard]] auto render_cell_timeline(
+    sequence::Cell const &cell, sequence::TimeSignature duration,
     sequence::Tuning const &tuning, float base_frequency, xen::DAWState const &daw,
     std::optional<xen::Scale> const &scale, int key,
     xen::TranslateDirection scale_translate_direction)
     -> std::vector<sequence::midi::TimedMidiNote>
 {
-    return xen::state_to_timeline(measure, measure_length, tuning, base_frequency, daw,
-                                  scale, key, scale_translate_direction);
+    return xen::state_to_timeline(cell, duration, tuning, base_frequency, daw, scale,
+                                  key, scale_translate_direction);
 }
 
 [[nodiscard]] auto checked_add_sample_count(xen::SampleCount lhs, xen::SampleCount rhs)
@@ -376,8 +376,8 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
              ++column_index)
         {
             auto const &column = project.composition.columns[column_index];
-            auto const column_samples = midi_internal::checked_measure_sample_count(
-                column.length, daw.sample_rate, daw.bpm);
+            auto const column_samples = midi_internal::checked_duration_sample_count(
+                column.duration, daw.sample_rate, daw.bpm);
             phase_origin = checked_add_sample_count(phase_origin, column_samples);
         }
 
@@ -386,8 +386,8 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
         {
             column_offsets.push_back(sample_count);
             auto const &column = project.composition.columns[column_index];
-            auto const column_samples = midi_internal::checked_measure_sample_count(
-                column.length, daw.sample_rate, daw.bpm);
+            auto const column_samples = midi_internal::checked_duration_sample_count(
+                column.duration, daw.sample_rate, daw.bpm);
             sample_count = checked_add_sample_count(sample_count, column_samples);
         }
 
@@ -402,29 +402,30 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
                  ++loop_index)
             {
                 auto const column_index = loop_columns[loop_index];
-                auto const measure_id = row.cells[column_index];
-                if (!measure_id.has_value())
+                auto const sequence_id = row.cells[column_index];
+                if (!sequence_id.has_value())
                 {
                     continue;
                 }
 
-                auto const *measure = find_measure(project.measure_bank, *measure_id);
-                if (measure == nullptr)
+                auto const *cell = find_sequence(project.sequence_bank, *sequence_id);
+                if (cell == nullptr)
                 {
                     throw std::invalid_argument{
-                        "Composition references an unknown measure ID."};
+                        "Composition references an unknown sequence ID."};
                 }
-                auto measure_timeline = render_measure_timeline(
-                    *measure, project.composition.columns[column_index].length,
-                    project.pitch.tuning.definition, project.pitch.base_frequency, daw,
-                    project.pitch.scale.has_value()
-                        ? std::optional<Scale>{project.pitch.scale->definition}
+                auto const &column = project.composition.columns[column_index];
+                auto cell_timeline = render_cell_timeline(
+                    *cell, column.duration, column.pitch.tuning.definition,
+                    column.pitch.base_frequency, daw,
+                    column.pitch.scale.has_value()
+                        ? std::optional<Scale>{column.pitch.scale->definition}
                         : std::nullopt,
-                    project.pitch.transposition, project.pitch.translation_direction);
-                offset_timeline(measure_timeline, column_offsets[loop_index]);
+                    column.pitch.transposition, column.pitch.translation_direction);
+                offset_timeline(cell_timeline, column_offsets[loop_index]);
                 timeline.insert(timeline.end(),
-                                std::make_move_iterator(measure_timeline.begin()),
-                                std::make_move_iterator(measure_timeline.end()));
+                                std::make_move_iterator(cell_timeline.begin()),
+                                std::make_move_iterator(cell_timeline.end()));
             }
         }
 

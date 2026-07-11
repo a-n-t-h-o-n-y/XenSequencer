@@ -82,7 +82,9 @@ class LibraryFilePort
     virtual ~LibraryFilePort() = default;
 
     [[nodiscard]] virtual auto library_root() const -> std::filesystem::path = 0;
-    [[nodiscard]] virtual auto measure_files(std::filesystem::path const &directory)
+    [[nodiscard]] virtual auto cell_files(std::filesystem::path const &directory) const
+        -> std::vector<LibraryFileEntry> = 0;
+    [[nodiscard]] virtual auto composition_files(std::filesystem::path const &directory)
         const -> std::vector<LibraryFileEntry> = 0;
     [[nodiscard]] virtual auto tuning_files(std::filesystem::path const &directory)
         const -> std::vector<LibraryTuningEntry> = 0;
@@ -140,7 +142,9 @@ class JuceLibraryFilePort final : public LibraryFilePort
 {
   public:
     [[nodiscard]] auto library_root() const -> std::filesystem::path override;
-    [[nodiscard]] auto measure_files(std::filesystem::path const &directory) const
+    [[nodiscard]] auto cell_files(std::filesystem::path const &directory) const
+        -> std::vector<LibraryFileEntry> override;
+    [[nodiscard]] auto composition_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryFileEntry> override;
     [[nodiscard]] auto tuning_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryTuningEntry> override;

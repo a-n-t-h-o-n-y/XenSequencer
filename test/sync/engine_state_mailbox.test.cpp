@@ -18,17 +18,21 @@ namespace
 auto make_state(int id) -> AudioProjectSnapshot
 {
     auto state = ProjectState{};
-    state.pitch.transposition = id % 255 - 127;
-    state.pitch.base_frequency = 400.f + static_cast<float>(id);
-    state.pitch.tuning.name = "tuning-" + std::to_string(id);
-    state.pitch.tuning.definition.description = "description-" + std::to_string(id);
-    state.pitch.tuning.definition.intervals = {
+    state.composition.columns.front().pitch.transposition = id % 255 - 127;
+    state.composition.columns.front().pitch.base_frequency =
+        400.f + static_cast<float>(id);
+    state.composition.columns.front().pitch.tuning.name =
+        "tuning-" + std::to_string(id);
+    state.composition.columns.front().pitch.tuning.definition.description =
+        "description-" + std::to_string(id);
+    state.composition.columns.front().pitch.tuning.definition.intervals = {
         0.f,
         100.f,
         200.f,
     };
-    default_measure_length(state).numerator = static_cast<unsigned>((id % 7) + 1);
-    state.pitch.scale = ActiveScale{
+    selected_duration(state, xen::CompositionCursor{}).numerator =
+        static_cast<unsigned>((id % 7) + 1);
+    state.composition.columns.front().pitch.scale = ActiveScale{
         .source_id = "scale-" + std::to_string(id),
         .definition =
             Scale{
@@ -44,21 +48,25 @@ auto make_state(int id) -> AudioProjectSnapshot
 void check_state(AudioProjectSnapshot const &snapshot, int id)
 {
     auto const &state = snapshot.project;
-    CHECK(state.pitch.transposition == id % 255 - 127);
-    CHECK(static_cast<int>(state.pitch.base_frequency) == 400 + id);
-    CHECK(state.pitch.tuning.name == "tuning-" + std::to_string(id));
-    CHECK(state.pitch.tuning.definition.description ==
+    CHECK(state.composition.columns.front().pitch.transposition == id % 255 - 127);
+    CHECK(static_cast<int>(state.composition.columns.front().pitch.base_frequency) ==
+          400 + id);
+    CHECK(state.composition.columns.front().pitch.tuning.name ==
+          "tuning-" + std::to_string(id));
+    CHECK(state.composition.columns.front().pitch.tuning.definition.description ==
           "description-" + std::to_string(id));
-    CHECK(state.pitch.tuning.definition.intervals == std::vector<float>{
-                                                         0.f,
-                                                         100.f,
-                                                         200.f,
-                                                     });
-    CHECK(default_measure_length(state).numerator ==
+    CHECK(state.composition.columns.front().pitch.tuning.definition.intervals ==
+          std::vector<float>{
+              0.f,
+              100.f,
+              200.f,
+          });
+    CHECK(selected_duration(state, xen::CompositionCursor{}).numerator ==
           static_cast<unsigned>((id % 7) + 1));
-    REQUIRE(state.pitch.scale.has_value());
-    CHECK(state.pitch.scale->definition.name == "scale-" + std::to_string(id));
-    CHECK(state.pitch.scale->definition.intervals ==
+    REQUIRE(state.composition.columns.front().pitch.scale.has_value());
+    CHECK(state.composition.columns.front().pitch.scale->definition.name ==
+          "scale-" + std::to_string(id));
+    CHECK(state.composition.columns.front().pitch.scale->definition.intervals ==
           std::vector<std::uint8_t>{1, 1, 1});
 }
 
@@ -129,15 +137,19 @@ TEST_CASE("EngineStateMailbox snapshots are immutable to source mutations",
 
     mailbox.publish(published);
 
-    published.project.pitch.transposition = -1;
-    published.project.pitch.base_frequency = 999.f;
-    published.project.pitch.tuning.name = "mutated";
-    default_measure_length(published.project) = {3, 4};
-    published.project.pitch.tuning.definition.description = "after-publish";
-    published.project.pitch.tuning.definition.intervals = {0, 1, 2, 3};
-    REQUIRE(published.project.pitch.scale.has_value());
-    published.project.pitch.scale->definition.name = "mutated";
-    published.project.pitch.scale->definition.intervals = {9, 9, 9};
+    published.project.composition.columns.front().pitch.transposition = -1;
+    published.project.composition.columns.front().pitch.base_frequency = 999.f;
+    published.project.composition.columns.front().pitch.tuning.name = "mutated";
+    selected_duration(published.project, xen::CompositionCursor{}) = {3, 4};
+    published.project.composition.columns.front().pitch.tuning.definition.description =
+        "after-publish";
+    published.project.composition.columns.front().pitch.tuning.definition.intervals = {
+        0, 1, 2, 3};
+    REQUIRE(published.project.composition.columns.front().pitch.scale.has_value());
+    published.project.composition.columns.front().pitch.scale->definition.name =
+        "mutated";
+    published.project.composition.columns.front().pitch.scale->definition.intervals = {
+        9, 9, 9};
 
     auto const view = mailbox.try_consume_latest();
     REQUIRE(view.has_value());
