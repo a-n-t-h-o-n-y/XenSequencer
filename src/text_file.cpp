@@ -53,12 +53,7 @@ void atomic_write_text_file(std::filesystem::path const &path, std::string const
         throw std::runtime_error{"Unable to write temporary text file: " +
                                  temporary.getFullPathName().toStdString()};
     }
-    if (destination.exists() && !destination.deleteFile())
-    {
-        (void)temporary.deleteFile();
-        throw std::runtime_error{"Unable to replace text file: " + path.string()};
-    }
-    if (!temporary.moveFileTo(destination))
+    if (!temporary.replaceFileIn(destination))
     {
         (void)temporary.deleteFile();
         throw std::runtime_error{"Unable to install text file: " + path.string()};

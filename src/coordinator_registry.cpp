@@ -8,6 +8,8 @@
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
+#include <xen/text_file.hpp>
+
 #if JUCE_LINUX || JUCE_BSD
 #include <csignal>
 #include <sstream>
@@ -122,13 +124,7 @@ auto CoordinatorRegistry::read() const -> std::optional<CoordinatorRegistryEntry
 
 void CoordinatorRegistry::write(CoordinatorRegistryEntry const &entry) const
 {
-    std::filesystem::create_directories(registry_file_.parent_path());
-    auto output = std::ofstream{registry_file_, std::ios::trunc};
-    if (!output)
-    {
-        throw std::runtime_error{"Could not write coordinator registry."};
-    }
-    output << entry_to_json(entry).dump();
+    atomic_write_text_file(registry_file_, entry_to_json(entry).dump());
 }
 
 void CoordinatorRegistry::clear() const

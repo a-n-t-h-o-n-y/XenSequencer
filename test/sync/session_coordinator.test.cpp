@@ -1,7 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <atomic>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include <juce_core/juce_core.h>
@@ -195,6 +197,52 @@ TEST_CASE("CoordinatorRegistry round-trips valid entries and clears invalid file
     file.replaceWithText("{not json");
     CHECK_FALSE(registry.read().has_value());
     CHECK_FALSE(file.existsAsFile());
+}
+
+TEST_CASE("CoordinatorRegistry never exposes partial publications",
+          "[sync][ipc][registry]")
+{
+    auto const file = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                          .getNonexistentChildFile("xen-registry-race-test", ".json");
+    auto registry = ipc::CoordinatorRegistry{file.getFullPathName().toStdString()};
+    auto const nonce_prefix = std::string(256 * 1024, 'x');
+    auto writer_done = std::atomic<bool>{false};
+    auto invalid_publication_seen = std::atomic<bool>{false};
+
+    registry.write({
+        .session_id = "session",
+        .port = 49'001,
+        .pid = 123,
+        .nonce = nonce_prefix + "initial",
+    });
+
+    auto writer = std::thread{[&] {
+        for (auto publication = 0; publication < 25; ++publication)
+        {
+            registry.write({
+                .session_id = "session",
+                .port = 49'001,
+                .pid = 123,
+                .nonce = nonce_prefix + std::to_string(publication),
+            });
+        }
+        writer_done.store(true, std::memory_order_release);
+    }};
+
+    while (!writer_done.load(std::memory_order_acquire))
+    {
+        auto const published = registry.read();
+        if (!published.has_value() || published->nonce.size() < nonce_prefix.size() ||
+            !published->nonce.starts_with(nonce_prefix))
+        {
+            invalid_publication_seen.store(true, std::memory_order_relaxed);
+        }
+    }
+
+    writer.join();
+    CHECK_FALSE(invalid_publication_seen.load(std::memory_order_relaxed));
+    REQUIRE(registry.read().has_value());
+    registry.clear();
 }
 
 TEST_CASE("SessionCoordinator broadcasts authoritative command results",
