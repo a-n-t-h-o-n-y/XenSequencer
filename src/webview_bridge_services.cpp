@@ -543,7 +543,7 @@ auto BridgeRequestDispatcher::handle_keymap_write(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
-        require_unsigned(request.payload, "expected_revision");
+        require_keymap_revision(request.payload, "expected_revision");
     if (!request.payload.contains("document"))
     {
         throw BridgeError{"invalid_request", "Missing field: document"};
@@ -556,7 +556,7 @@ auto BridgeRequestDispatcher::handle_keymap_delete(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
-        require_unsigned(request.payload, "expected_revision");
+        require_keymap_revision(request.payload, "expected_revision");
     return make_keymap_payload(keymap_.erase(expected_revision));
 }
 

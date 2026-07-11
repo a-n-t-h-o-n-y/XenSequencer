@@ -41,6 +41,9 @@ class BridgeError : public std::runtime_error
                                   std::string_view field_name) -> std::string;
 [[nodiscard]] auto require_unsigned(nlohmann::json const &json,
                                     std::string_view field_name) -> std::uint64_t;
+[[nodiscard]] auto require_keymap_revision(nlohmann::json const &json,
+                                           std::string_view field_name)
+    -> std::uint64_t;
 
 [[nodiscard]] auto parse_command_context(nlohmann::json const &payload)
     -> CommandContext;

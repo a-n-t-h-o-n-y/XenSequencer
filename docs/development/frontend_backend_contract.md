@@ -110,6 +110,19 @@ type SessionHello = {
 };
 ```
 
+```ts
+type KeymapResource = {
+  revision: string;
+  document: unknown | null;
+};
+```
+
+Keymap revisions are opaque decimal strings, including
+`keymap.write.payload.expected_revision` and
+`keymap.delete.payload.expected_revision`. They may exceed both JavaScript's safe
+integer range and signed 64-bit range; preserve them as strings and compare only for
+equality.
+
 The hello response contains no project or library snapshot. After a successful hello,
 request both `state.get` and `library.get`. Do not wait for initial change events; the
 backend only emits them after a revision changes.

@@ -343,7 +343,7 @@ auto make_catalog_payload(std::vector<CatalogCommandMetadata> const &commands)
 auto make_keymap_payload(KeymapResource const &resource) -> nlohmann::json
 {
     return nlohmann::json{
-        {"revision", resource.revision},
+        {"revision", std::to_string(resource.revision)},
         {"document",
          resource.document.has_value() ? *resource.document : nlohmann::json(nullptr)},
     };

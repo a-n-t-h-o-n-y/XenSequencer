@@ -1,5 +1,6 @@
 #include <xen/webview_bridge_protocol.hpp>
 
+#include <charconv>
 #include <cstddef>
 #include <utility>
 
@@ -47,6 +48,28 @@ auto require_unsigned(nlohmann::json const &json, std::string_view field_name)
                           "Field must be an unsigned integer: " + key};
     }
     return json.at(key).get<std::uint64_t>();
+}
+
+auto require_keymap_revision(nlohmann::json const &json, std::string_view field_name)
+    -> std::uint64_t
+{
+    auto const key = std::string{field_name};
+    if (!json.contains(key) || !json.at(key).is_string())
+    {
+        throw BridgeError{"invalid_request",
+                          "Field must be a decimal revision string: " + key};
+    }
+
+    auto const &text = json.at(key).get_ref<std::string const &>();
+    auto revision = std::uint64_t{};
+    auto const [end, error] =
+        std::from_chars(text.data(), text.data() + text.size(), revision);
+    if (text.empty() || error != std::errc{} || end != text.data() + text.size())
+    {
+        throw BridgeError{"invalid_request",
+                          "Field must be a decimal revision string: " + key};
+    }
+    return revision;
 }
 
 auto parse_command_context(nlohmann::json const &payload) -> CommandContext

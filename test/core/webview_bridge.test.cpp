@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ using namespace xen;
 
 namespace
 {
+
+inline constexpr auto HIGH_KEYMAP_REVISION = 18'446'744'073'709'551'600ULL;
 
 auto temporary_keymap_file() -> std::filesystem::path
 {
@@ -136,7 +139,7 @@ class FakeKeymapService final : public bridge::KeymapBridgeService
 {
   public:
     KeymapResource current{
-        .revision = 5,
+        .revision = HIGH_KEYMAP_REVISION,
         .document = nlohmann::json{{"future", true}},
     };
 
@@ -293,6 +296,12 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     }
     CHECK(payload.contains("keymap"));
     CHECK(payload.at("keymap").contains("revision"));
+    REQUIRE(payload.at("keymap").at("revision").is_string());
+    auto const keymap_revision =
+        std::stoull(payload.at("keymap").at("revision").get<std::string>());
+    CHECK(keymap_revision >
+          static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()));
+    CHECK(keymap_revision > 9'007'199'254'740'991ULL);
     CHECK(payload.at("keymap").at("document").is_null());
     CHECK_FALSE(payload.contains("project"));
     CHECK_FALSE(payload.contains("library"));
@@ -348,7 +357,7 @@ TEST_CASE("Bridge writes and deletes opaque keymap documents", "[core][bridge]")
     auto session = make_session();
     auto host_bridge = make_bridge(session);
     auto const initial = response(host_bridge, "keymap.read").at("payload");
-    auto const revision = initial.at("revision").get<std::uint64_t>();
+    auto const revision = initial.at("revision").get<std::string>();
     auto const document = nlohmann::json{{"unknown_context", {{"future", true}}}};
     auto const updated = response(host_bridge, "keymap.write",
                                   {
@@ -434,7 +443,8 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
                                      });
     CHECK(hello.at("payload").at("catalog").at("schema_version") ==
           bridge::catalog_schema_version);
-    CHECK(hello.at("payload").at("keymap").at("revision") == 5);
+    CHECK(hello.at("payload").at("keymap").at("revision") ==
+          std::to_string(HIGH_KEYMAP_REVISION));
     CHECK(hello.at("payload").at("binding").at("channel_id") == DEFAULT_CHANNEL_ID);
 
     auto const state = fake_response(dispatcher, "state.get").at("payload");
@@ -515,21 +525,23 @@ TEST_CASE("Bridge dispatcher handles keymap requests with fake services",
     auto const set =
         fake_response(dispatcher, "keymap.write",
                       {
-                          {"expected_revision", 5},
+                          {"expected_revision", std::to_string(HIGH_KEYMAP_REVISION)},
                           {"document", nlohmann::json::array({1, "future", true})},
                       })
             .at("payload");
-    CHECK(set.at("revision") == 6);
+    CHECK(set.at("revision") == std::to_string(HIGH_KEYMAP_REVISION + 1));
     CHECK(set.at("document").is_array());
 
     auto const remove =
-        fake_response(dispatcher, "keymap.delete", {{"expected_revision", 6}})
+        fake_response(dispatcher, "keymap.delete",
+                      {{"expected_revision", std::to_string(HIGH_KEYMAP_REVISION + 1)}})
             .at("payload");
-    CHECK(remove.at("revision") == 7);
+    CHECK(remove.at("revision") == std::to_string(HIGH_KEYMAP_REVISION + 2));
     CHECK(remove.at("document").is_null());
 
     auto const stale =
-        fake_response(dispatcher, "keymap.delete", {{"expected_revision", 6}})
+        fake_response(dispatcher, "keymap.delete",
+                      {{"expected_revision", std::to_string(HIGH_KEYMAP_REVISION + 1)}})
             .at("payload");
     CHECK(stale.at("error").at("code") == "conflict");
 }
@@ -555,9 +567,21 @@ TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
     CHECK(invalid_schema.at("error").at("code") == "unsupported_protocol");
 
     auto const missing_document =
-        fake_response(dispatcher, "keymap.write", {{"expected_revision", 5}})
+        fake_response(dispatcher, "keymap.write",
+                      {{"expected_revision", std::to_string(HIGH_KEYMAP_REVISION)}})
             .at("payload");
     CHECK(missing_document.at("error").at("code") == "invalid_request");
+
+    auto const numeric_revision =
+        fake_response(dispatcher, "keymap.delete", {{"expected_revision", 5}})
+            .at("payload");
+    CHECK(numeric_revision.at("error").at("code") == "invalid_request");
+
+    auto const overflowing_revision =
+        fake_response(dispatcher, "keymap.delete",
+                      {{"expected_revision", "18446744073709551616"}})
+            .at("payload");
+    CHECK(overflowing_revision.at("error").at("code") == "invalid_request");
 }
 
 TEST_CASE("Bridge reports malformed persisted keymaps", "[core][bridge]")
