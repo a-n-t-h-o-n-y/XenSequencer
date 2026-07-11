@@ -2,100 +2,74 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <map>
+#include <functional>
 #include <optional>
+#include <stdexcept>
 #include <string>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 
 namespace xen
 {
 
-inline constexpr auto KEYMAP_SCHEMA_VERSION = 1;
+inline constexpr std::size_t MAX_KEYMAP_DOCUMENT_SIZE = 4 * 1'024 * 1'024;
 
-struct KeymapTrigger
+struct KeymapResource
 {
-    std::string key{};
-    bool shift{false};
-    bool command{false};
-    bool alt{false};
-    std::optional<std::string> input_mode{};
+    std::uint64_t revision{};
+    std::optional<nlohmann::json> document{};
 
-    auto operator==(KeymapTrigger const &) const -> bool = default;
+    auto operator==(KeymapResource const &) const -> bool = default;
 };
 
-enum class KeymapTargetType
+enum class KeymapStorageErrorCode
 {
-    UiAction,
-    Command,
+    Conflict,
+    MalformedDocument,
+    Read,
+    Write,
+    Delete,
 };
 
-struct KeymapTarget
+class KeymapStorageError final : public std::runtime_error
 {
-    KeymapTargetType type{KeymapTargetType::Command};
-    std::string value{};
-    nlohmann::json arguments = nlohmann::json::object();
+  public:
+    KeymapStorageError(KeymapStorageErrorCode code, std::string message);
 
-    auto operator==(KeymapTarget const &) const -> bool = default;
+    KeymapStorageErrorCode code;
 };
-
-struct KeymapBinding
-{
-    KeymapTrigger trigger{};
-    KeymapTarget target{};
-
-    auto operator==(KeymapBinding const &) const -> bool = default;
-};
-
-using KeymapContexts = std::map<std::string, std::vector<KeymapBinding>>;
-
-struct KeymapOverride
-{
-    std::string context{};
-    KeymapTrigger trigger{};
-    std::optional<KeymapTarget> target{};
-
-    auto operator==(KeymapOverride const &) const -> bool = default;
-};
-
-struct KeymapSnapshot
-{
-    std::uint64_t revision{1};
-    KeymapContexts bindings{};
-    std::vector<KeymapOverride> overrides{};
-};
-
-[[nodiscard]] auto default_keymap() -> KeymapContexts;
-void validate(KeymapTrigger const &trigger);
-void validate(KeymapTarget const &target);
-void validate(KeymapOverride const &override);
 
 class KeymapStore
 {
   public:
+    using AtomicWriter =
+        std::function<void(std::filesystem::path const &, std::string const &)>;
+    using FileRemover = std::function<void(std::filesystem::path const &)>;
+
     explicit KeymapStore(std::filesystem::path file = default_file());
+    KeymapStore(std::filesystem::path file, AtomicWriter atomic_writer,
+                FileRemover file_remover = remove_file);
 
-    [[nodiscard]] auto snapshot() const -> KeymapSnapshot;
+    auto read() -> KeymapResource;
+    auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> KeymapResource;
+    auto erase(std::uint64_t expected_revision) -> KeymapResource;
+    auto refresh() -> bool;
+
+    [[nodiscard]] auto current() const -> KeymapResource const &;
     [[nodiscard]] auto revision() const noexcept -> std::uint64_t;
-    auto set_override(std::uint64_t expected_revision, std::string context,
-                      KeymapTrigger trigger, std::optional<KeymapTarget> target)
-        -> KeymapSnapshot;
-    auto remove_override(std::uint64_t expected_revision, std::string const &context,
-                         KeymapTrigger const &trigger) -> KeymapSnapshot;
-    auto reset(std::uint64_t expected_revision) -> KeymapSnapshot;
-
     [[nodiscard]] auto file() const -> std::filesystem::path const &;
     [[nodiscard]] static auto default_file() -> std::filesystem::path;
+    static void remove_file(std::filesystem::path const &file);
 
   private:
-    void load();
-    void save() const;
+    [[nodiscard]] auto load_resource() const -> KeymapResource;
     void require_revision(std::uint64_t expected_revision) const;
 
     std::filesystem::path file_;
-    std::uint64_t revision_{1};
-    std::vector<KeymapOverride> overrides_{};
+    AtomicWriter atomic_writer_;
+    FileRemover file_remover_;
+    KeymapResource current_{};
 };
 
 } // namespace xen

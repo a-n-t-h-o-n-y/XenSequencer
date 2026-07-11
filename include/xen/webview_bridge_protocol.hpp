@@ -42,8 +42,6 @@ class BridgeError : public std::runtime_error
 [[nodiscard]] auto require_unsigned(nlohmann::json const &json,
                                     std::string_view field_name) -> std::uint64_t;
 
-[[nodiscard]] auto parse_keymap_trigger(nlohmann::json const &json) -> KeymapTrigger;
-[[nodiscard]] auto parse_keymap_target(nlohmann::json const &json) -> KeymapTarget;
 [[nodiscard]] auto parse_command_context(nlohmann::json const &payload)
     -> CommandContext;
 [[nodiscard]] auto selection_to_json(std::optional<SelectionPath> const &selection)

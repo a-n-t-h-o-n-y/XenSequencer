@@ -49,65 +49,6 @@ auto require_unsigned(nlohmann::json const &json, std::string_view field_name)
     return json.at(key).get<std::uint64_t>();
 }
 
-auto parse_keymap_trigger(nlohmann::json const &json) -> KeymapTrigger
-{
-    if (!json.is_object())
-    {
-        throw BridgeError{"invalid_request", "Keymap trigger must be an object."};
-    }
-    auto const &modifiers = require_object(json, "modifiers");
-    auto const require_boolean = [](nlohmann::json const &object,
-                                    std::string_view field) {
-        auto const key = std::string{field};
-        if (!object.contains(key) || !object.at(key).is_boolean())
-        {
-            throw BridgeError{"invalid_request",
-                              "Field must be a boolean: modifiers." + key};
-        }
-        return object.at(key).get<bool>();
-    };
-
-    auto value = KeymapTrigger{
-        .key = require_string(json, "key"),
-        .shift = require_boolean(modifiers, "shift"),
-        .command = require_boolean(modifiers, "command"),
-        .alt = require_boolean(modifiers, "alt"),
-    };
-    if (json.contains("when"))
-    {
-        value.input_mode = require_string(require_object(json, "when"), "input_mode");
-    }
-    validate(value);
-    return value;
-}
-
-auto parse_keymap_target(nlohmann::json const &json) -> KeymapTarget
-{
-    if (!json.is_object())
-    {
-        throw BridgeError{"invalid_request", "Keymap target must be an object."};
-    }
-    auto const type = require_string(json, "type");
-    auto value = KeymapTarget{};
-    if (type == "command")
-    {
-        value.type = KeymapTargetType::Command;
-        value.value = require_string(json, "command");
-    }
-    else if (type == "ui_action")
-    {
-        value.type = KeymapTargetType::UiAction;
-        value.value = require_string(json, "action");
-        value.arguments = require_object(json, "arguments");
-    }
-    else
-    {
-        throw BridgeError{"invalid_request", "Unknown keymap target type: " + type};
-    }
-    validate(value);
-    return value;
-}
-
 auto parse_command_context(nlohmann::json const &payload) -> CommandContext
 {
     auto context = CommandContext{};

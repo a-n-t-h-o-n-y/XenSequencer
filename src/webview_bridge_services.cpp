@@ -185,9 +185,9 @@ StoreKeymapBridgeService::StoreKeymapBridgeService(std::filesystem::path keymap_
 {
 }
 
-auto StoreKeymapBridgeService::snapshot() const -> KeymapSnapshot
+auto StoreKeymapBridgeService::read() -> KeymapResource
 {
-    return store_.snapshot();
+    return store_.read();
 }
 
 auto StoreKeymapBridgeService::revision() const noexcept -> std::uint64_t
@@ -195,26 +195,20 @@ auto StoreKeymapBridgeService::revision() const noexcept -> std::uint64_t
     return store_.revision();
 }
 
-auto StoreKeymapBridgeService::set_override(std::uint64_t expected_revision,
-                                            std::string context, KeymapTrigger trigger,
-                                            std::optional<KeymapTarget> target)
-    -> KeymapSnapshot
+auto StoreKeymapBridgeService::write(std::uint64_t expected_revision,
+                                     nlohmann::json document) -> KeymapResource
 {
-    return store_.set_override(expected_revision, std::move(context),
-                               std::move(trigger), std::move(target));
+    return store_.write(expected_revision, std::move(document));
 }
 
-auto StoreKeymapBridgeService::remove_override(std::uint64_t expected_revision,
-                                               std::string const &context,
-                                               KeymapTrigger const &trigger)
-    -> KeymapSnapshot
+auto StoreKeymapBridgeService::erase(std::uint64_t expected_revision) -> KeymapResource
 {
-    return store_.remove_override(expected_revision, context, trigger);
+    return store_.erase(expected_revision);
 }
 
-auto StoreKeymapBridgeService::reset(std::uint64_t expected_revision) -> KeymapSnapshot
+auto StoreKeymapBridgeService::refresh() -> bool
 {
-    return store_.reset(expected_revision);
+    return store_.refresh();
 }
 
 JuceLibraryBridgeService::JuceLibraryBridgeService(LibraryFilePort &files)
@@ -365,18 +359,14 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
          }},
         {"library.get",
          [this](ParsedRequest const &request) { return handle_library_get(request); }},
-        {"keymap.get",
-         [this](ParsedRequest const &request) { return handle_keymap_get(request); }},
-        {"keymap.override.set",
+        {"keymap.read",
+         [this](ParsedRequest const &request) { return handle_keymap_read(request); }},
+        {"keymap.write",
+         [this](ParsedRequest const &request) { return handle_keymap_write(request); }},
+        {"keymap.delete",
          [this](ParsedRequest const &request) {
-             return handle_keymap_override_set(request);
+             return handle_keymap_delete(request);
          }},
-        {"keymap.override.remove",
-         [this](ParsedRequest const &request) {
-             return handle_keymap_override_remove(request);
-         }},
-        {"keymap.reset",
-         [this](ParsedRequest const &request) { return handle_keymap_reset(request); }},
     };
 }
 
@@ -408,6 +398,32 @@ auto BridgeRequestDispatcher::handle_request_json(std::string const &request_jso
     {
         return make_envelope("response", error.name, error.request_id,
                              make_error_payload(error.code, error.what()))
+            .dump();
+    }
+    catch (KeymapStorageError const &error)
+    {
+        auto code = std::string{};
+        switch (error.code)
+        {
+        case KeymapStorageErrorCode::Conflict:
+            code = "conflict";
+            break;
+        case KeymapStorageErrorCode::MalformedDocument:
+            code = "malformed_document";
+            break;
+        case KeymapStorageErrorCode::Read:
+            code = "keymap_read_error";
+            break;
+        case KeymapStorageErrorCode::Write:
+            code = "keymap_write_error";
+            break;
+        case KeymapStorageErrorCode::Delete:
+            code = "keymap_delete_error";
+            break;
+        }
+        return make_envelope("response",
+                             request.name.empty() ? "bridge.error" : request.name,
+                             request.request_id, make_error_payload(code, error.what()))
             .dump();
     }
     catch (nlohmann::json::exception const &error)
@@ -456,7 +472,7 @@ auto BridgeRequestDispatcher::handle_session_hello(ParsedRequest const &request)
         {"library_schema_version", library_schema_version},
         {"catalog", make_catalog_payload(application_.command_catalog_metadata())},
         {"binding", make_instance_binding(application_.instance_binding())},
-        {"keymap", make_keymap_payload(keymap_.snapshot())},
+        {"keymap", make_keymap_payload(keymap_.read())},
     };
 }
 
@@ -516,52 +532,32 @@ auto BridgeRequestDispatcher::handle_library_get(ParsedRequest const &request)
     return library_.make_payload(application_.library_snapshot());
 }
 
-auto BridgeRequestDispatcher::handle_keymap_get(ParsedRequest const &request)
+auto BridgeRequestDispatcher::handle_keymap_read(ParsedRequest const &request)
     -> nlohmann::json
 {
     validate_empty_object_payload(request.payload, request);
-    return make_keymap_payload(keymap_.snapshot());
+    return make_keymap_payload(keymap_.read());
 }
 
-auto BridgeRequestDispatcher::handle_keymap_override_set(ParsedRequest const &request)
+auto BridgeRequestDispatcher::handle_keymap_write(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
         require_unsigned(request.payload, "expected_revision");
-    auto const context = require_string(request.payload, "context");
-    auto const trigger =
-        parse_keymap_trigger(require_object(request.payload, "trigger"));
-    auto target = std::optional<KeymapTarget>{};
-    if (!request.payload.contains("target"))
+    if (!request.payload.contains("document"))
     {
-        throw BridgeError{"invalid_request", "Missing field: target"};
-    }
-    if (!request.payload.at("target").is_null())
-    {
-        target = parse_keymap_target(request.payload.at("target"));
+        throw BridgeError{"invalid_request", "Missing field: document"};
     }
     return make_keymap_payload(
-        keymap_.set_override(expected_revision, context, trigger, std::move(target)));
+        keymap_.write(expected_revision, request.payload.at("document")));
 }
 
-auto BridgeRequestDispatcher::handle_keymap_override_remove(
-    ParsedRequest const &request) -> nlohmann::json
-{
-    auto const expected_revision =
-        require_unsigned(request.payload, "expected_revision");
-    auto const context = require_string(request.payload, "context");
-    auto const trigger =
-        parse_keymap_trigger(require_object(request.payload, "trigger"));
-    return make_keymap_payload(
-        keymap_.remove_override(expected_revision, context, trigger));
-}
-
-auto BridgeRequestDispatcher::handle_keymap_reset(ParsedRequest const &request)
+auto BridgeRequestDispatcher::handle_keymap_delete(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
         require_unsigned(request.payload, "expected_revision");
-    return make_keymap_payload(keymap_.reset(expected_revision));
+    return make_keymap_payload(keymap_.erase(expected_revision));
 }
 
 auto quote_command_arg(std::string const &value) -> std::string

@@ -450,6 +450,7 @@ void WebviewHost::timerCallback()
         last_library_revision_ = library_revision;
         emit_library_changed_event();
     }
+    (void)bridge_.refresh_keymap();
     auto const keymap_revision = bridge_.keymap_revision();
     if (keymap_revision != last_keymap_revision_)
     {

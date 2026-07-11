@@ -41,11 +41,10 @@ auto WebviewBridge::make_library_changed_event_json() const -> std::string
         .dump();
 }
 
-auto WebviewBridge::make_keymap_changed_event_json() const -> std::string
+auto WebviewBridge::make_keymap_changed_event_json() -> std::string
 {
-    return bridge::make_envelope(
-               "event", "keymap.changed", std::nullopt,
-               bridge::make_keymap_payload(keymap_service_.snapshot()))
+    return bridge::make_envelope("event", "keymap.changed", std::nullopt,
+                                 bridge::make_keymap_payload(keymap_service_.read()))
         .dump();
 }
 
@@ -70,6 +69,20 @@ auto WebviewBridge::make_transport_stopped_event_json() const -> std::string
 auto WebviewBridge::keymap_revision() const noexcept -> std::uint64_t
 {
     return keymap_service_.revision();
+}
+
+auto WebviewBridge::refresh_keymap() noexcept -> bool
+{
+    try
+    {
+        return keymap_service_.refresh();
+    }
+    catch (KeymapStorageError const &)
+    {
+        // Reads still surface the actionable error. Polling cannot publish an
+        // opaque JSON resource until the external file becomes valid again.
+        return false;
+    }
 }
 
 } // namespace xen

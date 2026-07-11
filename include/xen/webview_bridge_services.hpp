@@ -43,15 +43,12 @@ class KeymapBridgeService
   public:
     virtual ~KeymapBridgeService() = default;
 
-    [[nodiscard]] virtual auto snapshot() const -> KeymapSnapshot = 0;
+    virtual auto read() -> KeymapResource = 0;
     [[nodiscard]] virtual auto revision() const noexcept -> std::uint64_t = 0;
-    virtual auto set_override(std::uint64_t expected_revision, std::string context,
-                              KeymapTrigger trigger, std::optional<KeymapTarget> target)
-        -> KeymapSnapshot = 0;
-    virtual auto remove_override(std::uint64_t expected_revision,
-                                 std::string const &context,
-                                 KeymapTrigger const &trigger) -> KeymapSnapshot = 0;
-    virtual auto reset(std::uint64_t expected_revision) -> KeymapSnapshot = 0;
+    virtual auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> KeymapResource = 0;
+    virtual auto erase(std::uint64_t expected_revision) -> KeymapResource = 0;
+    virtual auto refresh() -> bool = 0;
 };
 
 class LibraryBridgeService
@@ -116,14 +113,12 @@ class StoreKeymapBridgeService final : public KeymapBridgeService
     explicit StoreKeymapBridgeService(
         std::filesystem::path keymap_file = KeymapStore::default_file());
 
-    [[nodiscard]] auto snapshot() const -> KeymapSnapshot override;
+    auto read() -> KeymapResource override;
     [[nodiscard]] auto revision() const noexcept -> std::uint64_t override;
-    auto set_override(std::uint64_t expected_revision, std::string context,
-                      KeymapTrigger trigger, std::optional<KeymapTarget> target)
-        -> KeymapSnapshot override;
-    auto remove_override(std::uint64_t expected_revision, std::string const &context,
-                         KeymapTrigger const &trigger) -> KeymapSnapshot override;
-    auto reset(std::uint64_t expected_revision) -> KeymapSnapshot override;
+    auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> KeymapResource override;
+    auto erase(std::uint64_t expected_revision) -> KeymapResource override;
+    auto refresh() -> bool override;
 
   private:
     KeymapStore store_;
@@ -179,13 +174,11 @@ class BridgeRequestDispatcher
         -> nlohmann::json;
     [[nodiscard]] auto handle_library_get(ParsedRequest const &request)
         -> nlohmann::json;
-    [[nodiscard]] auto handle_keymap_get(ParsedRequest const &request)
+    [[nodiscard]] auto handle_keymap_read(ParsedRequest const &request)
         -> nlohmann::json;
-    [[nodiscard]] auto handle_keymap_override_set(ParsedRequest const &request)
+    [[nodiscard]] auto handle_keymap_write(ParsedRequest const &request)
         -> nlohmann::json;
-    [[nodiscard]] auto handle_keymap_override_remove(ParsedRequest const &request)
-        -> nlohmann::json;
-    [[nodiscard]] auto handle_keymap_reset(ParsedRequest const &request)
+    [[nodiscard]] auto handle_keymap_delete(ParsedRequest const &request)
         -> nlohmann::json;
 };
 

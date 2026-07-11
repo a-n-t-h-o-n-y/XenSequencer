@@ -135,9 +135,12 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
 class FakeKeymapService final : public bridge::KeymapBridgeService
 {
   public:
-    KeymapSnapshot current{.revision = 5, .bindings = default_keymap()};
+    KeymapResource current{
+        .revision = 5,
+        .document = nlohmann::json{{"future", true}},
+    };
 
-    [[nodiscard]] auto snapshot() const -> KeymapSnapshot override
+    auto read() -> KeymapResource override
     {
         return current;
     }
@@ -147,44 +150,34 @@ class FakeKeymapService final : public bridge::KeymapBridgeService
         return current.revision;
     }
 
-    auto set_override(std::uint64_t expected_revision, std::string context,
-                      KeymapTrigger trigger, std::optional<KeymapTarget> target)
-        -> KeymapSnapshot override
+    auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> KeymapResource override
     {
         if (expected_revision != current.revision)
         {
-            throw std::invalid_argument{"stale fake keymap revision"};
+            throw KeymapStorageError{KeymapStorageErrorCode::Conflict,
+                                     "stale fake keymap revision"};
         }
         ++current.revision;
-        current.overrides.push_back({
-            .context = std::move(context),
-            .trigger = std::move(trigger),
-            .target = std::move(target),
-        });
+        current.document = std::move(document);
         return current;
     }
 
-    auto remove_override(std::uint64_t expected_revision, std::string const &,
-                         KeymapTrigger const &) -> KeymapSnapshot override
+    auto erase(std::uint64_t expected_revision) -> KeymapResource override
     {
         if (expected_revision != current.revision)
         {
-            throw std::invalid_argument{"stale fake keymap revision"};
+            throw KeymapStorageError{KeymapStorageErrorCode::Conflict,
+                                     "stale fake keymap revision"};
         }
         ++current.revision;
-        current.overrides.clear();
+        current.document.reset();
         return current;
     }
 
-    auto reset(std::uint64_t expected_revision) -> KeymapSnapshot override
+    auto refresh() -> bool override
     {
-        if (expected_revision != current.revision)
-        {
-            throw std::invalid_argument{"stale fake keymap revision"};
-        }
-        ++current.revision;
-        current.overrides.clear();
-        return current;
+        return false;
     }
 };
 
@@ -299,10 +292,8 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
         }
     }
     CHECK(payload.contains("keymap"));
-    CHECK(payload.at("keymap").at("schema_version") == 1);
-    CHECK(payload.at("keymap").at("key_semantics") == "KeyboardEvent.key");
-    CHECK(payload.at("keymap").contains("bindings"));
-    CHECK(payload.at("keymap").contains("overrides"));
+    CHECK(payload.at("keymap").contains("revision"));
+    CHECK(payload.at("keymap").at("document").is_null());
     CHECK_FALSE(payload.contains("project"));
     CHECK_FALSE(payload.contains("library"));
 }
@@ -352,63 +343,35 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
     CHECK_FALSE(payload.at("snapshot").contains("library"));
 }
 
-TEST_CASE("Bridge updates and resets individual keymap overrides", "[core][bridge]")
+TEST_CASE("Bridge writes and deletes opaque keymap documents", "[core][bridge]")
 {
     auto session = make_session();
     auto host_bridge = make_bridge(session);
-    auto const initial = response(host_bridge, "keymap.get").at("payload");
+    auto const initial = response(host_bridge, "keymap.read").at("payload");
     auto const revision = initial.at("revision").get<std::uint64_t>();
-    auto const trigger = nlohmann::json{
-        {"key", "q"},
-        {"modifiers", {{"shift", false}, {"command", false}, {"alt", false}}},
-    };
-    auto const updated =
-        response(host_bridge, "keymap.override.set",
-                 {
-                     {"expected_revision", revision},
-                     {"context", "sequence"},
-                     {"trigger", trigger},
-                     {"target", {{"type", "command"}, {"command", "rest"}}},
-                 })
-            .at("payload");
-    CHECK(updated.at("revision") == revision + 1);
-    REQUIRE(updated.at("overrides").size() == 1);
-    CHECK(updated.at("overrides").front().at("target").at("command") == "rest");
+    auto const document = nlohmann::json{{"unknown_context", {{"future", true}}}};
+    auto const updated = response(host_bridge, "keymap.write",
+                                  {
+                                      {"expected_revision", revision},
+                                      {"document", document},
+                                  })
+                             .at("payload");
+    CHECK(updated.at("revision") != revision);
+    CHECK(updated.at("document") == document);
 
-    auto const stale =
-        response(host_bridge, "keymap.override.set",
-                 {
-                     {"expected_revision", revision},
-                     {"context", "sequence"},
-                     {"trigger", trigger},
-                     {"target", {{"type", "command"}, {"command", "note"}}},
-                 })
-            .at("payload");
-    CHECK(stale.at("error").at("code") == "invalid_request");
-
-    auto const restored = response(host_bridge, "keymap.override.remove",
-                                   {
-                                       {"expected_revision", updated.at("revision")},
-                                       {"context", "sequence"},
-                                       {"trigger", trigger},
-                                   })
-                              .at("payload");
-    CHECK(restored.at("overrides").empty());
-
-    auto const reupdated =
-        response(host_bridge, "keymap.override.set",
-                 {
-                     {"expected_revision", restored.at("revision")},
-                     {"context", "sequence"},
-                     {"trigger", trigger},
-                     {"target", {{"type", "command"}, {"command", "rest"}}},
-                 })
-            .at("payload");
-    auto const reset = response(host_bridge, "keymap.reset",
-                                {{"expected_revision", reupdated.at("revision")}})
+    auto const stale = response(host_bridge, "keymap.write",
+                                {
+                                    {"expected_revision", revision},
+                                    {"document", {{"replacement", true}}},
+                                })
                            .at("payload");
-    CHECK(reset.at("overrides").empty());
-    CHECK(reset.at("revision") == revision + 4);
+    CHECK(stale.at("error").at("code") == "conflict");
+
+    auto const erased = response(host_bridge, "keymap.delete",
+                                 {{"expected_revision", updated.at("revision")}})
+                            .at("payload");
+    CHECK(erased.at("document").is_null());
+    CHECK(erased.at("revision") == revision);
 }
 
 TEST_CASE("Bridge changed events use independent resource payloads", "[core][bridge]")
@@ -432,7 +395,27 @@ TEST_CASE("Bridge changed events use independent resource payloads", "[core][bri
         nlohmann::json::parse(host_bridge.make_keymap_changed_event_json());
     CHECK(keymap.at("name") == "keymap.changed");
     CHECK(keymap.at("payload").contains("revision"));
-    CHECK(keymap.at("payload").contains("bindings"));
+    CHECK(keymap.at("payload").contains("document"));
+}
+
+TEST_CASE("Bridge publishes externally changed opaque keymaps", "[core][bridge]")
+{
+    auto session = make_session();
+    auto const file = temporary_keymap_file();
+    auto host_bridge = WebviewBridge{session, file};
+    auto const initial_revision = host_bridge.keymap_revision();
+    auto const document = nlohmann::json{{"external", {{"future_action", 7}}}};
+    auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
+    REQUIRE(output.good());
+    output << document.dump();
+    output.close();
+
+    CHECK(host_bridge.refresh_keymap());
+    CHECK(host_bridge.keymap_revision() != initial_revision);
+    auto const event =
+        nlohmann::json::parse(host_bridge.make_keymap_changed_event_json());
+    CHECK(event.at("name") == "keymap.changed");
+    CHECK(event.at("payload").at("document") == document);
 }
 
 TEST_CASE("Bridge dispatcher handles service requests with fake services",
@@ -529,37 +512,26 @@ TEST_CASE("Bridge dispatcher handles keymap requests with fake services",
     auto library = FakeLibraryService{};
     auto keymap = FakeKeymapService{};
     auto dispatcher = bridge::BridgeRequestDispatcher{application, library, keymap};
-    auto const trigger = nlohmann::json{
-        {"key", "q"},
-        {"modifiers", {{"shift", false}, {"command", false}, {"alt", false}}},
-    };
-
     auto const set =
-        fake_response(dispatcher, "keymap.override.set",
+        fake_response(dispatcher, "keymap.write",
                       {
                           {"expected_revision", 5},
-                          {"context", "sequence"},
-                          {"trigger", trigger},
-                          {"target", {{"type", "command"}, {"command", "rest"}}},
+                          {"document", nlohmann::json::array({1, "future", true})},
                       })
             .at("payload");
     CHECK(set.at("revision") == 6);
-    REQUIRE(set.at("overrides").size() == 1);
+    CHECK(set.at("document").is_array());
 
-    auto const remove = fake_response(dispatcher, "keymap.override.remove",
-                                      {
-                                          {"expected_revision", 6},
-                                          {"context", "sequence"},
-                                          {"trigger", trigger},
-                                      })
-                            .at("payload");
-    CHECK(remove.at("revision") == 7);
-    CHECK(remove.at("overrides").empty());
-
-    auto const reset =
-        fake_response(dispatcher, "keymap.reset", {{"expected_revision", 7}})
+    auto const remove =
+        fake_response(dispatcher, "keymap.delete", {{"expected_revision", 6}})
             .at("payload");
-    CHECK(reset.at("revision") == 8);
+    CHECK(remove.at("revision") == 7);
+    CHECK(remove.at("document").is_null());
+
+    auto const stale =
+        fake_response(dispatcher, "keymap.delete", {{"expected_revision", 6}})
+            .at("payload");
+    CHECK(stale.at("error").at("code") == "conflict");
 }
 
 TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
@@ -581,6 +553,25 @@ TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
                                               })
                                     .at("payload");
     CHECK(invalid_schema.at("error").at("code") == "unsupported_protocol");
+
+    auto const missing_document =
+        fake_response(dispatcher, "keymap.write", {{"expected_revision", 5}})
+            .at("payload");
+    CHECK(missing_document.at("error").at("code") == "invalid_request");
+}
+
+TEST_CASE("Bridge reports malformed persisted keymaps", "[core][bridge]")
+{
+    auto session = make_session();
+    auto const file = temporary_keymap_file();
+    auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
+    REQUIRE(output.good());
+    output << "{not-json";
+    output.close();
+    auto host_bridge = WebviewBridge{session, file};
+
+    auto const malformed = response(host_bridge, "keymap.read").at("payload");
+    CHECK(malformed.at("error").at("code") == "malformed_document");
 }
 
 TEST_CASE("Bridge documentation tracks schema constants and catalog fields",

@@ -14,7 +14,7 @@
 namespace xen::bridge
 {
 
-inline constexpr std::string_view protocol = "xen.bridge.v1";
+inline constexpr std::string_view protocol = "xen.bridge.v2";
 inline constexpr int project_schema_version = 3;
 inline constexpr int library_schema_version = 1;
 inline constexpr int catalog_schema_version = 2;
@@ -30,7 +30,7 @@ inline constexpr int catalog_schema_version = 2;
 [[nodiscard]] auto make_catalog_payload(
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 
-[[nodiscard]] auto make_keymap_payload(KeymapSnapshot const &snapshot)
+[[nodiscard]] auto make_keymap_payload(KeymapResource const &resource)
     -> nlohmann::json;
 
 } // namespace xen::bridge

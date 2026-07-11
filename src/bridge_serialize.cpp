@@ -340,69 +340,12 @@ auto make_catalog_payload(std::vector<CatalogCommandMetadata> const &commands)
     };
 }
 
-auto make_keymap_payload(KeymapSnapshot const &snapshot) -> nlohmann::json
+auto make_keymap_payload(KeymapResource const &resource) -> nlohmann::json
 {
-    auto trigger_to_json = [](KeymapTrigger const &trigger) {
-        auto json = nlohmann::json{
-            {"key", trigger.key},
-            {"modifiers",
-             {
-                 {"shift", trigger.shift},
-                 {"command", trigger.command},
-                 {"alt", trigger.alt},
-             }},
-        };
-        if (trigger.input_mode.has_value())
-        {
-            json["when"] = {{"input_mode", *trigger.input_mode}};
-        }
-        return json;
-    };
-    auto target_to_json = [](KeymapTarget const &target) {
-        if (target.type == KeymapTargetType::Command)
-        {
-            return nlohmann::json{
-                {"type", "command"},
-                {"command", target.value},
-            };
-        }
-        return nlohmann::json{
-            {"type", "ui_action"},
-            {"action", target.value},
-            {"arguments", target.arguments},
-        };
-    };
-
-    auto bindings_json = nlohmann::json::object();
-    for (auto const &[context, bindings] : snapshot.bindings)
-    {
-        auto context_json = nlohmann::json::array();
-        for (auto const &binding : bindings)
-        {
-            context_json.push_back({
-                {"trigger", trigger_to_json(binding.trigger)},
-                {"target", target_to_json(binding.target)},
-            });
-        }
-        bindings_json[context] = std::move(context_json);
-    }
-
-    auto overrides_json = nlohmann::json::array();
-    for (auto const &entry : snapshot.overrides)
-    {
-        overrides_json.push_back({
-            {"context", entry.context},
-            {"trigger", trigger_to_json(entry.trigger)},
-            {"target", entry.target.has_value() ? target_to_json(*entry.target)
-                                                : nlohmann::json(nullptr)},
-        });
-    }
     return nlohmann::json{
-        {"schema_version", KEYMAP_SCHEMA_VERSION},
-        {"revision", snapshot.revision},
-        {"key_semantics", "KeyboardEvent.key"},
-        {"bindings", std::move(bindings_json)},
-        {"overrides", std::move(overrides_json)},
+        {"revision", resource.revision},
+        {"document",
+         resource.document.has_value() ? *resource.document : nlohmann::json(nullptr)},
     };
 }
 

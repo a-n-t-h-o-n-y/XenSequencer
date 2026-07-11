@@ -1,10 +1,14 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <string>
 
 #include <catch2/catch_test_macros.hpp>
+#include <nlohmann/json.hpp>
 
 #include <xen/keymap.hpp>
+#include <xen/text_file.hpp>
 
 using namespace xen;
 
@@ -22,294 +26,171 @@ auto temporary_keymap_file() -> std::filesystem::path
     return path;
 }
 
-auto find_binding(KeymapSnapshot const &snapshot, std::string const &context,
-                  KeymapTrigger const &trigger) -> KeymapBinding const *
+void write_file(std::filesystem::path const &file, std::string const &text)
 {
-    auto const context_it = snapshot.bindings.find(context);
-    if (context_it == snapshot.bindings.end())
-    {
-        return nullptr;
-    }
-    auto const binding_it =
-        std::ranges::find(context_it->second, trigger, &KeymapBinding::trigger);
-    return binding_it == context_it->second.end() ? nullptr : &*binding_it;
+    auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
+    REQUIRE(output.good());
+    output << text;
+    REQUIRE(output.good());
 }
 
 } // namespace
 
-TEST_CASE("Keymap store persists overrides and explicit unbindings", "[core][keymap]")
+TEST_CASE("Missing keymap document is an empty resource", "[core][keymap]")
+{
+    auto store = KeymapStore{temporary_keymap_file()};
+    auto const resource = store.read();
+
+    CHECK_FALSE(resource.document.has_value());
+    CHECK(resource.revision != 0);
+}
+
+TEST_CASE("Keymap store preserves arbitrary JSON values", "[core][keymap]")
 {
     auto const file = temporary_keymap_file();
-    auto const trigger = KeymapTrigger{.key = "ArrowLeft"};
-
-    {
-        auto store = KeymapStore{file};
-        auto const initial = store.snapshot();
-        REQUIRE(find_binding(initial, "sequence", trigger) != nullptr);
-
-        auto const disabled =
-            store.set_override(initial.revision, "sequence", trigger, std::nullopt);
-        CHECK(find_binding(disabled, "sequence", trigger) == nullptr);
-        REQUIRE(disabled.overrides.size() == 1);
-        CHECK_FALSE(disabled.overrides.front().target.has_value());
-    }
-
-    auto restored_store = KeymapStore{file};
-    auto const restored = restored_store.snapshot();
-    CHECK(find_binding(restored, "sequence", trigger) == nullptr);
-    REQUIRE(restored.overrides.size() == 1);
-
-    auto const defaults =
-        restored_store.remove_override(restored.revision, "sequence", trigger);
-    CHECK(find_binding(defaults, "sequence", trigger) != nullptr);
-    CHECK(defaults.overrides.empty());
-}
-
-TEST_CASE("Keymap store rejects stale mutations", "[core][keymap]")
-{
-    auto store = KeymapStore{temporary_keymap_file()};
-    auto const snapshot = store.snapshot();
-    auto const target = KeymapTarget{
-        .type = KeymapTargetType::Command,
-        .value = "rest",
-    };
-    store.set_override(snapshot.revision, "sequence", {.key = "q"}, target);
-
-    CHECK_THROWS_AS(
-        store.set_override(snapshot.revision, "sequence", {.key = "w"}, target),
-        std::invalid_argument);
-}
-
-TEST_CASE("Default keymap exposes command bar contexts", "[core][keymap]")
-{
-    auto store = KeymapStore{temporary_keymap_file()};
-    auto const snapshot = store.snapshot();
-
-    auto const open_binding =
-        find_binding(snapshot, "sequence", {.key = "k", .command = true});
-    REQUIRE(open_binding != nullptr);
-    CHECK(open_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(open_binding->target.value == "command.open");
-    CHECK(open_binding->target.arguments.empty());
-
-    auto const submit_binding =
-        find_binding(snapshot, "command.input", {.key = "Enter"});
-    REQUIRE(submit_binding != nullptr);
-    CHECK(submit_binding->target.value == "command.submit");
-
-    auto const next_completion =
-        find_binding(snapshot, "command.completions", {.key = "ArrowDown"});
-    REQUIRE(next_completion != nullptr);
-    CHECK(next_completion->target.value == "command.completion.next");
-
-    auto const composition_binding = find_binding(snapshot, "sequence", {.key = "Tab"});
-    REQUIRE(composition_binding != nullptr);
-    CHECK(composition_binding->target.value == "workspace.view.composition");
-
-    auto const move_binding =
-        find_binding(snapshot, "composition", {.key = "ArrowRight"});
-    REQUIRE(move_binding != nullptr);
-    CHECK(move_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(move_binding->target.value == "composition.selection.move");
-    CHECK(move_binding->target.arguments.at("direction") == "right");
-
-    auto const copy_binding =
-        find_binding(snapshot, "composition", {.key = "c", .command = true});
-    REQUIRE(copy_binding != nullptr);
-    CHECK(copy_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(copy_binding->target.value == "composition.cell.copy");
-
-    auto const cut_binding =
-        find_binding(snapshot, "composition", {.key = "x", .command = true});
-    REQUIRE(cut_binding != nullptr);
-    CHECK(cut_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(cut_binding->target.value == "composition.cell.cut");
-
-    auto const paste_binding =
-        find_binding(snapshot, "composition", {.key = "v", .command = true});
-    REQUIRE(paste_binding != nullptr);
-    CHECK(paste_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(paste_binding->target.value == "composition.cell.paste");
-
-    auto const duplicate_binding =
-        find_binding(snapshot, "composition", {.key = "d", .command = true});
-    REQUIRE(duplicate_binding != nullptr);
-    CHECK(duplicate_binding->target.type == KeymapTargetType::UiAction);
-    CHECK(duplicate_binding->target.value == "composition.cell.duplicate_right");
-
-    auto const edit_binding = find_binding(snapshot, "composition", {.key = "Enter"});
-    REQUIRE(edit_binding != nullptr);
-    CHECK(edit_binding->target.value == "composition.cell.edit_measure");
-
-    auto const rename_binding = find_binding(snapshot, "composition", {.key = "n"});
-    REQUIRE(rename_binding != nullptr);
-    CHECK(rename_binding->target.value == "composition.cell.rename_or_create_measure");
-
-    auto const clear_binding = find_binding(snapshot, "composition", {.key = "Delete"});
-    REQUIRE(clear_binding != nullptr);
-    CHECK(clear_binding->target.value == "composition.cell.clear");
-
-    auto const row_before_binding = find_binding(snapshot, "composition", {.key = "i"});
-    REQUIRE(row_before_binding != nullptr);
-    CHECK(row_before_binding->target.value == "composition.row.insert_before");
-
-    auto const row_after_binding = find_binding(snapshot, "composition", {.key = "a"});
-    REQUIRE(row_after_binding != nullptr);
-    CHECK(row_after_binding->target.value == "composition.row.insert_after");
-
-    auto const row_delete_binding =
-        find_binding(snapshot, "composition", {.key = "d", .shift = true});
-    REQUIRE(row_delete_binding != nullptr);
-    CHECK(row_delete_binding->target.value == "composition.row.delete");
-
-    auto const row_rename_binding = find_binding(snapshot, "composition", {.key = "r"});
-    REQUIRE(row_rename_binding != nullptr);
-    CHECK(row_rename_binding->target.value == "composition.row.rename");
-
-    auto const row_channel_binding =
-        find_binding(snapshot, "composition", {.key = "o"});
-    REQUIRE(row_channel_binding != nullptr);
-    CHECK(row_channel_binding->target.value == "composition.row.channel");
-
-    auto const column_before_binding =
-        find_binding(snapshot, "composition", {.key = "i", .shift = true});
-    REQUIRE(column_before_binding != nullptr);
-    CHECK(column_before_binding->target.value == "composition.column.insert_before");
-
-    auto const column_after_binding =
-        find_binding(snapshot, "composition", {.key = "a", .shift = true});
-    REQUIRE(column_after_binding != nullptr);
-    CHECK(column_after_binding->target.value == "composition.column.insert_after");
-
-    auto const column_delete_binding = find_binding(
-        snapshot, "composition", {.key = "d", .shift = true, .command = true});
-    REQUIRE(column_delete_binding != nullptr);
-    CHECK(column_delete_binding->target.value == "composition.column.delete");
-
-    auto const column_length_binding =
-        find_binding(snapshot, "composition", {.key = "t"});
-    REQUIRE(column_length_binding != nullptr);
-    CHECK(column_length_binding->target.value == "composition.column.length");
-
-    auto const loop_start_binding = find_binding(snapshot, "composition", {.key = "["});
-    REQUIRE(loop_start_binding != nullptr);
-    CHECK(loop_start_binding->target.value == "composition.loop.set_start");
-
-    auto const sequencer_binding =
-        find_binding(snapshot, "composition", {.key = "Tab"});
-    REQUIRE(sequencer_binding != nullptr);
-    CHECK(sequencer_binding->target.value == "workspace.view.sequencer");
-}
-
-TEST_CASE("Keymap accepts command UI action overrides in dotted contexts",
-          "[core][keymap]")
-{
-    auto store = KeymapStore{temporary_keymap_file()};
-    auto const snapshot = store.snapshot();
-    auto const target = KeymapTarget{
-        .type = KeymapTargetType::UiAction,
-        .value = "command.close_if_empty",
+    auto store = KeymapStore{file};
+    auto const document = nlohmann::json{
+        {"unknown_context", {{{"future", true}, {"arguments", {1, "two"}}}}},
+        {"schema_version", 912},
     };
 
-    auto const updated = store.set_override(snapshot.revision, "command.input",
-                                            {.key = "Escape"}, target);
+    auto const written = store.write(store.read().revision, document);
+    REQUIRE(written.document.has_value());
+    CHECK(*written.document == document);
 
-    auto const binding = find_binding(updated, "command.input", {.key = "Escape"});
-    REQUIRE(binding != nullptr);
-    CHECK(binding->target == target);
+    auto restored = KeymapStore{file};
+    auto const resource = restored.read();
+    CHECK(resource == written);
 }
 
-TEST_CASE("Keymap persists workspace view toggle UI action overrides", "[core][keymap]")
+TEST_CASE("Keymap store exposes legacy JSON without migration", "[core][keymap]")
 {
     auto const file = temporary_keymap_file();
-    auto const trigger =
-        KeymapTrigger{.key = "l", .shift = true, .command = false, .alt = false};
-    auto const target = KeymapTarget{
-        .type = KeymapTargetType::UiAction,
-        .value = "workspace.view.toggle",
-        .arguments = nlohmann::json::object(),
+    auto const legacy = nlohmann::json{
+        {"schema_version", 1},
+        {"revision", 42},
+        {"overrides", {{{"context", "sequence"}, {"target", nullptr}}}},
     };
+    write_file(file, legacy.dump(2));
 
+    auto store = KeymapStore{file};
+    REQUIRE(store.read().document.has_value());
+    CHECK(*store.read().document == legacy);
+}
+
+TEST_CASE("Keymap store accepts scalar and null documents", "[core][keymap]")
+{
+    auto store = KeymapStore{temporary_keymap_file()};
+    auto resource = store.write(store.read().revision, "opaque");
+    REQUIRE(resource.document.has_value());
+    CHECK(*resource.document == "opaque");
+
+    resource = store.write(resource.revision, nullptr);
+    REQUIRE(resource.document.has_value());
+    CHECK(resource.document->is_null());
+}
+
+TEST_CASE("Keymap store rejects stale writes and deletes", "[core][keymap]")
+{
+    auto store = KeymapStore{temporary_keymap_file()};
+    auto const initial = store.read();
+    auto const written = store.write(initial.revision, {{"value", 1}});
+
+    CHECK_THROWS_AS(store.write(initial.revision, {{"value", 2}}), KeymapStorageError);
+    CHECK_THROWS_AS(store.erase(initial.revision), KeymapStorageError);
+    CHECK(store.read() == written);
+}
+
+TEST_CASE("Keymap store deletes persisted documents", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto store = KeymapStore{file};
+    auto const written = store.write(store.read().revision, {{"value", true}});
+    REQUIRE(std::filesystem::exists(file));
+
+    auto const erased = store.erase(written.revision);
+    CHECK_FALSE(erased.document.has_value());
+    CHECK_FALSE(std::filesystem::exists(file));
+}
+
+TEST_CASE("Keymap store detects valid external changes", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto store = KeymapStore{file};
+    auto const initial_revision = store.revision();
+    write_file(file, R"({"external":{"action":"future.action"}})");
+
+    CHECK(store.refresh());
+    CHECK(store.revision() != initial_revision);
+    REQUIRE(store.current().document.has_value());
+    CHECK(store.current().document->at("external").at("action") == "future.action");
+    CHECK_FALSE(store.refresh());
+}
+
+TEST_CASE("Keymap store reports malformed and oversized documents", "[core][keymap]")
+{
+    auto const malformed_file = temporary_keymap_file();
+    write_file(malformed_file, "{not-json");
+    auto malformed_store = KeymapStore{malformed_file};
+    CHECK_THROWS_AS(malformed_store.read(), KeymapStorageError);
+
+    auto const oversized_file = temporary_keymap_file();
+    write_file(oversized_file, std::string(MAX_KEYMAP_DOCUMENT_SIZE + 1, 'x'));
+    auto oversized_store = KeymapStore{oversized_file};
+    CHECK_THROWS_AS(oversized_store.read(), KeymapStorageError);
+
+    auto const unreadable_path = temporary_keymap_file().replace_extension();
+    std::filesystem::create_directory(unreadable_path);
+    auto unreadable_store = KeymapStore{unreadable_path};
+    try
     {
-        auto store = KeymapStore{file};
-        auto const snapshot = store.snapshot();
-
-        auto const updated =
-            store.set_override(snapshot.revision, "sequence", trigger, target);
-
-        auto const binding = find_binding(updated, "sequence", trigger);
-        REQUIRE(binding != nullptr);
-        CHECK(binding->target == target);
+        (void)unreadable_store.read();
+        FAIL("Expected a keymap read error.");
     }
-
-    auto restored_store = KeymapStore{file};
-    auto const restored = restored_store.snapshot();
-    auto const restored_binding = find_binding(restored, "sequence", trigger);
-    REQUIRE(restored_binding != nullptr);
-    CHECK(restored_binding->target == target);
-}
-
-TEST_CASE("Keymap rejects command UI action arguments", "[core][keymap]")
-{
-    auto const target = KeymapTarget{
-        .type = KeymapTargetType::UiAction,
-        .value = "command.open",
-        .arguments = {{"unexpected", true}},
-    };
-
-    CHECK_THROWS_AS(validate(target), std::invalid_argument);
-}
-
-TEST_CASE("Keymap rejects workspace view toggle arguments", "[core][keymap]")
-{
-    auto const target = KeymapTarget{
-        .type = KeymapTargetType::UiAction,
-        .value = "workspace.view.toggle",
-        .arguments = {{"unexpected", true}},
-    };
-
-    CHECK_THROWS_AS(validate(target), std::invalid_argument);
-}
-
-TEST_CASE("Keymap validates composition UI action arguments", "[core][keymap]")
-{
-    auto const move = KeymapTarget{
-        .type = KeymapTargetType::UiAction,
-        .value = "composition.selection.move",
-        .arguments = {{"direction", "down"}, {"amount", 2}},
-    };
-    CHECK_NOTHROW(validate(move));
-
-    auto invalid_move = move;
-    invalid_move.arguments = {{"direction", "sideways"}, {"amount", 1}};
-    CHECK_THROWS_AS(validate(invalid_move), std::invalid_argument);
-
-    for (auto const *action : {"composition.cell.edit_measure",
-                               "composition.cell.rename_or_create_measure",
-                               "composition.cell.copy",
-                               "composition.cell.cut",
-                               "composition.cell.paste",
-                               "composition.cell.duplicate_right",
-                               "composition.cell.clear",
-                               "composition.row.insert_before",
-                               "composition.row.insert_after",
-                               "composition.row.delete",
-                               "composition.row.rename",
-                               "composition.row.channel",
-                               "composition.column.insert_before",
-                               "composition.column.insert_after",
-                               "composition.column.delete",
-                               "composition.column.length",
-                               "composition.loop.set_start",
-                               "composition.loop.set_end",
-                               "workspace.view.composition",
-                               "workspace.view.sequencer"})
+    catch (KeymapStorageError const &error)
     {
-        auto const target = KeymapTarget{
-            .type = KeymapTargetType::UiAction,
-            .value = action,
-            .arguments = nlohmann::json::object(),
-        };
-        CHECK_NOTHROW(validate(target));
+        CHECK(error.code == KeymapStorageErrorCode::Read);
     }
+    std::filesystem::remove(unreadable_path);
+}
+
+TEST_CASE("Failed keymap writes preserve the previous resource", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto write_count = 0;
+    auto store = KeymapStore{
+        file,
+        [&write_count](std::filesystem::path const &path, std::string const &text) {
+            if (++write_count == 2)
+            {
+                throw std::runtime_error{"injected atomic write failure"};
+            }
+            atomic_write_text_file(path, text);
+        },
+    };
+    auto const previous = store.write(store.read().revision, {{"value", "previous"}});
+
+    CHECK_THROWS_AS(store.write(previous.revision, {{"value", "replacement"}}),
+                    KeymapStorageError);
+
+    CHECK(store.current() == previous);
+    auto restored = KeymapStore{file};
+    CHECK(restored.read() == previous);
+}
+
+TEST_CASE("Failed keymap deletes preserve the previous resource", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto store = KeymapStore{
+        file,
+        atomic_write_text_file,
+        [](std::filesystem::path const &) {
+            throw std::runtime_error{"injected delete failure"};
+        },
+    };
+    auto const previous = store.write(store.read().revision, {{"value", "kept"}});
+
+    CHECK_THROWS_AS(store.erase(previous.revision), KeymapStorageError);
+    CHECK(store.current() == previous);
+    CHECK(std::filesystem::exists(file));
 }

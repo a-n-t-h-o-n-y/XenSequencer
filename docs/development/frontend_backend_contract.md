@@ -46,7 +46,7 @@ All messages use:
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v1";
+  protocol: "xen.bridge.v2";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -62,7 +62,15 @@ Errors are returned inside a normal response envelope:
 ```ts
 type ErrorPayload = {
   error: {
-    code: "invalid_request" | "unsupported_protocol" | "internal_error";
+    code:
+      | "invalid_request"
+      | "unsupported_protocol"
+      | "internal_error"
+      | "conflict"
+      | "malformed_document"
+      | "keymap_read_error"
+      | "keymap_write_error"
+      | "keymap_delete_error";
     message: string;
   };
 };
@@ -74,12 +82,12 @@ Request:
 
 ```json
 {
-  "protocol": "xen.bridge.v1",
+  "protocol": "xen.bridge.v2",
   "type": "request",
   "name": "session.hello",
   "request_id": "hello-1",
   "payload": {
-    "protocol": "xen.bridge.v1",
+    "protocol": "xen.bridge.v2",
     "frontend_app": "xen-web-ui",
     "frontend_version": "..."
   }
@@ -90,7 +98,7 @@ Response payload:
 
 ```ts
 type SessionHello = {
-  protocol: "xen.bridge.v1";
+  protocol: "xen.bridge.v2";
   plugin_version: string;
   project_schema_version: 3;
   library_schema_version: 1;
@@ -142,8 +150,8 @@ autocomplete, filtering, and ranking. Completion should tolerantly parse only th
 active semicolon-delimited chain segment. Final command text is still submitted to the
 strict backend parser.
 
-The typed keymap resource, mutation requests, revision rules, and frontend dispatch
-requirements are defined in
+The opaque keymap resource, whole-document requests, revision rules, and frontend
+ownership requirements are defined in
 [`frontend_keymap_contract.md`](frontend_keymap_contract.md).
 
 ## Project resource
@@ -404,7 +412,8 @@ type BridgeEvent =
       name: "transport.phase.sync";
       payload: { bpm: number; phase: number };
     }
-  | Envelope & { name: "transport.stopped"; payload: {} };
+  | Envelope & { name: "transport.stopped"; payload: {} }
+  | Envelope & { name: "keymap.changed"; payload: KeymapResource };
 ```
 
 `transport.phase.sync.phase` is normalized to `[0, 1)`. Treat transport events as
@@ -431,9 +440,9 @@ At minimum:
 - implement local selection navigation and input-mode actions;
 - send current revision and selection in command context;
 - consume `suggested_selection`;
-- consume the catalog and typed keymap resource from `session.hello`;
-- replace raw key-combination parsing with typed trigger matching and target dispatch;
-- implement keymap mutation responses and `keymap.changed`;
+- consume the catalog and opaque keymap resource from `session.hello`;
+- own keymap defaults, validation, merging, trigger matching, and target dispatch;
+- implement whole-document keymap responses and `keymap.changed`;
 - remove all `command.complete*` and `catalog.get` requests;
 - implement completion from the cached catalog;
 - add `library.changed` handling and revision-aware library ingestion;
