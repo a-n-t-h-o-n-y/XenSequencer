@@ -202,26 +202,6 @@ void validate(ProjectState const &project)
             throw std::invalid_argument{
                 "Composition references an unknown sequence ID."};
     }
-    for (auto const &[coordinate, row] : project.composition.rows)
-    {
-        (void)row;
-        if (!std::ranges::any_of(project.composition.placements,
-                                 [coordinate](auto const &entry) {
-                                     return entry.first.row_coordinate == coordinate;
-                                 }))
-            throw std::invalid_argument{
-                "Composition rows must contain at least one placement."};
-    }
-    for (auto const &[coordinate, column] : project.composition.columns)
-    {
-        (void)column;
-        if (!std::ranges::any_of(project.composition.placements,
-                                 [coordinate](auto const &entry) {
-                                     return entry.first.column_coordinate == coordinate;
-                                 }))
-            throw std::invalid_argument{
-                "Composition columns must contain at least one placement."};
-    }
 }
 
 void validate_timeline_state(ProjectState const &project)

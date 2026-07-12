@@ -1,8 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
+#include <xen/chord.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/sequencer_session.hpp>
@@ -38,6 +41,112 @@ TEST_CASE("Mutating commands advance history identity and project revision",
     CHECK(after.history_entry_id != initial.history_entry_id);
     CHECK(after.project_revision != initial.project_revision);
     CHECK(after.project.composition.columns.at(0).pitch.transposition == 12);
+}
+
+TEST_CASE("Project new installs a fresh root and clears project command sessions",
+          "[processor][timeline][replace]")
+{
+    auto session = SequencerSession{};
+    session.replace_library(
+        ContentLibrary{.chords = {
+                           Chord{.name = "major", .intervals = {0, 4, 7}},
+                       }});
+    REQUIRE(
+        session
+            .execute_command_string("note 1", current_context(session, SelectionPath{}))
+            .status.first == MessageLevel::Info);
+    REQUIRE(
+        session
+            .execute_command_string("note 2", current_context(session, SelectionPath{}))
+            .status.first == MessageLevel::Info);
+    REQUIRE(session
+                .execute_command_string("chord major 0",
+                                        current_context(session, SelectionPath{}))
+                .status.first == MessageLevel::Info);
+    REQUIRE_FALSE(session.command_session().repeat_chain.empty());
+    REQUIRE(session.command_session().transform_cycle.has_value());
+
+    auto const resources = session.library_snapshot();
+    auto const edited = session.project_snapshot();
+    auto const result =
+        session.execute_command_string("project new", current_context(session));
+
+    REQUIRE(result.status.first == MessageLevel::Info);
+    CHECK(result.status.second == "New Project");
+    REQUIRE(result.suggested_selection.has_value());
+    CHECK(result.suggested_selection->path.empty());
+    auto const replaced = session.project_snapshot();
+    CHECK(replaced.project == ProjectState{});
+    CHECK(replaced.history_entry_id != edited.history_entry_id);
+    CHECK(replaced.project_revision != edited.project_revision);
+    CHECK(session.command_session().repeat_chain.empty());
+    CHECK_FALSE(session.command_session().transform_cycle.has_value());
+    auto const surviving_resources = session.library_snapshot();
+    CHECK(surviving_resources.workspace == resources.workspace);
+    CHECK(surviving_resources.library_revision == resources.library_revision);
+    CHECK(surviving_resources.library.scales.size() == resources.library.scales.size());
+    REQUIRE(surviving_resources.library.chords.size() == 1);
+    CHECK(surviving_resources.library.chords.front().name == "major");
+    CHECK(surviving_resources.library.chords.front().intervals ==
+          std::vector<int>{0, 4, 7});
+
+    auto const undo = session.execute_command_string("undo", current_context(session));
+    CHECK(undo.status.second == "Nothing to undo.");
+    auto const redo = session.execute_command_string("redo", current_context(session));
+    CHECK(redo.status.second == "Nothing to redo.");
+}
+
+TEST_CASE("Project new refreshes an already-default history root",
+          "[processor][timeline][replace]")
+{
+    auto session = SequencerSession{};
+    auto const before = session.project_snapshot();
+
+    REQUIRE(session.execute_command_string("project new", current_context(session))
+                .status.first == MessageLevel::Info);
+
+    auto const after = session.project_snapshot();
+    CHECK(after.project == before.project);
+    CHECK(after.history_entry_id != before.history_entry_id);
+    CHECK(after.project_revision != before.project_revision);
+}
+
+TEST_CASE("Project history replacement commands must be submitted alone",
+          "[processor][timeline][replace]")
+{
+    auto session = SequencerSession{};
+    auto const before = session.project_snapshot();
+
+    auto const result = session.execute_command_string("project new; version",
+                                                       current_context(session));
+
+    CHECK(result.status.first == MessageLevel::Error);
+    CHECK(result.status.second ==
+          "Project history replacement commands must be submitted alone.");
+    auto const after = session.project_snapshot();
+    CHECK(after.project == before.project);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
+}
+
+TEST_CASE("Project history replacement is rejected during previews",
+          "[processor][timeline][replace][preview]")
+{
+    auto session = SequencerSession{};
+    auto const before = session.project_snapshot();
+    auto const started = session.begin_preview(before.project_revision);
+    REQUIRE(started.preview_id.has_value());
+
+    auto const result =
+        session.execute_command_string("project new", current_context(session));
+
+    CHECK(result.status.first == MessageLevel::Error);
+    CHECK(result.status.second.find("project preview is active") != std::string::npos);
+    auto const after = session.project_snapshot();
+    CHECK(after.project == before.project);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
+    CHECK(after.preview_active);
 }
 
 TEST_CASE("Preview updates stage repeatedly and commit one undo entry",

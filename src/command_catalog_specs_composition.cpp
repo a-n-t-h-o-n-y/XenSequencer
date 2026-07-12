@@ -184,17 +184,27 @@ void append_composition_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"composition", "cell", "clear"}, false, "Clear a composition cell.",
-        composition_edit_policy,
+        {"composition", "cell", "unassign"}, false,
+        "Unassign a sequence from a composition cell.", composition_edit_policy,
         std::make_tuple(required_arg<CompositionCoordinate>("row_coordinate"),
                         required_arg<CompositionCoordinate>("column_coordinate")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            CompositionCoordinate row, CompositionCoordinate column) {
             auto state = context.project();
-            clear_sequence_reference(state.composition, row, column);
+            unassign_sequence_reference(state.composition, row, column);
             context.edit_project() = std::move(state);
-            return make_result(minfo("Composition Cell Cleared."));
+            return make_result(minfo("Composition Cell Unassigned."));
         }));
+
+    specs.push_back(
+        command({"sequence", "clear"}, false, "Clear the active sequence's contents.",
+                composition_edit_policy, std::make_tuple(),
+                [](CommandHandlerContext &context, CommandInvocation const &) {
+                    auto state = context.project();
+                    selected_sequence(state, context.execution.cursor).elements.clear();
+                    context.edit_project() = std::move(state);
+                    return make_result(minfo("Sequence Cleared"), SelectionPath{});
+                }));
 
     specs.push_back(
         command({"composition", "cell", "move"}, false, "Move a composition cell.",

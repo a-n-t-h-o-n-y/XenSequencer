@@ -256,14 +256,12 @@ auto assign_sequence_reference(Composition &composition, CompositionCoordinate r
     composition.placements[{.row_coordinate = row, .column_coordinate = column}] = id;
 }
 
-auto clear_sequence_reference(Composition &composition, CompositionCoordinate row,
-                              CompositionCoordinate column) -> void
+auto unassign_sequence_reference(Composition &composition, CompositionCoordinate row,
+                                 CompositionCoordinate column) -> void
 {
     auto const position =
         CompositionPosition{.row_coordinate = row, .column_coordinate = column};
-    if (composition.placements.erase(position) == 0)
-        throw std::invalid_argument{"Composition placement does not exist."};
-    prune_unused_axes(composition, position);
+    composition.placements.erase(position);
 }
 
 auto move_sequence_reference(Composition &composition, CompositionPosition from,

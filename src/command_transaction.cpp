@@ -222,8 +222,10 @@ auto CommandTransaction::make_handler_context(CommandPolicy const &policy,
     return CommandHandlerContext{
         .project_read =
             policy.project == ProjectOperation::Read ? &project_read_ : nullptr,
-        .project_edit =
-            policy.project == ProjectOperation::Edit ? &project_edit_ : nullptr,
+        .project_edit = policy.project == ProjectOperation::Edit ||
+                                policy.project == ProjectOperation::ReplaceHistory
+                            ? &project_edit_
+                            : nullptr,
         .library_read =
             policy.library == LibraryAccess::Read ? &library_read_ : nullptr,
         .library_edit =
@@ -376,6 +378,11 @@ void CommandTransaction::invalidate_transform_sessions()
         sessions_ = state_.command_session;
     }
     sessions_->transform_cycle.reset();
+}
+
+void CommandTransaction::clear_project_sessions()
+{
+    sessions_ = CommandSessionState{};
 }
 
 auto CommandTransaction::repeat_candidate() const

@@ -97,6 +97,31 @@ TEST_CASE("Catalog binder reports unknown command", "[core][command][catalog]")
     CHECK(error.token == "notACommand");
 }
 
+TEST_CASE("Removed project and arrangement commands are absent from the catalog",
+          "[core][command][catalog]")
+{
+    for (auto const &text : {"reset", "composition cell clear 0 0",
+                             "load composition example", "save composition example"})
+    {
+        auto const result = bind_invocation(parse_command_chain(text).front());
+        REQUIRE(std::holds_alternative<CatalogBindError>(result));
+        CHECK(std::get<CatalogBindError>(result).kind ==
+              CatalogBindErrorKind::UnknownCommand);
+    }
+
+    auto const metadata = command_metadata();
+    for (auto const &removed :
+         {std::vector<std::string>{"reset"},
+          std::vector<std::string>{"composition", "cell", "clear"},
+          std::vector<std::string>{"load", "composition"},
+          std::vector<std::string>{"save", "composition"}})
+    {
+        CHECK(std::ranges::none_of(metadata, [&](CatalogCommandMetadata const &entry) {
+            return entry.path == removed;
+        }));
+    }
+}
+
 TEST_CASE("Catalog binder reports invalid and missing arguments",
           "[core][command][catalog]")
 {
@@ -239,6 +264,11 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("paste").files == FileAccess::Read);
     CHECK(policy_for("load cell example").workspace == WorkspaceAccess::Read);
     CHECK(policy_for("save cell example").project == ProjectOperation::Read);
+    CHECK(policy_for("project new").project == ProjectOperation::ReplaceHistory);
+    CHECK(policy_for("project new").history == HistoryPolicy::None);
+    CHECK(policy_for("project open example").project ==
+          ProjectOperation::ReplaceHistory);
+    CHECK(policy_for("project save example").project == ProjectOperation::Read);
     CHECK(policy_for("load chords").library == LibraryAccess::Mutate);
     CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
     CHECK(policy_for("composition loop start 0").history == HistoryPolicy::Commit);
@@ -249,7 +279,8 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("set duration 3/4").history == HistoryPolicy::Commit);
     CHECK(policy_for("composition cell assign -2 8 S1").project ==
           ProjectOperation::Edit);
-    CHECK(policy_for("composition cell clear 0 0").history == HistoryPolicy::Commit);
+    CHECK(policy_for("composition cell unassign 0 0").history == HistoryPolicy::Commit);
+    CHECK(policy_for("sequence clear").history == HistoryPolicy::Commit);
     CHECK(policy_for("composition cell move -2 8 3 -4").project ==
           ProjectOperation::Edit);
 

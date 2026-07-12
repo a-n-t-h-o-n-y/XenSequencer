@@ -419,6 +419,17 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         {
             return error_result("undo and redo must be submitted alone.");
         }
+        auto const replacement_count =
+            std::ranges::count_if(steps, [](BoundStep const &step) {
+                auto const *command = std::get_if<ExecutableCommand>(&step);
+                return command != nullptr &&
+                       command->policy.project == ProjectOperation::ReplaceHistory;
+            });
+        if (replacement_count > 0 && steps.size() != 1)
+        {
+            return error_result(
+                "Project history replacement commands must be submitted alone.");
+        }
 
         auto transaction = CommandTransaction{state_, effect_failure_};
         if (history_count == 1)
@@ -471,6 +482,12 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             if (result.status.first == MessageLevel::Error)
             {
                 return result;
+            }
+
+            if (command.policy.project == ProjectOperation::ReplaceHistory)
+            {
+                transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Replace});
+                transaction.clear_project_sessions();
             }
 
             if (result.suggested_selection.has_value())
@@ -545,11 +562,6 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         if (final_revision != initial_revision || final_engine != initial_engine)
         {
             publish_project_snapshot();
-        }
-        if (!expanded.empty() &&
-            expanded.front().input.words == std::vector<std::string>{"reset"})
-        {
-            state_.command_session = CommandSessionState{};
         }
         return result;
     }

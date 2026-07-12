@@ -288,7 +288,7 @@ auto JuceLibraryBridgeService::make_payload(LibrarySnapshot const &snapshot) con
                                        "load cell ")},
         {"compositions",
          file_entries_to_json(files_.composition_files(workspace.content_directory),
-                              "load composition ")},
+                              "project open ")},
         {"tunings",
          tuning_entries_to_json(files_.tuning_files(workspace.tuning_directory))},
         {"scales", std::move(scales)},

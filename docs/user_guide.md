@@ -43,7 +43,7 @@ Press `Shift` and the down arrow to 'drop down' one layer into the sequence. Thi
 
 Try copy and pasting any selection with the common `ctrl+c` and `ctrl+v` keybindings. You'll notice that copying a sequence and pasting it into a shorter or longer selection will stretch or compress the sequence to fit the new length. This copy and paste buffer works across instances as well, allowing you to share sequences amongst instances of the plugin.
 
-From here try the __Library__ view by pressing `w`. This will show you the saved measures, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that these scales only make sense for a subset of 12 note tunings.
+From here try the __Library__ view by pressing `w`. This will show you saved sequences, projects, tunings, and scales. You can load a new scale or tuning by clicking on it. Be warned that these scales only make sense for a subset of 12 note tunings.
 
 Check out the [command reference](command_reference.md) for more ideas. Current
 keyboard shortcuts are shown and edited in the application settings UI.
@@ -62,6 +62,13 @@ Multiple commands can be run at once by separating them with a semicolon `;`.
 
 The `again` command will repeat the previous command and has the `.` keybinding.
 
+Use `project new` to start a new project, `project open <name>` to open a `.xencomp`
+project from the content directory, and `project save <name>` to write the complete
+current project. New and open begin a fresh undo timeline; save does not change undo or
+redo history. Use `composition cell unassign <row> <column>` to remove an arrangement
+reference without deleting its shared sequence, and `sequence clear` to empty the
+active shared sequence without unassigning it.
+
 Keyboard shortcuts are configured from the application settings UI and persisted as
 application-level user settings.
 
@@ -74,7 +81,9 @@ The `offset` is used to shift the pattern to the right by the given number of st
 The command reference can be found [here](command_reference.md).
 
 ## Playback
-The plugin now plays one top-level measure locked to DAW transport. Playback loops automatically based on the current measure time signature, so there is no separate sequence bank or MIDI trigger-note layer to manage.
+Playback follows the composition arrangement and loop region, using each composition
+column's duration and pitch state. Arrangement cells reference reusable entries in the
+sequence bank, so clearing a shared sequence is reflected everywhere it is assigned.
 
 ## Top Bar
 Along the top of the plugin window you'll find a listing of some settings, these are all editable by double clicking and typing unless otherwise noted.
@@ -83,7 +92,7 @@ Along the top of the plugin window you'll find a listing of some settings, these
 
 | Element | Description |
 | ------- | ----------- |
-| Time Signature | The time signature of the current top-level measure. |
+| Time Signature | The time signature of the current composition column. |
 | Zero Frequency | The frequency in Hertz of the zero-th pitch. |
 | Key | A transposition parameter, applied to all notes, only useful for EDO tunings. |
 | Scale | The scale applied to all notes. |
@@ -91,6 +100,7 @@ Along the top of the plugin window you'll find a listing of some settings, these
 | Tuning | The current tuning name, not editable. |
 ## Library
 Press `w` to toggle the Library view. This view contains the following sections:
-- Saved Measures
+- Saved Sequences
+- Saved Projects
 - Tunings
 - Scales

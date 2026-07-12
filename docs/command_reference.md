@@ -5,7 +5,7 @@ name | signature | description
 welcome | `welcome` | Display welcome message.
 version | `version` | Print the current XenSequencer version.
 again | `again` | Replay the previously executed command chain.
-reset | `reset` | Reset XenSequencer to its initial state.
+project new | `project new` | Create a new Project document.
 undo | `undo` | Revert state to before the last action.
 redo | `redo` | Reapply the last undone action.
 copy | `copy` | Copy the current selection.
@@ -13,12 +13,12 @@ cut | `cut` | Cut the current selection.
 paste | `paste` | Paste over the current selection.
 duplicate | `duplicate` | Duplicate the current selection.
 load cell | `load cell [cell_name: filename]` | Load a Cell into a new selected Sequence.
-load composition | `load composition [composition_name: filename]` | Load a Composition document.
+project open | `project open [project_name: filename]` | Open a Project document.
 load tuning | `load tuning [tuning_name: filename]` | Load a tuning from the current tuning directory.
 load scales | `load scales` | Load scales from library files.
 load chords | `load chords` | Load chords from library files.
 save cell | `save cell [cell_name: filename]` | Save the selected Cell to file.
-save composition | `save composition [composition_name: filename]` | Save the Composition document.
+project save | `project save [project_name: filename]` | Save the current Project document.
 libraryDirectory | `libraryDirectory` | Display the user library directory path.
 set contentDirectory | `set contentDirectory [directory_path: path]` | Set the content directory.
 set tuningDirectory | `set tuningDirectory [directory_path: path]` | Set the tuning library directory.
@@ -27,7 +27,8 @@ composition loop end | `composition loop end [integer: column_coordinate]` | Set
 composition row rename | `composition row rename [integer: row_coordinate] [string: name]` | Rename a composition row.
 composition row channel | `composition row channel [integer: row_coordinate] [string: channel_id]` | Set a composition row channel ID.
 composition cell assign | `composition cell assign [integer: row_coordinate] [integer: column_coordinate] [string: sequence_name]` | Assign a sequence to a composition cell.
-composition cell clear | `composition cell clear [integer: row_coordinate] [integer: column_coordinate]` | Clear a composition cell.
+composition cell unassign | `composition cell unassign [integer: row_coordinate] [integer: column_coordinate]` | Unassign a sequence from a composition cell.
+sequence clear | `sequence clear` | Clear the active sequence's contents.
 composition cell move | `composition cell move [integer: from_row] [integer: from_column] [integer: to_row] [integer: to_column]` | Move a composition cell.
 note | `note [pitch: pitch=0] [velocity: velocity=0.787402] [delay: delay=0] [gate: gate=1]` | Create a note at the current selection.
 delete | `delete` | Delete the current selection.

@@ -131,8 +131,8 @@ auto set_loop_end(Composition &composition, CompositionCoordinate column) -> voi
 
 auto assign_sequence_reference(Composition &composition, CompositionCoordinate row,
                                CompositionCoordinate column, SequenceId id) -> void;
-auto clear_sequence_reference(Composition &composition, CompositionCoordinate row,
-                              CompositionCoordinate column) -> void;
+auto unassign_sequence_reference(Composition &composition, CompositionCoordinate row,
+                                 CompositionCoordinate column) -> void;
 auto move_sequence_reference(Composition &composition, CompositionPosition from,
                              CompositionPosition to) -> void;
 [[nodiscard]] auto sequence_reference_at(Composition const &composition,

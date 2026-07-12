@@ -34,8 +34,8 @@ The current frontend migration contract is documented in
 - `session.hello` includes the command catalog and revisioned typed keymap. Keymap
   overrides are persisted through `keymap.get`, `keymap.override.set`,
   `keymap.override.remove`, and `keymap.reset`, with `keymap.changed` publication.
-- The project model has one top-level measure. Cells contain zero or more
-  `MusicElement` values; an empty cell represents silence.
+- The project model has a reusable sequence bank and sparse composition arrangement.
+  Cells contain zero or more `MusicElement` values; an empty cell represents silence.
 
 Useful implementation anchors:
 

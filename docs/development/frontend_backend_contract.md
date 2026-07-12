@@ -23,6 +23,9 @@ to the contract below as one migration.
 - Command responses include nullable `suggested_selection`.
 - Backend `move ...` and `inputMode ...` commands were removed. Navigation and input
   mode changes must be handled locally.
+- Bare `reset`, `composition cell clear`, `load composition`, and `save composition`
+  were removed. Use `project new`, `composition cell unassign`, `project open`, and
+  `project save` respectively; there are no aliases.
 - Project and library publication are separate revision domains. Library data is not
   included in project snapshots.
 - `session.hello` contains the immutable command catalog and revisioned keymap
@@ -267,9 +270,10 @@ type ProjectSnapshot = {
 An empty `Cell.elements` array represents silence. Musical content lives in
 `sequence_bank.sequences[].cell`; arrangement lives in `composition.placements`.
 An absent placement is an empty/rest cell and consumes no serialized storage.
-Materialized rows and columns always have at least one placement. Missing horizontal
-coordinates inside the loop are silent measures using `default_column.duration`.
-Materialized columns carry their own duration and pitch state.
+Rows and columns may remain materialized after their last placement is unassigned.
+Missing horizontal coordinates inside the loop are silent columns using
+`default_column.duration`. Materialized columns carry their own duration and pitch
+state.
 
 Coordinates must be integers in `[-2147483648, 2147483647]`. `(0, 0)` is the default
 placement and remains stable when negative coordinates are added. Loop bounds may
@@ -375,11 +379,25 @@ Current structural suggestions include:
 `undo` and `redo` are still backend commands, must be submitted alone, and require the
 current project revision.
 
+`project new` and `project open <project-name>` replace the complete project as a new
+history root. They require the current project revision, must be submitted alone, are
+rejected during previews, and discard the previous undo/redo and project-specific
+command-session state only after success. `project save <project-name>` writes the
+complete project without changing history identity or revision. Open and save continue
+to use the existing `.xencomp` serialization in the content directory.
+
+`sequence clear` empties the sequence identified by the submitted composition cursor
+while preserving its ID, name, arrangement references, and composition metadata. It is
+an ordinary undoable edit and fails if the cursor does not resolve to an assigned
+sequence. The frontend-local actions are
+`composition.cell.edit_sequence`,
+`composition.cell.rename_or_create_sequence`, and `composition.cell.unassign`.
+
 Composition commands use signed coordinates:
 
 ```text
 composition cell assign <row> <column> <sequence-name>
-composition cell clear <row> <column>
+composition cell unassign <row> <column>
 composition cell move <from-row> <from-column> <to-row> <to-column>
 composition row rename <row> <name>
 composition row channel <row> <channel-id>
@@ -390,7 +408,7 @@ composition loop end <column>
 Assigning at an empty position atomically materializes missing axes. A new row inherits
 the nearest materialized row's channel and a new column copies the nearest materialized
 column; ties prefer the candidate nearest coordinate zero, then the lower coordinate.
-Clearing the last placement on an axis removes that axis metadata. Moving preserves the
+Unassigning removes only the placement's sequence reference. Moving preserves the
 sequence reference, materializes destination axes before pruning source axes, and fails
 if the source is absent or destination occupied. Row/column insert, delete, move, and
 duplicate commands no longer exist.
@@ -472,10 +490,10 @@ The library payload no longer contains active tuning/scale fields. Read active p
 state from the project snapshot.
 
 The frontend presents cell documents as reusable sequences and aggregates them with
-composition documents, tunings, and scales in Quick Access. Sequence and composition
-documents appear in its Files scope; chords remain cached as command-argument data
-and are not standalone Quick Access actions. This is presentation behavior and does
-not add a bridge endpoint.
+project documents, tunings, and scales in Quick Access. Sequence and project documents
+appear in its Files scope; discovered `.xencomp` entries invoke `project open`. Chords
+remain cached as command-argument data and are not standalone Quick Access actions.
+This is presentation behavior and does not add a bridge endpoint.
 
 ## Events
 

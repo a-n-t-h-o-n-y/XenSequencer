@@ -205,6 +205,7 @@ class CommandTransaction
     void record_repeat(CommandInvocation invocation);
     void clear_repeat() noexcept;
     void invalidate_transform_sessions();
+    void clear_project_sessions();
     [[nodiscard]] auto repeat_candidate() const
         -> std::optional<std::vector<CommandInvocation>> const &;
     [[nodiscard]] auto project_changed() const -> bool;

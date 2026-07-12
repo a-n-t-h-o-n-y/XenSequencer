@@ -35,10 +35,13 @@ constexpr auto informational_policy = CommandPolicy{
     ProjectOperation::None, LibraryAccess::None,     WorkspaceAccess::None,
     FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::None};
-constexpr auto reset_policy = CommandPolicy{
-    ProjectOperation::Edit, LibraryAccess::None,     WorkspaceAccess::None,
-    FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::Commit};
+constexpr auto new_project_policy = CommandPolicy{ProjectOperation::ReplaceHistory,
+                                                  LibraryAccess::None,
+                                                  WorkspaceAccess::None,
+                                                  FileAccess::None,
+                                                  TargetRequirement::None,
+                                                  RepeatPolicy::Never,
+                                                  HistoryPolicy::None};
 constexpr auto history_navigation_policy =
     CommandPolicy{ProjectOperation::NavigateHistory,
                   LibraryAccess::None,
@@ -80,6 +83,13 @@ constexpr auto load_project_resource_policy = CommandPolicy{
     ProjectOperation::Edit, LibraryAccess::None,     WorkspaceAccess::Read,
     FileAccess::Read,       TargetRequirement::None, RepeatPolicy::Never,
     HistoryPolicy::Commit};
+constexpr auto open_project_policy = CommandPolicy{ProjectOperation::ReplaceHistory,
+                                                   LibraryAccess::None,
+                                                   WorkspaceAccess::Read,
+                                                   FileAccess::Read,
+                                                   TargetRequirement::None,
+                                                   RepeatPolicy::Never,
+                                                   HistoryPolicy::None};
 constexpr auto reload_library_policy = CommandPolicy{
     ProjectOperation::None, LibraryAccess::Mutate,   WorkspaceAccess::None,
     FileAccess::Read,       TargetRequirement::None, RepeatPolicy::Never,
@@ -116,11 +126,11 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                                    informational_policy, {"repeat", "replay"}));
 
     specs.push_back(
-        command({"reset"}, false, "Reset XenSequencer to its initial state.",
-                {"clear", "restart"}, reset_policy, std::make_tuple(),
+        command({"project", "new"}, false, "Create a new Project document.",
+                new_project_policy, std::make_tuple(),
                 [](CommandHandlerContext &context, CommandInvocation const &) {
                     context.edit_project() = ProjectState{};
-                    return make_result(minfo("XenSequencer Reset"));
+                    return make_result(minfo("New Project"), SelectionPath{});
                 }));
 
     specs.push_back(history_navigation_command(
@@ -225,9 +235,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"load", "composition"}, false, "Load a Composition document.",
-        load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("composition_name", "filename")),
+        {"project", "open"}, false, "Open a Project document.", open_project_policy,
+        std::make_tuple(required_arg<std::string>("project_name", "filename")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const path =
@@ -236,7 +245,7 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
             if (!text.has_value())
                 return make_result(merror("File Not Found: " + path.string()));
             context.edit_project() = deserialize_composition(*text);
-            return make_result(minfo("Composition Loaded"));
+            return make_result(minfo("Project Opened"), SelectionPath{});
         }));
 
     specs.push_back(command(
@@ -319,18 +328,18 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                         minfo("Cell Saved to " + single_quote(filepath.string())));
                 }));
 
-    specs.push_back(command(
-        {"save", "composition"}, false, "Save the Composition document.",
-        save_document_policy,
-        std::make_tuple(required_arg<std::string>("composition_name", "filename")),
-        [](CommandHandlerContext &context, CommandInvocation const &,
-           std::string const &filename) {
-            auto const path =
-                context.workspace().content_directory / (filename + ".xencomp");
-            context.write_text(path, serialize_composition(context.project()));
-            return make_result(
-                minfo("Composition Saved to " + single_quote(path.string())));
-        }));
+    specs.push_back(
+        command({"project", "save"}, false, "Save the current Project document.",
+                save_document_policy,
+                std::make_tuple(required_arg<std::string>("project_name", "filename")),
+                [](CommandHandlerContext &context, CommandInvocation const &,
+                   std::string const &filename) {
+                    auto const path =
+                        context.workspace().content_directory / (filename + ".xencomp");
+                    context.write_text(path, serialize_composition(context.project()));
+                    return make_result(
+                        minfo("Project Saved to " + single_quote(path.string())));
+                }));
 
     specs.push_back(
         command({"libraryDirectory"}, false, "Display the user library directory path.",

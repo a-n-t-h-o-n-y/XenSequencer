@@ -169,7 +169,7 @@ TEST_CASE("Direct handlers edit sparse composition axis metadata",
           sequence::TimeSignature{7, 8});
 }
 
-TEST_CASE("Direct handlers assign, move, and clear sparse composition cells",
+TEST_CASE("Direct handlers assign, move, and unassign sparse composition cells",
           "[core][command][handler][composition]")
 {
     auto state = make_plugin_state();
@@ -218,7 +218,7 @@ TEST_CASE("Direct handlers assign, move, and clear sparse composition cells",
     CHECK_FALSE(sequence_reference_at(project.composition, -2, 20).has_value());
     CHECK(sequence_reference_at(project.composition, 3, -5) == verse_id);
 
-    CHECK(execute(state, "composition cell clear 0 0").status.first ==
+    CHECK(execute(state, "composition cell unassign 0 0").status.first ==
           MessageLevel::Info);
     CHECK_FALSE(sequence_reference_at(state.timeline.get_state().composition, 0, 0)
                     .has_value());

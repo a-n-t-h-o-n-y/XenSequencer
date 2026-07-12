@@ -243,7 +243,12 @@ class FakeLibraryFilePort final : public bridge::LibraryFilePort
     [[nodiscard]] auto composition_files(std::filesystem::path const &) const
         -> std::vector<bridge::LibraryFileEntry> override
     {
-        return {};
+        return {{
+            .name = "project.xencomp",
+            .relative_path = "folder/project.xencomp",
+            .stem = "folder/project",
+            .path = "/fake/content/folder/project.xencomp",
+        }};
     }
 
     [[nodiscard]] auto tuning_files(std::filesystem::path const &) const
@@ -579,6 +584,9 @@ TEST_CASE("Bridge library payload uses file port entries", "[core][bridge]")
     CHECK(payload.at("paths").at("library") == "/fake/library");
     REQUIRE(payload.at("cells").size() == 1);
     CHECK(payload.at("cells").front().at("command") == "load cell \"folder/cell\"");
+    REQUIRE(payload.at("compositions").size() == 1);
+    CHECK(payload.at("compositions").front().at("command") ==
+          "project open \"folder/project\"");
     REQUIRE(payload.at("tunings").size() == 1);
     CHECK(payload.at("tunings").front().at("description") == "fake tuning");
 }

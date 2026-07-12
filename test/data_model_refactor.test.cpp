@@ -192,9 +192,9 @@ TEST_CASE("Sequence bank and sparse composition API covers editing operations",
     set_loop_end(project.composition, 8);
     CHECK(project.composition.loop_region == LoopRegion{-4, 8});
 
-    clear_sequence_reference(project.composition, -3, 8);
-    CHECK_FALSE(project.composition.rows.contains(-3));
-    CHECK_FALSE(project.composition.columns.contains(8));
+    unassign_sequence_reference(project.composition, -3, 8);
+    CHECK(project.composition.rows.contains(-3));
+    CHECK(project.composition.columns.contains(8));
     CHECK(remove_sequence(project.sequence_bank, duplicate_id));
     CHECK(find_sequence(project.sequence_bank, duplicate_id) == nullptr);
 }
@@ -210,7 +210,7 @@ TEST_CASE("Sparse assignments leave explicit loop coordinates stable",
     CHECK(project.composition.loop_region == LoopRegion{-2, 3});
 }
 
-TEST_CASE("Measure and composition row names serialize and validate",
+TEST_CASE("Sequence and composition row names serialize and validate",
           "[data-model][composition][serialize]")
 {
     auto project = ProjectState{};
@@ -272,7 +272,7 @@ TEST_CASE("Composition validation allows empty arranged cells",
           "[data-model][composition]")
 {
     auto project = ProjectState{};
-    clear_sequence_reference(project.composition, 0, 0);
+    unassign_sequence_reference(project.composition, 0, 0);
     CHECK_NOTHROW(validate(project));
 }
 

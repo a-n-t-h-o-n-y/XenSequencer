@@ -126,11 +126,134 @@ TEST_CASE("Processor applies selected-sequence commands to active composition ta
     auto const &project = session.project_snapshot().project;
     CHECK(selected_sequence(project, xen::CompositionCursor{}).elements.empty());
 
-    auto const *active_measure = find_sequence(project.sequence_bank, sequence_id);
-    REQUIRE(active_measure != nullptr);
-    REQUIRE(active_measure->elements.size() == 1);
-    auto const &note = std::get<sequence::Note>(active_measure->elements[0]);
+    auto const *active_sequence = find_sequence(project.sequence_bank, sequence_id);
+    REQUIRE(active_sequence != nullptr);
+    REQUIRE(active_sequence->elements.size() == 1);
+    auto const &note = std::get<sequence::Note>(active_sequence->elements[0]);
     CHECK(note.pitch == 7);
+}
+
+TEST_CASE("Sequence clear empties shared contents without changing project metadata",
+          "[processor][commands][sequence][history]")
+{
+    auto session = SequencerSession{};
+    auto project = ProjectState{};
+    auto &entry = project.sequence_bank.sequences.front();
+    entry.name = "Shared";
+    entry.cell.weight = 0.375f;
+    entry.cell.elements = {sequence::Note{7, 0.6f, 0.2f, 0.8f}};
+    assign_sequence_reference(project.composition, 0, 1, entry.id);
+    project.composition.rows.at(0).name = "Lead";
+    project.composition.rows.at(0).channel_id = "lead-channel";
+    project.composition.columns.at(0).duration = {7, 8};
+    project.composition.columns.at(0).pitch.transposition = 5;
+    set_loop_end(project.composition, 1);
+    session.replace_project_history(project);
+
+    auto const before = session.project_snapshot();
+    auto const cursor = CompositionCursor{
+        .row_coordinate = 0, .column_coordinate = 0, .sequence_id = entry.id};
+    auto const cleared = session.execute_command_string(
+        "sequence clear",
+        {.expected_project_revision = before.project_revision, .cursor = cursor});
+
+    REQUIRE(cleared.status.first == MessageLevel::Info);
+    auto const after = session.project_snapshot();
+    REQUIRE(after.project.sequence_bank.sequences.size() == 1);
+    auto const &cleared_entry = after.project.sequence_bank.sequences.front();
+    CHECK(cleared_entry.id == entry.id);
+    CHECK(cleared_entry.name == entry.name);
+    CHECK(cleared_entry.cell.weight == entry.cell.weight);
+    CHECK(cleared_entry.cell.elements.empty());
+    CHECK(after.project.sequence_bank.next_id == before.project.sequence_bank.next_id);
+    CHECK(after.project.composition == before.project.composition);
+    CHECK(sequence_reference_at(after.project.composition, 0, 0) == entry.id);
+    CHECK(sequence_reference_at(after.project.composition, 0, 1) == entry.id);
+    CHECK(after.history_entry_id != before.history_entry_id);
+
+    auto const undo = session.execute_command_string(
+        "undo", {.expected_project_revision = after.project_revision});
+    REQUIRE(undo.status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project == before.project);
+}
+
+TEST_CASE("No-op sequence clear preserves redo and history identity",
+          "[processor][commands][sequence][history]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(execute(session, "set key 4").status.first == MessageLevel::Info);
+    REQUIRE(execute(session, "undo").status.first == MessageLevel::Info);
+    auto const before = session.project_snapshot();
+
+    auto const cleared = execute(session, "sequence clear");
+    REQUIRE(cleared.status.first == MessageLevel::Info);
+    auto const after = session.project_snapshot();
+    CHECK(after.project == before.project);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
+
+    REQUIRE(execute(session, "redo").status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot()
+              .project.composition.columns.at(0)
+              .pitch.transposition == 4);
+}
+
+TEST_CASE("Sequence clear rejects an unassigned composition cursor",
+          "[processor][commands][sequence]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(execute(session, "composition cell unassign 0 0").status.first ==
+            MessageLevel::Info);
+    auto const before = session.project_snapshot();
+
+    auto const result = session.execute_command_string(
+        "sequence clear", {.expected_project_revision = before.project_revision,
+                           .cursor = CompositionCursor{.sequence_id = std::nullopt}});
+
+    CHECK(result.status.first == MessageLevel::Error);
+    CHECK(result.status.second == "Active composition placement is empty.");
+    auto const after = session.project_snapshot();
+    CHECK(after.project == before.project);
+    CHECK(after.history_entry_id == before.history_entry_id);
+    CHECK(after.project_revision == before.project_revision);
+}
+
+TEST_CASE("Composition cell unassign preserves shared sequences and is undoable",
+          "[processor][commands][composition][history]")
+{
+    auto session = SequencerSession{};
+    auto project = ProjectState{};
+    project.sequence_bank.sequences.front().name = "Shared";
+    project.sequence_bank.sequences.front().cell.elements = {
+        sequence::Note{3, 0.5f, 0.f, 1.f},
+    };
+    assign_sequence_reference(project.composition, 0, 1, DEFAULT_SEQUENCE_ID);
+    session.replace_project_history(project);
+    auto const before = session.project_snapshot();
+
+    REQUIRE(execute(session, "composition cell unassign 0 0").status.first ==
+            MessageLevel::Info);
+    auto const unassigned = session.project_snapshot();
+    CHECK(unassigned.project.sequence_bank == before.project.sequence_bank);
+    CHECK_FALSE(
+        sequence_reference_at(unassigned.project.composition, 0, 0).has_value());
+    CHECK(sequence_reference_at(unassigned.project.composition, 0, 1) ==
+          DEFAULT_SEQUENCE_ID);
+    CHECK(unassigned.project.composition.rows == before.project.composition.rows);
+    CHECK(unassigned.project.composition.columns == before.project.composition.columns);
+
+    REQUIRE(execute(session, "undo").status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project == before.project);
+
+    REQUIRE(execute(session, "composition cell unassign 0 0").status.first ==
+            MessageLevel::Info);
+    auto const once = session.project_snapshot();
+    REQUIRE(execute(session, "composition cell unassign 0 0").status.first ==
+            MessageLevel::Info);
+    auto const twice = session.project_snapshot();
+    CHECK(twice.project == once.project);
+    CHECK(twice.history_entry_id == once.history_entry_id);
+    CHECK(twice.project_revision == once.project_revision);
 }
 
 TEST_CASE("Processor reports unchanged-selection suggestions for transforms",
@@ -159,4 +282,8 @@ TEST_CASE("Removed navigation and input-mode commands are unknown",
         session.execute_command_string("inputMode gate", CommandContext{});
     CHECK(input_mode.status.first == MessageLevel::Error);
     CHECK(input_mode.status.second == "Command not found: inputMode");
+
+    auto const reset = session.execute_command_string("reset", CommandContext{});
+    CHECK(reset.status.first == MessageLevel::Error);
+    CHECK(reset.status.second == "Command not found: reset");
 }
