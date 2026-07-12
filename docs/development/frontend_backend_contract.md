@@ -471,6 +471,12 @@ equal. Workspace path changes also publish a new library revision.
 The library payload no longer contains active tuning/scale fields. Read active pitch
 state from the project snapshot.
 
+The frontend presents cell documents as reusable sequences and aggregates them with
+composition documents, tunings, and scales in Quick Access. Sequence and composition
+documents appear in its Files scope; chords remain cached as command-argument data
+and are not standalone Quick Access actions. This is presentation behavior and does
+not add a bridge endpoint.
+
 ## Events
 
 All events arrive through `xenBridgeEvent`.
