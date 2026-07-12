@@ -373,7 +373,8 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
             {"command", "set key 7"},
             {"context",
              {{"expected_project_revision", revision},
-              {"cursor", {{"row_index", 0}, {"column_index", 0}, {"sequence_id", 1}}}}},
+              {"cursor",
+               {{"row_coordinate", 0}, {"column_coordinate", 0}, {"sequence_id", 1}}}}},
         });
 
     auto const &payload = message.at("payload");
@@ -404,7 +405,9 @@ TEST_CASE("Bridge exposes generic project preview lifecycle", "[core][bridge][pr
                      session.project_snapshot().project_revision.value()},
                     {"preview_id", preview_id},
                     {"cursor",
-                     {{"row_index", 0}, {"column_index", 0}, {"sequence_id", 1}}}}}})
+                     {{"row_coordinate", 0},
+                      {"column_coordinate", 0},
+                      {"sequence_id", 1}}}}}})
             .at("payload");
     CHECK(updated.at("snapshot").at("preview_active") == true);
     CHECK(session.project_snapshot().history_entry_id == initial.history_entry_id);
@@ -536,8 +539,8 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
                                {"selection", {{"path", nlohmann::json::array()}}},
                                {"cursor",
                                 {
-                                    {"row_index", 0},
-                                    {"column_index", 1},
+                                    {"row_coordinate", -2},
+                                    {"column_coordinate", -7},
                                     {"sequence_id", 2},
                                 }},
                            }},
@@ -549,8 +552,8 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
     CHECK(application.executed_context.expected_project_revision->value() == 7);
     REQUIRE(application.executed_context.selection.has_value());
     CHECK(application.executed_context.selection->path.empty());
-    CHECK(application.executed_context.cursor.row_index == 0);
-    CHECK(application.executed_context.cursor.column_index == 1);
+    CHECK(application.executed_context.cursor.row_coordinate == -2);
+    CHECK(application.executed_context.cursor.column_coordinate == -7);
     CHECK(application.executed_context.cursor.sequence_id == 2);
 
     auto const library_payload = fake_response(dispatcher, "library.get").at("payload");
@@ -647,6 +650,14 @@ TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
                       {{"expected_revision", "18446744073709551616"}})
             .at("payload");
     CHECK(overflowing_revision.at("error").at("code") == "invalid_request");
+
+    auto const coordinate = nlohmann::json{{"value", -12}};
+    CHECK(bridge::require_composition_coordinate(coordinate, "value") == -12);
+    auto const overflowing_coordinate = nlohmann::json{
+        {"value", std::int64_t{std::numeric_limits<CompositionCoordinate>::max()} + 1}};
+    CHECK_THROWS_AS(
+        bridge::require_composition_coordinate(overflowing_coordinate, "value"),
+        bridge::BridgeError);
 }
 
 TEST_CASE("Bridge reports malformed persisted keymaps", "[core][bridge]")

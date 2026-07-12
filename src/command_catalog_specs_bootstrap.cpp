@@ -218,8 +218,8 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                 create_sequence(state.sequence_bank, deserialize_cell_file(*text));
             state.sequence_bank.sequences.back().name = filename;
             assign_sequence_reference(state.composition,
-                                      context.execution.cursor.row_index,
-                                      context.execution.cursor.column_index, id);
+                                      context.execution.cursor.row_coordinate,
+                                      context.execution.cursor.column_coordinate, id);
             context.edit_project() = std::move(state);
             return make_result(minfo("Cell Loaded"));
         }));

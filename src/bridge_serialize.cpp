@@ -106,24 +106,19 @@ auto sequence_bank_to_json(xen::SequenceBank const &bank) -> nlohmann::json
 auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
 {
     auto columns = nlohmann::json::array();
-    for (auto const &column : composition.columns)
+    for (auto const &[coordinate, column] : composition.columns)
     {
-        columns.push_back({{"duration", time_signature_to_json(column.duration)},
+        columns.push_back({{"coordinate", coordinate},
+                           {"duration", time_signature_to_json(column.duration)},
                            {"pitch", pitch_to_json(column.pitch)}});
     }
 
     auto rows = nlohmann::json::array();
-    for (auto const &row : composition.rows)
+    for (auto const &[coordinate, row] : composition.rows)
     {
-        auto cells = nlohmann::json::array();
-        for (auto const &cell : row.cells)
-        {
-            cells.push_back(cell.has_value() ? nlohmann::json(*cell)
-                                             : nlohmann::json(nullptr));
-        }
         auto row_json = nlohmann::json{
+            {"coordinate", coordinate},
             {"channel_id", row.channel_id},
-            {"cells", std::move(cells)},
         };
         if (row.name.has_value())
         {
@@ -132,13 +127,25 @@ auto composition_to_json(xen::Composition const &composition) -> nlohmann::json
         rows.push_back(std::move(row_json));
     }
 
+    auto placements = nlohmann::json::array();
+    for (auto const &[position, sequence_id] : composition.placements)
+    {
+        placements.push_back({{"row", position.row_coordinate},
+                              {"column", position.column_coordinate},
+                              {"sequence_id", sequence_id}});
+    }
+
     auto loop_region = nlohmann::json::object();
     loop_region["start_column"] = composition.loop_region.start_column;
     loop_region["end_column"] = composition.loop_region.end_column;
 
     return nlohmann::json{
+        {"default_column",
+         {{"duration", time_signature_to_json(composition.default_column.duration)},
+          {"pitch", pitch_to_json(composition.default_column.pitch)}}},
         {"columns", std::move(columns)},
         {"rows", std::move(rows)},
+        {"placements", std::move(placements)},
         {"loop_region", std::move(loop_region)},
     };
 }

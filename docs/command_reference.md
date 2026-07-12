@@ -12,27 +12,23 @@ copy | `copy` | Copy the current selection.
 cut | `cut` | Cut the current selection.
 paste | `paste` | Paste over the current selection.
 duplicate | `duplicate` | Duplicate the current selection.
-load measure | `load measure [measure_name: filename]` | Load a measure from the current sequence directory.
+load cell | `load cell [cell_name: filename]` | Load a Cell into a new selected Sequence.
+load composition | `load composition [composition_name: filename]` | Load a Composition document.
 load tuning | `load tuning [tuning_name: filename]` | Load a tuning from the current tuning directory.
 load scales | `load scales` | Load scales from library files.
 load chords | `load chords` | Load chords from library files.
-save measure | `save measure [measure_name: filename]` | Save the current measure to file.
+save cell | `save cell [cell_name: filename]` | Save the selected Cell to file.
+save composition | `save composition [composition_name: filename]` | Save the Composition document.
 libraryDirectory | `libraryDirectory` | Display the user library directory path.
-set sequenceDirectory | `set sequenceDirectory [directory_path: path]` | Set the sequence library directory.
+set contentDirectory | `set contentDirectory [directory_path: path]` | Set the content directory.
 set tuningDirectory | `set tuningDirectory [directory_path: path]` | Set the tuning library directory.
-composition loop start | `composition loop start [unsigned_integer: column_index]` | Set the composition loop start column.
-composition loop end | `composition loop end [unsigned_integer: column_index]` | Set the composition loop end column.
-composition row insert before | `composition row insert before [unsigned_integer: row_index]` | Insert a composition row before the target row.
-composition row insert after | `composition row insert after [unsigned_integer: row_index]` | Insert a composition row after the target row.
-composition row delete | `composition row delete [unsigned_integer: row_index]` | Delete a composition row.
-composition row rename | `composition row rename [unsigned_integer: row_index] [string: name]` | Rename a composition row.
-composition row channel | `composition row channel [unsigned_integer: row_index] [string: channel_id]` | Set a composition row channel ID.
-composition column insert before | `composition column insert before [unsigned_integer: column_index]` | Insert a composition column before the target column.
-composition column insert after | `composition column insert after [unsigned_integer: column_index]` | Insert a composition column after the target column.
-composition column delete | `composition column delete [unsigned_integer: column_index]` | Delete a composition column.
-composition column length | `composition column length [unsigned_integer: column_index] [time_signature: length]` | Set a composition column length.
-composition cell assign | `composition cell assign [unsigned_integer: row_index] [unsigned_integer: column_index] [string: measure_name]` | Assign a measure to a composition cell.
-composition cell clear | `composition cell clear [unsigned_integer: row_index] [unsigned_integer: column_index]` | Clear a composition cell.
+composition loop start | `composition loop start [integer: column_coordinate]` | Set the composition loop start column.
+composition loop end | `composition loop end [integer: column_coordinate]` | Set the composition loop end column.
+composition row rename | `composition row rename [integer: row_coordinate] [string: name]` | Rename a composition row.
+composition row channel | `composition row channel [integer: row_coordinate] [string: channel_id]` | Set a composition row channel ID.
+composition cell assign | `composition cell assign [integer: row_coordinate] [integer: column_coordinate] [string: sequence_name]` | Assign a sequence to a composition cell.
+composition cell clear | `composition cell clear [integer: row_coordinate] [integer: column_coordinate]` | Clear a composition cell.
+composition cell move | `composition cell move [integer: from_row] [integer: from_column] [integer: to_row] [integer: to_column]` | Move a composition cell.
 note | `note [pitch: pitch=0] [velocity: velocity=0.787402] [delay: delay=0] [gate: gate=1]` | Create a note at the current selection.
 delete | `delete` | Delete the current selection.
 split | `split [repeat_count: count=2]` | Split the current selection.
@@ -42,7 +38,7 @@ set octave | `[pattern] set octave [octave: octave=0]` | Set selected note octav
 set velocity | `[pattern] set velocity [velocity | modulator: velocity=0.787402]` | Set selected note velocities.
 set delay | `[pattern] set delay [delay | modulator: delay=0]` | Set selected note delays.
 set gate | `[pattern] set gate [gate | modulator: gate=1]` | Set selected note gates.
-set measure timeSignature | `set measure timeSignature [time_signature: timesignature=4/4]` | Set measure time signature.
+set duration | `set duration [time_signature: timesignature=4/4]` | Set selected column duration.
 set baseFrequency | `set baseFrequency [frequency_hz: freq=440]` | Set base frequency in Hz.
 set scale | `set scale [scale_id: source_id]` | Set the active scale by source ID.
 set mode | `set mode [scale_mode: mode_index]` | Set the active scale mode index.
@@ -50,8 +46,8 @@ set translateDirection | `set translateDirection [translate_direction: direction
 set key | `set key [transpose_key: key=0]` | Set transposition key.
 set weight | `set weight [cell_weight: value]` | Set selected cell weight.
 set weights | `[pattern] set weights [cell_weight | modulator: weight]` | Set child weights in selected cell.
-double measure timeSignature | `double measure timeSignature` | Double measure time signature.
-halve measure timeSignature | `halve measure timeSignature` | Halve measure time signature.
+double duration | `double duration` | Double selected column duration.
+halve duration | `halve duration` | Halve selected column duration.
 shift pitch | `[pattern] shift pitch [pitch_offset: amount=1]` | Shift selected note pitches.
 shift octave | `[pattern] shift octave [octave_offset: amount=1]` | Shift selected note octaves.
 shift velocity | `[pattern] shift velocity [velocity_offset: amount=0.1]` | Shift selected note velocities.

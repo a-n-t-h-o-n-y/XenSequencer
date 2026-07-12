@@ -71,14 +71,14 @@ struct ProjectState
                                           CompositionCursor const &cursor)
     -> CompositionColumn &
 {
-    return project.composition.columns.at(cursor.column_index);
+    return composition_column(project.composition, cursor.column_coordinate);
 }
 
 [[nodiscard]] inline auto selected_column(ProjectState const &project,
                                           CompositionCursor const &cursor)
     -> CompositionColumn const &
 {
-    return project.composition.columns.at(cursor.column_index);
+    return composition_column(project.composition, cursor.column_coordinate);
 }
 
 [[nodiscard]] inline auto selected_duration(ProjectState &project,

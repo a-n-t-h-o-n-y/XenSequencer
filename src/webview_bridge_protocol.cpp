@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <cstddef>
+#include <limits>
 #include <utility>
 
 #include <xen/bridge_serialize.hpp>
@@ -48,6 +49,23 @@ auto require_unsigned(nlohmann::json const &json, std::string_view field_name)
                           "Field must be an unsigned integer: " + key};
     }
     return json.at(key).get<std::uint64_t>();
+}
+
+auto require_composition_coordinate(nlohmann::json const &json,
+                                    std::string_view field_name)
+    -> CompositionCoordinate
+{
+    auto const key = std::string{field_name};
+    if (!json.contains(key) ||
+        (!json.at(key).is_number_integer() && !json.at(key).is_number_unsigned()))
+        throw BridgeError{"invalid_request", "Field must be an integer: " + key};
+
+    auto const value = json.at(key).get<std::int64_t>();
+    if (value < std::numeric_limits<CompositionCoordinate>::min() ||
+        value > std::numeric_limits<CompositionCoordinate>::max())
+        throw BridgeError{"invalid_request",
+                          "Composition coordinate is out of range: " + key};
+    return static_cast<CompositionCoordinate>(value);
 }
 
 auto require_keymap_revision(nlohmann::json const &json, std::string_view field_name)
@@ -106,9 +124,9 @@ auto parse_command_context(nlohmann::json const &payload) -> CommandContext
 
     auto const &cursor = require_object(json_context, "cursor");
     context.cursor = CompositionCursor{
-        .row_index = static_cast<std::size_t>(require_unsigned(cursor, "row_index")),
-        .column_index =
-            static_cast<std::size_t>(require_unsigned(cursor, "column_index")),
+        .row_coordinate = require_composition_coordinate(cursor, "row_coordinate"),
+        .column_coordinate =
+            require_composition_coordinate(cursor, "column_coordinate"),
         .sequence_id =
             cursor.at("sequence_id").is_null()
                 ? std::optional<SequenceId>{}

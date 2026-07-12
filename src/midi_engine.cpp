@@ -46,35 +46,6 @@ void push_live_voice(LiveVoiceSet &set, xen::midi_internal::LiveVoice voice) noe
     return voices;
 }
 
-[[nodiscard]] auto loop_column_indices(xen::Composition const &composition)
-    -> std::vector<std::size_t>
-{
-    auto indices = std::vector<std::size_t>{};
-    auto const column_count = composition.columns.size();
-    indices.reserve(column_count);
-
-    auto const start = composition.loop_region.start_column;
-    auto const end = composition.loop_region.end_column;
-    if (start <= end)
-    {
-        for (auto index = start; index <= end; ++index)
-        {
-            indices.push_back(index);
-        }
-        return indices;
-    }
-
-    for (auto index = start; index < column_count; ++index)
-    {
-        indices.push_back(index);
-    }
-    for (auto index = std::size_t{0}; index <= end; ++index)
-    {
-        indices.push_back(index);
-    }
-    return indices;
-}
-
 [[nodiscard]] auto live_voices_at(
     std::vector<xen::midi_internal::AssignedMidiNote> const &assigned_notes,
     xen::SampleCount sample_count, xen::SampleIndex position) -> LiveVoiceSet
@@ -248,6 +219,45 @@ void reconcile_live_voices(juce::MidiBuffer &buffer, LiveVoiceSet &active_live_v
     return lhs + rhs;
 }
 
+[[nodiscard]] auto checked_multiply_sample_count(xen::SampleCount value,
+                                                 std::uint64_t multiplier)
+    -> xen::SampleCount
+{
+    if (multiplier != 0 &&
+        value > std::numeric_limits<xen::SampleCount>::max() / multiplier)
+        throw std::overflow_error{"Composition sample count overflow."};
+    return value * multiplier;
+}
+
+[[nodiscard]] auto composition_range_samples(xen::Composition const &composition,
+                                             std::int64_t begin,
+                                             std::int64_t end_exclusive,
+                                             xen::DAWState const &daw)
+    -> xen::SampleCount
+{
+    if (end_exclusive < begin)
+        throw std::invalid_argument{"Composition sample range is reversed."};
+
+    auto const default_samples = xen::midi_internal::checked_duration_sample_count(
+        composition.default_column.duration, daw.sample_rate, daw.bpm);
+    auto const span = static_cast<std::uint64_t>(end_exclusive - begin);
+    auto samples = checked_multiply_sample_count(default_samples, span);
+    for (auto const &[coordinate, column] : composition.columns)
+    {
+        auto const widened = std::int64_t{coordinate};
+        if (widened < begin || widened >= end_exclusive)
+            continue;
+        auto const explicit_samples = xen::midi_internal::checked_duration_sample_count(
+            column.duration, daw.sample_rate, daw.bpm);
+        if (explicit_samples >= default_samples)
+            samples =
+                checked_add_sample_count(samples, explicit_samples - default_samples);
+        else
+            samples -= default_samples - explicit_samples;
+    }
+    return samples;
+}
+
 void offset_timeline(std::vector<sequence::midi::TimedMidiNote> &timeline,
                      xen::SampleCount offset)
 {
@@ -366,67 +376,45 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
 {
     try
     {
-        auto const loop_columns = loop_column_indices(project.composition);
-        auto column_offsets = std::vector<SampleCount>{};
-        column_offsets.reserve(loop_columns.size());
-
-        auto phase_origin = SampleCount{};
-        for (auto column_index = std::size_t{0};
-             column_index < project.composition.loop_region.start_column;
-             ++column_index)
-        {
-            auto const &column = project.composition.columns[column_index];
-            auto const column_samples = midi_internal::checked_duration_sample_count(
-                column.duration, daw.sample_rate, daw.bpm);
-            phase_origin = checked_add_sample_count(phase_origin, column_samples);
-        }
-
-        auto sample_count = SampleCount{};
-        for (auto const column_index : loop_columns)
-        {
-            column_offsets.push_back(sample_count);
-            auto const &column = project.composition.columns[column_index];
-            auto const column_samples = midi_internal::checked_duration_sample_count(
-                column.duration, daw.sample_rate, daw.bpm);
-            sample_count = checked_add_sample_count(sample_count, column_samples);
-        }
+        auto const loop_start =
+            std::int64_t{project.composition.loop_region.start_column};
+        auto const loop_end_exclusive =
+            std::int64_t{project.composition.loop_region.end_column} + 1;
+        auto const sample_count = composition_range_samples(
+            project.composition, loop_start, loop_end_exclusive, daw);
 
         auto timeline = std::vector<sequence::midi::TimedMidiNote>{};
-        for (auto const &row : project.composition.rows)
+        for (auto const &[position, sequence_id] : project.composition.placements)
         {
-            if (row.channel_id != channel_id)
-            {
+            if (position.column_coordinate <
+                    project.composition.loop_region.start_column ||
+                position.column_coordinate > project.composition.loop_region.end_column)
                 continue;
-            }
-            for (auto loop_index = std::size_t{0}; loop_index < loop_columns.size();
-                 ++loop_index)
-            {
-                auto const column_index = loop_columns[loop_index];
-                auto const sequence_id = row.cells[column_index];
-                if (!sequence_id.has_value())
-                {
-                    continue;
-                }
+            auto const &row =
+                composition_row(project.composition, position.row_coordinate);
+            if (row.channel_id != channel_id)
+                continue;
 
-                auto const *cell = find_sequence(project.sequence_bank, *sequence_id);
-                if (cell == nullptr)
-                {
-                    throw std::invalid_argument{
-                        "Composition references an unknown sequence ID."};
-                }
-                auto const &column = project.composition.columns[column_index];
-                auto cell_timeline = render_cell_timeline(
-                    *cell, column.duration, column.pitch.tuning.definition,
-                    column.pitch.base_frequency, daw,
-                    column.pitch.scale.has_value()
-                        ? std::optional<Scale>{column.pitch.scale->definition}
-                        : std::nullopt,
-                    column.pitch.transposition, column.pitch.translation_direction);
-                offset_timeline(cell_timeline, column_offsets[loop_index]);
-                timeline.insert(timeline.end(),
-                                std::make_move_iterator(cell_timeline.begin()),
-                                std::make_move_iterator(cell_timeline.end()));
-            }
+            auto const *cell = find_sequence(project.sequence_bank, sequence_id);
+            if (cell == nullptr)
+                throw std::invalid_argument{
+                    "Composition references an unknown sequence ID."};
+            auto const &column =
+                composition_column(project.composition, position.column_coordinate);
+            auto cell_timeline = render_cell_timeline(
+                *cell, column.duration, column.pitch.tuning.definition,
+                column.pitch.base_frequency, daw,
+                column.pitch.scale.has_value()
+                    ? std::optional<Scale>{column.pitch.scale->definition}
+                    : std::nullopt,
+                column.pitch.transposition, column.pitch.translation_direction);
+            auto const offset = composition_range_samples(
+                project.composition, loop_start,
+                std::int64_t{position.column_coordinate}, daw);
+            offset_timeline(cell_timeline, offset);
+            timeline.insert(timeline.end(),
+                            std::make_move_iterator(cell_timeline.begin()),
+                            std::make_move_iterator(cell_timeline.end()));
         }
 
         auto assigned_notes = midi_internal::assign_mpe_channels(timeline);
@@ -434,7 +422,7 @@ auto MidiEngine::render(ProjectState const &project, DAWState const &daw,
             .midi = midi_internal::render_assigned_notes(assigned_notes),
             .assigned_notes = std::move(assigned_notes),
             .sample_count = sample_count,
-            .phase_origin = phase_origin,
+            .phase_origin = 0,
         };
     }
     catch (...)

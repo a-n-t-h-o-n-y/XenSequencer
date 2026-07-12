@@ -98,12 +98,10 @@ TEST_CASE("Processor distinguishes invalid composition cursors from selections",
     CHECK(result.status.second == "active composition cursor does not resolve");
 }
 
-TEST_CASE("Processor applies selected-measure commands to active composition target",
+TEST_CASE("Processor applies selected-sequence commands to active composition target",
           "[processor][commands][context]")
 {
     auto session = SequencerSession{};
-    REQUIRE(execute(session, "composition column insert after 0").status.first ==
-            MessageLevel::Info);
     REQUIRE(execute(session, "composition cell assign 0 1 Verse").status.first ==
             MessageLevel::Info);
 
@@ -118,8 +116,8 @@ TEST_CASE("Processor applies selected-measure commands to active composition tar
                       .expected_project_revision = before.project_revision,
                       .cursor =
                           xen::CompositionCursor{
-                              .row_index = 0,
-                              .column_index = 1,
+                              .row_coordinate = 0,
+                              .column_coordinate = 1,
                               .sequence_id = sequence_id,
                           },
                   });

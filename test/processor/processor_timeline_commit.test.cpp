@@ -37,7 +37,7 @@ TEST_CASE("Mutating commands advance history identity and project revision",
     auto const after = session.project_snapshot();
     CHECK(after.history_entry_id != initial.history_entry_id);
     CHECK(after.project_revision != initial.project_revision);
-    CHECK(after.project.composition.columns.front().pitch.transposition == 12);
+    CHECK(after.project.composition.columns.at(0).pitch.transposition == 12);
 }
 
 TEST_CASE("Preview updates stage repeatedly and commit one undo entry",
@@ -59,13 +59,13 @@ TEST_CASE("Preview updates stage repeatedly and commit one undo entry",
     auto const first = session.project_snapshot();
     CHECK(first.history_entry_id == initial.history_entry_id);
     CHECK(first.project_revision != initial.project_revision);
-    CHECK(first.project.composition.columns.front().pitch.transposition == 3);
+    CHECK(first.project.composition.columns.at(0).pitch.transposition == 3);
     CHECK(session.persistent_project_snapshot().project == initial.project);
 
     REQUIRE(execute_preview("set key 9").status.first == MessageLevel::Info);
     auto const staged = session.project_snapshot();
     CHECK(staged.history_entry_id == initial.history_entry_id);
-    CHECK(staged.project.composition.columns.front().pitch.transposition == 9);
+    CHECK(staged.project.composition.columns.at(0).pitch.transposition == 9);
 
     auto const committed =
         session.commit_preview(*started.preview_id, staged.project_revision);
@@ -122,7 +122,7 @@ TEST_CASE("Preview cancellation restores baseline and blocks ordinary edits",
         session.execute_command_string("redo", current_context(session)).status.first ==
         MessageLevel::Info);
     CHECK(session.project_snapshot()
-              .project.composition.columns.front()
+              .project.composition.columns.at(0)
               .pitch.transposition == 8);
 }
 

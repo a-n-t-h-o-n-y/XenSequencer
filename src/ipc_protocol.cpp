@@ -1,6 +1,7 @@
 #include <xen/ipc_protocol.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -13,6 +14,20 @@ namespace xen::ipc
 {
 namespace
 {
+
+[[nodiscard]] auto composition_coordinate_from_json(nlohmann::json const &json,
+                                                    char const *field)
+    -> CompositionCoordinate
+{
+    if (!json.contains(field) ||
+        (!json.at(field).is_number_integer() && !json.at(field).is_number_unsigned()))
+        throw std::invalid_argument{"Composition coordinate must be an integer."};
+    auto const value = json.at(field).get<std::int64_t>();
+    if (value < std::numeric_limits<CompositionCoordinate>::min() ||
+        value > std::numeric_limits<CompositionCoordinate>::max())
+        throw std::invalid_argument{"Composition coordinate is out of range."};
+    return static_cast<CompositionCoordinate>(value);
+}
 
 [[nodiscard]] auto require_protocol(nlohmann::json const &message, char const *type)
     -> nlohmann::json const &
@@ -287,8 +302,8 @@ namespace
                            ? nlohmann::json(*context.preview_id)
                            : nlohmann::json(nullptr)},
         {"cursor",
-         {{"row_index", context.cursor.row_index},
-          {"column_index", context.cursor.column_index},
+         {{"row_coordinate", context.cursor.row_coordinate},
+          {"column_coordinate", context.cursor.column_coordinate},
           {"sequence_id", context.cursor.sequence_id.has_value()
                               ? nlohmann::json(*context.cursor.sequence_id)
                               : nlohmann::json(nullptr)}}},
@@ -313,8 +328,9 @@ namespace
     if (!cursor.is_object())
         throw std::invalid_argument{"Field must be an object: context.cursor."};
     context.cursor = CompositionCursor{
-        .row_index = cursor.at("row_index").get<std::size_t>(),
-        .column_index = cursor.at("column_index").get<std::size_t>(),
+        .row_coordinate = composition_coordinate_from_json(cursor, "row_coordinate"),
+        .column_coordinate =
+            composition_coordinate_from_json(cursor, "column_coordinate"),
         .sequence_id =
             cursor.at("sequence_id").is_null()
                 ? std::optional<SequenceId>{}

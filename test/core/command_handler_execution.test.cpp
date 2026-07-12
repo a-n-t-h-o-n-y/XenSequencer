@@ -74,7 +74,7 @@ TEST_CASE("Command transactions create resource candidates lazily",
                       WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
                       RepeatPolicy::OnSuccessfulProjectChange, HistoryPolicy::Commit},
         execution);
-    project_context.edit_project().composition.columns.front().pitch.transposition = 2;
+    project_context.edit_project().composition.columns.at(0).pitch.transposition = 2;
     CHECK(project.has_project_candidate());
     CHECK_FALSE(project.has_library_candidate());
     CHECK_FALSE(project.has_workspace_candidate());
@@ -115,7 +115,7 @@ TEST_CASE("Direct handlers mutate engine without requiring session editor state"
 
     auto const result = execute(state, "set key 12");
     CHECK(result.status.second == "Key Set to 12.");
-    CHECK(state.timeline.get_state().composition.columns.front().pitch.transposition ==
+    CHECK(state.timeline.get_state().composition.columns.at(0).pitch.transposition ==
           12);
 }
 
@@ -123,108 +123,66 @@ TEST_CASE("Direct handlers set composition loop endpoints",
           "[core][command][handler][composition]")
 {
     auto state = make_plugin_state();
-    auto engine = state.timeline.get_state();
-    insert_column(engine.composition, 1, sequence::TimeSignature{3, 4});
-    state.timeline.stage(std::move(engine));
 
-    auto const start = execute(state, "composition loop start 1");
+    auto const start = execute(state, "composition loop start -2");
     CHECK(start.status.first == MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.loop_region.start_column == 1);
-    CHECK(state.timeline.get_state().composition.loop_region.end_column == 1);
+    CHECK(state.timeline.get_state().composition.loop_region.start_column == -2);
+    CHECK(state.timeline.get_state().composition.loop_region.end_column == 0);
 
-    auto const end = execute(state, "composition loop end 1");
+    auto const end = execute(state, "composition loop end 3");
     CHECK(end.status.first == MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.loop_region.start_column == 1);
-    CHECK(state.timeline.get_state().composition.loop_region.end_column == 1);
+    CHECK(state.timeline.get_state().composition.loop_region.start_column == -2);
+    CHECK(state.timeline.get_state().composition.loop_region.end_column == 3);
 
-    CHECK_THROWS_AS((void)execute(state, "composition loop start 2"),
-                    std::out_of_range);
+    CHECK_THROWS_AS((void)execute(state, "composition loop start 4"),
+                    std::invalid_argument);
 }
 
-TEST_CASE("Direct handlers edit composition rows and columns",
+TEST_CASE("Direct handlers edit sparse composition axis metadata",
           "[core][command][handler][composition]")
 {
     auto state = make_plugin_state();
 
-    CHECK_THROWS_AS((void)execute(state, "composition row delete 0"),
-                    std::invalid_argument);
-    CHECK_THROWS_AS((void)execute(state, "composition column delete 0"),
-                    std::invalid_argument);
-
-    CHECK(execute(state, "composition row insert after 0").status.first ==
+    CHECK(execute(state, "composition cell assign -1 4 S1").status.first ==
           MessageLevel::Info);
     auto project = state.timeline.get_state();
     REQUIRE(project.composition.rows.size() == 2);
-    CHECK(project.composition.rows[1].channel_id == DEFAULT_CHANNEL_ID);
-    CHECK(project.composition.rows[1].cells.front() == std::nullopt);
-
-    CHECK(execute(state, "composition row rename 1 \"Drums\"").status.first ==
-          MessageLevel::Info);
-    CHECK(execute(state, "composition row channel 1 \"peer\"").status.first ==
-          MessageLevel::Info);
-    project = state.timeline.get_state();
-    REQUIRE(project.composition.rows[1].name.has_value());
-    CHECK(*project.composition.rows[1].name == "Drums");
-    CHECK(project.composition.rows[1].channel_id == "peer");
-
-    CHECK(execute(state, "composition row insert before 1").status.first ==
-          MessageLevel::Info);
-    project = state.timeline.get_state();
-    REQUIRE(project.composition.rows.size() == 3);
-    CHECK(project.composition.rows[1].channel_id == "peer");
-    CHECK_FALSE(project.composition.rows[1].name.has_value());
-
-    CHECK(execute(state, "composition row channel 1 \"bus-a\"").status.first ==
-          MessageLevel::Info);
-    CHECK_THROWS_AS((void)execute(state, "composition row channel 1 \"\""),
-                    std::invalid_argument);
-
-    CHECK(execute(state, "composition row delete 1").status.first ==
-          MessageLevel::Info);
-    project = state.timeline.get_state();
-    REQUIRE(project.composition.rows.size() == 2);
-
-    CHECK(execute(state, "composition column insert after 0").status.first ==
-          MessageLevel::Info);
-    project = state.timeline.get_state();
     REQUIRE(project.composition.columns.size() == 2);
-    CHECK(project.composition.columns[1].duration == sequence::TimeSignature{4, 4});
-    CHECK(project.composition.rows[0].cells[1] == std::nullopt);
-    CHECK(project.composition.rows[1].cells[1] == std::nullopt);
+    CHECK(project.composition.rows.at(-1).channel_id == DEFAULT_CHANNEL_ID);
+    CHECK(project.composition.columns.at(4) == project.composition.columns.at(0));
+
+    CHECK(execute(state, "composition row rename -1 \"Drums\"").status.first ==
+          MessageLevel::Info);
+    CHECK(execute(state, "composition row channel -1 \"peer\"").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    REQUIRE(project.composition.rows.at(-1).name.has_value());
+    CHECK(*project.composition.rows.at(-1).name == "Drums");
+    CHECK(project.composition.rows.at(-1).channel_id == "peer");
 
     CHECK(execute(state, "set duration 7/8", std::nullopt,
-                  CompositionCursor{
-                      .row_index = 0, .column_index = 1, .sequence_id = std::nullopt})
+                  CompositionCursor{.row_coordinate = -1,
+                                    .column_coordinate = 4,
+                                    .sequence_id = DEFAULT_SEQUENCE_ID})
               .status.first == MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.columns[1].duration ==
+    CHECK(state.timeline.get_state().composition.columns.at(4).duration ==
           sequence::TimeSignature{7, 8});
-
-    CHECK(execute(state, "composition column insert before 1").status.first ==
-          MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.columns[1].duration ==
-          sequence::TimeSignature{7, 8});
-
-    CHECK(execute(state, "composition column delete 1").status.first ==
-          MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.columns.size() == 2);
 }
 
-TEST_CASE("Direct handlers assign and clear composition cells by measure name",
+TEST_CASE("Direct handlers assign, move, and clear sparse composition cells",
           "[core][command][handler][composition]")
 {
     auto state = make_plugin_state();
 
     CHECK(execute(state, "composition cell assign 0 0 S1").status.first ==
           MessageLevel::Info);
-    CHECK(state.timeline.get_state().composition.rows[0].cells[0] ==
+    CHECK(sequence_reference_at(state.timeline.get_state().composition, 0, 0) ==
           DEFAULT_SEQUENCE_ID);
 
-    CHECK(execute(state, "composition column insert after 0").status.first ==
-          MessageLevel::Info);
-    CHECK(execute(state, "composition cell assign 0 1 \"Verse\"").status.first ==
+    CHECK(execute(state, "composition cell assign -2 20 \"Verse\"").status.first ==
           MessageLevel::Info);
     auto project = state.timeline.get_state();
-    auto const verse_id = project.composition.rows[0].cells[1];
+    auto const verse_id = sequence_reference_at(project.composition, -2, 20);
     REQUIRE(verse_id.has_value());
     CHECK(verse_id != DEFAULT_SEQUENCE_ID);
     auto const verse_entry = std::ranges::find(project.sequence_bank.sequences,
@@ -236,7 +194,7 @@ TEST_CASE("Direct handlers assign and clear composition cells by measure name",
     CHECK(execute(state, "composition cell assign 0 0 \"Intro Copy\"").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
-    auto const copy_id = project.composition.rows[0].cells[0];
+    auto const copy_id = sequence_reference_at(project.composition, 0, 0);
     REQUIRE(copy_id.has_value());
     CHECK(copy_id != DEFAULT_SEQUENCE_ID);
     auto const copy_entry = std::ranges::find(project.sequence_bank.sequences, *copy_id,
@@ -248,15 +206,22 @@ TEST_CASE("Direct handlers assign and clear composition cells by measure name",
     CHECK(execute(state, "composition cell assign 0 0 verse").status.first ==
           MessageLevel::Info);
     project = state.timeline.get_state();
-    CHECK(project.composition.rows[0].cells[0] == verse_id);
+    CHECK(sequence_reference_at(project.composition, 0, 0) == verse_id);
     CHECK(project.sequence_bank.sequences.size() == 3);
 
     CHECK_THROWS_AS((void)execute(state, "composition cell assign 0 0 \"\""),
                     std::invalid_argument);
 
+    CHECK(execute(state, "composition cell move -2 20 3 -5").status.first ==
+          MessageLevel::Info);
+    project = state.timeline.get_state();
+    CHECK_FALSE(sequence_reference_at(project.composition, -2, 20).has_value());
+    CHECK(sequence_reference_at(project.composition, 3, -5) == verse_id);
+
     CHECK(execute(state, "composition cell clear 0 0").status.first ==
           MessageLevel::Info);
-    CHECK_FALSE(state.timeline.get_state().composition.rows[0].cells[0].has_value());
+    CHECK_FALSE(sequence_reference_at(state.timeline.get_state().composition, 0, 0)
+                    .has_value());
 }
 
 TEST_CASE("Direct handlers validate without retaining partial mutation",
@@ -330,16 +295,16 @@ TEST_CASE("Timeline commit API requires explicit state", "[core][command][handle
 {
     auto state = make_plugin_state();
     auto engine = state.timeline.get_state();
-    engine.composition.columns.front().pitch.transposition = 1;
+    engine.composition.columns.at(0).pitch.transposition = 1;
     state.timeline.stage(engine);
     REQUIRE(state.timeline.commit(state.timeline.get_state()));
-    engine.composition.columns.front().pitch.transposition = 2;
+    engine.composition.columns.at(0).pitch.transposition = 2;
     state.timeline.stage(engine);
     REQUIRE(state.timeline.commit(state.timeline.get_state()));
     CHECK(state.timeline.undo());
-    CHECK(state.timeline.get_state().composition.columns.front().pitch.transposition ==
+    CHECK(state.timeline.get_state().composition.columns.at(0).pitch.transposition ==
           1);
     CHECK(state.timeline.redo());
-    CHECK(state.timeline.get_state().composition.columns.front().pitch.transposition ==
+    CHECK(state.timeline.get_state().composition.columns.at(0).pitch.transposition ==
           2);
 }

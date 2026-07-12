@@ -139,36 +139,21 @@ void validate(ProjectState const &project)
         throw std::invalid_argument{"Next sequence ID is already in use."};
     }
 
-    if (project.composition.columns.empty())
+    if (project.composition.loop_region.start_column >
+        project.composition.loop_region.end_column)
     {
-        throw std::invalid_argument{"Composition must contain at least one column."};
+        throw std::invalid_argument{"Composition loop start must not exceed loop end."};
     }
-    if (project.composition.loop_region.start_column >=
-            project.composition.columns.size() ||
-        project.composition.loop_region.end_column >=
-            project.composition.columns.size())
-    {
-        throw std::invalid_argument{
-            "Composition loop region must reference existing columns."};
-    }
-    if (project.composition.rows.empty())
-    {
-        throw std::invalid_argument{"Composition must contain at least one row."};
-    }
-    for (auto const &column : project.composition.columns)
-    {
+
+    auto const validate_column = [](CompositionColumn const &column) {
         auto const &time_signature = column.duration;
         if (time_signature.numerator == 0 || time_signature.denominator == 0)
-        {
             throw std::invalid_argument{"Column duration values must be nonzero."};
-        }
         auto const whole_notes = static_cast<long double>(time_signature.numerator) /
                                  static_cast<long double>(time_signature.denominator);
         if (whole_notes > 64.0L)
-        {
             throw std::invalid_argument{
                 "Column duration must not exceed 64 whole notes."};
-        }
         auto const &pitch = column.pitch;
         validate_tuning(pitch.tuning.definition);
         if (!std::isfinite(pitch.base_frequency) || pitch.base_frequency <= 0.f)
@@ -186,9 +171,17 @@ void validate(ProjectState const &project)
                 throw std::invalid_argument{
                     "Active scale source ID must not be empty."};
         }
-    }
-    for (auto const &row : project.composition.rows)
+    };
+
+    validate_column(project.composition.default_column);
+    for (auto const &[coordinate, column] : project.composition.columns)
     {
+        (void)coordinate;
+        validate_column(column);
+    }
+    for (auto const &[coordinate, row] : project.composition.rows)
+    {
+        (void)coordinate;
         if (row.name.has_value() && row.name->empty())
         {
             throw std::invalid_argument{"Composition row name must not be empty."};
@@ -198,19 +191,36 @@ void validate(ProjectState const &project)
             throw std::invalid_argument{
                 "Composition row channel ID must not be empty."};
         }
-        if (row.cells.size() != project.composition.columns.size())
-        {
+    }
+    for (auto const &[position, sequence_id] : project.composition.placements)
+    {
+        if (!project.composition.rows.contains(position.row_coordinate) ||
+            !project.composition.columns.contains(position.column_coordinate))
             throw std::invalid_argument{
-                "Composition row width must match column count."};
-        }
-        for (auto const &cell : row.cells)
-        {
-            if (cell.has_value() && !sequence_ids.contains(*cell))
-            {
-                throw std::invalid_argument{
-                    "Composition references an unknown sequence ID."};
-            }
-        }
+                "Composition placement must reference materialized axes."};
+        if (!sequence_ids.contains(sequence_id))
+            throw std::invalid_argument{
+                "Composition references an unknown sequence ID."};
+    }
+    for (auto const &[coordinate, row] : project.composition.rows)
+    {
+        (void)row;
+        if (!std::ranges::any_of(project.composition.placements,
+                                 [coordinate](auto const &entry) {
+                                     return entry.first.row_coordinate == coordinate;
+                                 }))
+            throw std::invalid_argument{
+                "Composition rows must contain at least one placement."};
+    }
+    for (auto const &[coordinate, column] : project.composition.columns)
+    {
+        (void)column;
+        if (!std::ranges::any_of(project.composition.placements,
+                                 [coordinate](auto const &entry) {
+                                     return entry.first.column_coordinate == coordinate;
+                                 }))
+            throw std::invalid_argument{
+                "Composition columns must contain at least one placement."};
     }
 }
 

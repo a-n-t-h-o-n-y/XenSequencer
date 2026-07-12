@@ -42,8 +42,8 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
                 .preview_id = "preview-1",
                 .cursor =
                     xen::CompositionCursor{
-                        .row_index = 0,
-                        .column_index = 1,
+                        .row_coordinate = -3,
+                        .column_coordinate = -8,
                         .sequence_id = 2,
                     },
             },
@@ -59,8 +59,8 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
     CHECK(decoded_request.context.preview_id == "preview-1");
     REQUIRE(decoded_request.context.selection.has_value());
     CHECK(decoded_request.context.selection->path.empty());
-    CHECK(decoded_request.context.cursor.row_index == 0);
-    CHECK(decoded_request.context.cursor.column_index == 1);
+    CHECK(decoded_request.context.cursor.row_coordinate == -3);
+    CHECK(decoded_request.context.cursor.column_coordinate == -8);
     CHECK(decoded_request.context.cursor.sequence_id == 2);
 
     auto response = ipc::CommandResponse{
@@ -104,8 +104,8 @@ TEST_CASE("IPC protocol encodes absent command context fields as null", "[sync][
     CHECK(context.at("selection").is_null());
     CHECK(context.at("preview_id").is_null());
     CHECK(context.at("cursor").is_object());
-    CHECK(context.at("cursor").at("row_index") == 0);
-    CHECK(context.at("cursor").at("column_index") == 0);
+    CHECK(context.at("cursor").at("row_coordinate") == 0);
+    CHECK(context.at("cursor").at("column_coordinate") == 0);
 }
 
 TEST_CASE("IPC protocol rejects malformed composition cursors", "[sync][ipc]")
@@ -255,9 +255,10 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
 
     CHECK(hello_a.binding.channel_id == "channel-1");
     CHECK(hello_b.binding.channel_id == "channel-2");
-    CHECK(hello_a.snapshot.project.composition.rows.front().channel_id == "channel-1");
-    CHECK(hello_b.snapshot.project.composition.rows[1].channel_id == "channel-2");
-    CHECK(hello_b.snapshot.project.composition.rows[1].cells.front().has_value());
+    CHECK(hello_a.snapshot.project.composition.rows.at(0).channel_id == "channel-1");
+    CHECK(hello_b.snapshot.project.composition.rows.at(1).channel_id == "channel-2");
+    CHECK(
+        sequence_reference_at(hello_b.snapshot.project.composition, 1, 0).has_value());
     REQUIRE(coordinator.binding_for("instance-b") != nullptr);
     CHECK(coordinator.binding_for("instance-b")->channel_id == "channel-2");
     CHECK(coordinator.snapshot().project.composition.rows.size() == 2);
@@ -274,7 +275,7 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
 
     CHECK(result.request_id == "request-1");
     CHECK(result.result.status.first == MessageLevel::Info);
-    CHECK(result.snapshot.project.composition.columns.front().pitch.transposition == 5);
+    CHECK(result.snapshot.project.composition.columns.at(0).pitch.transposition == 5);
     CHECK(coordinator.snapshot().project == result.snapshot.project);
     CHECK(coordinator.live_edit_started());
 }
@@ -319,8 +320,7 @@ TEST_CASE("SessionCoordinator owns and cancels shared previews",
     });
     REQUIRE(updated.result.status.first == MessageLevel::Info);
     CHECK(updated.snapshot.history_entry_id == baseline.history_entry_id);
-    CHECK(updated.snapshot.project.composition.columns.front().pitch.transposition ==
-          6);
+    CHECK(updated.snapshot.project.composition.columns.at(0).pitch.transposition == 6);
 
     auto const restored = coordinator.disconnect(hello_a.binding.instance_id);
     REQUIRE(restored.has_value());
@@ -389,7 +389,7 @@ TEST_CASE("SessionCoordinator accepts inactive composition row channels",
     });
 
     CHECK(valid.result.status.first == MessageLevel::Info);
-    CHECK(valid.snapshot.project.composition.rows.front().channel_id == "inactive");
+    CHECK(valid.snapshot.project.composition.rows.at(0).channel_id == "inactive");
 
     auto const invalid = coordinator.execute({
         .request_id = "request-2",
@@ -420,7 +420,7 @@ TEST_CASE("SessionCoordinator binding changes do not rewrite channel rows",
     CHECK(response.request_id == "binding-1");
     CHECK(response.binding.channel_id == "lead");
     CHECK(coordinator.binding_for("instance-a")->channel_id == "lead");
-    CHECK(response.snapshot.project.composition.rows.front().channel_id == "channel-1");
+    CHECK(response.snapshot.project.composition.rows.at(0).channel_id == "channel-1");
 }
 
 TEST_CASE("SessionCoordinator allows duplicate listener channels",
@@ -438,7 +438,7 @@ TEST_CASE("SessionCoordinator allows duplicate listener channels",
     REQUIRE(coordinator.binding_for("instance-b") != nullptr);
     CHECK(coordinator.binding_for("instance-a")->channel_id == "lead");
     CHECK(coordinator.binding_for("instance-b")->channel_id == "lead");
-    CHECK(coordinator.snapshot().project.composition.rows.front().channel_id ==
+    CHECK(coordinator.snapshot().project.composition.rows.at(0).channel_id ==
           DEFAULT_CHANNEL_ID);
 }
 
@@ -454,17 +454,17 @@ TEST_CASE("SessionCoordinator seeds from the newest restore snapshot before edit
     };
     auto newer = older;
     newer.binding = binding("instance-b");
-    newer.project.composition.columns.front().pitch.transposition = 8;
+    newer.project.composition.columns.at(0).pitch.transposition = 8;
     newer.saved_project_revision = ProjectRevision{2};
 
     (void)coordinator.connect({.binding = older.binding, .restore_state = older});
     auto const hello =
         coordinator.connect({.binding = newer.binding, .restore_state = newer});
 
-    CHECK(hello.snapshot.project.composition.columns.front().pitch.transposition == 8);
-    CHECK(coordinator.snapshot()
-              .project.composition.columns.front()
-              .pitch.transposition == 8);
+    CHECK(hello.snapshot.project.composition.columns.at(0).pitch.transposition == 8);
+    CHECK(
+        coordinator.snapshot().project.composition.columns.at(0).pitch.transposition ==
+        8);
 }
 
 TEST_CASE("SessionCoordinator rejects equal-revision restore conflicts",
@@ -479,7 +479,7 @@ TEST_CASE("SessionCoordinator rejects equal-revision restore conflicts",
     };
     auto conflicting = first;
     conflicting.binding = binding("instance-b");
-    conflicting.project.composition.columns.front().pitch.transposition = 9;
+    conflicting.project.composition.columns.at(0).pitch.transposition = 9;
 
     (void)coordinator.connect({.binding = first.binding, .restore_state = first});
     CHECK_THROWS_AS(coordinator.connect(

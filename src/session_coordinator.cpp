@@ -1,6 +1,7 @@
 #include <xen/session_coordinator.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -289,15 +290,27 @@ auto SessionCoordinator::assign_binding(InstanceBinding binding) -> InstanceBind
 void SessionCoordinator::ensure_channel_row(ChannelId const &channel_id)
 {
     auto project = session_.project_snapshot().project;
-    auto &rows = project.composition.rows;
-    auto const found = std::ranges::find(rows, channel_id, &CompositionRow::channel_id);
-    if (found == rows.end())
+    auto const found =
+        std::ranges::any_of(project.composition.rows, [&channel_id](auto const &entry) {
+            return entry.second.channel_id == channel_id;
+        });
+    if (!found)
     {
-        auto const row_index = rows.size();
+        auto row_coordinate = CompositionCoordinate{};
+        if (!project.composition.rows.empty())
+        {
+            auto const greatest = project.composition.rows.rbegin()->first;
+            if (greatest >= 0)
+            {
+                if (greatest == std::numeric_limits<CompositionCoordinate>::max())
+                    throw std::overflow_error{"Composition row coordinate overflow."};
+                row_coordinate = greatest + 1;
+            }
+        }
         auto const sequence_id =
             create_sequence(project.sequence_bank, sequence::Cell{});
-        insert_row(project.composition, rows.size(), channel_id);
-        assign_sequence_reference(project.composition, row_index, 0, sequence_id);
+        (void)ensure_composition_row(project.composition, row_coordinate, channel_id);
+        assign_sequence_reference(project.composition, row_coordinate, 0, sequence_id);
         session_.replace_project_history_and_binding(std::move(project),
                                                      session_.instance_binding());
     }

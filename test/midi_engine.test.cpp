@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <limits>
@@ -22,14 +23,14 @@ namespace
     auto const timeline = xen::state_to_timeline(
         selected_sequence(engine, xen::CompositionCursor{}),
         selected_duration(engine, xen::CompositionCursor{}),
-        engine.composition.columns.front().pitch.tuning.definition,
-        engine.composition.columns.front().pitch.base_frequency, daw,
-        engine.composition.columns.front().pitch.scale.has_value()
-            ? std::optional<xen::Scale>{engine.composition.columns.front()
+        engine.composition.columns.at(0).pitch.tuning.definition,
+        engine.composition.columns.at(0).pitch.base_frequency, daw,
+        engine.composition.columns.at(0).pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.composition.columns.at(0)
                                             .pitch.scale->definition}
             : std::nullopt,
-        engine.composition.columns.front().pitch.transposition,
-        engine.composition.columns.front().pitch.translation_direction);
+        engine.composition.columns.at(0).pitch.transposition,
+        engine.composition.columns.at(0).pitch.translation_direction);
     if (timeline.empty())
     {
         return {};
@@ -57,7 +58,7 @@ namespace
         .elements = {sequence::Note{.pitch = pitch, .velocity = velocity}},
         .weight = 1.f,
     };
-    engine.composition.columns.front().pitch.tuning.definition =
+    engine.composition.columns.at(0).pitch.tuning.definition =
         make_tuning_with_offset(cents);
     return engine;
 }
@@ -73,7 +74,7 @@ namespace
             },
         .weight = 1.f,
     };
-    engine.composition.columns.front().pitch.tuning.definition =
+    engine.composition.columns.at(0).pitch.tuning.definition =
         make_tuning_with_offset(cents);
     return engine;
 }
@@ -154,14 +155,14 @@ struct CapturedEvent
     auto const timeline = xen::state_to_timeline(
         selected_sequence(engine, xen::CompositionCursor{}),
         selected_duration(engine, xen::CompositionCursor{}),
-        engine.composition.columns.front().pitch.tuning.definition,
-        engine.composition.columns.front().pitch.base_frequency, daw,
-        engine.composition.columns.front().pitch.scale.has_value()
-            ? std::optional<xen::Scale>{engine.composition.columns.front()
+        engine.composition.columns.at(0).pitch.tuning.definition,
+        engine.composition.columns.at(0).pitch.base_frequency, daw,
+        engine.composition.columns.at(0).pitch.scale.has_value()
+            ? std::optional<xen::Scale>{engine.composition.columns.at(0)
                                             .pitch.scale->definition}
             : std::nullopt,
-        engine.composition.columns.front().pitch.transposition,
-        engine.composition.columns.front().pitch.translation_direction);
+        engine.composition.columns.at(0).pitch.transposition,
+        engine.composition.columns.at(0).pitch.translation_direction);
     if (timeline.size() != 1)
     {
         return -1;
@@ -190,10 +191,10 @@ struct CapturedEvent
         xen::create_sequence(project.sequence_bank, std::move(second));
     auto const third_id = xen::create_sequence(project.sequence_bank, std::move(third));
 
-    xen::insert_column(project.composition, 1, sequence::TimeSignature{1, 4});
-    xen::insert_column(project.composition, 2, sequence::TimeSignature{1, 4});
     xen::assign_sequence_reference(project.composition, 0, 1, second_id);
     xen::assign_sequence_reference(project.composition, 0, 2, third_id);
+    xen::set_column_duration(project.composition, 1, sequence::TimeSignature{1, 4});
+    xen::set_column_duration(project.composition, 2, sequence::TimeSignature{1, 4});
     xen::set_loop_start(project.composition, 0);
     xen::set_loop_end(project.composition, 2);
     return project;
@@ -251,7 +252,7 @@ TEST_CASE("MidiEngine renders only rows assigned to requested output",
     };
     auto const peer_id =
         xen::create_sequence(project.sequence_bank, std::move(peer_measure));
-    xen::insert_row(project.composition, 1, "peer");
+    (void)xen::ensure_composition_row(project.composition, 1, "peer");
     xen::assign_sequence_reference(project.composition, 1, 0, peer_id);
 
     auto const daw = playing_daw_state();
@@ -302,13 +303,6 @@ TEST_CASE("MidiEngine renders only the composition loop region",
     CHECK(note_on_numbers(capture_events(engine.step({}, 0, 44'100, daw))) ==
           std::vector<int>{root + 12, root + 24});
 
-    xen::set_loop_start(project.composition, 2);
-    xen::set_loop_end(project.composition, 0);
-    engine = xen::MidiEngine{};
-    engine.update(project, daw);
-    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 44'100, daw))) ==
-          std::vector<int>{root + 24, root});
-
     xen::set_loop_start(project.composition, 1);
     xen::set_loop_end(project.composition, 1);
     engine = xen::MidiEngine{};
@@ -329,9 +323,37 @@ TEST_CASE("MidiEngine uses loop start as transport phase origin",
     auto engine = xen::MidiEngine{};
     engine.update(project, daw);
 
-    CHECK(engine.get_loop_phase(22'050, daw) == 0.0);
-    CHECK(note_on_numbers(capture_events(engine.step({}, 22'050, 10, daw))) ==
+    CHECK(engine.get_loop_phase(0, daw) == 0.0);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 10, daw))) ==
           std::vector<int>{root + 12});
+    CHECK(engine.get_loop_phase(22'050, daw) == 0.5);
+    CHECK(note_on_numbers(capture_events(engine.step({}, 22'050, 10, daw))) ==
+          std::vector<int>{root + 24});
+}
+
+TEST_CASE("MidiEngine includes implicit silent columns in sparse loop timing",
+          "[midi][midi-engine][composition]")
+{
+    auto const daw = playing_daw_state();
+    auto project = xen::ProjectState{};
+    selected_sequence(project, xen::CompositionCursor{}) = {
+        .elements = {sequence::Note{.pitch = 0, .velocity = 0.75f}},
+        .weight = 1.f,
+    };
+    project.composition.default_column.duration = {1, 4};
+    xen::set_column_duration(project.composition, 0, sequence::TimeSignature{1, 4});
+    auto const root = first_note_number(project, daw);
+    xen::assign_sequence_reference(project.composition, 0, -2,
+                                   xen::DEFAULT_SEQUENCE_ID);
+    xen::set_loop_start(project.composition, -2);
+    xen::set_loop_end(project.composition, 0);
+
+    auto engine = xen::MidiEngine{};
+    engine.update(project, daw);
+
+    CHECK(note_on_numbers(capture_events(engine.step({}, 0, 66'150, daw))) ==
+          std::vector<int>{root, root});
+    CHECK(engine.get_loop_phase(22'050, daw) == Catch::Approx(1.0 / 3.0));
 }
 
 TEST_CASE("MidiEngine does not duplicate a note-on across continuous mid-note blocks",

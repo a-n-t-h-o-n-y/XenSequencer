@@ -97,7 +97,7 @@ TEST_CASE("Plugin state loading rejects scale values before narrowing",
           "[numeric][scale][serialize]")
 {
     auto state = xen::ProjectState{};
-    state.composition.columns.front().pitch.scale =
+    state.composition.columns.at(0).pitch.scale =
         xen::ActiveScale{.source_id = std::nullopt, .definition = valid_scale()};
     auto json = nlohmann::json::parse(xen::serialize_project(state));
 

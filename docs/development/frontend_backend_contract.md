@@ -9,7 +9,7 @@ to the contract below as one migration.
 
 ## Breaking changes
 
-- Project snapshots use project schema `2` and a grouped `project` object. The old
+- Project snapshots use project schema `5` and a grouped `project` object. The old
   `snapshot_version`, `commit_id`, `engine`, and `editor` fields are gone.
 - Project history identity and project revision are separate:
   `history_entry_id` identifies the timeline entry, while `project_revision` changes
@@ -31,6 +31,8 @@ to the contract below as one migration.
   the old raw-string keymap contract were removed. Completion and keymap routing are
   frontend-local; keymap persistence uses the dedicated keymap requests.
 - Active scales use stable library IDs and preserve an optional `source_id`.
+- Composition positions are signed 32-bit coordinates. Rows, columns, and placements
+  are sparse; dense `cells` arrays and index-shifting axis commands are gone.
 
 ## Transport
 
@@ -46,7 +48,7 @@ All messages use:
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v3";
+  protocol: "xen.bridge.v5";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -82,12 +84,12 @@ Request:
 
 ```json
 {
-  "protocol": "xen.bridge.v3",
+  "protocol": "xen.bridge.v5",
   "type": "request",
   "name": "session.hello",
   "request_id": "hello-1",
   "payload": {
-    "protocol": "xen.bridge.v3",
+    "protocol": "xen.bridge.v5",
     "frontend_app": "xen-web-ui",
     "frontend_version": "..."
   }
@@ -98,9 +100,9 @@ Response payload:
 
 ```ts
 type SessionHello = {
-  protocol: "xen.bridge.v3";
+  protocol: "xen.bridge.v5";
   plugin_version: string;
-  project_schema_version: 4;
+  project_schema_version: 5;
   library_schema_version: 1;
   catalog: {
     schema_version: 3;
@@ -200,8 +202,33 @@ type ScaleDefinition = {
   mode: number;
 };
 
+type PitchState = {
+  tuning: {
+    name: string;
+    definition: {
+      intervals: number[];
+      octave: number;
+    };
+  };
+  scale: {
+    source_id: string | null;
+    definition: ScaleDefinition;
+  } | null;
+  transposition: number;
+  translation_direction: "up" | "down";
+  base_frequency: number;
+};
+
+type CompositionColumn = {
+  duration: {
+    numerator: number;
+    denominator: number;
+  };
+  pitch: PitchState;
+};
+
 type ProjectSnapshot = {
-  schema_version: 4;
+  schema_version: 5;
   history_entry_id: number;
   project_revision: number;
   project: {
@@ -214,41 +241,41 @@ type ProjectSnapshot = {
       }>;
     };
     composition: {
-      columns: Array<{
-        duration: {
-          numerator: number;
-          denominator: number;
-        };
-        pitch: {
-          tuning: {
-            name: string;
-            definition: {
-              intervals: number[];
-              octave: number;
-            };
-          };
-          scale: {
-            source_id: string | null;
-            definition: ScaleDefinition;
-          } | null;
-          transposition: number;
-          translation_direction: "up" | "down";
-          base_frequency: number;
-        };
+      default_column: CompositionColumn;
+      columns: Array<CompositionColumn & {
+        coordinate: number;
       }>;
       rows: Array<{
+        coordinate: number;
+        name?: string;
         channel_id: string;
-        cells: Array<number | null>;
       }>;
+      placements: Array<{
+        row: number;
+        column: number;
+        sequence_id: number;
+      }>;
+      loop_region: {
+        start_column: number;
+        end_column: number;
+      };
     };
   };
 };
 ```
 
 An empty `Cell.elements` array represents silence. Musical content lives in
-`sequence_bank.sequences[].cell`; arrangement lives in `composition`. A
-composition cell is either a sequence ID from the bank or `null` for an empty/rest cell.
-Column duration replaces the old sequence-level `time_signature`.
+`sequence_bank.sequences[].cell`; arrangement lives in `composition.placements`.
+An absent placement is an empty/rest cell and consumes no serialized storage.
+Materialized rows and columns always have at least one placement. Missing horizontal
+coordinates inside the loop are silent measures using `default_column.duration`.
+Materialized columns carry their own duration and pitch state.
+
+Coordinates must be integers in `[-2147483648, 2147483647]`. `(0, 0)` is the default
+placement and remains stable when negative coordinates are added. Loop bounds may
+reference implicit columns, must satisfy `start_column <= end_column`, and do not
+automatically expand when content is created outside them. Playback rebases the loop
+start to local sample zero.
 
 The active scale embeds the complete musical definition. `source_id` identifies the
 library entry used to create it and may be null for an embedded/untracked scale.
@@ -259,7 +286,7 @@ Chromatic state is represented by `scale: null`.
 Use one ingestion function for `state.get`, `state.changed`, and command response
 snapshots:
 
-1. Reject schemas other than `4`.
+1. Reject schemas other than `5`.
 2. Install the first valid snapshot.
 3. Ignore an older `project_revision`.
 4. Treat an equal revision as an idempotent duplicate.
@@ -302,6 +329,11 @@ type CommandExecuteRequest = {
   context?: {
     expected_project_revision?: number;
     selection?: Selection;
+    cursor: {
+      row_coordinate: number;
+      column_coordinate: number;
+      sequence_id: number | null;
+    };
   };
 };
 ```
@@ -342,6 +374,26 @@ Current structural suggestions include:
 
 `undo` and `redo` are still backend commands, must be submitted alone, and require the
 current project revision.
+
+Composition commands use signed coordinates:
+
+```text
+composition cell assign <row> <column> <sequence-name>
+composition cell clear <row> <column>
+composition cell move <from-row> <from-column> <to-row> <to-column>
+composition row rename <row> <name>
+composition row channel <row> <channel-id>
+composition loop start <column>
+composition loop end <column>
+```
+
+Assigning at an empty position atomically materializes missing axes. A new row inherits
+the nearest materialized row's channel and a new column copies the nearest materialized
+column; ties prefer the candidate nearest coordinate zero, then the lower coordinate.
+Clearing the last placement on an axis removes that axis metadata. Moving preserves the
+sequence reference, materializes destination axes before pruning source axes, and fails
+if the source is absent or destination occupied. Row/column insert, delete, move, and
+duplicate commands no longer exist.
 
 ## Library resource
 
@@ -449,11 +501,16 @@ At minimum:
 
 - remove the old `snapshot_schema_version` hello field and validate the three returned
   resource/catalog schema versions;
-- replace snapshot schema `4` parsing with project schema `2`;
+- replace project schema `4` parsing with project schema `5`;
 - replace `snapshot_version`/`commit_id` with
   `project_revision`/`history_entry_id`;
 - replace flat `engine` fields with `project.sequence_bank` and
   `project.composition`, including each column's `pitch` context;
+- replace dense row/column indices and `cells` arrays with signed coordinates,
+  materialized axis records, and sparse placements;
+- render a finite viewport of virtual empty cells instead of iterating the stored
+  row/column Cartesian product;
+- remove row/column insert/delete controls and make selection navigation unbounded;
 - remove all reads of `snapshot.editor`;
 - keep selection and input mode in frontend state;
 - implement local selection navigation and input-mode actions;

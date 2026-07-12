@@ -54,8 +54,9 @@ void log_json_command_exception(std::string const &command_string,
     message += "\nselection: ";
     message += context.selection.has_value() ? "present" : "none";
     message += juce::String{"\ncursor: "} +
-               juce::String{static_cast<juce::int64>(context.cursor.row_index)} + "," +
-               juce::String{static_cast<juce::int64>(context.cursor.column_index)};
+               juce::String{static_cast<juce::int64>(context.cursor.row_coordinate)} +
+               "," +
+               juce::String{static_cast<juce::int64>(context.cursor.column_coordinate)};
     juce::Logger::writeToLog(message);
 
     try
@@ -420,7 +421,6 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         }
 
         auto transaction = CommandTransaction{state_, effect_failure_};
-        (void)selected_column(transaction.project(), context.cursor);
         if (history_count == 1)
         {
             transaction.invalidate_transform_sessions();

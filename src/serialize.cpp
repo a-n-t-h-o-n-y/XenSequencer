@@ -183,16 +183,7 @@ static void from_json(nlohmann::json const &j, CompositionColumn &column)
 
 static void to_json(nlohmann::json &j, CompositionRow const &row)
 {
-    auto cells = nlohmann::json::array();
-    for (auto const &cell : row.cells)
-    {
-        cells.push_back(cell.has_value() ? nlohmann::json(*cell)
-                                         : nlohmann::json(nullptr));
-    }
-    j = nlohmann::json{
-        {"channel_id", row.channel_id},
-        {"cells", std::move(cells)},
-    };
+    j = nlohmann::json{{"channel_id", row.channel_id}};
     if (row.name.has_value())
     {
         j["name"] = *row.name;
@@ -205,13 +196,6 @@ static void from_json(nlohmann::json const &j, CompositionRow &row)
                    ? std::optional<std::string>{j.at("name").get<std::string>()}
                    : std::nullopt;
     row.channel_id = j.at("channel_id").get<ChannelId>();
-    row.cells.clear();
-    for (auto const &cell : j.at("cells"))
-    {
-        row.cells.push_back(cell.is_null()
-                                ? std::optional<SequenceId>{}
-                                : std::optional<SequenceId>{cell.get<SequenceId>()});
-    }
 }
 
 static void to_json(nlohmann::json &j, LoopRegion const &region)
@@ -223,33 +207,71 @@ static void to_json(nlohmann::json &j, LoopRegion const &region)
 
 static void from_json(nlohmann::json const &j, LoopRegion &region)
 {
-    region.start_column = j.at("start_column").get<std::size_t>();
-    region.end_column = j.at("end_column").get<std::size_t>();
+    region.start_column = j.at("start_column").get<CompositionCoordinate>();
+    region.end_column = j.at("end_column").get<CompositionCoordinate>();
 }
 
 static void to_json(nlohmann::json &j, Composition const &composition)
 {
-    j = nlohmann::json::object();
-    j["columns"] = composition.columns;
-    j["rows"] = composition.rows;
-    j["loop_region"] = composition.loop_region;
+    auto columns = nlohmann::json::array();
+    for (auto const &[coordinate, column] : composition.columns)
+    {
+        auto value = nlohmann::json(column);
+        value["coordinate"] = coordinate;
+        columns.push_back(std::move(value));
+    }
+
+    auto rows = nlohmann::json::array();
+    for (auto const &[coordinate, row] : composition.rows)
+    {
+        auto value = nlohmann::json(row);
+        value["coordinate"] = coordinate;
+        rows.push_back(std::move(value));
+    }
+
+    auto placements = nlohmann::json::array();
+    for (auto const &[position, sequence_id] : composition.placements)
+    {
+        placements.push_back({{"row", position.row_coordinate},
+                              {"column", position.column_coordinate},
+                              {"sequence_id", sequence_id}});
+    }
+
+    j = nlohmann::json{{"default_column", composition.default_column},
+                       {"columns", std::move(columns)},
+                       {"rows", std::move(rows)},
+                       {"placements", std::move(placements)},
+                       {"loop_region", composition.loop_region}};
 }
 
 static void from_json(nlohmann::json const &j, Composition &composition)
 {
-    composition.columns = j.at("columns").get<std::vector<CompositionColumn>>();
-    composition.rows = j.at("rows").get<std::vector<CompositionRow>>();
-    if (j.contains("loop_region"))
+    composition = {};
+    composition.default_column = j.at("default_column").get<CompositionColumn>();
+    for (auto const &value : j.at("columns"))
     {
-        composition.loop_region = j.at("loop_region").get<LoopRegion>();
+        auto const coordinate = value.at("coordinate").get<CompositionCoordinate>();
+        if (!composition.columns.emplace(coordinate, value.get<CompositionColumn>())
+                 .second)
+            throw std::invalid_argument{"Duplicate composition column coordinate."};
     }
-    else if (!composition.columns.empty())
+    for (auto const &value : j.at("rows"))
     {
-        composition.loop_region = LoopRegion{
-            .start_column = 0,
-            .end_column = composition.columns.size() - 1,
+        auto const coordinate = value.at("coordinate").get<CompositionCoordinate>();
+        if (!composition.rows.emplace(coordinate, value.get<CompositionRow>()).second)
+            throw std::invalid_argument{"Duplicate composition row coordinate."};
+    }
+    for (auto const &value : j.at("placements"))
+    {
+        auto const position = CompositionPosition{
+            .row_coordinate = value.at("row").get<CompositionCoordinate>(),
+            .column_coordinate = value.at("column").get<CompositionCoordinate>(),
         };
+        auto const sequence_id = value.at("sequence_id").get<SequenceId>();
+        if (!composition.placements.emplace(position, sequence_id).second)
+            throw std::invalid_argument{"Duplicate composition placement coordinate."};
     }
+    composition.loop_region = j.at("loop_region").get<LoopRegion>();
 }
 
 } // namespace xen
@@ -290,8 +312,8 @@ namespace xen
 namespace
 {
 
-constexpr auto PROJECT_SCHEMA_VERSION = 4;
-constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 3;
+constexpr auto PROJECT_SCHEMA_VERSION = 5;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 4;
 constexpr auto CELL_SCHEMA_VERSION = 1;
 
 } // namespace

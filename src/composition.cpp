@@ -1,8 +1,10 @@
 #include <xen/composition.hpp>
 
 #include <algorithm>
-#include <iterator>
+#include <cstdint>
+#include <ranges>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 
 namespace xen
@@ -10,73 +12,30 @@ namespace xen
 namespace
 {
 
-template <typename T>
-auto checked_insert(std::vector<T> &items, std::size_t index, T item) -> void
+template <typename Value>
+[[nodiscard]] auto nearest_value(std::map<CompositionCoordinate, Value> const &items,
+                                 CompositionCoordinate coordinate) -> Value const *
 {
-    if (index > items.size())
-        throw std::out_of_range{"Insert index is out of range."};
-    items.insert(std::next(items.begin(), static_cast<std::ptrdiff_t>(index)),
-                 std::move(item));
-}
+    auto const distance = [coordinate](CompositionCoordinate candidate) {
+        return std::int64_t{candidate} - std::int64_t{coordinate};
+    };
+    auto const rank = [&](CompositionCoordinate candidate) {
+        auto delta = distance(candidate);
+        if (delta < 0)
+            delta = -delta;
+        auto origin_distance = std::int64_t{candidate};
+        if (origin_distance < 0)
+            origin_distance = -origin_distance;
+        return std::tuple{delta, origin_distance, candidate};
+    };
 
-template <typename T>
-auto checked_erase(std::vector<T> &items, std::size_t index) -> void
-{
-    if (index >= items.size())
-        throw std::out_of_range{"Remove index is out of range."};
-    items.erase(std::next(items.begin(), static_cast<std::ptrdiff_t>(index)));
-}
-
-template <typename T>
-auto checked_move(std::vector<T> &items, std::size_t from, std::size_t to) -> void
-{
-    if (from >= items.size() || to >= items.size())
-        throw std::out_of_range{"Move index is out of range."};
-    if (from == to)
-        return;
-    auto item = std::move(items[from]);
-    items.erase(std::next(items.begin(), static_cast<std::ptrdiff_t>(from)));
-    items.insert(std::next(items.begin(), static_cast<std::ptrdiff_t>(to)),
-                 std::move(item));
-}
-
-auto require_row(Composition &composition, std::size_t row) -> CompositionRow &
-{
-    if (row >= composition.rows.size())
-        throw std::out_of_range{"Composition row index is out of range."};
-    return composition.rows[row];
-}
-
-auto require_row(Composition const &composition, std::size_t row)
-    -> CompositionRow const &
-{
-    if (row >= composition.rows.size())
-        throw std::out_of_range{"Composition row index is out of range."};
-    return composition.rows[row];
-}
-
-auto require_column(Composition &composition, std::size_t column) -> CompositionColumn &
-{
-    if (column >= composition.columns.size())
-        throw std::out_of_range{"Composition column index is out of range."};
-    return composition.columns[column];
-}
-
-auto require_column(Composition const &composition, std::size_t column)
-    -> CompositionColumn const &
-{
-    if (column >= composition.columns.size())
-        throw std::out_of_range{"Composition column index is out of range."};
-    return composition.columns[column];
-}
-
-auto require_cell(Composition &composition, std::size_t row, std::size_t column)
-    -> std::optional<SequenceId> &
-{
-    auto &target_row = require_row(composition, row);
-    if (column >= target_row.cells.size())
-        throw std::out_of_range{"Composition column index is out of range."};
-    return target_row.cells[column];
+    auto best = items.end();
+    for (auto at = items.begin(); at != items.end(); ++at)
+    {
+        if (best == items.end() || rank(at->first) < rank(best->first))
+            best = at;
+    }
+    return best == items.end() ? nullptr : &best->second;
 }
 
 auto require_sequence(SequenceBank &bank, SequenceId id) -> sequence::Cell &
@@ -95,47 +54,28 @@ auto require_sequence(SequenceBank const &bank, SequenceId id) -> sequence::Cell
     return *cell;
 }
 
-auto adjust_loop_after_insert(LoopRegion &loop, std::size_t index) -> void
+[[nodiscard]] auto has_row_placement(Composition const &composition,
+                                     CompositionCoordinate row) -> bool
 {
-    auto const start = loop.start_column;
-    auto const end = loop.end_column;
-    if (start <= end)
-    {
-        if (index < start)
-        {
-            loop.start_column = start + 1;
-            loop.end_column = end + 1;
-        }
-        else if (index <= end + 1)
-        {
-            loop.end_column = end + 1;
-        }
-        return;
-    }
-    if (index <= end)
-        loop.end_column = end + 1;
-    else if (index < start)
-        loop.start_column = start + 1;
+    return std::ranges::any_of(composition.placements, [row](auto const &entry) {
+        return entry.first.row_coordinate == row;
+    });
 }
 
-auto shifted_after_remove(std::size_t column, std::size_t index, std::size_t new_size)
-    -> std::size_t
+[[nodiscard]] auto has_column_placement(Composition const &composition,
+                                        CompositionCoordinate column) -> bool
 {
-    if (column == index)
-        return std::min(index, new_size - 1);
-    return column > index ? column - 1 : column;
+    return std::ranges::any_of(composition.placements, [column](auto const &entry) {
+        return entry.first.column_coordinate == column;
+    });
 }
 
-auto shifted_after_move(std::size_t column, std::size_t from, std::size_t to)
-    -> std::size_t
+auto prune_unused_axes(Composition &composition, CompositionPosition position) -> void
 {
-    if (column == from)
-        return to;
-    if (from < to && column > from && column <= to)
-        return column - 1;
-    if (to < from && column >= to && column < from)
-        return column + 1;
-    return column;
+    if (!has_row_placement(composition, position.row_coordinate))
+        composition.rows.erase(position.row_coordinate);
+    if (!has_column_placement(composition, position.column_coordinate))
+        composition.columns.erase(position.column_coordinate);
 }
 
 } // namespace
@@ -151,9 +91,11 @@ auto make_default_sequence_bank() -> SequenceBank
 auto make_default_composition() -> Composition
 {
     return Composition{
-        .columns = {CompositionColumn{}},
-        .rows = {CompositionRow{.channel_id = DEFAULT_CHANNEL_ID,
-                                .cells = {DEFAULT_SEQUENCE_ID}}},
+        .default_column = CompositionColumn{},
+        .columns = {{0, CompositionColumn{}}},
+        .rows = {{0, CompositionRow{.channel_id = DEFAULT_CHANNEL_ID}}},
+        .placements = {{{.row_coordinate = 0, .column_coordinate = 0},
+                        DEFAULT_SEQUENCE_ID}},
         .loop_region = {.start_column = 0, .end_column = 0},
     };
 }
@@ -210,132 +152,151 @@ auto all_sequences(SequenceBank const &bank) -> std::vector<SequenceBankEntry> c
     return bank.sequences;
 }
 
-auto insert_row(Composition &composition, std::size_t index, ChannelId channel_id)
-    -> void
+auto composition_row(Composition &composition, CompositionCoordinate coordinate)
+    -> CompositionRow &
 {
-    checked_insert(composition.rows, index,
-                   CompositionRow{.channel_id = std::move(channel_id),
-                                  .cells = std::vector<std::optional<SequenceId>>(
-                                      composition.columns.size(), std::nullopt)});
+    auto const at = composition.rows.find(coordinate);
+    if (at == composition.rows.end())
+        throw std::out_of_range{"Composition row coordinate does not exist."};
+    return at->second;
 }
 
-auto remove_row(Composition &composition, std::size_t index) -> void
+auto composition_row(Composition const &composition, CompositionCoordinate coordinate)
+    -> CompositionRow const &
 {
-    if (composition.rows.size() <= 1)
-        throw std::invalid_argument{"Composition must contain at least one row."};
-    checked_erase(composition.rows, index);
+    auto const at = composition.rows.find(coordinate);
+    if (at == composition.rows.end())
+        throw std::out_of_range{"Composition row coordinate does not exist."};
+    return at->second;
 }
 
-auto move_row(Composition &composition, std::size_t from, std::size_t to) -> void
+auto composition_column(Composition &composition, CompositionCoordinate coordinate)
+    -> CompositionColumn &
 {
-    checked_move(composition.rows, from, to);
+    auto const at = composition.columns.find(coordinate);
+    if (at == composition.columns.end())
+        throw std::out_of_range{"Composition column coordinate does not exist."};
+    return at->second;
 }
 
-auto assign_row_channel(Composition &composition, std::size_t row, ChannelId channel_id)
-    -> void
+auto composition_column(Composition const &composition,
+                        CompositionCoordinate coordinate) -> CompositionColumn const &
+{
+    auto const at = composition.columns.find(coordinate);
+    if (at == composition.columns.end())
+        throw std::out_of_range{"Composition column coordinate does not exist."};
+    return at->second;
+}
+
+auto ensure_composition_row(Composition &composition, CompositionCoordinate coordinate,
+                            std::optional<ChannelId> channel_id) -> CompositionRow &
+{
+    if (auto const at = composition.rows.find(coordinate); at != composition.rows.end())
+    {
+        if (channel_id.has_value())
+            at->second.channel_id = std::move(*channel_id);
+        return at->second;
+    }
+
+    auto row = CompositionRow{};
+    if (channel_id.has_value())
+        row.channel_id = std::move(*channel_id);
+    else if (auto const *nearest = nearest_value(composition.rows, coordinate))
+        row.channel_id = nearest->channel_id;
+    return composition.rows.emplace(coordinate, std::move(row)).first->second;
+}
+
+auto ensure_composition_column(Composition &composition,
+                               CompositionCoordinate coordinate) -> CompositionColumn &
+{
+    if (auto const at = composition.columns.find(coordinate);
+        at != composition.columns.end())
+        return at->second;
+
+    auto column = composition.default_column;
+    if (auto const *nearest = nearest_value(composition.columns, coordinate))
+        column = *nearest;
+    return composition.columns.emplace(coordinate, std::move(column)).first->second;
+}
+
+auto assign_row_channel(Composition &composition, CompositionCoordinate row,
+                        ChannelId channel_id) -> void
 {
     if (channel_id.empty())
         throw std::invalid_argument{"Channel ID must not be empty."};
-    require_row(composition, row).channel_id = std::move(channel_id);
+    composition_row(composition, row).channel_id = std::move(channel_id);
 }
 
-auto insert_column(Composition &composition, std::size_t index,
-                   CompositionColumn column) -> void
-{
-    checked_insert(composition.columns, index, std::move(column));
-    for (auto &row : composition.rows)
-        checked_insert(row.cells, index, std::optional<SequenceId>{});
-    adjust_loop_after_insert(composition.loop_region, index);
-}
-
-auto insert_column(Composition &composition, std::size_t index,
-                   sequence::TimeSignature duration) -> void
-{
-    insert_column(composition, index, CompositionColumn{.duration = duration});
-}
-
-auto duplicate_column(Composition &composition, std::size_t source, std::size_t index)
-    -> void
-{
-    auto const column = require_column(composition, source);
-    auto assignments = std::vector<std::optional<SequenceId>>{};
-    assignments.reserve(composition.rows.size());
-    for (auto const &row : composition.rows)
-        assignments.push_back(row.cells.at(source));
-    insert_column(composition, index, column);
-    for (auto row = std::size_t{}; row < composition.rows.size(); ++row)
-        composition.rows[row].cells[index] = assignments[row];
-}
-
-auto remove_column(Composition &composition, std::size_t index) -> void
-{
-    if (composition.columns.size() <= 1)
-        throw std::invalid_argument{"Composition must contain at least one column."};
-    checked_erase(composition.columns, index);
-    for (auto &row : composition.rows)
-        checked_erase(row.cells, index);
-    auto const size = composition.columns.size();
-    composition.loop_region.start_column =
-        shifted_after_remove(composition.loop_region.start_column, index, size);
-    composition.loop_region.end_column =
-        shifted_after_remove(composition.loop_region.end_column, index, size);
-}
-
-auto move_column(Composition &composition, std::size_t from, std::size_t to) -> void
-{
-    checked_move(composition.columns, from, to);
-    for (auto &row : composition.rows)
-        checked_move(row.cells, from, to);
-    composition.loop_region.start_column =
-        shifted_after_move(composition.loop_region.start_column, from, to);
-    composition.loop_region.end_column =
-        shifted_after_move(composition.loop_region.end_column, from, to);
-}
-
-auto set_column_duration(Composition &composition, std::size_t column,
+auto set_column_duration(Composition &composition, CompositionCoordinate column,
                          sequence::TimeSignature duration) -> void
 {
-    require_column(composition, column).duration = duration;
+    composition_column(composition, column).duration = duration;
 }
 
-auto set_loop_start(Composition &composition, std::size_t column) -> void
+auto set_loop_start(Composition &composition, CompositionCoordinate column) -> void
 {
-    (void)require_column(composition, column);
+    if (column > composition.loop_region.end_column)
+        throw std::invalid_argument{"Composition loop start must not exceed loop end."};
     composition.loop_region.start_column = column;
 }
 
-auto set_loop_end(Composition &composition, std::size_t column) -> void
+auto set_loop_end(Composition &composition, CompositionCoordinate column) -> void
 {
-    (void)require_column(composition, column);
+    if (column < composition.loop_region.start_column)
+        throw std::invalid_argument{
+            "Composition loop end must not precede loop start."};
     composition.loop_region.end_column = column;
 }
 
-auto assign_sequence_reference(Composition &composition, std::size_t row,
-                               std::size_t column, SequenceId id) -> void
+auto assign_sequence_reference(Composition &composition, CompositionCoordinate row,
+                               CompositionCoordinate column, SequenceId id) -> void
 {
-    require_cell(composition, row, column) = id;
+    (void)ensure_composition_row(composition, row);
+    (void)ensure_composition_column(composition, column);
+    composition.placements[{.row_coordinate = row, .column_coordinate = column}] = id;
 }
 
-auto clear_sequence_reference(Composition &composition, std::size_t row,
-                              std::size_t column) -> void
+auto clear_sequence_reference(Composition &composition, CompositionCoordinate row,
+                              CompositionCoordinate column) -> void
 {
-    require_cell(composition, row, column) = std::nullopt;
+    auto const position =
+        CompositionPosition{.row_coordinate = row, .column_coordinate = column};
+    if (composition.placements.erase(position) == 0)
+        throw std::invalid_argument{"Composition placement does not exist."};
+    prune_unused_axes(composition, position);
 }
 
-auto sequence_reference_at(Composition const &composition, std::size_t row,
-                           std::size_t column) -> std::optional<SequenceId>
+auto move_sequence_reference(Composition &composition, CompositionPosition from,
+                             CompositionPosition to) -> void
 {
-    auto const &target = require_row(composition, row);
-    if (column >= target.cells.size())
-        throw std::out_of_range{"Composition column index is out of range."};
-    return target.cells[column];
+    auto const source = composition.placements.find(from);
+    if (source == composition.placements.end())
+        throw std::invalid_argument{"Composition source placement does not exist."};
+    if (composition.placements.contains(to))
+        throw std::invalid_argument{"Composition destination placement is occupied."};
+
+    auto const id = source->second;
+    (void)ensure_composition_row(composition, to.row_coordinate);
+    (void)ensure_composition_column(composition, to.column_coordinate);
+    composition.placements.emplace(to, id);
+    composition.placements.erase(source);
+    prune_unused_axes(composition, from);
+}
+
+auto sequence_reference_at(Composition const &composition, CompositionCoordinate row,
+                           CompositionCoordinate column) -> std::optional<SequenceId>
+{
+    auto const at = composition.placements.find(
+        {.row_coordinate = row, .column_coordinate = column});
+    return at == composition.placements.end() ? std::nullopt
+                                              : std::optional{at->second};
 }
 
 auto arranged_sequence(SequenceBank &bank, Composition const &composition,
                        CompositionCursor const &cursor) -> sequence::Cell &
 {
-    auto const id =
-        sequence_reference_at(composition, cursor.row_index, cursor.column_index);
+    auto const id = sequence_reference_at(composition, cursor.row_coordinate,
+                                          cursor.column_coordinate);
     if (!id.has_value())
         throw std::invalid_argument{"Active composition placement is empty."};
     if (cursor.sequence_id != id)
@@ -347,8 +308,8 @@ auto arranged_sequence(SequenceBank &bank, Composition const &composition,
 auto arranged_sequence(SequenceBank const &bank, Composition const &composition,
                        CompositionCursor const &cursor) -> sequence::Cell const &
 {
-    auto const id =
-        sequence_reference_at(composition, cursor.row_index, cursor.column_index);
+    auto const id = sequence_reference_at(composition, cursor.row_coordinate,
+                                          cursor.column_coordinate);
     if (!id.has_value())
         throw std::invalid_argument{"Active composition placement is empty."};
     if (cursor.sequence_id != id)
@@ -359,13 +320,13 @@ auto arranged_sequence(SequenceBank const &bank, Composition const &composition,
 
 auto default_column_duration(Composition &composition) -> sequence::TimeSignature &
 {
-    return require_column(composition, 0).duration;
+    return composition.default_column.duration;
 }
 
 auto default_column_duration(Composition const &composition)
     -> sequence::TimeSignature const &
 {
-    return require_column(composition, 0).duration;
+    return composition.default_column.duration;
 }
 
 } // namespace xen

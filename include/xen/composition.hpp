@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstddef>
+#include <compare>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include <sequence/time_signature.hpp>
-
 #include <sequence/sequence.hpp>
+#include <sequence/time_signature.hpp>
 
 #include <xen/pitch_system.hpp>
 
@@ -17,14 +17,23 @@ namespace xen
 
 using SequenceId = std::uint64_t;
 using ChannelId = std::string;
+using CompositionCoordinate = std::int32_t;
 
 inline constexpr auto DEFAULT_SEQUENCE_ID = SequenceId{1};
 inline constexpr auto DEFAULT_CHANNEL_ID = "channel-1";
 
+struct CompositionPosition
+{
+    CompositionCoordinate row_coordinate{};
+    CompositionCoordinate column_coordinate{};
+
+    auto operator<=>(CompositionPosition const &) const = default;
+};
+
 struct CompositionCursor
 {
-    std::size_t row_index{};
-    std::size_t column_index{};
+    CompositionCoordinate row_coordinate{};
+    CompositionCoordinate column_coordinate{};
     std::optional<SequenceId> sequence_id{DEFAULT_SEQUENCE_ID};
 
     auto operator==(CompositionCursor const &) const -> bool = default;
@@ -59,23 +68,24 @@ struct CompositionRow
 {
     std::optional<std::string> name{};
     ChannelId channel_id{DEFAULT_CHANNEL_ID};
-    std::vector<std::optional<SequenceId>> cells{};
 
     auto operator==(CompositionRow const &) const -> bool = default;
 };
 
 struct LoopRegion
 {
-    std::size_t start_column{0};
-    std::size_t end_column{0};
+    CompositionCoordinate start_column{};
+    CompositionCoordinate end_column{};
 
     auto operator==(LoopRegion const &) const -> bool = default;
 };
 
 struct Composition
 {
-    std::vector<CompositionColumn> columns{};
-    std::vector<CompositionRow> rows{};
+    CompositionColumn default_column{};
+    std::map<CompositionCoordinate, CompositionColumn> columns{};
+    std::map<CompositionCoordinate, CompositionRow> rows{};
+    std::map<CompositionPosition, SequenceId> placements{};
     LoopRegion loop_region{};
 
     auto operator==(Composition const &) const -> bool = default;
@@ -95,32 +105,39 @@ auto update_sequence(SequenceBank &bank, SequenceId id, sequence::Cell cell) -> 
 [[nodiscard]] auto all_sequences(SequenceBank const &bank)
     -> std::vector<SequenceBankEntry> const &;
 
-auto insert_row(Composition &composition, std::size_t index,
-                ChannelId channel_id = DEFAULT_CHANNEL_ID) -> void;
-auto remove_row(Composition &composition, std::size_t index) -> void;
-auto move_row(Composition &composition, std::size_t from, std::size_t to) -> void;
-auto assign_row_channel(Composition &composition, std::size_t row, ChannelId channel_id)
-    -> void;
-
-auto insert_column(Composition &composition, std::size_t index,
-                   CompositionColumn column = {}) -> void;
-auto insert_column(Composition &composition, std::size_t index,
-                   sequence::TimeSignature duration) -> void;
-auto duplicate_column(Composition &composition, std::size_t source, std::size_t index)
-    -> void;
-auto remove_column(Composition &composition, std::size_t index) -> void;
-auto move_column(Composition &composition, std::size_t from, std::size_t to) -> void;
-auto set_column_duration(Composition &composition, std::size_t column,
+[[nodiscard]] auto composition_row(Composition &composition,
+                                   CompositionCoordinate coordinate)
+    -> CompositionRow &;
+[[nodiscard]] auto composition_row(Composition const &composition,
+                                   CompositionCoordinate coordinate)
+    -> CompositionRow const &;
+[[nodiscard]] auto composition_column(Composition &composition,
+                                      CompositionCoordinate coordinate)
+    -> CompositionColumn &;
+[[nodiscard]] auto composition_column(Composition const &composition,
+                                      CompositionCoordinate coordinate)
+    -> CompositionColumn const &;
+auto ensure_composition_row(Composition &composition, CompositionCoordinate coordinate,
+                            std::optional<ChannelId> channel_id = std::nullopt)
+    -> CompositionRow &;
+auto ensure_composition_column(Composition &composition,
+                               CompositionCoordinate coordinate) -> CompositionColumn &;
+auto assign_row_channel(Composition &composition, CompositionCoordinate row,
+                        ChannelId channel_id) -> void;
+auto set_column_duration(Composition &composition, CompositionCoordinate column,
                          sequence::TimeSignature duration) -> void;
-auto set_loop_start(Composition &composition, std::size_t column) -> void;
-auto set_loop_end(Composition &composition, std::size_t column) -> void;
+auto set_loop_start(Composition &composition, CompositionCoordinate column) -> void;
+auto set_loop_end(Composition &composition, CompositionCoordinate column) -> void;
 
-auto assign_sequence_reference(Composition &composition, std::size_t row,
-                               std::size_t column, SequenceId id) -> void;
-auto clear_sequence_reference(Composition &composition, std::size_t row,
-                              std::size_t column) -> void;
+auto assign_sequence_reference(Composition &composition, CompositionCoordinate row,
+                               CompositionCoordinate column, SequenceId id) -> void;
+auto clear_sequence_reference(Composition &composition, CompositionCoordinate row,
+                              CompositionCoordinate column) -> void;
+auto move_sequence_reference(Composition &composition, CompositionPosition from,
+                             CompositionPosition to) -> void;
 [[nodiscard]] auto sequence_reference_at(Composition const &composition,
-                                         std::size_t row, std::size_t column)
+                                         CompositionCoordinate row,
+                                         CompositionCoordinate column)
     -> std::optional<SequenceId>;
 
 [[nodiscard]] auto arranged_sequence(SequenceBank &bank, Composition const &composition,
