@@ -163,6 +163,9 @@ type CatalogCommand = {
 };
 ```
 
+Finite accepted value sets use the constraint kind `one_of`; its `values` array
+contains the canonical command tokens accepted by the backend parser.
+
 Cache `session.hello.payload.catalog.commands` and use it for command help,
 autocomplete, filtering, and ranking. Completion should tolerantly parse only the
 active semicolon-delimited chain segment. Final command text is still submitted to the

@@ -148,6 +148,27 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     CHECK(velocity_error.message ==
           "Invalid argument 'velocity': Must be in range [0, 1].");
 
+    auto const invalid_direction =
+        bind_invocation(parse_command_chain("set translateDirection sideways")[0]);
+    REQUIRE(std::holds_alternative<CatalogBindError>(invalid_direction));
+    auto const &direction_error = std::get<CatalogBindError>(invalid_direction);
+    CHECK(direction_error.kind == CatalogBindErrorKind::InvalidArgument);
+    CHECK(direction_error.message ==
+          "Invalid argument 'direction': Must be up or down.");
+
+    for (auto const *direction : {"up", "down"})
+    {
+        auto const valid_direction = bind_invocation(
+            parse_command_chain(std::string{"set translateDirection "} + direction)[0]);
+        CHECK(std::holds_alternative<BoundStep>(valid_direction));
+    }
+
+    auto const noncanonical_direction =
+        bind_invocation(parse_command_chain("set translateDirection UP")[0]);
+    REQUIRE(std::holds_alternative<CatalogBindError>(noncanonical_direction));
+    CHECK(std::get<CatalogBindError>(noncanonical_direction).kind ==
+          CatalogBindErrorKind::InvalidArgument);
+
     auto const missing_invocation = parse_command_chain("load cell")[0];
     auto const missing_result = bind_invocation(missing_invocation);
     REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
@@ -339,12 +360,32 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
     CHECK_FALSE(set_key->description.empty());
     CHECK(set_key->keywords.empty());
 
+    auto const translate_direction = std::find_if(
+        metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
+            return entry.path == std::vector<std::string>{"set", "translateDirection"};
+        });
+    REQUIRE(translate_direction != metadata.end());
+    REQUIRE(translate_direction->arguments.size() == 1);
+    auto const &translate_argument = translate_direction->arguments[0];
+    CHECK(translate_argument.kind == "translate_direction");
+    CHECK(translate_argument.display_name == "direction");
+    CHECK(translate_argument.required);
+    REQUIRE(translate_argument.constraints.size() == 1);
+    CHECK(translate_argument.constraints[0].kind == "one_of");
+    CHECK(translate_argument.constraints[0].values ==
+          std::vector<std::string>{"up", "down"});
+
     auto const entire_scale = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
             return entry.path == std::vector<std::string>{"shift", "entireScale"};
         });
     REQUIRE(entire_scale != metadata.end());
     CHECK(entire_scale->accepts_pattern_prefix == false);
+    REQUIRE(entire_scale->arguments.size() == 1);
+    REQUIRE(entire_scale->arguments[0].constraints.size() == 1);
+    CHECK(entire_scale->arguments[0].constraints[0].kind == "one_of");
+    CHECK(entire_scale->arguments[0].constraints[0].values ==
+          std::vector<std::string>{"-1", "1"});
 
     auto const load_keys = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
@@ -389,6 +430,19 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
               .at("constraints")[0]
               .at("maximum")
               .get<double>() == 1.0);
+
+    auto const translate_direction = std::find_if(
+        commands.begin(), commands.end(), [](nlohmann::json const &command) {
+            return command.at("path") ==
+                   std::vector<std::string>{"set", "translateDirection"};
+        });
+    REQUIRE(translate_direction != commands.end());
+    auto const &translate_argument = translate_direction->at("arguments")[0];
+    CHECK(translate_argument.at("kind") == "translate_direction");
+    REQUIRE(translate_argument.at("constraints").size() == 1);
+    CHECK(translate_argument.at("constraints")[0].at("kind") == "one_of");
+    CHECK(translate_argument.at("constraints")[0].at("values") ==
+          std::vector<std::string>{"up", "down"});
 }
 
 TEST_CASE("Catalog docs are generated from catalog metadata",

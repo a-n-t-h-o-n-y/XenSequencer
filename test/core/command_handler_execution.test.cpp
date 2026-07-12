@@ -224,16 +224,20 @@ TEST_CASE("Direct handlers assign, move, and unassign sparse composition cells",
                     .has_value());
 }
 
-TEST_CASE("Direct handlers validate without retaining partial mutation",
+TEST_CASE("Translate direction handler applies catalog-validated values",
           "[core][command][handler]")
 {
     auto state = make_plugin_state();
-    auto const before = state.timeline.get_state();
 
-    auto const result = execute(state, "set translateDirection sideways");
-    CHECK(result.status.first == MessageLevel::Error);
-    CHECK(result.status.second == "Invalid TranslateDirection: sideways");
-    CHECK(state.timeline.get_state() == before);
+    CHECK(execute(state, "set translateDirection down").status.first ==
+          MessageLevel::Info);
+    CHECK(selected_column(state.timeline.get_state(), CompositionCursor{})
+              .pitch.translation_direction == TranslateDirection::Down);
+
+    CHECK(execute(state, "set translateDirection up").status.first ==
+          MessageLevel::Info);
+    CHECK(selected_column(state.timeline.get_state(), CompositionCursor{})
+              .pitch.translation_direction == TranslateDirection::Up);
 }
 
 TEST_CASE("Direct edit handlers use execution-context selection",

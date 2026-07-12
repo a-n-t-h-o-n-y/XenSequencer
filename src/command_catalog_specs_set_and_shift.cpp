@@ -13,7 +13,6 @@
 #include <xen/actions.hpp>
 #include <xen/command_dsl.hpp>
 #include <xen/message_level.hpp>
-#include <xen/string_manip.hpp>
 
 #include "actions_internal.hpp"
 
@@ -285,10 +284,11 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "translateDirection"}, false, "Set scale translate direction.",
         project_edit_policy,
-        std::make_tuple(required_arg<std::string>("translate_direction", "direction")),
+        std::make_tuple(
+            one_of(required_arg<std::string>("translate_direction", "direction"),
+                   std::vector<std::string>{"up", "down"}, "Must be up or down.")),
         [](CommandHandlerContext &context, CommandInvocation const &,
-           std::string const &value) {
-            auto const direction = to_lower(value);
+           std::string const &direction) {
             auto state = context.project();
             auto &pitch = selected_column(state, context.execution.cursor).pitch;
             if (direction == "up")
@@ -298,10 +298,6 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
             else if (direction == "down")
             {
                 pitch.translation_direction = TranslateDirection::Down;
-            }
-            else
-            {
-                return make_result(merror("Invalid TranslateDirection: " + direction));
             }
             context.edit_project() = std::move(state);
             return make_result(minfo("Translate Direction Set"));
