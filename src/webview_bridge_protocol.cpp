@@ -94,6 +94,15 @@ auto parse_command_context(nlohmann::json const &payload) -> CommandContext
         context.expected_project_revision =
             ProjectRevision{revision.get<std::uint64_t>()};
     }
+    if (json_context.contains("preview_id"))
+    {
+        context.preview_id = require_string(json_context, "preview_id");
+        if (context.preview_id->empty())
+        {
+            throw BridgeError{"invalid_request",
+                              "Field must not be empty: context.preview_id"};
+        }
+    }
 
     auto const &cursor = require_object(json_context, "cursor");
     context.cursor = CompositionCursor{

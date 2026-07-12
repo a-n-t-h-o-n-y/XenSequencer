@@ -25,6 +25,7 @@ class SequencerSession final : public SequencerSessionPort
                                   WorkspaceSettingsStore::default_file());
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
+    [[nodiscard]] auto persistent_project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
     [[nodiscard]] auto instance_binding() const -> InstanceBinding const & override;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
@@ -35,6 +36,14 @@ class SequencerSession final : public SequencerSessionPort
     [[nodiscard]] auto execute_command_string(std::string const &command_string,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
+    [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
 
     void replace_project_history(ProjectState state);
     void replace_library(ContentLibrary library);
@@ -55,6 +64,14 @@ class SequencerSession final : public SequencerSessionPort
     CommandCatalog command_catalog_;
     SubmissionEffects::FailurePoint effect_failure_;
     EngineStateMailbox pending_engine_state_update_;
+
+    struct ActivePreview
+    {
+        PreviewId id{};
+        ProjectSnapshot baseline{};
+        CommandSessionState command_session{};
+    };
+    std::optional<ActivePreview> active_preview_{};
 
     void publish_project_snapshot();
 };

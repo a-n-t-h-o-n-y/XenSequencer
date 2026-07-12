@@ -39,6 +39,7 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
             CommandContext{
                 .selection = SelectionPath{},
                 .expected_project_revision = ProjectRevision{12},
+                .preview_id = "preview-1",
                 .cursor =
                     xen::CompositionCursor{
                         .row_index = 0,
@@ -55,6 +56,7 @@ TEST_CASE("IPC protocol round-trips command requests and responses", "[sync][ipc
     CHECK(decoded_request.command == request.command);
     REQUIRE(decoded_request.context.expected_project_revision.has_value());
     CHECK(decoded_request.context.expected_project_revision->value() == 12);
+    CHECK(decoded_request.context.preview_id == "preview-1");
     REQUIRE(decoded_request.context.selection.has_value());
     CHECK(decoded_request.context.selection->path.empty());
     CHECK(decoded_request.context.cursor.row_index == 0);
@@ -100,6 +102,7 @@ TEST_CASE("IPC protocol encodes absent command context fields as null", "[sync][
 
     CHECK(context.at("expected_project_revision").is_null());
     CHECK(context.at("selection").is_null());
+    CHECK(context.at("preview_id").is_null());
     CHECK(context.at("cursor").is_object());
     CHECK(context.at("cursor").at("row_index") == 0);
     CHECK(context.at("cursor").at("column_index") == 0);
@@ -274,6 +277,99 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
     CHECK(result.snapshot.project.composition.columns.front().pitch.transposition == 5);
     CHECK(coordinator.snapshot().project == result.snapshot.project);
     CHECK(coordinator.live_edit_started());
+}
+
+TEST_CASE("SessionCoordinator owns and cancels shared previews",
+          "[sync][ipc][coordinator][preview]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
+    auto const hello_b = coordinator.connect({.binding = binding("instance-b")});
+    auto const baseline = coordinator.snapshot();
+
+    auto const started = coordinator.begin_preview({
+        .request_id = "preview-1",
+        .source_instance_id = hello_a.binding.instance_id,
+        .expected_project_revision = baseline.project_revision,
+    });
+    REQUIRE(started.result.preview_id.has_value());
+    CHECK(started.snapshot.preview_active);
+
+    auto const foreign = coordinator.execute({
+        .request_id = "request-foreign",
+        .source_instance_id = hello_b.binding.instance_id,
+        .command = "set key 3",
+        .context =
+            CommandContext{
+                .expected_project_revision = coordinator.snapshot().project_revision,
+                .preview_id = started.result.preview_id,
+            },
+    });
+    CHECK(foreign.result.status.first == MessageLevel::Error);
+
+    auto const updated = coordinator.execute({
+        .request_id = "request-owner",
+        .source_instance_id = hello_a.binding.instance_id,
+        .command = "set key 6",
+        .context =
+            CommandContext{
+                .expected_project_revision = coordinator.snapshot().project_revision,
+                .preview_id = started.result.preview_id,
+            },
+    });
+    REQUIRE(updated.result.status.first == MessageLevel::Info);
+    CHECK(updated.snapshot.history_entry_id == baseline.history_entry_id);
+    CHECK(updated.snapshot.project.composition.columns.front().pitch.transposition ==
+          6);
+
+    auto const restored = coordinator.disconnect(hello_a.binding.instance_id);
+    REQUIRE(restored.has_value());
+    CHECK_FALSE(restored->preview_active);
+    CHECK(restored->project == baseline.project);
+    CHECK_FALSE(coordinator.disconnect(hello_a.binding.instance_id).has_value());
+}
+
+TEST_CASE("IPC protocol round-trips preview lifecycle messages", "[sync][ipc][preview]")
+{
+    auto const begin =
+        ipc::decode_preview_begin_request(ipc::encode_preview_begin_request({
+            .request_id = "preview-1",
+            .source_instance_id = "instance-a",
+            .expected_project_revision = ProjectRevision{12},
+        }));
+    CHECK(begin.request_id == "preview-1");
+    CHECK(begin.expected_project_revision.value() == 12);
+
+    auto const end = ipc::PreviewEndRequest{
+        .request_id = "preview-2",
+        .source_instance_id = "instance-a",
+        .preview_id = "token",
+        .expected_project_revision = ProjectRevision{13},
+    };
+    auto const commit =
+        ipc::decode_preview_commit_request(ipc::encode_preview_commit_request(end));
+    CHECK(commit.preview_id == "token");
+    auto const cancel =
+        ipc::decode_preview_cancel_request(ipc::encode_preview_cancel_request(end));
+    CHECK(cancel.expected_project_revision.value() == 13);
+
+    auto const response = ipc::decode_preview_response(ipc::encode_preview_response({
+        .request_id = "preview-1",
+        .result =
+            PreviewControlResult{
+                .status = {MessageLevel::Info, "started"},
+                .preview_id = "token",
+            },
+        .snapshot =
+            ProjectSnapshot{
+                .project = ProjectState{},
+                .history_entry_id = HistoryEntryId{2},
+                .project_revision = ProjectRevision{3},
+                .preview_active = true,
+            },
+    }));
+    CHECK(response.result.preview_id == "token");
+    CHECK(response.snapshot.preview_active);
 }
 
 TEST_CASE("SessionCoordinator accepts inactive composition row channels",

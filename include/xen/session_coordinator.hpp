@@ -21,6 +21,11 @@ class SessionCoordinator
 
     [[nodiscard]] auto connect(ClientHello hello) -> CoordinatorHello;
     [[nodiscard]] auto execute(CommandRequest request) -> CommandResponse;
+    [[nodiscard]] auto begin_preview(PreviewBeginRequest request) -> PreviewResponse;
+    [[nodiscard]] auto commit_preview(PreviewEndRequest request) -> PreviewResponse;
+    [[nodiscard]] auto cancel_preview(PreviewEndRequest request) -> PreviewResponse;
+    [[nodiscard]] auto disconnect(InstanceId const &instance_id)
+        -> std::optional<ProjectSnapshot>;
     [[nodiscard]] auto set_binding(BindingSetRequest request) -> BindingSetResponse;
 
     [[nodiscard]] auto snapshot() const -> ProjectSnapshot;
@@ -35,6 +40,12 @@ class SessionCoordinator
     std::map<InstanceId, InstanceBinding> bindings_;
     ProjectRevision seed_revision_{};
     bool live_edit_started_{false};
+    struct PreviewOwner
+    {
+        PreviewId preview_id{};
+        InstanceId instance_id{};
+    };
+    std::optional<PreviewOwner> preview_owner_{};
     int next_channel_index_{1};
 
     void maybe_seed_from(ClientHello const &hello);

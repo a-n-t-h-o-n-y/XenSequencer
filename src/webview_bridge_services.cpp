@@ -175,6 +175,26 @@ auto SequencerApplicationBridgeService::execute_command_string(
     return session_.execute_command_string(command, context);
 }
 
+auto SequencerApplicationBridgeService::begin_preview(ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    return session_.begin_preview(expected_revision);
+}
+
+auto SequencerApplicationBridgeService::commit_preview(
+    PreviewId const &preview_id, ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    return session_.commit_preview(preview_id, expected_revision);
+}
+
+auto SequencerApplicationBridgeService::cancel_preview(
+    PreviewId const &preview_id, ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    return session_.cancel_preview(preview_id, expected_revision);
+}
+
 void SequencerApplicationBridgeService::set_channel_id(ChannelId channel_id)
 {
     session_.set_channel_id(std::move(channel_id));
@@ -375,6 +395,18 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
          [this](ParsedRequest const &request) {
              return handle_command_execute(request);
          }},
+        {"preview.begin",
+         [this](ParsedRequest const &request) {
+             return handle_preview_begin(request);
+         }},
+        {"preview.commit",
+         [this](ParsedRequest const &request) {
+             return handle_preview_commit(request);
+         }},
+        {"preview.cancel",
+         [this](ParsedRequest const &request) {
+             return handle_preview_cancel(request);
+         }},
         {"library.get",
          [this](ParsedRequest const &request) { return handle_library_get(request); }},
         {"keymap.read",
@@ -539,6 +571,61 @@ auto BridgeRequestDispatcher::handle_command_execute(ParsedRequest const &reques
              {"message", result.status.second},
          }},
         {"suggested_selection", selection_to_json(result.suggested_selection)},
+        {"snapshot", make_project_snapshot(application_.project_snapshot())},
+    };
+}
+
+auto BridgeRequestDispatcher::handle_preview_begin(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const revision =
+        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const result = application_.begin_preview(revision);
+    return {
+        {"status",
+         {{"level", to_string(result.status.first)},
+          {"message", result.status.second}}},
+        {"preview_id", result.preview_id.has_value()
+                           ? nlohmann::json(*result.preview_id)
+                           : nlohmann::json(nullptr)},
+        {"snapshot", make_project_snapshot(application_.project_snapshot())},
+    };
+}
+
+auto BridgeRequestDispatcher::handle_preview_commit(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const preview_id = require_string(request.payload, "preview_id");
+    if (preview_id.empty())
+    {
+        throw BridgeError{"invalid_request", "Field must not be empty: preview_id"};
+    }
+    auto const revision =
+        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const result = application_.commit_preview(preview_id, revision);
+    return {
+        {"status",
+         {{"level", to_string(result.status.first)},
+          {"message", result.status.second}}},
+        {"snapshot", make_project_snapshot(application_.project_snapshot())},
+    };
+}
+
+auto BridgeRequestDispatcher::handle_preview_cancel(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const preview_id = require_string(request.payload, "preview_id");
+    if (preview_id.empty())
+    {
+        throw BridgeError{"invalid_request", "Field must not be empty: preview_id"};
+    }
+    auto const revision =
+        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const result = application_.cancel_preview(preview_id, revision);
+    return {
+        {"status",
+         {{"level", to_string(result.status.first)},
+          {"message", result.status.second}}},
         {"snapshot", make_project_snapshot(application_.project_snapshot())},
     };
 }

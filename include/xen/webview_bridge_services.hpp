@@ -35,6 +35,14 @@ class ApplicationBridgeService
     [[nodiscard]] virtual auto execute_command_string(std::string const &command,
                                                       CommandContext const &context)
         -> CommandApplicationResult = 0;
+    [[nodiscard]] virtual auto begin_preview(ProjectRevision expected_revision)
+        -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto commit_preview(PreviewId const &preview_id,
+                                              ProjectRevision expected_revision)
+        -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto cancel_preview(PreviewId const &preview_id,
+                                              ProjectRevision expected_revision)
+        -> PreviewControlResult = 0;
     virtual void set_channel_id(ChannelId channel_id) = 0;
 };
 
@@ -103,6 +111,14 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
     [[nodiscard]] auto execute_command_string(std::string const &command,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
+    [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
     void set_channel_id(ChannelId channel_id) override;
 
   private:
@@ -175,6 +191,12 @@ class BridgeRequestDispatcher
     [[nodiscard]] auto handle_session_binding_set(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_command_execute(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preview_begin(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preview_commit(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preview_cancel(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_library_get(ParsedRequest const &request)
         -> nlohmann::json;

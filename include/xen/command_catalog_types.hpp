@@ -21,6 +21,7 @@ struct CommandContext
 {
     std::optional<SelectionPath> selection{};
     std::optional<ProjectRevision> expected_project_revision{};
+    std::optional<PreviewId> preview_id{};
     CompositionCursor cursor{};
 };
 
@@ -139,6 +140,12 @@ struct CommandPolicy
 };
 
 using CommandStatus = std::pair<MessageLevel, std::string>;
+
+struct PreviewControlResult
+{
+    CommandStatus status{MessageLevel::Debug, ""};
+    std::optional<PreviewId> preview_id{};
+};
 
 struct CommandApplicationResult
 {

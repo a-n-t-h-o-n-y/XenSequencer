@@ -63,6 +63,11 @@ class CoordinatorConnection final : public juce::InterprocessConnection
     {
     }
 
+    [[nodiscard]] auto instance_id() const -> std::optional<InstanceId> const &
+    {
+        return instance_id_;
+    }
+
     void connectionLost() override
     {
         server_.connection_closed(*this);
@@ -76,8 +81,9 @@ class CoordinatorConnection final : public juce::InterprocessConnection
             auto const type = json.at("type").get<std::string>();
             if (type == "client.hello")
             {
-                auto const hello =
-                    server_.coordinator().connect(decode_client_hello(json));
+                auto request = decode_client_hello(json);
+                auto const hello = server_.coordinator().connect(std::move(request));
+                instance_id_ = hello.binding.instance_id;
                 (void)sendMessage(
                     memory_block_from_json(encode_coordinator_hello(hello)));
                 server_.broadcast(encode_instances_changed(
@@ -92,6 +98,36 @@ class CoordinatorConnection final : public juce::InterprocessConnection
                     server_.coordinator().execute(decode_command_request(json));
                 (void)sendMessage(
                     memory_block_from_json(encode_command_response(response)));
+                server_.broadcast(
+                    encode_project_changed({.snapshot = response.snapshot}));
+                return;
+            }
+            if (type == "preview.begin")
+            {
+                auto const response = server_.coordinator().begin_preview(
+                    decode_preview_begin_request(json));
+                (void)sendMessage(
+                    memory_block_from_json(encode_preview_response(response)));
+                server_.broadcast(
+                    encode_project_changed({.snapshot = response.snapshot}));
+                return;
+            }
+            if (type == "preview.commit")
+            {
+                auto const response = server_.coordinator().commit_preview(
+                    decode_preview_commit_request(json));
+                (void)sendMessage(
+                    memory_block_from_json(encode_preview_response(response)));
+                server_.broadcast(
+                    encode_project_changed({.snapshot = response.snapshot}));
+                return;
+            }
+            if (type == "preview.cancel")
+            {
+                auto const response = server_.coordinator().cancel_preview(
+                    decode_preview_cancel_request(json));
+                (void)sendMessage(
+                    memory_block_from_json(encode_preview_response(response)));
                 server_.broadcast(
                     encode_project_changed({.snapshot = response.snapshot}));
                 return;
@@ -146,6 +182,7 @@ class CoordinatorConnection final : public juce::InterprocessConnection
 
   private:
     CoordinatorServer &server_;
+    std::optional<InstanceId> instance_id_{};
 };
 
 CoordinatorServer::CoordinatorServer(SessionId session_id,
@@ -224,12 +261,22 @@ void CoordinatorServer::broadcast(nlohmann::json const &message)
 
 void CoordinatorServer::connection_closed(CoordinatorConnection &connection)
 {
-    auto const lock = std::scoped_lock{connections_mutex_};
-    auto const connected = std::ranges::count_if(
-        connections_, [](auto const &item) { return item->isConnected(); });
-    client_count_.store(static_cast<int>(connected));
-    last_disconnect_ms_.store(juce::Time::currentTimeMillis());
-    (void)connection;
+    auto restored = std::optional<ProjectSnapshot>{};
+    if (connection.instance_id().has_value())
+    {
+        restored = coordinator_.disconnect(*connection.instance_id());
+    }
+    {
+        auto const lock = std::scoped_lock{connections_mutex_};
+        auto const connected = std::ranges::count_if(
+            connections_, [](auto const &item) { return item->isConnected(); });
+        client_count_.store(static_cast<int>(connected));
+        last_disconnect_ms_.store(juce::Time::currentTimeMillis());
+    }
+    if (restored.has_value())
+    {
+        broadcast(encode_project_changed({.snapshot = std::move(*restored)}));
+    }
 }
 
 auto CoordinatorServer::coordinator() noexcept -> SessionCoordinator &

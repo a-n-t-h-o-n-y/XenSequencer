@@ -29,6 +29,8 @@ using SessionId = std::string;
 
 using InstanceId = std::string;
 
+using PreviewId = std::string;
+
 struct ProjectState
 {
     SequenceBank sequence_bank{make_default_sequence_bank()};
@@ -182,6 +184,7 @@ struct ProjectSnapshot
     ProjectState project{};
     HistoryEntryId history_entry_id{};
     ProjectRevision project_revision{};
+    bool preview_active{false};
 };
 
 struct InstanceBinding

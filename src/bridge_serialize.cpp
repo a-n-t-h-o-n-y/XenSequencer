@@ -311,6 +311,7 @@ auto make_project_snapshot(ProjectSnapshot const &snapshot) -> nlohmann::json
         {"schema_version", project_schema_version},
         {"history_entry_id", snapshot.history_entry_id.value()},
         {"project_revision", snapshot.project_revision.value()},
+        {"preview_active", snapshot.preview_active},
         {"project", detail::project_to_json(snapshot.project)},
     };
 }

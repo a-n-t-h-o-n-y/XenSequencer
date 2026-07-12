@@ -34,6 +34,11 @@ namespace
     };
 }
 
+[[nodiscard]] auto preview_error(std::string message) -> PreviewControlResult
+{
+    return {.status = {MessageLevel::Error, std::move(message)}};
+}
+
 } // namespace
 
 IpcSequencerSessionClient::IpcSequencerSessionClient(
@@ -60,6 +65,12 @@ auto IpcSequencerSessionClient::project_snapshot() const -> ProjectSnapshot
 {
     auto const lock = std::scoped_lock{mutex_};
     return project_snapshot_;
+}
+
+auto IpcSequencerSessionClient::persistent_project_snapshot() const -> ProjectSnapshot
+{
+    auto const lock = std::scoped_lock{mutex_};
+    return persistent_project_snapshot_;
 }
 
 auto IpcSequencerSessionClient::library_snapshot() const -> LibrarySnapshot
@@ -122,6 +133,94 @@ auto IpcSequencerSessionClient::execute_command_string(
     auto response = std::move(*pending_command_response_);
     pending_command_response_.reset();
     project_snapshot_ = response.snapshot;
+    if (!response.snapshot.preview_active)
+    {
+        persistent_project_snapshot_ = response.snapshot;
+    }
+    publish_audio_snapshot();
+    return std::move(response.result);
+}
+
+auto IpcSequencerSessionClient::begin_preview(ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    auto const request_id = next_request_id();
+    return finish_preview_request(encode_preview_begin_request({
+                                      .request_id = request_id,
+                                      .source_instance_id = binding_.instance_id,
+                                      .expected_project_revision = expected_revision,
+                                  }),
+                                  request_id);
+}
+
+auto IpcSequencerSessionClient::commit_preview(PreviewId const &preview_id,
+                                               ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    auto const request_id = next_request_id();
+    return finish_preview_request(encode_preview_commit_request({
+                                      .request_id = request_id,
+                                      .source_instance_id = binding_.instance_id,
+                                      .preview_id = preview_id,
+                                      .expected_project_revision = expected_revision,
+                                  }),
+                                  request_id);
+}
+
+auto IpcSequencerSessionClient::cancel_preview(PreviewId const &preview_id,
+                                               ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    auto const request_id = next_request_id();
+    return finish_preview_request(encode_preview_cancel_request({
+                                      .request_id = request_id,
+                                      .source_instance_id = binding_.instance_id,
+                                      .preview_id = preview_id,
+                                      .expected_project_revision = expected_revision,
+                                  }),
+                                  request_id);
+}
+
+auto IpcSequencerSessionClient::finish_preview_request(nlohmann::json request,
+                                                       std::string const &request_id)
+    -> PreviewControlResult
+{
+    {
+        auto const lock = std::scoped_lock{mutex_};
+        if (!online_)
+        {
+            return preview_error("XenSequencerCoordinator is offline.");
+        }
+        pending_preview_response_.reset();
+        pending_error_.reset();
+    }
+
+    send_json(request);
+    auto lock = std::unique_lock{mutex_};
+    auto const received = response_ready_.wait_for(lock, std::chrono::seconds{5}, [&] {
+        return (pending_preview_response_.has_value() &&
+                pending_preview_response_->request_id == request_id) ||
+               pending_error_.has_value() || !online_;
+    });
+    if (!received)
+    {
+        return preview_error("Timed out waiting for XenSequencerCoordinator.");
+    }
+    if (pending_error_.has_value())
+    {
+        return preview_error(pending_error_->message);
+    }
+    if (!pending_preview_response_.has_value())
+    {
+        return preview_error("XenSequencerCoordinator disconnected.");
+    }
+    auto response = std::move(*pending_preview_response_);
+    pending_preview_response_.reset();
+    project_snapshot_ = response.snapshot;
+    if (!response.snapshot.preview_active)
+    {
+        persistent_project_snapshot_ = response.snapshot;
+    }
     publish_audio_snapshot();
     return std::move(response.result);
 }
@@ -321,6 +420,7 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
             auto hello = decode_coordinator_hello(json);
             binding_ = std::move(hello.binding);
             project_snapshot_ = std::move(hello.snapshot);
+            persistent_project_snapshot_ = std::move(hello.persistent_snapshot);
             library_snapshot_ = std::move(hello.library);
             publish_audio_snapshot();
             response_ready_.notify_all();
@@ -329,6 +429,12 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
         if (type == "command.result")
         {
             pending_command_response_ = decode_command_response(json);
+            response_ready_.notify_all();
+            return;
+        }
+        if (type == "preview.result")
+        {
+            pending_preview_response_ = decode_preview_response(json);
             response_ready_.notify_all();
             return;
         }
@@ -347,6 +453,10 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
         if (type == "project.changed")
         {
             project_snapshot_ = decode_project_changed(json).snapshot;
+            if (!project_snapshot_.preview_active)
+            {
+                persistent_project_snapshot_ = project_snapshot_;
+            }
             publish_audio_snapshot();
             response_ready_.notify_all();
             return;

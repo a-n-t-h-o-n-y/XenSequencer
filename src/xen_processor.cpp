@@ -101,6 +101,12 @@ class OfflineSequencerSession final : public xen::SequencerSessionPort
         return snapshot_;
     }
 
+    [[nodiscard]] auto persistent_project_snapshot() const
+        -> xen::ProjectSnapshot override
+    {
+        return snapshot_;
+    }
+
     [[nodiscard]] auto library_snapshot() const -> xen::LibrarySnapshot override
     {
         return library_;
@@ -125,6 +131,24 @@ class OfflineSequencerSession final : public xen::SequencerSessionPort
             .status = {xen::MessageLevel::Error, error_message_},
             .suggested_selection = std::nullopt,
         };
+    }
+
+    [[nodiscard]] auto begin_preview(xen::ProjectRevision)
+        -> xen::PreviewControlResult override
+    {
+        return {.status = {xen::MessageLevel::Error, error_message_}};
+    }
+
+    [[nodiscard]] auto commit_preview(xen::PreviewId const &, xen::ProjectRevision)
+        -> xen::PreviewControlResult override
+    {
+        return {.status = {xen::MessageLevel::Error, error_message_}};
+    }
+
+    [[nodiscard]] auto cancel_preview(xen::PreviewId const &, xen::ProjectRevision)
+        -> xen::PreviewControlResult override
+    {
+        return {.status = {xen::MessageLevel::Error, error_message_}};
     }
 
     void set_channel_id(xen::ChannelId) override
@@ -324,8 +348,8 @@ void XenProcessor::getStateInformation(juce::MemoryBlock &dest_data)
 {
     try
     {
-        auto const json_str = serialize_processor_state(session_->instance_binding(),
-                                                        session_->project_snapshot());
+        auto const json_str = serialize_processor_state(
+            session_->instance_binding(), session_->persistent_project_snapshot());
         dest_data.setSize(json_str.size());
         std::memcpy(dest_data.getData(), json_str.data(), json_str.size());
     }

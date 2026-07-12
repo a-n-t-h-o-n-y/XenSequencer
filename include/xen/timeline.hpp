@@ -126,9 +126,16 @@ class Timeline
      * committing them once staged.
      * @param state The new state to be staged.
      */
-    auto stage(State state) -> void
+    auto stage(State state) -> bool
     {
+        validate_timeline_state(state);
+        if (state == stage_)
+        {
+            return false;
+        }
         stage_ = std::move(state);
+        revision_ = detail::allocate_project_revision();
+        return true;
     }
 
     /**
@@ -284,9 +291,15 @@ class Timeline
      * @details This erases any staged changes that have not been committed. Useful if
      * you need to revert state that has not been committed because of an error.
      */
-    auto reset_stage() -> void
+    auto reset_stage() -> bool
     {
+        if (stage_ == timeline_[at_].state)
+        {
+            return false;
+        }
         stage_ = timeline_[at_].state;
+        revision_ = detail::allocate_project_revision();
+        return true;
     }
 
   private:

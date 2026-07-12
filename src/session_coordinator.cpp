@@ -26,6 +26,12 @@ auto SessionCoordinator::connect(ClientHello hello) -> CoordinatorHello
     {
         throw std::invalid_argument{"Instance ID must not be empty."};
     }
+    if (preview_owner_.has_value())
+    {
+        auto const revision = session_.project_snapshot().project_revision;
+        (void)session_.cancel_preview(preview_owner_->preview_id, revision);
+        preview_owner_.reset();
+    }
     maybe_seed_from(hello);
     auto binding = assign_binding(std::move(hello.binding));
     auto const instance_id = binding.instance_id;
@@ -33,6 +39,7 @@ auto SessionCoordinator::connect(ClientHello hello) -> CoordinatorHello
     return {
         .binding = bindings_.at(instance_id),
         .snapshot = session_.project_snapshot(),
+        .persistent_snapshot = session_.persistent_project_snapshot(),
         .library = session_.library_snapshot(),
         .instances = instances(),
     };
@@ -44,6 +51,18 @@ auto SessionCoordinator::execute(CommandRequest request) -> CommandResponse
     {
         throw std::invalid_argument{"Unknown source instance ID."};
     }
+    if (request.context.preview_id.has_value() &&
+        (!preview_owner_.has_value() ||
+         preview_owner_->instance_id != request.source_instance_id ||
+         preview_owner_->preview_id != *request.context.preview_id))
+    {
+        return {
+            .request_id = std::move(request.request_id),
+            .result = {.status = {MessageLevel::Error,
+                                  "Project preview is owned by another instance."}},
+            .snapshot = session_.project_snapshot(),
+        };
+    }
     live_edit_started_ = true;
     auto result = session_.execute_command_string(request.command, request.context);
     return {
@@ -53,8 +72,105 @@ auto SessionCoordinator::execute(CommandRequest request) -> CommandResponse
     };
 }
 
+auto SessionCoordinator::begin_preview(PreviewBeginRequest request) -> PreviewResponse
+{
+    if (bindings_.find(request.source_instance_id) == bindings_.end())
+    {
+        throw std::invalid_argument{"Unknown source instance ID."};
+    }
+    auto result = session_.begin_preview(request.expected_project_revision);
+    if (result.preview_id.has_value())
+    {
+        live_edit_started_ = true;
+        preview_owner_ = PreviewOwner{
+            .preview_id = *result.preview_id,
+            .instance_id = request.source_instance_id,
+        };
+    }
+    return {
+        .request_id = std::move(request.request_id),
+        .result = std::move(result),
+        .snapshot = session_.project_snapshot(),
+    };
+}
+
+auto SessionCoordinator::commit_preview(PreviewEndRequest request) -> PreviewResponse
+{
+    if (!preview_owner_.has_value() ||
+        preview_owner_->instance_id != request.source_instance_id ||
+        preview_owner_->preview_id != request.preview_id)
+    {
+        return {
+            .request_id = std::move(request.request_id),
+            .result = {.status = {MessageLevel::Error,
+                                  "Project preview is owned by another instance."}},
+            .snapshot = session_.project_snapshot(),
+        };
+    }
+    auto result =
+        session_.commit_preview(request.preview_id, request.expected_project_revision);
+    if (result.status.first != MessageLevel::Error)
+    {
+        preview_owner_.reset();
+    }
+    return {
+        .request_id = std::move(request.request_id),
+        .result = std::move(result),
+        .snapshot = session_.project_snapshot(),
+    };
+}
+
+auto SessionCoordinator::cancel_preview(PreviewEndRequest request) -> PreviewResponse
+{
+    if (!preview_owner_.has_value() ||
+        preview_owner_->instance_id != request.source_instance_id ||
+        preview_owner_->preview_id != request.preview_id)
+    {
+        return {
+            .request_id = std::move(request.request_id),
+            .result = {.status = {MessageLevel::Error,
+                                  "Project preview is owned by another instance."}},
+            .snapshot = session_.project_snapshot(),
+        };
+    }
+    auto result =
+        session_.cancel_preview(request.preview_id, request.expected_project_revision);
+    if (result.status.first != MessageLevel::Error)
+    {
+        preview_owner_.reset();
+    }
+    return {
+        .request_id = std::move(request.request_id),
+        .result = std::move(result),
+        .snapshot = session_.project_snapshot(),
+    };
+}
+
+auto SessionCoordinator::disconnect(InstanceId const &instance_id)
+    -> std::optional<ProjectSnapshot>
+{
+    if (!preview_owner_.has_value() || preview_owner_->instance_id != instance_id)
+    {
+        return std::nullopt;
+    }
+    auto const preview_id = preview_owner_->preview_id;
+    auto const revision = session_.project_snapshot().project_revision;
+    auto const result = session_.cancel_preview(preview_id, revision);
+    preview_owner_.reset();
+    if (result.status.first == MessageLevel::Error)
+    {
+        return std::nullopt;
+    }
+    return session_.project_snapshot();
+}
+
 auto SessionCoordinator::set_binding(BindingSetRequest request) -> BindingSetResponse
 {
+    if (preview_owner_.has_value())
+    {
+        throw std::runtime_error{"A project preview is active; commit or cancel it "
+                                 "before changing bindings."};
+    }
     auto const found = bindings_.find(request.instance_id);
     if (found == bindings_.end())
     {

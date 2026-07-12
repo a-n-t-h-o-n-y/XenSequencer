@@ -506,7 +506,14 @@ void CommandTransaction::install() noexcept
     }
     else if (project_.has_value())
     {
-        state_.timeline.stage(persistent_project(std::move(*project_)));
+        auto const staged =
+            state_.timeline.stage(persistent_project(std::move(*project_)));
+        if (staged && sessions_.has_value() && sessions_->transform_cycle.has_value())
+        {
+            auto &cycle = *sessions_->transform_cycle;
+            cycle.project_revision = state_.timeline.get_project_revision();
+            cycle.history_entry_id = state_.timeline.get_current_entry_id();
+        }
     }
     if (library_.has_value())
     {

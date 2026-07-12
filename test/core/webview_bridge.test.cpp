@@ -129,6 +129,29 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
         };
     }
 
+    [[nodiscard]] auto begin_preview(ProjectRevision) -> PreviewControlResult override
+    {
+        project.preview_active = true;
+        return {
+            .status = {MessageLevel::Info, "Preview started."},
+            .preview_id = "preview-test",
+        };
+    }
+
+    [[nodiscard]] auto commit_preview(PreviewId const &, ProjectRevision)
+        -> PreviewControlResult override
+    {
+        project.preview_active = false;
+        return {.status = {MessageLevel::Info, "Preview committed."}};
+    }
+
+    [[nodiscard]] auto cancel_preview(PreviewId const &, ProjectRevision)
+        -> PreviewControlResult override
+    {
+        project.preview_active = false;
+        return {.status = {MessageLevel::Info, "Preview cancelled."}};
+    }
+
     void set_channel_id(ChannelId channel_id) override
     {
         binding.channel_id = std::move(channel_id);
@@ -358,6 +381,42 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
     CHECK(payload.contains("suggested_selection"));
     CHECK(payload.at("snapshot").contains("project"));
     CHECK_FALSE(payload.at("snapshot").contains("library"));
+}
+
+TEST_CASE("Bridge exposes generic project preview lifecycle", "[core][bridge][preview]")
+{
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
+    auto const initial = session.project_snapshot();
+    auto const begin =
+        response(host_bridge, "preview.begin",
+                 {{"expected_project_revision", initial.project_revision.value()}})
+            .at("payload");
+    REQUIRE(begin.at("preview_id").is_string());
+    auto const preview_id = begin.at("preview_id").get<std::string>();
+    CHECK(begin.at("snapshot").at("preview_active") == true);
+
+    auto const updated =
+        response(host_bridge, "command.execute",
+                 {{"command", "set key 7"},
+                  {"context",
+                   {{"expected_project_revision",
+                     session.project_snapshot().project_revision.value()},
+                    {"preview_id", preview_id},
+                    {"cursor",
+                     {{"row_index", 0}, {"column_index", 0}, {"sequence_id", 1}}}}}})
+            .at("payload");
+    CHECK(updated.at("snapshot").at("preview_active") == true);
+    CHECK(session.project_snapshot().history_entry_id == initial.history_entry_id);
+
+    auto const cancelled =
+        response(host_bridge, "preview.cancel",
+                 {{"preview_id", preview_id},
+                  {"expected_project_revision",
+                   session.project_snapshot().project_revision.value()}})
+            .at("payload");
+    CHECK(cancelled.at("snapshot").at("preview_active") == false);
+    CHECK(session.project_snapshot().project == initial.project);
 }
 
 TEST_CASE("Bridge writes and deletes opaque keymap documents", "[core][bridge]")

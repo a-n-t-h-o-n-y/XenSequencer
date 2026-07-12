@@ -71,6 +71,7 @@ namespace
     return {
         {"history_entry_id", snapshot.history_entry_id.value()},
         {"project_revision", snapshot.project_revision.value()},
+        {"preview_active", snapshot.preview_active},
         {"project", nlohmann::json::parse(serialize_project(snapshot.project))},
     };
 }
@@ -83,6 +84,7 @@ namespace
             HistoryEntryId{json.at("history_entry_id").get<std::uint64_t>()},
         .project_revision =
             ProjectRevision{json.at("project_revision").get<std::uint64_t>()},
+        .preview_active = json.at("preview_active").get<bool>(),
     };
 }
 
@@ -281,6 +283,9 @@ namespace
              ? nlohmann::json(context.expected_project_revision->value())
              : nlohmann::json(nullptr)},
         {"selection", selection_to_json(context.selection)},
+        {"preview_id", context.preview_id.has_value()
+                           ? nlohmann::json(*context.preview_id)
+                           : nlohmann::json(nullptr)},
         {"cursor",
          {{"row_index", context.cursor.row_index},
           {"column_index", context.cursor.column_index},
@@ -300,6 +305,10 @@ namespace
             ProjectRevision{json.at("expected_project_revision").get<std::uint64_t>()};
     }
     context.selection = selection_from_json(json.at("selection"));
+    if (!json.at("preview_id").is_null())
+    {
+        context.preview_id = json.at("preview_id").get<PreviewId>();
+    }
     auto const &cursor = json.at("cursor");
     if (!cursor.is_object())
         throw std::invalid_argument{"Field must be an object: context.cursor."};
@@ -417,13 +426,15 @@ auto decode_client_hello(nlohmann::json const &message) -> ClientHello
 
 auto encode_coordinator_hello(CoordinatorHello const &message) -> nlohmann::json
 {
-    return envelope("coordinator.hello",
-                    {
-                        {"binding", binding_to_json(message.binding)},
-                        {"snapshot", snapshot_to_json(message.snapshot)},
-                        {"library", library_to_json(message.library)},
-                        {"instances", bindings_to_json(message.instances)},
-                    });
+    return envelope(
+        "coordinator.hello",
+        {
+            {"binding", binding_to_json(message.binding)},
+            {"snapshot", snapshot_to_json(message.snapshot)},
+            {"persistent_snapshot", snapshot_to_json(message.persistent_snapshot)},
+            {"library", library_to_json(message.library)},
+            {"instances", bindings_to_json(message.instances)},
+        });
 }
 
 auto decode_coordinator_hello(nlohmann::json const &message) -> CoordinatorHello
@@ -432,6 +443,7 @@ auto decode_coordinator_hello(nlohmann::json const &message) -> CoordinatorHello
     return {
         .binding = binding_from_json(payload.at("binding")),
         .snapshot = snapshot_from_json(payload.at("snapshot")),
+        .persistent_snapshot = snapshot_from_json(payload.at("persistent_snapshot")),
         .library = library_from_json(payload.at("library")),
         .instances = bindings_from_json(payload.at("instances")),
     };
@@ -490,6 +502,102 @@ auto decode_command_response(nlohmann::json const &message) -> CommandResponse
                 .suggested_selection =
                     selection_from_json(payload.at("suggested_selection")),
             },
+        .snapshot = snapshot_from_json(payload.at("snapshot")),
+    };
+}
+
+auto encode_preview_begin_request(PreviewBeginRequest const &message) -> nlohmann::json
+{
+    return envelope(
+        "preview.begin",
+        {{"request_id", message.request_id},
+         {"source_instance_id", message.source_instance_id},
+         {"expected_project_revision", message.expected_project_revision.value()}});
+}
+
+auto decode_preview_begin_request(nlohmann::json const &message) -> PreviewBeginRequest
+{
+    auto const &payload = require_protocol(message, "preview.begin");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .source_instance_id = payload.at("source_instance_id").get<InstanceId>(),
+        .expected_project_revision =
+            ProjectRevision{
+                payload.at("expected_project_revision").get<std::uint64_t>()},
+    };
+}
+
+namespace
+{
+auto encode_preview_end_request(char const *type, PreviewEndRequest const &message)
+    -> nlohmann::json
+{
+    return envelope(type, {{"request_id", message.request_id},
+                           {"source_instance_id", message.source_instance_id},
+                           {"preview_id", message.preview_id},
+                           {"expected_project_revision",
+                            message.expected_project_revision.value()}});
+}
+
+auto decode_preview_end_request(char const *type, nlohmann::json const &message)
+    -> PreviewEndRequest
+{
+    auto const &payload = require_protocol(message, type);
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .source_instance_id = payload.at("source_instance_id").get<InstanceId>(),
+        .preview_id = payload.at("preview_id").get<PreviewId>(),
+        .expected_project_revision =
+            ProjectRevision{
+                payload.at("expected_project_revision").get<std::uint64_t>()},
+    };
+}
+} // namespace
+
+auto encode_preview_commit_request(PreviewEndRequest const &message) -> nlohmann::json
+{
+    return encode_preview_end_request("preview.commit", message);
+}
+
+auto decode_preview_commit_request(nlohmann::json const &message) -> PreviewEndRequest
+{
+    return decode_preview_end_request("preview.commit", message);
+}
+
+auto encode_preview_cancel_request(PreviewEndRequest const &message) -> nlohmann::json
+{
+    return encode_preview_end_request("preview.cancel", message);
+}
+
+auto decode_preview_cancel_request(nlohmann::json const &message) -> PreviewEndRequest
+{
+    return decode_preview_end_request("preview.cancel", message);
+}
+
+auto encode_preview_response(PreviewResponse const &message) -> nlohmann::json
+{
+    return envelope("preview.result",
+                    {{"request_id", message.request_id},
+                     {"status", status_to_json(message.result.status)},
+                     {"preview_id", message.result.preview_id.has_value()
+                                        ? nlohmann::json(*message.result.preview_id)
+                                        : nlohmann::json(nullptr)},
+                     {"snapshot", snapshot_to_json(message.snapshot)}});
+}
+
+auto decode_preview_response(nlohmann::json const &message) -> PreviewResponse
+{
+    auto const &payload = require_protocol(message, "preview.result");
+    auto result = PreviewControlResult{
+        .status = status_from_json(payload.at("status")),
+    };
+    if (!payload.at("preview_id").is_null())
+    {
+        result.preview_id = payload.at("preview_id").get<PreviewId>();
+    }
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .result = std::move(result),
         .snapshot = snapshot_from_json(payload.at("snapshot")),
     };
 }

@@ -56,3 +56,24 @@ TEST_CASE("Guarded amendment and replacement keep history invariants",
     CHECK_FALSE(timeline.undo());
     CHECK_FALSE(timeline.redo());
 }
+
+TEST_CASE("Staging advances revision without moving history",
+          "[core][timeline][preview]")
+{
+    auto timeline = XenTimeline{ProjectState{}};
+    auto const entry = timeline.get_current_entry_id();
+    auto const revision = timeline.get_project_revision();
+    auto state = timeline.get_state();
+    state.composition.columns.front().pitch.transposition = 7;
+
+    REQUIRE(timeline.stage(state));
+    CHECK(timeline.get_current_entry_id() == entry);
+    CHECK(timeline.get_project_revision() != revision);
+    CHECK_FALSE(timeline.stage(state));
+
+    auto const staged_revision = timeline.get_project_revision();
+    REQUIRE(timeline.reset_stage());
+    CHECK(timeline.get_current_entry_id() == entry);
+    CHECK(timeline.get_project_revision() != staged_revision);
+    CHECK_FALSE(timeline.reset_stage());
+}

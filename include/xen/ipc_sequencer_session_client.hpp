@@ -31,6 +31,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     ~IpcSequencerSessionClient() override;
 
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
+    [[nodiscard]] auto persistent_project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
     [[nodiscard]] auto instance_binding() const -> InstanceBinding const & override;
     [[nodiscard]] auto command_catalog_metadata() const
@@ -39,6 +40,14 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     [[nodiscard]] auto execute_command_string(std::string const &command_string,
                                               CommandContext const &context)
         -> CommandApplicationResult override;
+    [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+        -> PreviewControlResult override;
     void set_channel_id(ChannelId channel_id) override;
 
     [[nodiscard]] auto audio_project_update_version() const noexcept
@@ -54,6 +63,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     std::condition_variable response_ready_;
     InstanceBinding binding_;
     ProjectSnapshot project_snapshot_{};
+    ProjectSnapshot persistent_project_snapshot_{};
     LibrarySnapshot library_snapshot_{};
     CommandCatalog command_catalog_;
     EngineStateMailbox pending_engine_state_update_;
@@ -61,6 +71,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     std::string last_error_{};
     std::uint64_t next_request_id_{1};
     std::optional<CommandResponse> pending_command_response_;
+    std::optional<PreviewResponse> pending_preview_response_;
     std::optional<BindingSetResponse> pending_binding_response_;
     std::optional<ShutdownIfIdleResponse> pending_shutdown_response_;
     std::optional<IpcError> pending_error_;
@@ -72,6 +83,9 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     [[nodiscard]] auto request_helper_shutdown_if_idle() -> bool;
     void publish_audio_snapshot();
     void send_json(nlohmann::json const &message);
+    [[nodiscard]] auto finish_preview_request(nlohmann::json request,
+                                              std::string const &request_id)
+        -> PreviewControlResult;
 
     void connectionMade() override;
     void connectionLost() override;

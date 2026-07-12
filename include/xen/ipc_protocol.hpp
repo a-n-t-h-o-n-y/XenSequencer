@@ -12,7 +12,7 @@
 namespace xen::ipc
 {
 
-inline constexpr auto protocol = "xen.ipc.v1";
+inline constexpr auto protocol = "xen.ipc.v2";
 
 struct ClientHello
 {
@@ -24,6 +24,7 @@ struct CoordinatorHello
 {
     InstanceBinding binding{};
     ProjectSnapshot snapshot{};
+    ProjectSnapshot persistent_snapshot{};
     LibrarySnapshot library{};
     std::vector<InstanceBinding> instances{};
 };
@@ -40,6 +41,28 @@ struct CommandResponse
 {
     std::string request_id{};
     CommandApplicationResult result{};
+    ProjectSnapshot snapshot{};
+};
+
+struct PreviewBeginRequest
+{
+    std::string request_id{};
+    InstanceId source_instance_id{};
+    ProjectRevision expected_project_revision{};
+};
+
+struct PreviewEndRequest
+{
+    std::string request_id{};
+    InstanceId source_instance_id{};
+    PreviewId preview_id{};
+    ProjectRevision expected_project_revision{};
+};
+
+struct PreviewResponse
+{
+    std::string request_id{};
+    PreviewControlResult result{};
     ProjectSnapshot snapshot{};
 };
 
@@ -112,6 +135,22 @@ struct IpcError
     -> nlohmann::json;
 [[nodiscard]] auto decode_command_response(nlohmann::json const &message)
     -> CommandResponse;
+[[nodiscard]] auto encode_preview_begin_request(PreviewBeginRequest const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_preview_begin_request(nlohmann::json const &message)
+    -> PreviewBeginRequest;
+[[nodiscard]] auto encode_preview_commit_request(PreviewEndRequest const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_preview_commit_request(nlohmann::json const &message)
+    -> PreviewEndRequest;
+[[nodiscard]] auto encode_preview_cancel_request(PreviewEndRequest const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_preview_cancel_request(nlohmann::json const &message)
+    -> PreviewEndRequest;
+[[nodiscard]] auto encode_preview_response(PreviewResponse const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_preview_response(nlohmann::json const &message)
+    -> PreviewResponse;
 
 [[nodiscard]] auto encode_project_changed(ProjectChanged const &message)
     -> nlohmann::json;

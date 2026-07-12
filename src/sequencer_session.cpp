@@ -28,6 +28,13 @@ auto error_result(std::string message) -> xen::CommandApplicationResult
     };
 }
 
+auto preview_error(std::string message) -> xen::PreviewControlResult
+{
+    return {
+        .status = {xen::MessageLevel::Error, std::move(message)},
+    };
+}
+
 void log_json_command_exception(std::string const &command_string,
                                 xen::CommandContext const &context,
                                 nlohmann::json::exception const &error)
@@ -155,6 +162,103 @@ auto SequencerSession::project_snapshot() const -> ProjectSnapshot
         .project = state_.timeline.get_state(),
         .history_entry_id = state_.timeline.get_current_entry_id(),
         .project_revision = state_.timeline.get_project_revision(),
+        .preview_active = active_preview_.has_value(),
+    };
+}
+
+auto SequencerSession::persistent_project_snapshot() const -> ProjectSnapshot
+{
+    if (active_preview_.has_value())
+    {
+        return active_preview_->baseline;
+    }
+    return project_snapshot();
+}
+
+auto SequencerSession::begin_preview(ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    if (active_preview_.has_value())
+    {
+        return preview_error("A project preview is already active.");
+    }
+    auto const current_revision = state_.timeline.get_project_revision();
+    if (expected_revision != current_revision)
+    {
+        return preview_error("stale project revision: expected " +
+                             std::to_string(expected_revision.value()) + ", current " +
+                             std::to_string(current_revision.value()));
+    }
+
+    auto id = juce::Uuid{}.toString().toStdString();
+    auto const baseline = project_snapshot();
+    active_preview_ = ActivePreview{
+        .id = id,
+        .baseline = baseline,
+        .command_session = state_.command_session,
+    };
+    state_.command_session.transform_cycle.reset();
+    return {
+        .status = {MessageLevel::Info, "Preview started."},
+        .preview_id = std::move(id),
+    };
+}
+
+auto SequencerSession::commit_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    if (!active_preview_.has_value() || active_preview_->id != preview_id)
+    {
+        return preview_error("Unknown project preview.");
+    }
+    auto const current_revision = state_.timeline.get_project_revision();
+    if (expected_revision != current_revision)
+    {
+        return preview_error("stale project revision: expected " +
+                             std::to_string(expected_revision.value()) + ", current " +
+                             std::to_string(current_revision.value()));
+    }
+
+    auto const committed = state_.timeline.commit(state_.timeline.get_state());
+    active_preview_.reset();
+    state_.command_session.transform_cycle.reset();
+    if (committed)
+    {
+        publish_project_snapshot();
+    }
+    return {
+        .status = {MessageLevel::Info,
+                   committed ? "Preview committed." : "Preview unchanged."},
+    };
+}
+
+auto SequencerSession::cancel_preview(PreviewId const &preview_id,
+                                      ProjectRevision expected_revision)
+    -> PreviewControlResult
+{
+    if (!active_preview_.has_value() || active_preview_->id != preview_id)
+    {
+        return preview_error("Unknown project preview.");
+    }
+    auto const current_revision = state_.timeline.get_project_revision();
+    if (expected_revision != current_revision)
+    {
+        return preview_error("stale project revision: expected " +
+                             std::to_string(expected_revision.value()) + ", current " +
+                             std::to_string(current_revision.value()));
+    }
+
+    auto command_session = std::move(active_preview_->command_session);
+    auto const changed = state_.timeline.reset_stage();
+    active_preview_.reset();
+    state_.command_session = std::move(command_session);
+    if (changed)
+    {
+        publish_project_snapshot();
+    }
+    return {
+        .status = {MessageLevel::Info, "Preview cancelled."},
     };
 }
 
@@ -243,6 +347,27 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
                     },
                     step);
             });
+        auto const project_mutating =
+            std::ranges::any_of(steps, [](BoundStep const &step) {
+                return std::visit(
+                    [](auto const &typed_step) {
+                        using Step = std::decay_t<decltype(typed_step)>;
+                        if constexpr (std::is_same_v<Step, RepeatPrevious>)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            return typed_step.policy.project ==
+                                       ProjectOperation::Edit ||
+                                   typed_step.policy.project ==
+                                       ProjectOperation::ReplaceHistory ||
+                                   typed_step.policy.project ==
+                                       ProjectOperation::NavigateHistory;
+                        }
+                    },
+                    step);
+            });
         if (project_aware && !context.expected_project_revision.has_value())
         {
             return error_result("expected project revision is required");
@@ -254,6 +379,35 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
                 "stale project revision: expected " +
                 std::to_string(context.expected_project_revision->value()) +
                 ", current " + std::to_string(current_revision.value()));
+        }
+
+        auto const preview_submission = context.preview_id.has_value();
+        if (preview_submission)
+        {
+            if (!active_preview_.has_value() ||
+                active_preview_->id != *context.preview_id)
+            {
+                return error_result("Unknown project preview.");
+            }
+            auto const preview_safe =
+                !steps.empty() && std::ranges::all_of(steps, [](BoundStep const &step) {
+                    auto const *command = std::get_if<ExecutableCommand>(&step);
+                    return command != nullptr &&
+                           command->policy.project == ProjectOperation::Edit &&
+                           command->policy.library != LibraryAccess::Mutate &&
+                           command->policy.workspace != WorkspaceAccess::Mutate &&
+                           command->policy.files != FileAccess::Write;
+                });
+            if (!preview_safe)
+            {
+                return error_result(
+                    "Project previews accept only reversible project-edit commands.");
+            }
+        }
+        else if (active_preview_.has_value() && project_mutating)
+        {
+            return error_result(
+                "A project preview is active; commit or cancel it before editing.");
         }
 
         auto const history_count =
@@ -338,12 +492,13 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             }
         }
 
-        if (steps.size() != 1 && transaction.history_plan_is_amend())
+        if (!preview_submission && steps.size() != 1 &&
+            transaction.history_plan_is_amend())
         {
             transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
         }
-        if (history_count == 0 && transaction.project_changed() &&
-            !transaction.has_history_plan())
+        if (!preview_submission && history_count == 0 &&
+            transaction.project_changed() && !transaction.has_history_plan())
         {
             transaction.plan_history(HistoryPlan{.kind = HistoryPlanKind::Commit});
         }
@@ -415,6 +570,7 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
 
 void SequencerSession::replace_project_history(ProjectState state)
 {
+    active_preview_.reset();
     state_.timeline.replace_history(std::move(state));
     state_.command_session = CommandSessionState{};
     publish_project_snapshot();
@@ -444,6 +600,7 @@ void SequencerSession::replace_project_history_and_binding(ProjectState state,
         throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
     instance_binding_ = std::move(binding);
+    active_preview_.reset();
     state_.timeline.replace_history(std::move(state));
     state_.command_session = CommandSessionState{};
     publish_project_snapshot();
