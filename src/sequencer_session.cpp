@@ -79,25 +79,34 @@ auto validate_selection_target(xen::TargetRequirement requirement,
         return error_result("selection is required");
     }
 
+    auto const *cell = static_cast<sequence::Cell const *>(nullptr);
     try
     {
-        auto const &cell = xen::selected_sequence(project, cursor);
+        cell = &xen::selected_sequence(project, cursor);
+    }
+    catch (std::exception const &)
+    {
+        return error_result("active composition cursor does not resolve");
+    }
+
+    try
+    {
         switch (requirement)
         {
         case Cell:
-            (void)xen::get_selected_cell_const(cell, *selection);
+            (void)xen::get_selected_cell_const(*cell, *selection);
             return std::nullopt;
         case Element:
-            (void)xen::get_selected_element_const(cell, *selection);
+            (void)xen::get_selected_element_const(*cell, *selection);
             return std::nullopt;
         case CellOrElement:
             if (xen::selection_kind(*selection) == xen::SelectionKind::Element)
             {
-                (void)xen::get_selected_element_const(cell, *selection);
+                (void)xen::get_selected_element_const(*cell, *selection);
             }
             else
             {
-                (void)xen::get_selected_cell_const(cell, *selection);
+                (void)xen::get_selected_cell_const(*cell, *selection);
             }
             return std::nullopt;
         case None:

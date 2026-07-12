@@ -84,6 +84,20 @@ TEST_CASE("Processor rejects wrong-kind targets", "[processor][commands][selecti
     CHECK(result.status.second == "selection must resolve to a cell");
 }
 
+TEST_CASE("Processor distinguishes invalid composition cursors from selections",
+          "[processor][commands][context]")
+{
+    auto session = SequencerSession{};
+    auto const result = session.execute_command_string(
+        "delete",
+        {.selection = SelectionPath{},
+         .expected_project_revision = session.project_snapshot().project_revision,
+         .cursor = CompositionCursor{.sequence_id = std::nullopt}});
+
+    CHECK(result.status.first == MessageLevel::Error);
+    CHECK(result.status.second == "active composition cursor does not resolve");
+}
+
 TEST_CASE("Processor applies selected-measure commands to active composition target",
           "[processor][commands][context]")
 {
