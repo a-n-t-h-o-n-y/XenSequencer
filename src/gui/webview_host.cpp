@@ -17,6 +17,28 @@
 
 namespace
 {
+auto midi_fault_name(xen::RealtimeMidiFault fault) -> juce::String
+{
+    switch (fault)
+    {
+    case xen::RealtimeMidiFault::None:
+        return "none";
+    case xen::RealtimeMidiFault::CompilationFailed:
+        return "compilation failed";
+    case xen::RealtimeMidiFault::MissingPpq:
+        return "host PPQ unavailable";
+    case xen::RealtimeMidiFault::InvalidTransport:
+        return "invalid transport";
+    case xen::RealtimeMidiFault::BlockTooLarge:
+        return "audio block exceeds prepared maximum";
+    case xen::RealtimeMidiFault::EventCapacityExceeded:
+        return "MIDI event capacity exceeded";
+    case xen::RealtimeMidiFault::MidiByteCapacityExceeded:
+        return "MIDI byte capacity exceeded";
+    }
+    return "unknown";
+}
+
 void append_webview_error_log(juce::String const &message)
 {
     juce::Logger::writeToLog(message);
@@ -697,6 +719,13 @@ void WebviewHost::emit_keymap_changed_event()
 void WebviewHost::emit_transport_events()
 {
     auto const transport_state = processor_.audio_thread_state_snapshot();
+    if (transport_state.midi_status.fault_count != last_midi_fault_count_)
+    {
+        last_midi_fault_count_ = transport_state.midi_status.fault_count;
+        juce::Logger::writeToLog(
+            "XenSequencer real-time MIDI fault: " +
+            midi_fault_name(transport_state.midi_status.last_fault));
+    }
     if (!transport_state.transport_active)
     {
         if (!last_transport_active_)

@@ -62,6 +62,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     ProjectRevision last_project_revision_{};
     LibraryRevision last_library_revision_{};
     std::uint64_t last_keymap_revision_{};
+    std::uint64_t last_midi_fault_count_{};
     bool last_transport_active_{false};
 };
 

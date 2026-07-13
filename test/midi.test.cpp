@@ -1,204 +1,122 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include <array>
-#include <vector>
-
-#include <juce_audio_basics/juce_audio_basics.h>
-
-#include <sequence/midi.hpp>
 #include <sequence/sequence.hpp>
-#include <sequence/timing.hpp>
-#include <sequence/tuning.hpp>
 
-#include <xen/midi.hpp>
+#include <xen/composition.hpp>
+#include <xen/midi_compiler.hpp>
 #include <xen/state.hpp>
 
 namespace
 {
 
-struct CapturedEvent
+auto make_note_project(int pitch = 0) -> xen::ProjectState
 {
-    int sample_position;
-    juce::MidiMessage message;
-};
-
-[[nodiscard]] auto capture_events(juce::MidiBuffer const &buffer)
-    -> std::vector<CapturedEvent>
-{
-    auto events = std::vector<CapturedEvent>{};
-    for (auto const metadata : buffer)
-    {
-        events.push_back({
-            .sample_position = metadata.samplePosition,
-            .message = metadata.getMessage(),
-        });
-    }
-    return events;
+    auto project = xen::ProjectState{};
+    xen::selected_sequence(project, xen::CompositionCursor{}) = {
+        .elements = {sequence::Note{.pitch = pitch, .velocity = 0.75F}},
+        .weight = 1.0F,
+    };
+    return project;
 }
 
 } // namespace
 
-TEST_CASE("state_to_timeline returns timed midi notes", "[midi]")
+TEST_CASE("MidiCompiler emits beat-domain notes independent of tempo",
+          "[midi][compiler]")
 {
-    auto const measure = sequence::Cell{
+    auto const schedule =
+        xen::MidiCompiler::compile(make_note_project(), xen::DEFAULT_CHANNEL_ID, 7);
+
+    CHECK(schedule.generation == 7);
+    CHECK(schedule.loop_beats == Catch::Approx(4.0));
+    REQUIRE(schedule.notes.size() == 1);
+    CHECK(schedule.notes[0].begin_beat == Catch::Approx(0.0));
+    CHECK(schedule.notes[0].end_beat == Catch::Approx(4.0));
+    REQUIRE(schedule.boundaries.size() == 2);
+    CHECK(schedule.boundaries[0].beat == 0.0);
+    CHECK(schedule.boundaries[0].kind == xen::MidiBoundaryKind::End);
+    CHECK(schedule.boundaries[1].kind == xen::MidiBoundaryKind::Start);
+}
+
+TEST_CASE("MidiCompiler flattens weighted nested cells in musical time",
+          "[midi][compiler]")
+{
+    auto project = xen::ProjectState{};
+    xen::selected_sequence(project, xen::CompositionCursor{}) = {
         .elements = {sequence::Sequence{{
-            {.elements = {sequence::Note{.pitch = 0, .velocity = 0.5f}}, .weight = 1.f},
-            {.elements = {sequence::Note{.pitch = 4, .velocity = 0.75f}},
-             .weight = 1.f},
+            {.elements = {sequence::Note{.pitch = 0}}, .weight = 1.0F},
+            {.elements = {sequence::Note{.pitch = 1}}, .weight = 3.0F},
         }}},
-        .weight = 1.f,
+        .weight = 1.0F,
     };
-    auto const measure_length = sequence::TimeSignature{4, 4};
-    auto const tuning = sequence::Tuning{
-        .intervals = {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100},
-        .octave = 1200,
-        .description = "12-TET",
-    };
-    auto const daw_state = xen::DAWState{.bpm = 120.f, .sample_rate = 44'100};
 
-    auto const timeline =
-        xen::state_to_timeline(measure, measure_length, tuning, 440.f, daw_state,
-                               std::nullopt, 0, xen::TranslateDirection::Up);
-
-    auto const expected = sequence::midi::flatten_to_midi(
-        measure.elements, 0,
-        sequence::samples_count(measure_length, daw_state.sample_rate, daw_state.bpm),
-        tuning, 440.f, 48.f);
-
-    REQUIRE(timeline == expected);
+    auto const schedule =
+        xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
+    REQUIRE(schedule.notes.size() == 2);
+    CHECK(schedule.notes[0].begin_beat == Catch::Approx(0.0));
+    CHECK(schedule.notes[0].end_beat == Catch::Approx(1.0));
+    CHECK(schedule.notes[1].begin_beat == Catch::Approx(1.0));
+    CHECK(schedule.notes[1].end_beat == Catch::Approx(4.0));
 }
 
-TEST_CASE("render_to_midi emits pitch bend before note on", "[midi]")
+TEST_CASE("MidiCompiler structural identities survive pitch edits", "[midi][compiler]")
 {
-    auto const timeline = std::vector<sequence::midi::TimedMidiNote>{
-        {.begin = 12, .end = 34, .note = 69, .velocity = 101, .pitch_bend = 9'000},
-    };
+    auto original = make_note_project(0);
+    auto changed = make_note_project(4);
+    auto const first = xen::MidiCompiler::compile(original, xen::DEFAULT_CHANNEL_ID, 1);
+    auto const second = xen::MidiCompiler::compile(changed, xen::DEFAULT_CHANNEL_ID, 2);
 
-    auto const events = capture_events(xen::render_to_midi(timeline));
-    REQUIRE(events.size() == 3);
-
-    CHECK(events[0].sample_position == 12);
-    CHECK(events[0].message.isPitchWheel());
-    CHECK(events[0].message.getChannel() == 2);
-    CHECK(events[0].message.getPitchWheelValue() == 9'000);
-
-    CHECK(events[1].sample_position == 12);
-    CHECK(events[1].message.isNoteOn());
-    CHECK(events[1].message.getChannel() == 2);
-    CHECK(events[1].message.getNoteNumber() == 69);
-    CHECK(events[1].message.getFloatVelocity() == Catch::Approx(101.0f / 127.0f));
-
-    CHECK(events[2].sample_position == 34);
-    CHECK(events[2].message.isNoteOff());
-    CHECK(events[2].message.getChannel() == 2);
-    CHECK(events[2].message.getNoteNumber() == 69);
+    REQUIRE(first.notes.size() == 1);
+    REQUIRE(second.notes.size() == 1);
+    CHECK(first.notes[0].key == second.notes[0].key);
+    CHECK(first.notes[0].note != second.notes[0].note);
 }
 
-TEST_CASE("render_to_midi assigns overlapping notes to different member channels",
-          "[midi]")
+TEST_CASE("MidiCompiler filters rows by bound output channel",
+          "[midi][compiler][composition]")
 {
-    auto const timeline = std::vector<sequence::midi::TimedMidiNote>{
-        {.begin = 10, .end = 30, .note = 60, .velocity = 100, .pitch_bend = 8'100},
-        {.begin = 15, .end = 40, .note = 64, .velocity = 110, .pitch_bend = 8'300},
-    };
+    auto project = make_note_project();
+    (void)xen::ensure_composition_row(project.composition, 1, "peer");
+    auto peer =
+        sequence::Cell{.elements = {sequence::Note{.pitch = 5}}, .weight = 1.0F};
+    auto const peer_id = xen::create_sequence(project.sequence_bank, std::move(peer));
+    xen::assign_sequence_reference(project.composition, 1, 0, peer_id);
 
-    auto const events = capture_events(xen::render_to_midi(timeline));
-    REQUIRE(events.size() == 6);
-
-    CHECK(events[0].sample_position == 10);
-    CHECK(events[0].message.isPitchWheel());
-    CHECK(events[0].message.getChannel() == 2);
-
-    CHECK(events[1].sample_position == 10);
-    CHECK(events[1].message.isNoteOn());
-    CHECK(events[1].message.getChannel() == 2);
-    CHECK(events[1].message.getNoteNumber() == 60);
-
-    CHECK(events[2].sample_position == 15);
-    CHECK(events[2].message.isPitchWheel());
-    CHECK(events[2].message.getChannel() == 3);
-
-    CHECK(events[3].sample_position == 15);
-    CHECK(events[3].message.isNoteOn());
-    CHECK(events[3].message.getChannel() == 3);
-    CHECK(events[3].message.getNoteNumber() == 64);
-
-    CHECK(events[4].sample_position == 30);
-    CHECK(events[4].message.isNoteOff());
-    CHECK(events[4].message.getChannel() == 2);
-
-    CHECK(events[5].sample_position == 40);
-    CHECK(events[5].message.isNoteOff());
-    CHECK(events[5].message.getChannel() == 3);
+    auto const main = xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
+    auto const peer_schedule = xen::MidiCompiler::compile(project, "peer", 2);
+    REQUIRE(main.notes.size() == 1);
+    REQUIRE(peer_schedule.notes.size() == 1);
+    CHECK(main.notes[0].note != peer_schedule.notes[0].note);
 }
 
-TEST_CASE("render_to_midi reuses a released channel after note-off at the same sample",
-          "[midi]")
+TEST_CASE("MidiCompiler includes sparse implicit columns in loop timing",
+          "[midi][compiler][composition]")
 {
-    auto const timeline = std::vector<sequence::midi::TimedMidiNote>{
-        {.begin = 10, .end = 20, .note = 60, .velocity = 100, .pitch_bend = 8'100},
-        {.begin = 20, .end = 30, .note = 64, .velocity = 110, .pitch_bend = 8'300},
-    };
+    auto project = make_note_project();
+    project.composition.default_column.duration = {1, 4};
+    xen::set_column_duration(project.composition, 0, {1, 4});
+    xen::assign_sequence_reference(project.composition, 0, -2,
+                                   xen::DEFAULT_SEQUENCE_ID);
+    xen::set_loop_start(project.composition, -2);
+    xen::set_loop_end(project.composition, 0);
 
-    auto const events = capture_events(xen::render_to_midi(timeline));
-    REQUIRE(events.size() == 6);
-
-    CHECK(events[2].sample_position == 20);
-    CHECK(events[2].message.isNoteOff());
-    CHECK(events[2].message.getChannel() == 2);
-    CHECK(events[2].message.getNoteNumber() == 60);
-
-    CHECK(events[3].sample_position == 20);
-    CHECK(events[3].message.isPitchWheel());
-    CHECK(events[3].message.getChannel() == 2);
-    CHECK(events[3].message.getPitchWheelValue() == 8'300);
-
-    CHECK(events[4].sample_position == 20);
-    CHECK(events[4].message.isNoteOn());
-    CHECK(events[4].message.getChannel() == 2);
-    CHECK(events[4].message.getNoteNumber() == 64);
+    auto const schedule =
+        xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
+    CHECK(schedule.loop_beats == Catch::Approx(3.0));
+    REQUIRE(schedule.notes.size() == 2);
+    CHECK(schedule.notes[0].begin_beat == Catch::Approx(0.0));
+    CHECK(schedule.notes[1].begin_beat == Catch::Approx(2.0));
 }
 
-TEST_CASE("render_to_midi drops notes when all 15 member channels are occupied",
-          "[midi]")
+TEST_CASE("MidiCompiler suppresses zero-duration notes", "[midi][compiler]")
 {
-    auto timeline = std::vector<sequence::midi::TimedMidiNote>{};
-    timeline.reserve(16);
-    for (auto i = 0; i < 16; ++i)
-    {
-        timeline.push_back({
-            .begin = 0,
-            .end = 100,
-            .note = (std::uint8_t)(60 + i),
-            .velocity = 100,
-            .pitch_bend = (std::uint16_t)(8'000 + i),
-        });
-    }
+    auto project = xen::ProjectState{};
+    xen::selected_sequence(project, xen::CompositionCursor{}) = {
+        .elements = {sequence::Note{.gate = 0.0F}}, .weight = 1.0F};
 
-    auto const events = capture_events(xen::render_to_midi(timeline));
-    REQUIRE(events.size() == 45);
-
-    auto used_channels = std::array<bool, 17>{};
-    auto note_on_count = 0;
-    auto dropped_found = false;
-    for (auto const &event : events)
-    {
-        if (event.message.isNoteOn())
-        {
-            ++note_on_count;
-            used_channels[(std::size_t)event.message.getChannel()] = true;
-            if (event.message.getNoteNumber() == 75)
-            {
-                dropped_found = true;
-            }
-        }
-    }
-
-    CHECK(note_on_count == 15);
-    CHECK_FALSE(dropped_found);
-    for (auto channel = 2; channel <= 16; ++channel)
-    {
-        CHECK(used_channels[(std::size_t)channel]);
-    }
+    auto const schedule =
+        xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
+    CHECK(schedule.notes.empty());
+    CHECK(schedule.boundaries.empty());
 }

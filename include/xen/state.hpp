@@ -21,10 +21,6 @@
 namespace xen
 {
 
-using SampleIndex = std::uint64_t;
-
-using SampleCount = std::uint64_t;
-
 using SessionId = std::string;
 
 using InstanceId = std::string;
@@ -213,14 +209,6 @@ struct LibrarySnapshot
     LibraryRevision library_revision{};
 };
 
-struct AudioProjectSnapshot
-{
-    ProjectState project{};
-    ChannelId channel_id{DEFAULT_CHANNEL_ID};
-
-    auto operator==(AudioProjectSnapshot const &) const -> bool = default;
-};
-
 /**
  * The state of the DAW.
  */
@@ -231,11 +219,30 @@ struct DAWState
     bool is_playing = false;
 };
 
+enum class RealtimeMidiFault : std::uint8_t
+{
+    None,
+    CompilationFailed,
+    MissingPpq,
+    InvalidTransport,
+    BlockTooLarge,
+    EventCapacityExceeded,
+    MidiByteCapacityExceeded,
+};
+
+struct RealtimeMidiStatus
+{
+    RealtimeMidiFault current_fault{RealtimeMidiFault::None};
+    RealtimeMidiFault last_fault{RealtimeMidiFault::None};
+    std::uint64_t fault_count{};
+};
+
 struct AudioThreadStateForGUI
 {
     DAWState daw;
     double loop_phase{0.0};
     bool transport_active{false};
+    RealtimeMidiStatus midi_status{};
 };
 
 } // namespace xen

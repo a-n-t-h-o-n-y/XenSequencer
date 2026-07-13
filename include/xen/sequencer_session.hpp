@@ -7,7 +7,6 @@
 
 #include <xen/command.hpp>
 #include <xen/command_catalog.hpp>
-#include <xen/engine_state_mailbox.hpp>
 #include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/submission_effects.hpp>
@@ -52,18 +51,12 @@ class SequencerSession final : public SequencerSessionPort
                                              InstanceBinding binding);
     void set_channel_id(ChannelId channel_id) override;
 
-    [[nodiscard]] auto audio_project_update_version() const noexcept
-        -> std::uint64_t override;
-    [[nodiscard]] auto try_consume_audio_project_update() noexcept
-        -> std::optional<EngineStateMailbox::ReadView> override;
-
   private:
     PluginState state_;
     InstanceBinding instance_binding_;
     WorkspaceSettingsStore workspace_settings_store_;
     CommandCatalog command_catalog_;
     SubmissionEffects::FailurePoint effect_failure_;
-    EngineStateMailbox pending_engine_state_update_;
 
     struct ActivePreview
     {
@@ -72,8 +65,6 @@ class SequencerSession final : public SequencerSessionPort
         CommandSessionState command_session{};
     };
     std::optional<ActivePreview> active_preview_{};
-
-    void publish_project_snapshot();
 };
 
 } // namespace xen

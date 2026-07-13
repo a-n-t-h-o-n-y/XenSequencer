@@ -466,12 +466,11 @@ TEST_CASE("Transform cycles amend one history entry and again remains compatible
     CHECK(repeated.project_revision != second.project_revision);
 }
 
-TEST_CASE("No-op transform preserves session without history or publication",
+TEST_CASE("No-op transform preserves session without history mutation",
           "[data-model][transform]")
 {
     auto session = SequencerSession{};
     auto const before = session.project_snapshot();
-    auto const mailbox_version = session.audio_project_update_version();
     auto const result = session.execute_command_string(
         "chord Major 0", {
                              .selection = SelectionPath{},
@@ -482,7 +481,6 @@ TEST_CASE("No-op transform preserves session without history or publication",
     auto const after = session.project_snapshot();
     CHECK(after.project_revision == before.project_revision);
     CHECK(after.history_entry_id == before.history_entry_id);
-    CHECK(session.audio_project_update_version() == mailbox_version);
     REQUIRE(session.command_session().transform_cycle.has_value());
     CHECK_FALSE(session.command_session().transform_cycle->committed);
     CHECK(session.command_session().repeat_chain.empty());

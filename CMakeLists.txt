@@ -206,8 +206,8 @@ set(XEN_DOMAIN_SOURCES
     src/command.cpp
     src/copy_paste.cpp
     src/message_level.cpp
-    src/midi.cpp
-    src/midi_engine.cpp
+    src/midi_compiler.cpp
+    src/realtime_midi_player.cpp
     src/modulator.cpp
     src/project_validation.cpp
     src/scale.cpp
@@ -236,6 +236,7 @@ set(XEN_APPLICATION_SOURCES
     src/coordinator_server.cpp
     src/keymap.cpp
     src/ipc_sequencer_session_client.cpp
+    src/midi_compilation_service.cpp
     src/ipc_protocol.cpp
     src/parse_args.cpp
     src/sequencer_session.cpp
@@ -425,13 +426,13 @@ if (XEN_BUILD_TESTS)
         test/core/webview_bridge.test.cpp
         test/data_model_refactor.test.cpp
         test/midi.test.cpp
-        test/midi_engine.test.cpp
+        test/realtime_midi_player.test.cpp
         test/numeric_safety.test.cpp
         test/processor/command_effects.test.cpp
         test/processor/processor_commands.test.cpp
         test/processor/processor_timeline_commit.test.cpp
         test/sync/audio_thread_state_exchange.test.cpp
-        test/sync/engine_state_mailbox.test.cpp
+        test/sync/compiled_midi_mailbox.test.cpp
         test/sync/engine_snapshot_contract.test.cpp
         test/sync/session_coordinator.test.cpp
         test/utility.test.cpp
@@ -475,6 +476,24 @@ if (XEN_BUILD_TESTS)
         add_test(NAME XenAdapterTests COMMAND $<TARGET_FILE:XenAdapterTests>)
     else()
         message(STATUS "XEN_BUILD_TESTS is ON, but no Xen adapter test sources are configured.")
+    endif()
+
+    if (UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_executable(XenRealtimeMidiAllocationTests
+            test/realtime_midi_allocation.test.cpp
+        )
+        target_include_directories(XenRealtimeMidiAllocationTests
+            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        target_link_libraries(XenRealtimeMidiAllocationTests PUBLIC XenDomain)
+        target_link_options(XenRealtimeMidiAllocationTests PRIVATE
+            -Wl,--wrap=malloc
+            -Wl,--wrap=calloc
+            -Wl,--wrap=realloc
+            -Wl,--wrap=free
+        )
+        xen_apply_compile_settings(XenRealtimeMidiAllocationTests PRIVATE)
+        add_test(NAME XenRealtimeMidiAllocationTests
+            COMMAND $<TARGET_FILE:XenRealtimeMidiAllocationTests>)
     endif()
 endif()
 

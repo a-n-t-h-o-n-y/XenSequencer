@@ -5,16 +5,12 @@
 #include <optional>
 #include <vector>
 
-#include <juce_audio_basics/juce_audio_basics.h>
-
 #include <nlohmann/json.hpp>
 
 #include <sequence/sequence.hpp>
 
 #include <xen/actions.hpp>
-#include <xen/midi.hpp>
-#include <xen/midi_engine.hpp>
-#include <xen/midi_internal.hpp>
+#include <xen/midi_compiler.hpp>
 #include <xen/modulator.hpp>
 #include <xen/scale.hpp>
 #include <xen/serialize.hpp>
@@ -178,53 +174,10 @@ TEST_CASE("Modulators reject invalid wavetable and action outputs",
                     std::invalid_argument);
 }
 
-TEST_CASE("MIDI timing rejects unsupported signed sample positions", "[numeric][midi]")
+TEST_CASE("MIDI compiler rejects unrepresentable composition timing", "[numeric][midi]")
 {
-    auto const too_large =
-        static_cast<std::uint32_t>(std::numeric_limits<int>::max()) + 1U;
-    auto const timeline = std::vector<sequence::midi::TimedMidiNote>{
-        {.begin = too_large,
-         .end = too_large + 1U,
-         .note = 60,
-         .velocity = 100,
-         .pitch_bend = 8'192},
-    };
-    CHECK_THROWS_AS(xen::render_to_midi(timeline), std::overflow_error);
-
-    auto const buffer = juce::MidiBuffer{};
-    CHECK_THROWS_AS(xen::extract_window(buffer, 0, 0, 1), std::invalid_argument);
-    CHECK_THROWS_AS(
-        xen::extract_window(
-            buffer, static_cast<xen::SampleCount>(std::numeric_limits<int>::max()) + 1,
-            0, 1),
-        std::invalid_argument);
-    CHECK_THROWS_AS(
-        xen::extract_window(
-            buffer, 1, 0,
-            static_cast<xen::SampleIndex>(std::numeric_limits<int>::max()) + 1),
-        std::overflow_error);
-    CHECK_NOTHROW(xen::extract_window(
-        buffer, 64, std::numeric_limits<xen::SampleIndex>::max() - 100,
-        std::numeric_limits<xen::SampleIndex>::max() - 50));
-
-    CHECK_THROWS_AS(xen::midi_internal::checked_duration_sample_count(
-                        sequence::TimeSignature{4, 4},
-                        std::numeric_limits<std::uint32_t>::max(), 1.f),
-                    std::overflow_error);
-}
-
-TEST_CASE("MIDI engine ignores overflowing absolute processing windows",
-          "[numeric][midi]")
-{
-    auto engine = xen::MidiEngine{};
-    auto sequencer = xen::ProjectState{};
-    auto const daw = xen::DAWState{
-        .bpm = 120.f,
-        .sample_rate = 44'100,
-        .is_playing = true,
-    };
-    engine.update(sequencer, daw);
-
-    CHECK_NOTHROW(
-        (void)engine.step({}, std::numeric_limits<xen::SampleIndex>::max(), 1, daw));
+    auto project = xen::ProjectState{};
+    project.composition.default_column.duration.denominator = 0;
+    CHECK_THROWS_AS(xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1),
+                    std::invalid_argument);
 }

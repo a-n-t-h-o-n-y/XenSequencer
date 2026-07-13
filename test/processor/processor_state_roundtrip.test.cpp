@@ -95,8 +95,7 @@ TEST_CASE("Processor setStateInformation ignores invalid payload safely",
 {
     auto processor = XenProcessor{};
     auto const before_snapshot = processor.session().project_snapshot();
-    auto const before_mailbox_version =
-        processor.session().audio_project_update_version();
+    auto const before_compilation = processor.midi_compilation_status();
 
     auto const invalid = "not json";
     REQUIRE_NOTHROW(processor.setStateInformation(
@@ -106,7 +105,8 @@ TEST_CASE("Processor setStateInformation ignores invalid payload safely",
     CHECK(after_snapshot.project == before_snapshot.project);
     CHECK(after_snapshot.history_entry_id == before_snapshot.history_entry_id);
     CHECK(after_snapshot.project_revision == before_snapshot.project_revision);
-    CHECK(processor.session().audio_project_update_version() == before_mailbox_version);
+    CHECK(processor.midi_compilation_status().requested_generation ==
+          before_compilation.requested_generation);
 }
 
 TEST_CASE("Processor setStateInformation publishes and advances snapshot on success",
@@ -126,16 +126,15 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
 
     auto target = XenProcessor{};
     auto const before = target.session().project_snapshot();
+    auto const before_compilation = target.midi_compilation_status();
 
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
     auto const after = target.session().project_snapshot();
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
-    CHECK(target.session().audio_project_update_version() > 0);
-    auto const update = target.session().try_consume_audio_project_update();
-    REQUIRE(update.has_value());
-    CHECK(update->state().project == after.project);
+    CHECK(target.midi_compilation_status().requested_generation >
+          before_compilation.requested_generation);
 }
 
 TEST_CASE("Processor equal-data restoration replaces project history",

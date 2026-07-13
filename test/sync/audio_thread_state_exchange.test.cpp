@@ -37,6 +37,14 @@ TEST_CASE("AudioThreadStateExchange preserves coherent concurrent snapshots",
                     },
                 .loop_phase = static_cast<double>(i),
                 .transport_active = (i % 2U) == 0U,
+                .midi_status =
+                    {
+                        .current_fault = (i % 2U) == 0U
+                                             ? xen::RealtimeMidiFault::MissingPpq
+                                             : xen::RealtimeMidiFault::InvalidTransport,
+                        .last_fault = xen::RealtimeMidiFault::EventCapacityExceeded,
+                        .fault_count = i,
+                    },
             });
         }
         done.store(true, std::memory_order_release);
@@ -56,7 +64,13 @@ TEST_CASE("AudioThreadStateExchange preserves coherent concurrent snapshots",
             if (snapshot.daw.bpm != static_cast<float>(sample_rate) ||
                 snapshot.loop_phase != static_cast<double>(sample_rate) ||
                 snapshot.daw.is_playing != expected_playing ||
-                snapshot.transport_active != expected_playing)
+                snapshot.transport_active != expected_playing ||
+                snapshot.midi_status.fault_count != sample_rate ||
+                snapshot.midi_status.last_fault !=
+                    xen::RealtimeMidiFault::EventCapacityExceeded ||
+                snapshot.midi_status.current_fault !=
+                    (expected_playing ? xen::RealtimeMidiFault::MissingPpq
+                                      : xen::RealtimeMidiFault::InvalidTransport))
             {
                 failed.store(true, std::memory_order_release);
                 return;

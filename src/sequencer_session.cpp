@@ -12,7 +12,6 @@
 #include <nlohmann/json.hpp>
 
 #include <xen/command_transaction.hpp>
-#include <xen/project_validation.hpp>
 #include <xen/selection.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/user_directory.hpp>
@@ -152,7 +151,6 @@ SequencerSession::SequencerSession(SubmissionEffects::FailurePoint effect_failur
       workspace_settings_store_{std::move(workspace_settings_file)},
       command_catalog_{create_command_catalog()}, effect_failure_{effect_failure}
 {
-    publish_project_snapshot();
     (void)execute_command_string("load scales", CommandContext{});
     (void)execute_command_string("load chords", CommandContext{});
 }
@@ -224,10 +222,6 @@ auto SequencerSession::commit_preview(PreviewId const &preview_id,
     auto const committed = state_.timeline.commit(state_.timeline.get_state());
     active_preview_.reset();
     state_.command_session.transform_cycle.reset();
-    if (committed)
-    {
-        publish_project_snapshot();
-    }
     return {
         .status = {MessageLevel::Info,
                    committed ? "Preview committed." : "Preview unchanged."},
@@ -251,13 +245,9 @@ auto SequencerSession::cancel_preview(PreviewId const &preview_id,
     }
 
     auto command_session = std::move(active_preview_->command_session);
-    auto const changed = state_.timeline.reset_stage();
+    (void)state_.timeline.reset_stage();
     active_preview_.reset();
     state_.command_session = std::move(command_session);
-    if (changed)
-    {
-        publish_project_snapshot();
-    }
     return {
         .status = {MessageLevel::Info, "Preview cancelled."},
     };
@@ -441,7 +431,6 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
             .cursor = context.cursor,
         };
         auto result = CommandApplicationResult{};
-        auto const initial_engine = state_.timeline.get_state();
         auto const initial_revision = state_.timeline.get_project_revision();
 
         for (auto const &step : steps)
@@ -547,7 +536,6 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         {
             state_.command_session.repeat_chain = *transaction.repeat_candidate();
         }
-        auto const &final_engine = state_.timeline.get_state();
         auto const final_revision = state_.timeline.get_project_revision();
         if (history_count == 1 && final_revision == initial_revision)
         {
@@ -558,10 +546,6 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
                               navigation.direction == HistoryNavigationDirection::Undo
                                   ? "Nothing to undo."
                                   : "Nothing to redo."};
-        }
-        if (final_revision != initial_revision || final_engine != initial_engine)
-        {
-            publish_project_snapshot();
         }
         return result;
     }
@@ -585,7 +569,6 @@ void SequencerSession::replace_project_history(ProjectState state)
     active_preview_.reset();
     state_.timeline.replace_history(std::move(state));
     state_.command_session = CommandSessionState{};
-    publish_project_snapshot();
 }
 
 void SequencerSession::replace_library(ContentLibrary library)
@@ -601,7 +584,6 @@ void SequencerSession::replace_instance_binding(InstanceBinding binding)
         throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
     instance_binding_ = std::move(binding);
-    publish_project_snapshot();
 }
 
 void SequencerSession::replace_project_history_and_binding(ProjectState state,
@@ -615,7 +597,6 @@ void SequencerSession::replace_project_history_and_binding(ProjectState state,
     active_preview_.reset();
     state_.timeline.replace_history(std::move(state));
     state_.command_session = CommandSessionState{};
-    publish_project_snapshot();
 }
 
 void SequencerSession::set_channel_id(ChannelId channel_id)
@@ -625,27 +606,6 @@ void SequencerSession::set_channel_id(ChannelId channel_id)
         throw std::invalid_argument{"Instance channel ID must not be empty."};
     }
     instance_binding_.channel_id = std::move(channel_id);
-    publish_project_snapshot();
-}
-
-auto SequencerSession::audio_project_update_version() const noexcept -> std::uint64_t
-{
-    return pending_engine_state_update_.version();
-}
-
-auto SequencerSession::try_consume_audio_project_update() noexcept
-    -> std::optional<EngineStateMailbox::ReadView>
-{
-    return pending_engine_state_update_.try_consume_latest();
-}
-
-void SequencerSession::publish_project_snapshot()
-{
-    validate(state_.timeline.get_state());
-    pending_engine_state_update_.publish(AudioProjectSnapshot{
-        .project = state_.timeline.get_state(),
-        .channel_id = instance_binding_.channel_id,
-    });
 }
 
 } // namespace xen

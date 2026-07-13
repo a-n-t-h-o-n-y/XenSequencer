@@ -18,10 +18,8 @@
 #include <xen/coordinator_registry.hpp>
 #include <xen/ipc_sequencer_session_client.hpp>
 #include <xen/message_level.hpp>
-#include <xen/midi.hpp>
 #include <xen/serialize.hpp>
 #include <xen/state.hpp>
-#include <xen/utility.hpp>
 #include <xen/xen_editor.hpp>
 
 namespace
@@ -38,26 +36,6 @@ namespace
 {
     return std::isfinite(value) && value >= 1.0 &&
            value <= static_cast<double>(std::numeric_limits<std::uint32_t>::max());
-}
-
-[[nodiscard]] auto ppq_to_samples(double ppq, float bpm, std::uint32_t sample_rate)
-    -> xen::SampleIndex
-{
-    if (!std::isfinite(ppq) || ppq < 0.0)
-    {
-        return 0;
-    }
-
-    auto const samples = static_cast<long double>(ppq) * 60.0L /
-                         static_cast<long double>(bpm) *
-                         static_cast<long double>(sample_rate);
-    if (!std::isfinite(samples) || samples < 0.0L ||
-        samples >
-            static_cast<long double>(std::numeric_limits<xen::SampleIndex>::max()))
-    {
-        return 0;
-    }
-    return static_cast<xen::SampleIndex>(samples);
 }
 
 [[nodiscard]] auto make_id(char const *prefix) -> std::string
@@ -87,7 +65,7 @@ namespace
         "Multiple active XenSequencer sessions are running; refusing to guess."};
 }
 
-class OfflineSequencerSession final : public xen::SequencerSessionPort
+class OfflineSequencerSession final : public xen::ProcessorSessionPort
 {
   public:
     OfflineSequencerSession(xen::InstanceBinding binding, std::string error_message)
@@ -156,16 +134,22 @@ class OfflineSequencerSession final : public xen::SequencerSessionPort
         throw std::runtime_error{error_message_};
     }
 
-    [[nodiscard]] auto audio_project_update_version() const noexcept
+    [[nodiscard]] auto compiled_midi_generation() const noexcept
         -> std::uint64_t override
     {
         return 0;
     }
 
-    [[nodiscard]] auto try_consume_audio_project_update() noexcept
-        -> std::optional<xen::EngineStateMailbox::ReadView> override
+    [[nodiscard]] auto try_consume_compiled_midi() noexcept
+        -> std::optional<xen::CompiledMidiMailbox::ReadView> override
     {
         return std::nullopt;
+    }
+
+    [[nodiscard]] auto midi_compilation_status() const
+        -> xen::MidiCompilationStatus override
+    {
+        return {};
     }
 
   private:
@@ -230,113 +214,83 @@ auto XenProcessor::audio_thread_state_snapshot() const noexcept
     return audio_thread_state_for_gui_.read();
 }
 
+auto XenProcessor::midi_compilation_status() const -> MidiCompilationStatus
+{
+    return session_->midi_compilation_status();
+}
+
 void XenProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                                 juce::MidiBuffer &midi_buffer)
 {
     buffer.clear();
-
-    bool update_needed = false;
-    auto transport_offset = SampleIndex{0};
-
-    { // Update DAWState
-        auto bpm =
-            audio_thread_state_.daw.bpm > 0.f ? audio_thread_state_.daw.bpm : 120.f;
-        auto is_playing = false;
-        if (auto *playhead = this->getPlayHead(); playhead != nullptr)
-        {
-            auto const position = playhead->getPosition();
-            if (position.hasValue())
-            {
-                if (auto const bpm_opt = position->getBpm(); bpm_opt)
-                {
-                    if (valid_bpm(*bpm_opt))
-                    {
-                        bpm = static_cast<float>(*bpm_opt);
-                    }
-                }
-                is_playing = position->getIsPlaying();
-            }
-        }
-
-        auto sample_rate = audio_thread_state_.daw.sample_rate > 0
-                               ? audio_thread_state_.daw.sample_rate
-                               : std::uint32_t{44'100};
-        if (valid_sample_rate(this->getSampleRate()))
-        {
-            sample_rate = static_cast<std::uint32_t>(this->getSampleRate());
-        }
-
-        update_needed = !utility::compare_within_tolerance(audio_thread_state_.daw.bpm,
-                                                           bpm, 0.0001f) ||
-                        audio_thread_state_.daw.sample_rate != sample_rate ||
-                        audio_thread_state_.daw.is_playing != is_playing;
-
-        if (auto *playhead = this->getPlayHead(); playhead != nullptr)
-        {
-            auto const position = playhead->getPosition();
-            if (position.hasValue())
-            {
-                if (auto const samples_opt = position->getTimeInSamples();
-                    samples_opt.hasValue())
-                {
-                    if (*samples_opt >= 0)
-                    {
-                        transport_offset = static_cast<SampleIndex>(*samples_opt);
-                    }
-                }
-                else if (auto const ppq_opt = position->getPpqPosition();
-                         ppq_opt.hasValue() && bpm > 0.f && sample_rate > 0)
-                {
-                    transport_offset = ppq_to_samples(*ppq_opt, bpm, sample_rate);
-                }
-            }
-        }
-
-        audio_thread_state_.daw = DAWState{
-            .bpm = bpm,
-            .sample_rate = sample_rate,
-            .is_playing = is_playing,
-        };
-    }
-
-    if (auto const snapshot = session_->try_consume_audio_project_update())
-    {
-        audio_thread_state_.project = &snapshot->state().project;
-        audio_thread_state_.channel_id = snapshot->state().channel_id;
-        update_needed = true;
-    }
-
-    if (update_needed && audio_thread_state_.project != nullptr)
-    {
-        audio_thread_state_.midi_engine.update(*audio_thread_state_.project,
-                                               audio_thread_state_.daw,
-                                               audio_thread_state_.channel_id);
-    }
-
-    // Calculate MIDI buffer slice
-    auto const block_size = buffer.getNumSamples();
-    auto const sample_count =
-        block_size >= 0 ? static_cast<SampleCount>(block_size) : SampleCount{0};
-    auto next_slice = audio_thread_state_.midi_engine.step(
-        midi_buffer, transport_offset, sample_count, audio_thread_state_.daw);
-
-    midi_buffer.swapWith(next_slice);
-
-    audio_thread_state_for_gui_.write({
-        .daw = audio_thread_state_.daw,
-        .loop_phase = audio_thread_state_.midi_engine.get_loop_phase(
-            transport_offset, audio_thread_state_.daw),
-        .transport_active = audio_thread_state_.daw.is_playing,
-    });
+    process_midi_block(buffer.getNumSamples(), midi_buffer);
 }
 
 void XenProcessor::processBlock(juce::AudioBuffer<double> &buffer,
                                 juce::MidiBuffer &midi_buffer)
 {
-    // Just forward to float version, this is a midi-only plugin.
     buffer.clear();
-    auto empty = juce::AudioBuffer<float>{};
-    this->processBlock(empty, midi_buffer);
+    process_midi_block(buffer.getNumSamples(), midi_buffer);
+}
+
+void XenProcessor::process_midi_block(int sample_count,
+                                      juce::MidiBuffer &midi_buffer) noexcept
+{
+    auto bpm = audio_thread_state_.daw.bpm > 0.0F
+                   ? static_cast<double>(audio_thread_state_.daw.bpm)
+                   : 120.0;
+    auto playing = false;
+    auto has_ppq = false;
+    auto ppq = 0.0;
+    if (auto *playhead = getPlayHead(); playhead != nullptr)
+    {
+        auto const position = playhead->getPosition();
+        if (position.hasValue())
+        {
+            playing = position->getIsPlaying();
+            if (auto const host_bpm = position->getBpm();
+                host_bpm.hasValue() && valid_bpm(*host_bpm))
+            {
+                bpm = *host_bpm;
+            }
+            if (auto const host_ppq = position->getPpqPosition();
+                host_ppq.hasValue() && std::isfinite(*host_ppq))
+            {
+                ppq = *host_ppq;
+                has_ppq = true;
+            }
+        }
+    }
+    auto const sample_rate = valid_sample_rate(getSampleRate())
+                                 ? static_cast<std::uint32_t>(getSampleRate())
+                                 : std::uint32_t{0};
+    audio_thread_state_.daw = {
+        .bpm = static_cast<float>(bpm),
+        .sample_rate = sample_rate,
+        .is_playing = playing,
+    };
+
+    if (auto const update = session_->try_consume_compiled_midi())
+    {
+        audio_thread_state_.midi_player.adopt(update->update());
+    }
+    audio_thread_state_.midi_player.process(
+        {
+            .playing = playing,
+            .has_ppq = has_ppq,
+            .ppq = ppq,
+            .bpm = bpm,
+            .sample_rate = sample_rate,
+            .sample_count = sample_count,
+        },
+        midi_buffer);
+
+    audio_thread_state_for_gui_.write({
+        .daw = audio_thread_state_.daw,
+        .loop_phase = audio_thread_state_.midi_player.loop_phase(),
+        .transport_active = playing,
+        .midi_status = audio_thread_state_.midi_player.status(),
+    });
 }
 
 auto XenProcessor::createEditor() -> juce::AudioProcessorEditor *
@@ -378,12 +332,17 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
     }
 }
 
-void XenProcessor::prepareToPlay(double, int)
+void XenProcessor::prepareToPlay(double sample_rate, int samples_per_block)
 {
+    auto const rate = valid_sample_rate(sample_rate)
+                          ? static_cast<std::uint32_t>(sample_rate)
+                          : std::uint32_t{0};
+    audio_thread_state_.midi_player.prepare(rate, samples_per_block);
 }
 
 void XenProcessor::releaseResources()
 {
+    audio_thread_state_.midi_player.release();
 }
 
 auto XenProcessor::getName() const -> juce::String const

@@ -8,7 +8,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <xen/audio_thread_state_exchange.hpp>
-#include <xen/midi_engine.hpp>
+#include <xen/processor_session_port.hpp>
+#include <xen/realtime_midi_player.hpp>
 #include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/submission_effects.hpp>
@@ -35,6 +36,7 @@ class XenProcessor : public juce::AudioProcessor
     [[nodiscard]] auto session() const noexcept -> SequencerSessionPort const &;
     [[nodiscard]] auto audio_thread_state_snapshot() const noexcept
         -> AudioThreadStateForGUI;
+    [[nodiscard]] auto midi_compilation_status() const -> MidiCompilationStatus;
 
   public:
     void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
@@ -71,12 +73,12 @@ class XenProcessor : public juce::AudioProcessor
     struct AudioThreadState
     {
         DAWState daw;
-        ProjectState const *project{};
-        ChannelId channel_id{DEFAULT_CHANNEL_ID};
-        MidiEngine midi_engine;
+        RealtimeMidiPlayer midi_player;
     } audio_thread_state_;
 
-    std::unique_ptr<SequencerSessionPort> session_;
+    void process_midi_block(int sample_count, juce::MidiBuffer &midi_buffer) noexcept;
+
+    std::unique_ptr<ProcessorSessionPort> session_;
     AudioThreadStateExchange audio_thread_state_for_gui_;
 };
 

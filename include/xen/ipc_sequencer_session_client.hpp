@@ -13,14 +13,14 @@
 
 #include <xen/command_catalog.hpp>
 #include <xen/coordinator_launcher.hpp>
-#include <xen/engine_state_mailbox.hpp>
 #include <xen/ipc_protocol.hpp>
-#include <xen/sequencer_session_port.hpp>
+#include <xen/midi_compilation_service.hpp>
+#include <xen/processor_session_port.hpp>
 
 namespace xen::ipc
 {
 
-class IpcSequencerSessionClient final : public SequencerSessionPort,
+class IpcSequencerSessionClient final : public ProcessorSessionPort,
                                         private juce::InterprocessConnection
 {
   public:
@@ -50,10 +50,12 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
         -> PreviewControlResult override;
     void set_channel_id(ChannelId channel_id) override;
 
-    [[nodiscard]] auto audio_project_update_version() const noexcept
+    [[nodiscard]] auto compiled_midi_generation() const noexcept
         -> std::uint64_t override;
-    [[nodiscard]] auto try_consume_audio_project_update() noexcept
-        -> std::optional<EngineStateMailbox::ReadView> override;
+    [[nodiscard]] auto try_consume_compiled_midi() noexcept
+        -> std::optional<CompiledMidiMailbox::ReadView> override;
+    [[nodiscard]] auto midi_compilation_status() const
+        -> MidiCompilationStatus override;
 
     [[nodiscard]] auto online() const noexcept -> bool;
     [[nodiscard]] auto last_error() const -> std::string;
@@ -66,7 +68,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
     ProjectSnapshot persistent_project_snapshot_{};
     LibrarySnapshot library_snapshot_{};
     CommandCatalog command_catalog_;
-    EngineStateMailbox pending_engine_state_update_;
+    MidiCompilationService midi_compilation_;
     bool online_{false};
     std::string last_error_{};
     std::uint64_t next_request_id_{1};
@@ -81,7 +83,7 @@ class IpcSequencerSessionClient final : public SequencerSessionPort,
                           std::filesystem::path helper_path);
     [[nodiscard]] auto next_request_id() -> std::string;
     [[nodiscard]] auto request_helper_shutdown_if_idle() -> bool;
-    void publish_audio_snapshot();
+    void submit_midi_compilation();
     void send_json(nlohmann::json const &message);
     [[nodiscard]] auto finish_preview_request(nlohmann::json request,
                                               std::string const &request_id)

@@ -137,7 +137,7 @@ auto IpcSequencerSessionClient::execute_command_string(
     {
         persistent_project_snapshot_ = response.snapshot;
     }
-    publish_audio_snapshot();
+    submit_midi_compilation();
     return std::move(response.result);
 }
 
@@ -221,7 +221,7 @@ auto IpcSequencerSessionClient::finish_preview_request(nlohmann::json request,
     {
         persistent_project_snapshot_ = response.snapshot;
     }
-    publish_audio_snapshot();
+    submit_midi_compilation();
     return std::move(response.result);
 }
 
@@ -266,19 +266,24 @@ void IpcSequencerSessionClient::set_channel_id(ChannelId channel_id)
     binding_ = pending_binding_response_->binding;
     project_snapshot_ = pending_binding_response_->snapshot;
     pending_binding_response_.reset();
-    publish_audio_snapshot();
+    submit_midi_compilation();
 }
 
-auto IpcSequencerSessionClient::audio_project_update_version() const noexcept
+auto IpcSequencerSessionClient::compiled_midi_generation() const noexcept
     -> std::uint64_t
 {
-    return pending_engine_state_update_.version();
+    return midi_compilation_.published_generation();
 }
 
-auto IpcSequencerSessionClient::try_consume_audio_project_update() noexcept
-    -> std::optional<EngineStateMailbox::ReadView>
+auto IpcSequencerSessionClient::try_consume_compiled_midi() noexcept
+    -> std::optional<CompiledMidiMailbox::ReadView>
 {
-    return pending_engine_state_update_.try_consume_latest();
+    return midi_compilation_.try_consume_latest();
+}
+
+auto IpcSequencerSessionClient::midi_compilation_status() const -> MidiCompilationStatus
+{
+    return midi_compilation_.status();
 }
 
 auto IpcSequencerSessionClient::online() const noexcept -> bool
@@ -373,12 +378,9 @@ auto IpcSequencerSessionClient::request_helper_shutdown_if_idle() -> bool
     return will_exit;
 }
 
-void IpcSequencerSessionClient::publish_audio_snapshot()
+void IpcSequencerSessionClient::submit_midi_compilation()
 {
-    pending_engine_state_update_.publish(AudioProjectSnapshot{
-        .project = project_snapshot_.project,
-        .channel_id = binding_.channel_id,
-    });
+    (void)midi_compilation_.submit(project_snapshot_.project, binding_.channel_id);
 }
 
 void IpcSequencerSessionClient::send_json(nlohmann::json const &message)
@@ -422,7 +424,7 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
             project_snapshot_ = std::move(hello.snapshot);
             persistent_project_snapshot_ = std::move(hello.persistent_snapshot);
             library_snapshot_ = std::move(hello.library);
-            publish_audio_snapshot();
+            submit_midi_compilation();
             response_ready_.notify_all();
             return;
         }
@@ -457,7 +459,7 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
             {
                 persistent_project_snapshot_ = project_snapshot_;
             }
-            publish_audio_snapshot();
+            submit_midi_compilation();
             response_ready_.notify_all();
             return;
         }
