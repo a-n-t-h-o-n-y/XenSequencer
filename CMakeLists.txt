@@ -15,6 +15,26 @@ option(XEN_BUILD_TESTS "Build XenSequencer tests" ON)
 option(XEN_BUILD_TOOLS "Build XenSequencer tools" ON)
 option(XEN_BUILD_AUDIO_PLUGIN_HOST "Build JUCE AudioPluginHost target" ON)
 
+set(XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY "on-demand" CACHE STRING
+    "Linux WebKitGTK hardware acceleration policy: on-demand, always, or never")
+set_property(CACHE XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY PROPERTY STRINGS
+    on-demand always never)
+
+if (XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY STREQUAL "on-demand")
+    set(XEN_JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY
+        JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND)
+elseif (XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY STREQUAL "always")
+    set(XEN_JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY
+        JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS)
+elseif (XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY STREQUAL "never")
+    set(XEN_JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY
+        JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER)
+else()
+    message(FATAL_ERROR
+        "Invalid XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY="
+        "'${XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY}'. Expected on-demand, always, or never.")
+endif()
+
 set(XEN_WEB_UI_MODE "DEV_SERVER" CACHE STRING
     "Web UI source mode: DEV_SERVER or EMBEDDED")
 set_property(CACHE XEN_WEB_UI_MODE PROPERTY STRINGS DEV_SERVER EMBEDDED)
@@ -80,6 +100,11 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG ${XEN_JUCE_TAG}
     GIT_SHALLOW TRUE
+    PATCH_COMMAND
+        ${CMAKE_COMMAND}
+        -DPATCH_FILE=${CMAKE_CURRENT_SOURCE_DIR}/patches/juce-linux-webkit-hardware-acceleration.patch
+        -DSOURCE_DIR=<SOURCE_DIR>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/apply_patch.cmake
     SYSTEM
 )
 
@@ -108,6 +133,14 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(juce yaml_cpp json signals_light)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_definitions(juce_gui_extra INTERFACE
+        "JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY=${XEN_JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY}")
+    message(STATUS
+        "Linux WebKitGTK hardware acceleration policy: "
+        "${XEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY}")
+endif()
 
 if (XEN_BUILD_TESTS)
     FetchContent_Declare(

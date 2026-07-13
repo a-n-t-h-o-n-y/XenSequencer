@@ -26,16 +26,25 @@
 
 - Keep default validation lightweight. Do not treat a full build-and-test cycle as the baseline for every task.
 - Builds and tests may take a while; run them when they provide useful verification, not as a reflex after every change.
-- use only up to 6 parallel instances when compiling C++.
+- Run only one build command at a time and use at most 6 parallel compile jobs:
+  - Before starting, check once that no `cmake --build`, Ninja, or compiler process for
+    this workspace is already running, including processes from earlier tool sessions.
+  - Set `CMAKE_BUILD_PARALLEL_LEVEL=6` (or lower); do not rely on Ninja's machine-wide
+    default parallelism.
+  - If the command returns a live execution session ID, wait on that exact session at
+    60-second intervals with a small output limit. Do not poll an outer orchestration
+    cell, repeatedly dump the process table, or start other work while the build runs.
+  - Treat the build as finished only when that session reports an exit code. Then check
+    once that its Ninja and compiler processes have exited.
 - Avoid repetitive validation loops. While iterating, prefer the smallest meaningful build or test that checks the change, and stop once you have enough signal to proceed.
 - Run expensive verification only when the task actually requires it, such as shared-core changes, build-system changes, release/plugin packaging work, or when a narrow check cannot cover the risk.
 - Use the canonical dev workflow:
   - Configure: `./configure.sh`
-  - Build: `cmake --build build`
+  - Build: `CMAKE_BUILD_PARALLEL_LEVEL=6 cmake --build build`
   - Test: `ctest --test-dir build`
 - Use the release workflow only for a requested release/plugin build:
   - Configure: `./configure.sh release`
-  - Build: `cmake --build build-release --target XenSequencer_VST3`
+  - Build: `CMAKE_BUILD_PARALLEL_LEVEL=6 cmake --build build-release --target XenSequencer_VST3`
 - Pass local compiler or path changes as environment/CMake overrides, for example `CC=clang CXX=clang++ ./configure.sh` or `./configure.sh -DNAME=VALUE`.
 - Do not invoke raw configure commands or create alternate build directories unless explicitly needed; use `configure.sh` and the existing preset directories.
 - Do not pass explicit `-j` options to Ninja or CMake build commands.

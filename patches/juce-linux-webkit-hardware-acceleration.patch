@@ -1,0 +1,107 @@
+diff --git a/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp b/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
+--- a/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
++++ b/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
+@@ -471,5 +471,39 @@
+ extern "C" int juce_gtkWebkitMain (int argc, const char* const* argv);
+ 
++enum class WebKitHardwareAccelerationPolicy
++{
++    onDemand = 0,
++    always = 1,
++    never = 2
++};
++
++#define JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND 0
++#define JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS 1
++#define JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER 2
++
++#ifndef JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY
++ #define JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER
++#endif
++
++static constexpr auto configuredWebKitHardwareAccelerationPolicy =
++    static_cast<WebKitHardwareAccelerationPolicy> (JUCE_WEBKIT_HARDWARE_ACCELERATION_POLICY);
++
++static_assert (configuredWebKitHardwareAccelerationPolicy >= WebKitHardwareAccelerationPolicy::onDemand
++               && configuredWebKitHardwareAccelerationPolicy <= WebKitHardwareAccelerationPolicy::never);
++
++static const char* getWebKitHardwareAccelerationPolicyName (WebKitHardwareAccelerationPolicy policy)
++{
++    switch (policy)
++    {
++        case WebKitHardwareAccelerationPolicy::onDemand: return "on-demand";
++        case WebKitHardwareAccelerationPolicy::always:   return "always";
++        case WebKitHardwareAccelerationPolicy::never:    return "never";
++    }
++
++    jassertfalse;
++    return "unknown";
++}
++
+ class CommandReceiver
+ {
+ public:
+@@ -772,9 +806,13 @@ class GtkChildProcess final : private CommandReceiver::Responder
+ public:
+     //==============================================================================
+-    GtkChildProcess (int inChannel, int outChannelToUse, const String& userAgentToUse)
++    GtkChildProcess (int inChannel,
++                     int outChannelToUse,
++                     const String& userAgentToUse,
++                     WebKitHardwareAccelerationPolicy hardwareAccelerationPolicyToUse)
+         : outChannel (outChannelToUse),
+           receiver (this, inChannel),
+-          userAgent (userAgentToUse)
++          userAgent (userAgentToUse),
++          hardwareAccelerationPolicy (hardwareAccelerationPolicyToUse)
+     {}
+ 
+     int entry()
+@@ -805,10 +843,11 @@ public:
+ 
+         auto* settings = wk.juce_webkit_settings_new();
+ 
+-        static constexpr int webkitHadwareAccelerationPolicyNeverFlag = 2;
+-
+-        WebKitSymbols::getInstance()->juce_webkit_settings_set_hardware_acceleration_policy (settings,
+-                                                                                             webkitHadwareAccelerationPolicyNeverFlag);
++        std::clog << "JUCE WebKitGTK hardware acceleration policy: "
++                  << getWebKitHardwareAccelerationPolicyName (hardwareAccelerationPolicy)
++                  << std::endl;
++        wk.juce_webkit_settings_set_hardware_acceleration_policy (settings,
++                                                                  static_cast<int> (hardwareAccelerationPolicy));
+         if (initialisationData->userAgent.isNotEmpty())
+             WebKitSymbols::getInstance()->juce_webkit_settings_set_user_agent (settings,
+                                                                                initialisationData->userAgent.toRawUTF8());
+@@ -1357,6 +1396,7 @@ private:
+     WebKitUserContentManager* manager = nullptr;
+     std::optional<InitialisationData> initialisationData;
+     RequestIds requestIds;
++    WebKitHardwareAccelerationPolicy hardwareAccelerationPolicy;
+ };
+ 
+ //==============================================================================
+@@ -1635,6 +1675,7 @@ private:
+         arguments.emplace_back ("--juce-gtkwebkitfork-child");
+         arguments.emplace_back (outPipe[0]);
+         arguments.emplace_back (inPipe [1]);
++        arguments.emplace_back (static_cast<int> (configuredWebKitHardwareAccelerationPolicy));
+ 
+         if (userAgent.isNotEmpty())
+             arguments.emplace_back (userAgent);
+@@ -1800,12 +1841,13 @@ bool WebBrowserComponent::areOptionsSupported (const Options& options)
+ 
+ extern "C" __attribute__ ((visibility ("default"))) int juce_gtkWebkitMain (int argc, const char* const* argv)
+ {
+-    if (argc < 4)
++    if (argc < 5)
+         return -1;
+ 
+     GtkChildProcess child (String (argv[2]).getIntValue(),
+                            String (argv[3]).getIntValue(),
+-                           argc >= 5 ? String (argv[4]) : String());
++                           argc >= 6 ? String (argv[5]) : String(),
++                           static_cast<WebKitHardwareAccelerationPolicy> (String (argv[4]).getIntValue()));
+ 
+     return child.entry();
+ }

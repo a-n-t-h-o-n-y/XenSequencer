@@ -27,6 +27,15 @@ ctest --test-dir build
 ```
 
 The development build uses `build/`, `Debug`, and the frontend dev server by default.
+On Linux, its WebKitGTK WebView hardware acceleration policy defaults to `on-demand`.
+To restore software-only rendering for compatibility, reconfigure with:
+
+```bash
+./configure.sh -DXEN_WEBVIEW_HARDWARE_ACCELERATION_POLICY=never
+```
+
+The other supported policy is `always`; use it only on platforms that have been tested
+with forced hardware acceleration.
 
 ### Release VST Build
 Build the frontend first so `../xen-frontend/dist/index.html` exists, then run:
