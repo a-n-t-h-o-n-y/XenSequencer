@@ -9,7 +9,6 @@
 #include <nlohmann/json.hpp>
 
 #include <xen/command_catalog_types.hpp>
-#include <xen/keymap.hpp>
 #include <xen/selection.hpp>
 
 namespace xen::bridge
@@ -44,8 +43,8 @@ class BridgeError : public std::runtime_error
 [[nodiscard]] auto require_composition_coordinate(nlohmann::json const &json,
                                                   std::string_view field_name)
     -> CompositionCoordinate;
-[[nodiscard]] auto require_keymap_revision(nlohmann::json const &json,
-                                           std::string_view field_name)
+[[nodiscard]] auto require_resource_revision(nlohmann::json const &json,
+                                             std::string_view field_name)
     -> std::uint64_t;
 
 [[nodiscard]] auto parse_command_context(nlohmann::json const &payload)

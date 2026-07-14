@@ -68,7 +68,7 @@ auto require_composition_coordinate(nlohmann::json const &json,
     return static_cast<CompositionCoordinate>(value);
 }
 
-auto require_keymap_revision(nlohmann::json const &json, std::string_view field_name)
+auto require_resource_revision(nlohmann::json const &json, std::string_view field_name)
     -> std::uint64_t
 {
     auto const key = std::string{field_name};

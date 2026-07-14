@@ -13,10 +13,13 @@ namespace xen
 {
 
 WebviewBridge::WebviewBridge(SequencerSessionPort &session,
-                             std::filesystem::path keymap_file)
+                             std::filesystem::path keymap_file,
+                             std::filesystem::path preferences_file)
     : application_service_{session}, library_files_{}, library_service_{library_files_},
       keymap_service_{std::move(keymap_file)},
-      dispatcher_{application_service_, library_service_, keymap_service_}
+      preferences_service_{std::move(preferences_file)},
+      dispatcher_{application_service_, library_service_, keymap_service_,
+                  preferences_service_}
 {
 }
 
@@ -45,6 +48,14 @@ auto WebviewBridge::make_keymap_changed_event_json() -> std::string
 {
     return bridge::make_envelope("event", "keymap.changed", std::nullopt,
                                  bridge::make_keymap_payload(keymap_service_.read()))
+        .dump();
+}
+
+auto WebviewBridge::make_preferences_changed_event_json() -> std::string
+{
+    return bridge::make_envelope(
+               "event", "preferences.changed", std::nullopt,
+               bridge::make_preferences_payload(preferences_service_.read()))
         .dump();
 }
 
@@ -78,6 +89,25 @@ auto WebviewBridge::refresh_keymap() noexcept -> bool
         return keymap_service_.refresh();
     }
     catch (KeymapStorageError const &)
+    {
+        // Reads still surface the actionable error. Polling cannot publish an
+        // opaque JSON resource until the external file becomes valid again.
+        return false;
+    }
+}
+
+auto WebviewBridge::preferences_revision() const noexcept -> std::uint64_t
+{
+    return preferences_service_.revision();
+}
+
+auto WebviewBridge::refresh_preferences() noexcept -> bool
+{
+    try
+    {
+        return preferences_service_.refresh();
+    }
+    catch (PreferencesStorageError const &)
     {
         // Reads still surface the actionable error. Polling cannot publish an
         // opaque JSON resource until the external file becomes valid again.

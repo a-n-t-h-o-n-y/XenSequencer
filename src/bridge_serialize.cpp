@@ -356,4 +356,13 @@ auto make_keymap_payload(KeymapResource const &resource) -> nlohmann::json
     };
 }
 
+auto make_preferences_payload(PreferencesResource const &resource) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"revision", std::to_string(resource.revision)},
+        {"document",
+         resource.document.has_value() ? *resource.document : nlohmann::json(nullptr)},
+    };
+}
+
 } // namespace xen::bridge

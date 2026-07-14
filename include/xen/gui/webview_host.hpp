@@ -45,6 +45,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     void emit_state_changed_event();
     void emit_library_changed_event();
     void emit_keymap_changed_event();
+    void emit_preferences_changed_event();
     void emit_transport_events();
 
   private:
@@ -61,6 +62,7 @@ class WebviewHost : public juce::Component, private juce::Timer
     ProjectRevision last_project_revision_{};
     LibraryRevision last_library_revision_{};
     std::uint64_t last_keymap_revision_{};
+    std::uint64_t last_preferences_revision_{};
     std::uint64_t last_midi_fault_count_{};
     bool last_transport_active_{false};
 };

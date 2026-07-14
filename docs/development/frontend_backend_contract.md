@@ -28,8 +28,8 @@ to the contract below as one migration.
   `project save` respectively; there are no aliases.
 - Project and library publication are separate revision domains. Library data is not
   included in project snapshots.
-- `session.hello` contains the immutable command catalog and revisioned keymap
-  resource.
+- `session.hello` contains the immutable command catalog and revisioned keymap and
+  preferences resources.
 - `catalog.get`, `command.complete`, `command.completeText`, `command.completeId`, and
   the old raw-string keymap contract were removed. Completion and keymap routing are
   frontend-local; keymap persistence uses the dedicated keymap requests.
@@ -75,7 +75,10 @@ type ErrorPayload = {
       | "malformed_document"
       | "keymap_read_error"
       | "keymap_write_error"
-      | "keymap_delete_error";
+      | "keymap_delete_error"
+      | "preferences_read_error"
+      | "preferences_write_error"
+      | "preferences_delete_error";
     message: string;
   };
 };
@@ -112,6 +115,7 @@ type SessionHello = {
     commands: CatalogCommand[];
   };
   keymap: KeymapResource;
+  preferences: PreferencesResource;
 };
 ```
 
@@ -120,13 +124,16 @@ type KeymapResource = {
   revision: string;
   document: unknown | null;
 };
+
+type PreferencesResource = {
+  revision: string;
+  document: Record<string, unknown> | null;
+};
 ```
 
-Keymap revisions are opaque decimal strings, including
-`keymap.write.payload.expected_revision` and
-`keymap.delete.payload.expected_revision`. They may exceed both JavaScript's safe
-integer range and signed 64-bit range; preserve them as strings and compare only for
-equality.
+Keymap and preferences revisions are opaque decimal strings, including every
+`expected_revision` request field. They may exceed both JavaScript's safe integer
+range and signed 64-bit range; preserve them as strings and compare only for equality.
 
 The hello response contains no project or library snapshot. After a successful hello,
 request both `state.get` and `library.get`. Do not wait for initial change events; the
@@ -171,9 +178,25 @@ autocomplete, filtering, and ranking. Completion should tolerantly parse only th
 active semicolon-delimited chain segment. Final command text is still submitted to the
 strict backend parser.
 
-The opaque keymap resource, whole-document requests, revision rules, and frontend
-ownership requirements are defined in
-[`frontend_keymap_contract.md`](frontend_keymap_contract.md).
+## Frontend-owned documents
+
+Keymaps and preferences are independent whole-document resources. The backend owns
+only persistence, size limits, revisions, optimistic conflicts, deletion, and change
+publication. The frontend owns recognized fields, defaults, validation, schema
+migrations, and merging after conflicts.
+
+The available requests are `keymap.read`, `keymap.write`, `keymap.delete`,
+`preferences.read`, `preferences.write`, and `preferences.delete`. Read payloads are
+empty objects. Write payloads contain `expected_revision` and `document`; delete
+payloads contain only `expected_revision`. A successful response returns the complete
+updated resource.
+
+Preferences documents must be JSON objects and may be at most 4 MiB when serialized.
+The file is stored separately as `settings/preferences.json`; a missing file is
+represented as `document: null`. The backend does not inspect `schema_version` or any
+preference field. Frontend migrations and individual preference updates must preserve
+unknown fields. On `conflict`, reload the latest resource, reapply only the intended
+change, and retry or ask the user to retry.
 
 ## Project resource
 
@@ -511,7 +534,11 @@ type BridgeEvent =
       payload: { bpm: number; phase: number };
     }
   | Envelope & { name: "transport.stopped"; payload: {} }
-  | Envelope & { name: "keymap.changed"; payload: KeymapResource };
+  | Envelope & { name: "keymap.changed"; payload: KeymapResource }
+  | Envelope & {
+      name: "preferences.changed";
+      payload: PreferencesResource;
+    };
 ```
 
 `transport.phase.sync.phase` is normalized to `[0, 1)`. Treat transport events as
@@ -521,8 +548,7 @@ transient animation state; they do not participate in project or library revisio
 ## Required frontend migration
 
 The frontend migration must cover the resource contracts below as one breaking
-change. Keymap-specific replacement work is tracked separately in
-[`frontend_keymap_contract.md`](frontend_keymap_contract.md).
+change.
 
 At minimum:
 
@@ -543,9 +569,13 @@ At minimum:
 - implement local selection navigation and input-mode actions;
 - send current revision and selection in command context;
 - consume `suggested_selection`;
-- consume the catalog and opaque keymap resource from `session.hello`;
+- consume the catalog and opaque keymap and preferences resources from
+  `session.hello`;
 - own keymap defaults, validation, merging, trigger matching, and target dispatch;
 - implement whole-document keymap responses and `keymap.changed`;
+- own preferences defaults, fields, validation, schema migrations, and conflict
+  merging while preserving unknown fields;
+- implement whole-document preferences responses and `preferences.changed`;
 - remove all `command.complete*` and `catalog.get` requests;
 - implement completion from the cached catalog;
 - add `library.changed` handling and revision-aware library ingestion;

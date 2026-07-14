@@ -19,11 +19,20 @@ namespace
 {
 
 inline constexpr auto HIGH_KEYMAP_REVISION = 18'446'744'073'709'551'600ULL;
+inline constexpr auto HIGH_PREFERENCES_REVISION = 18'446'744'073'709'551'500ULL;
 
 auto temporary_keymap_file() -> std::filesystem::path
 {
     return juce::File::getSpecialLocation(juce::File::tempDirectory)
         .getNonexistentChildFile("xen-keymap", ".json", false)
+        .getFullPathName()
+        .toStdString();
+}
+
+auto temporary_preferences_file() -> std::filesystem::path
+{
+    return juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getNonexistentChildFile("xen-preferences", ".json", false)
         .getFullPathName()
         .toStdString();
 }
@@ -42,7 +51,8 @@ auto make_session() -> SequencerSession
 
 auto make_bridge(SequencerSession &session) -> WebviewBridge
 {
-    return WebviewBridge{session, temporary_keymap_file()};
+    return WebviewBridge{session, temporary_keymap_file(),
+                         temporary_preferences_file()};
 }
 
 auto request(std::string name, nlohmann::json payload = nlohmann::json::object())
@@ -207,6 +217,55 @@ class FakeKeymapService final : public bridge::KeymapBridgeService
     }
 };
 
+class FakePreferencesService final : public bridge::PreferencesBridgeService
+{
+  public:
+    PreferencesResource current{
+        .revision = HIGH_PREFERENCES_REVISION,
+        .document = nlohmann::json{{"future", true}},
+    };
+
+    auto read() -> PreferencesResource override
+    {
+        return current;
+    }
+
+    [[nodiscard]] auto revision() const noexcept -> std::uint64_t override
+    {
+        return current.revision;
+    }
+
+    auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> PreferencesResource override
+    {
+        if (expected_revision != current.revision)
+        {
+            throw PreferencesStorageError{PreferencesStorageErrorCode::Conflict,
+                                          "stale fake preferences revision"};
+        }
+        ++current.revision;
+        current.document = std::move(document);
+        return current;
+    }
+
+    auto erase(std::uint64_t expected_revision) -> PreferencesResource override
+    {
+        if (expected_revision != current.revision)
+        {
+            throw PreferencesStorageError{PreferencesStorageErrorCode::Conflict,
+                                          "stale fake preferences revision"};
+        }
+        ++current.revision;
+        current.document.reset();
+        return current;
+    }
+
+    auto refresh() -> bool override
+    {
+        return false;
+    }
+};
+
 class FakeLibraryService final : public bridge::LibraryBridgeService
 {
   public:
@@ -337,6 +396,9 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
           static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()));
     CHECK(keymap_revision > 9'007'199'254'740'991ULL);
     CHECK(payload.at("keymap").at("document").is_null());
+    CHECK(payload.contains("preferences"));
+    REQUIRE(payload.at("preferences").at("revision").is_string());
+    CHECK(payload.at("preferences").at("document").is_null());
     CHECK_FALSE(payload.contains("project"));
     CHECK_FALSE(payload.contains("library"));
 }
@@ -458,6 +520,40 @@ TEST_CASE("Bridge writes and deletes opaque keymap documents", "[core][bridge]")
     CHECK(erased.at("revision") == revision);
 }
 
+TEST_CASE("Bridge writes and deletes opaque preferences objects", "[core][bridge]")
+{
+    auto session = make_session();
+    auto host_bridge = make_bridge(session);
+    auto const initial = response(host_bridge, "preferences.read").at("payload");
+    auto const revision = initial.at("revision").get<std::string>();
+    auto const document = nlohmann::json{
+        {"schema_version", 1},
+        {"unknown_future_preference", {{"enabled", true}}},
+    };
+    auto const updated = response(host_bridge, "preferences.write",
+                                  {
+                                      {"expected_revision", revision},
+                                      {"document", document},
+                                  })
+                             .at("payload");
+    CHECK(updated.at("revision") != revision);
+    CHECK(updated.at("document") == document);
+
+    auto const stale = response(host_bridge, "preferences.write",
+                                {
+                                    {"expected_revision", revision},
+                                    {"document", {{"replacement", true}}},
+                                })
+                           .at("payload");
+    CHECK(stale.at("error").at("code") == "conflict");
+
+    auto const erased = response(host_bridge, "preferences.delete",
+                                 {{"expected_revision", updated.at("revision")}})
+                            .at("payload");
+    CHECK(erased.at("document").is_null());
+    CHECK(erased.at("revision") == revision);
+}
+
 TEST_CASE("Bridge changed events use independent resource payloads", "[core][bridge]")
 {
     auto session = make_session();
@@ -480,13 +576,19 @@ TEST_CASE("Bridge changed events use independent resource payloads", "[core][bri
     CHECK(keymap.at("name") == "keymap.changed");
     CHECK(keymap.at("payload").contains("revision"));
     CHECK(keymap.at("payload").contains("document"));
+
+    auto const preferences =
+        nlohmann::json::parse(host_bridge.make_preferences_changed_event_json());
+    CHECK(preferences.at("name") == "preferences.changed");
+    CHECK(preferences.at("payload").contains("revision"));
+    CHECK(preferences.at("payload").contains("document"));
 }
 
 TEST_CASE("Bridge publishes externally changed opaque keymaps", "[core][bridge]")
 {
     auto session = make_session();
     auto const file = temporary_keymap_file();
-    auto host_bridge = WebviewBridge{session, file};
+    auto host_bridge = WebviewBridge{session, file, temporary_preferences_file()};
     auto const initial_revision = host_bridge.keymap_revision();
     auto const document = nlohmann::json{{"external", {{"future_action", 7}}}};
     auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
@@ -502,13 +604,38 @@ TEST_CASE("Bridge publishes externally changed opaque keymaps", "[core][bridge]"
     CHECK(event.at("payload").at("document") == document);
 }
 
+TEST_CASE("Bridge publishes externally changed opaque preferences", "[core][bridge]")
+{
+    auto session = make_session();
+    auto const file = temporary_preferences_file();
+    auto host_bridge = WebviewBridge{session, temporary_keymap_file(), file};
+    auto const initial_revision = host_bridge.preferences_revision();
+    auto const document = nlohmann::json{
+        {"schema_version", 1},
+        {"reduced_motion", true},
+    };
+    auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
+    REQUIRE(output.good());
+    output << document.dump();
+    output.close();
+
+    CHECK(host_bridge.refresh_preferences());
+    CHECK(host_bridge.preferences_revision() != initial_revision);
+    auto const event =
+        nlohmann::json::parse(host_bridge.make_preferences_changed_event_json());
+    CHECK(event.at("name") == "preferences.changed");
+    CHECK(event.at("payload").at("document") == document);
+}
+
 TEST_CASE("Bridge dispatcher handles service requests with fake services",
           "[core][bridge]")
 {
     auto application = FakeApplicationService{};
     auto library = FakeLibraryService{};
     auto keymap = FakeKeymapService{};
-    auto dispatcher = bridge::BridgeRequestDispatcher{application, library, keymap};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
 
     auto const hello = fake_response(dispatcher, "session.hello",
                                      {
@@ -520,6 +647,8 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
           bridge::catalog_schema_version);
     CHECK(hello.at("payload").at("keymap").at("revision") ==
           std::to_string(HIGH_KEYMAP_REVISION));
+    CHECK(hello.at("payload").at("preferences").at("revision") ==
+          std::to_string(HIGH_PREFERENCES_REVISION));
     CHECK(hello.at("payload").at("binding").at("channel_id") == DEFAULT_CHANNEL_ID);
 
     auto const state = fake_response(dispatcher, "state.get").at("payload");
@@ -597,7 +726,9 @@ TEST_CASE("Bridge dispatcher handles keymap requests with fake services",
     auto application = FakeApplicationService{};
     auto library = FakeLibraryService{};
     auto keymap = FakeKeymapService{};
-    auto dispatcher = bridge::BridgeRequestDispatcher{application, library, keymap};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
     auto const set =
         fake_response(dispatcher, "keymap.write",
                       {
@@ -622,12 +753,47 @@ TEST_CASE("Bridge dispatcher handles keymap requests with fake services",
     CHECK(stale.at("error").at("code") == "conflict");
 }
 
+TEST_CASE("Bridge dispatcher handles preferences requests with fake services",
+          "[core][bridge]")
+{
+    auto application = FakeApplicationService{};
+    auto library = FakeLibraryService{};
+    auto keymap = FakeKeymapService{};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
+    auto const set = fake_response(dispatcher, "preferences.write",
+                                   {
+                                       {"expected_revision",
+                                        std::to_string(HIGH_PREFERENCES_REVISION)},
+                                       {"document", {{"future", true}}},
+                                   })
+                         .at("payload");
+    CHECK(set.at("revision") == std::to_string(HIGH_PREFERENCES_REVISION + 1));
+    CHECK(set.at("document").is_object());
+
+    auto const remove = fake_response(dispatcher, "preferences.delete",
+                                      {{"expected_revision",
+                                        std::to_string(HIGH_PREFERENCES_REVISION + 1)}})
+                            .at("payload");
+    CHECK(remove.at("revision") == std::to_string(HIGH_PREFERENCES_REVISION + 2));
+    CHECK(remove.at("document").is_null());
+
+    auto const stale = fake_response(dispatcher, "preferences.delete",
+                                     {{"expected_revision",
+                                       std::to_string(HIGH_PREFERENCES_REVISION + 1)}})
+                           .at("payload");
+    CHECK(stale.at("error").at("code") == "conflict");
+}
+
 TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
 {
     auto application = FakeApplicationService{};
     auto library = FakeLibraryService{};
     auto keymap = FakeKeymapService{};
-    auto dispatcher = bridge::BridgeRequestDispatcher{application, library, keymap};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
 
     auto const unknown = fake_response(dispatcher, "missing.request").at("payload");
     CHECK(unknown.at("error").at("code") == "invalid_request");
@@ -647,6 +813,16 @@ TEST_CASE("Bridge protocol errors are deterministic", "[core][bridge]")
                       {{"expected_revision", std::to_string(HIGH_KEYMAP_REVISION)}})
             .at("payload");
     CHECK(missing_document.at("error").at("code") == "invalid_request");
+
+    auto const invalid_preferences_document =
+        fake_response(
+            dispatcher, "preferences.write",
+            {
+                {"expected_revision", std::to_string(HIGH_PREFERENCES_REVISION)},
+                {"document", nlohmann::json::array()},
+            })
+            .at("payload");
+    CHECK(invalid_preferences_document.at("error").at("code") == "invalid_request");
 
     auto const numeric_revision =
         fake_response(dispatcher, "keymap.delete", {{"expected_revision", 5}})
@@ -676,9 +852,23 @@ TEST_CASE("Bridge reports malformed persisted keymaps", "[core][bridge]")
     REQUIRE(output.good());
     output << "{not-json";
     output.close();
-    auto host_bridge = WebviewBridge{session, file};
+    auto host_bridge = WebviewBridge{session, file, temporary_preferences_file()};
 
     auto const malformed = response(host_bridge, "keymap.read").at("payload");
+    CHECK(malformed.at("error").at("code") == "malformed_document");
+}
+
+TEST_CASE("Bridge reports malformed persisted preferences", "[core][bridge]")
+{
+    auto session = make_session();
+    auto const file = temporary_preferences_file();
+    auto output = std::ofstream{file, std::ios::binary | std::ios::trunc};
+    REQUIRE(output.good());
+    output << "[]";
+    output.close();
+    auto host_bridge = WebviewBridge{session, temporary_keymap_file(), file};
+
+    auto const malformed = response(host_bridge, "preferences.read").at("payload");
     CHECK(malformed.at("error").at("code") == "malformed_document");
 }
 

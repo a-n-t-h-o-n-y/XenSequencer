@@ -270,6 +270,7 @@ set(XEN_APPLICATION_SOURCES
     src/midi_compilation_service.cpp
     src/ipc_protocol.cpp
     src/parse_args.cpp
+    src/preferences.cpp
     src/sequencer_session.cpp
     src/session_coordinator.cpp
     src/submission_effects.cpp
@@ -452,6 +453,7 @@ if (XEN_BUILD_TESTS)
         test/core/command_catalog.test.cpp
         test/core/command_parse.test.cpp
         test/core/keymap.test.cpp
+        test/core/preferences.test.cpp
         test/core/state_actions.test.cpp
         test/core/timeline_commit.test.cpp
         test/core/webview_bridge.test.cpp

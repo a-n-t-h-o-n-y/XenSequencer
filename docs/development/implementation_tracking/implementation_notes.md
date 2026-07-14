@@ -15,8 +15,8 @@ The current frontend migration contract is documented in
   and audio-project publication. `XenProcessor` is a JUCE adapter around realtime
   playback, plugin state serialization, and editor creation.
 - Bridge protocol DTO parsing/serialization is separate from request dispatch.
-  Session, project, command, library, and keymap requests route through bridge service
-  seams so handlers can be tested without constructing the processor.
+  Session, project, command, library, keymap, and preferences requests route through
+  bridge service seams so handlers can be tested without constructing the processor.
 - Command submissions execute through lazy project, library, and workspace candidates.
   File effects use path-based read/write ports and the shared atomic text-write
   helper before backend candidates are installed.
@@ -31,9 +31,9 @@ The current frontend migration contract is documented in
   - requests: `session.hello`, `state.get`, `command.execute`, and `library.get`;
   - events: `state.changed`, `library.changed`, `transport.phase.sync`, and
     `transport.stopped`.
-- `session.hello` includes the command catalog and revisioned typed keymap. Keymap
-  overrides are persisted through `keymap.get`, `keymap.override.set`,
-  `keymap.override.remove`, and `keymap.reset`, with `keymap.changed` publication.
+- `session.hello` includes the command catalog and revisioned opaque keymap and
+  preferences resources. They use whole-document read, write, and delete requests
+  with optimistic revisions and independent change events.
 - The project model has a reusable sequence bank and sparse composition arrangement.
   Cells contain zero or more `MusicElement` values; an empty cell represents silence.
 

@@ -15,6 +15,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
 #include <xen/keymap.hpp>
+#include <xen/preferences.hpp>
 #include <xen/sequencer_session_port.hpp>
 #include <xen/state.hpp>
 #include <xen/webview_bridge_protocol.hpp>
@@ -56,6 +57,19 @@ class KeymapBridgeService
     virtual auto write(std::uint64_t expected_revision, nlohmann::json document)
         -> KeymapResource = 0;
     virtual auto erase(std::uint64_t expected_revision) -> KeymapResource = 0;
+    virtual auto refresh() -> bool = 0;
+};
+
+class PreferencesBridgeService
+{
+  public:
+    virtual ~PreferencesBridgeService() = default;
+
+    virtual auto read() -> PreferencesResource = 0;
+    [[nodiscard]] virtual auto revision() const noexcept -> std::uint64_t = 0;
+    virtual auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> PreferencesResource = 0;
+    virtual auto erase(std::uint64_t expected_revision) -> PreferencesResource = 0;
     virtual auto refresh() -> bool = 0;
 };
 
@@ -142,6 +156,23 @@ class StoreKeymapBridgeService final : public KeymapBridgeService
     KeymapStore store_;
 };
 
+class StorePreferencesBridgeService final : public PreferencesBridgeService
+{
+  public:
+    explicit StorePreferencesBridgeService(
+        std::filesystem::path preferences_file = PreferencesStore::default_file());
+
+    auto read() -> PreferencesResource override;
+    [[nodiscard]] auto revision() const noexcept -> std::uint64_t override;
+    auto write(std::uint64_t expected_revision, nlohmann::json document)
+        -> PreferencesResource override;
+    auto erase(std::uint64_t expected_revision) -> PreferencesResource override;
+    auto refresh() -> bool override;
+
+  private:
+    PreferencesStore store_;
+};
+
 class JuceLibraryBridgeService final : public LibraryBridgeService
 {
   public:
@@ -170,7 +201,8 @@ class BridgeRequestDispatcher
 {
   public:
     BridgeRequestDispatcher(ApplicationBridgeService &application,
-                            LibraryBridgeService &library, KeymapBridgeService &keymap);
+                            LibraryBridgeService &library, KeymapBridgeService &keymap,
+                            PreferencesBridgeService &preferences);
 
     [[nodiscard]] auto handle_request_json(std::string const &request_json)
         -> std::string;
@@ -181,6 +213,7 @@ class BridgeRequestDispatcher
     ApplicationBridgeService &application_;
     LibraryBridgeService &library_;
     KeymapBridgeService &keymap_;
+    PreferencesBridgeService &preferences_;
     std::map<std::string_view, Handler, std::less<>> handlers_;
 
     [[nodiscard]] auto handle_session_hello(ParsedRequest const &request)
@@ -205,6 +238,12 @@ class BridgeRequestDispatcher
     [[nodiscard]] auto handle_keymap_write(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_keymap_delete(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preferences_read(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preferences_write(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_preferences_delete(ParsedRequest const &request)
         -> nlohmann::json;
 };
 

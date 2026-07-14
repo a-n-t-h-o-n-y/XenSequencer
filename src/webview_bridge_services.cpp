@@ -231,6 +231,40 @@ auto StoreKeymapBridgeService::refresh() -> bool
     return store_.refresh();
 }
 
+StorePreferencesBridgeService::StorePreferencesBridgeService(
+    std::filesystem::path preferences_file)
+    : store_{std::move(preferences_file)}
+{
+}
+
+auto StorePreferencesBridgeService::read() -> PreferencesResource
+{
+    return store_.read();
+}
+
+auto StorePreferencesBridgeService::revision() const noexcept -> std::uint64_t
+{
+    return store_.revision();
+}
+
+auto StorePreferencesBridgeService::write(std::uint64_t expected_revision,
+                                          nlohmann::json document)
+    -> PreferencesResource
+{
+    return store_.write(expected_revision, std::move(document));
+}
+
+auto StorePreferencesBridgeService::erase(std::uint64_t expected_revision)
+    -> PreferencesResource
+{
+    return store_.erase(expected_revision);
+}
+
+auto StorePreferencesBridgeService::refresh() -> bool
+{
+    return store_.refresh();
+}
+
 JuceLibraryBridgeService::JuceLibraryBridgeService(LibraryFilePort &files)
     : files_{files}
 {
@@ -373,8 +407,10 @@ auto JuceLibraryFilePort::tuning_files(std::filesystem::path const &directory_pa
 
 BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &application,
                                                  LibraryBridgeService &library,
-                                                 KeymapBridgeService &keymap)
-    : application_{application}, library_{library}, keymap_{keymap}
+                                                 KeymapBridgeService &keymap,
+                                                 PreferencesBridgeService &preferences)
+    : application_{application}, library_{library}, keymap_{keymap},
+      preferences_{preferences}
 {
     handlers_ = {
         {"session.hello",
@@ -416,6 +452,18 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
         {"keymap.delete",
          [this](ParsedRequest const &request) {
              return handle_keymap_delete(request);
+         }},
+        {"preferences.read",
+         [this](ParsedRequest const &request) {
+             return handle_preferences_read(request);
+         }},
+        {"preferences.write",
+         [this](ParsedRequest const &request) {
+             return handle_preferences_write(request);
+         }},
+        {"preferences.delete",
+         [this](ParsedRequest const &request) {
+             return handle_preferences_delete(request);
          }},
     };
 }
@@ -476,6 +524,32 @@ auto BridgeRequestDispatcher::handle_request_json(std::string const &request_jso
                              request.request_id, make_error_payload(code, error.what()))
             .dump();
     }
+    catch (PreferencesStorageError const &error)
+    {
+        auto code = std::string{};
+        switch (error.code)
+        {
+        case PreferencesStorageErrorCode::Conflict:
+            code = "conflict";
+            break;
+        case PreferencesStorageErrorCode::MalformedDocument:
+            code = "malformed_document";
+            break;
+        case PreferencesStorageErrorCode::Read:
+            code = "preferences_read_error";
+            break;
+        case PreferencesStorageErrorCode::Write:
+            code = "preferences_write_error";
+            break;
+        case PreferencesStorageErrorCode::Delete:
+            code = "preferences_delete_error";
+            break;
+        }
+        return make_envelope("response",
+                             request.name.empty() ? "bridge.error" : request.name,
+                             request.request_id, make_error_payload(code, error.what()))
+            .dump();
+    }
     catch (nlohmann::json::exception const &error)
     {
         log_json_bridge_exception(request_json, request, error);
@@ -523,6 +597,7 @@ auto BridgeRequestDispatcher::handle_session_hello(ParsedRequest const &request)
         {"catalog", make_catalog_payload(application_.command_catalog_metadata())},
         {"binding", make_instance_binding(application_.instance_binding())},
         {"keymap", make_keymap_payload(keymap_.read())},
+        {"preferences", make_preferences_payload(preferences_.read())},
     };
 }
 
@@ -648,7 +723,7 @@ auto BridgeRequestDispatcher::handle_keymap_write(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
-        require_keymap_revision(request.payload, "expected_revision");
+        require_resource_revision(request.payload, "expected_revision");
     if (!request.payload.contains("document"))
     {
         throw BridgeError{"invalid_request", "Missing field: document"};
@@ -661,8 +736,32 @@ auto BridgeRequestDispatcher::handle_keymap_delete(ParsedRequest const &request)
     -> nlohmann::json
 {
     auto const expected_revision =
-        require_keymap_revision(request.payload, "expected_revision");
+        require_resource_revision(request.payload, "expected_revision");
     return make_keymap_payload(keymap_.erase(expected_revision));
+}
+
+auto BridgeRequestDispatcher::handle_preferences_read(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    validate_empty_object_payload(request.payload, request);
+    return make_preferences_payload(preferences_.read());
+}
+
+auto BridgeRequestDispatcher::handle_preferences_write(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const expected_revision =
+        require_resource_revision(request.payload, "expected_revision");
+    auto const &document = require_object(request.payload, "document");
+    return make_preferences_payload(preferences_.write(expected_revision, document));
+}
+
+auto BridgeRequestDispatcher::handle_preferences_delete(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const expected_revision =
+        require_resource_revision(request.payload, "expected_revision");
+    return make_preferences_payload(preferences_.erase(expected_revision));
 }
 
 auto quote_command_arg(std::string const &value) -> std::string

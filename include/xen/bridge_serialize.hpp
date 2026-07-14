@@ -9,6 +9,7 @@
 #include <xen/command_catalog_types.hpp>
 #include <xen/keymap.hpp>
 #include <xen/message_level.hpp>
+#include <xen/preferences.hpp>
 #include <xen/state.hpp>
 
 namespace xen::bridge
@@ -31,6 +32,9 @@ inline constexpr int catalog_schema_version = 3;
     std::vector<CatalogCommandMetadata> const &commands) -> nlohmann::json;
 
 [[nodiscard]] auto make_keymap_payload(KeymapResource const &resource)
+    -> nlohmann::json;
+
+[[nodiscard]] auto make_preferences_payload(PreferencesResource const &resource)
     -> nlohmann::json;
 
 } // namespace xen::bridge
