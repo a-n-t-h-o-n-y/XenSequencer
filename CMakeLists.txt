@@ -89,7 +89,7 @@ if (XEN_BUILD_TESTS)
 endif()
 
 # Use tags + shallow for deps that publish tags.
-set(XEN_JUCE_TAG "8.0.13" CACHE STRING "JUCE git tag")
+set(XEN_JUCE_TAG "8.0.14" CACHE STRING "JUCE git tag")
 set(XEN_YAML_CPP_TAG "yaml-cpp-0.9.0" CACHE STRING "yaml-cpp git tag")
 set(XEN_JSON_TAG "v3.12.0" CACHE STRING "nlohmann/json git tag")
 set(XEN_CATCH2_TAG "v3.15.1" CACHE STRING "Catch2 git tag")
