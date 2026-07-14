@@ -32,8 +32,8 @@ auto execute(PluginState &state, std::string const &text,
              CompositionCursor cursor = {}) -> CommandApplicationResult
 {
     auto const result = bind_invocation(parse_command_chain(text).front());
-    REQUIRE(std::holds_alternative<BoundStep>(result));
-    auto const &step = std::get<BoundStep>(result);
+    REQUIRE(result.has_value());
+    auto const &step = result.value();
     REQUIRE(std::holds_alternative<ExecutableCommand>(step));
     auto const &command = std::get<ExecutableCommand>(step);
     auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};

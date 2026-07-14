@@ -104,8 +104,7 @@ auto create_sequence(SequenceBank &bank, sequence::Cell cell) -> SequenceId
 {
     if (bank.next_id == 0)
         throw std::invalid_argument{"Next sequence ID must be nonzero."};
-    if (std::ranges::find(bank.sequences, bank.next_id, &SequenceBankEntry::id) !=
-        bank.sequences.end())
+    if (std::ranges::contains(bank.sequences, bank.next_id, &SequenceBankEntry::id))
         throw std::invalid_argument{"Next sequence ID is already in use."};
     auto const id = bank.next_id++;
     bank.sequences.push_back({.id = id, .cell = std::move(cell)});

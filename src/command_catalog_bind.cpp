@@ -1,5 +1,6 @@
 #include <xen/command_catalog.hpp>
 
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,7 +43,7 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
 {
     if (invocation.input.words.empty())
     {
-        return to_unknown_command_error(invocation);
+        return std::unexpected{to_unknown_command_error(invocation)};
     }
 
     auto const *spec = static_cast<CommandDefinition const *>(nullptr);
@@ -56,9 +57,10 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
         }
 
         auto matches = true;
-        for (auto i = std::size_t{0}; i < path.size(); ++i)
+        for (auto const &[path_token, input_token] :
+             std::views::zip(path, invocation.input.words))
         {
-            if (to_lower(path[i]) != to_lower(invocation.input.words[i]))
+            if (to_lower(path_token) != to_lower(input_token))
             {
                 matches = false;
                 break;
@@ -74,7 +76,7 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
 
     if (spec == nullptr)
     {
-        return to_unknown_command_error(invocation);
+        return std::unexpected{to_unknown_command_error(invocation)};
     }
 
     try
@@ -89,11 +91,11 @@ auto CommandCatalog::bind_invocation(CommandInvocation const &invocation) const
             token = invocation.input.words.front();
         }
 
-        return CatalogBindError{
+        return std::unexpected{CatalogBindError{
             .kind = e.kind(),
             .message = e.what(),
             .token = std::move(token),
-        };
+        }};
     }
 }
 
@@ -105,12 +107,12 @@ auto CommandCatalog::bind_chain(std::vector<CommandInvocation> const &invocation
 
     for (auto const &invocation : invocations)
     {
-        auto const result = bind_invocation(invocation);
-        if (std::holds_alternative<CatalogBindError>(result))
+        auto result = bind_invocation(invocation);
+        if (!result.has_value())
         {
-            return std::get<CatalogBindError>(result);
+            return std::unexpected{std::move(result.error())};
         }
-        bound.push_back(std::get<BoundStep>(result));
+        bound.push_back(std::move(result.value()));
     }
 
     return bound;

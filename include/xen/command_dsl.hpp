@@ -280,7 +280,7 @@ auto one_of(ArgDef<T> argument, std::vector<T> values, std::string error_message
                                   .maximum = std::nullopt,
                                   .values = std::move(display_values)},
         [values = std::move(values)](T const &value) {
-            return std::find(values.begin(), values.end(), value) != values.end();
+            return std::ranges::contains(values, value);
         },
         std::move(error_message));
 }

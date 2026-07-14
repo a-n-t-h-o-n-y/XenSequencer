@@ -294,11 +294,11 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         for (auto const &invocation : parsed)
         {
             auto const result = command_catalog_.bind_invocation(invocation);
-            if (std::holds_alternative<CatalogBindError>(result))
+            if (!result.has_value())
             {
-                return error_result(std::get<CatalogBindError>(result).message);
+                return error_result(result.error().message);
             }
-            auto const &step = std::get<BoundStep>(result);
+            auto const &step = result.value();
             if (std::holds_alternative<RepeatPrevious>(step))
             {
                 if (state_.command_session.repeat_chain.empty())
@@ -316,11 +316,11 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
         }
 
         auto const bind_result = command_catalog_.bind_chain(expanded);
-        if (std::holds_alternative<CatalogBindError>(bind_result))
+        if (!bind_result.has_value())
         {
-            return error_result(std::get<CatalogBindError>(bind_result).message);
+            return error_result(bind_result.error().message);
         }
-        auto const &steps = std::get<std::vector<BoundStep>>(bind_result);
+        auto const &steps = bind_result.value();
 
         auto const project_aware =
             std::ranges::any_of(steps, [](BoundStep const &step) {

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -285,10 +286,9 @@ void build_boundaries_and_seek_spans(xen::CompiledMidiSchedule &schedule)
 {
     auto simulation = std::vector<xen::CompiledMidiBoundary>{};
     simulation.reserve(schedule.notes.size() * 2U);
-    for (auto index = std::size_t{0}; index < schedule.notes.size(); ++index)
+    for (auto [index, note] : std::views::enumerate(schedule.notes))
     {
         auto const note_index = static_cast<std::uint32_t>(index);
-        auto const &note = schedule.notes[index];
         simulation.push_back({note.end_beat, note_index, xen::MidiBoundaryKind::End});
         simulation.push_back(
             {note.begin_beat, note_index, xen::MidiBoundaryKind::Start});

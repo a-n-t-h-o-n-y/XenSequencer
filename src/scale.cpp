@@ -136,7 +136,7 @@ auto load_scales(std::string const &system_yaml, std::string const &user_yaml)
         {
             throw std::invalid_argument{"Scale ID must not be empty."};
         }
-        if (std::ranges::find(ids, entry.id) != ids.end())
+        if (std::ranges::contains(ids, entry.id))
         {
             throw std::invalid_argument{"Duplicate scale ID: " + entry.id};
         }

@@ -5,6 +5,38 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles([=[
+    #include <version>
+
+    #if !defined(__cpp_lib_expected) || __cpp_lib_expected < 202202L
+    #error "std::expected is required"
+    #endif
+    #if !defined(__cpp_lib_print) || __cpp_lib_print < 202207L
+    #error "std::print is required"
+    #endif
+    #if !defined(__cpp_lib_ranges_contains) || __cpp_lib_ranges_contains < 202207L
+    #error "std::ranges::contains is required"
+    #endif
+    #if !defined(__cpp_lib_ranges_to_container) || __cpp_lib_ranges_to_container < 202202L
+    #error "std::ranges::to is required"
+    #endif
+    #if !defined(__cpp_lib_ranges_zip) || __cpp_lib_ranges_zip < 202110L
+    #error "C++23 range zip and enumerate views are required"
+    #endif
+    #if !defined(__cpp_lib_to_underlying) || __cpp_lib_to_underlying < 202102L
+    #error "std::to_underlying is required"
+    #endif
+
+    int main() {}
+]=] XEN_HAS_REQUIRED_CXX23_LIBRARY_FEATURES_V2)
+if (NOT XEN_HAS_REQUIRED_CXX23_LIBRARY_FEATURES_V2)
+    message(FATAL_ERROR
+        "XenSequencer requires a C++23 standard library with std::expected, "
+        "std::print, C++23 ranges, and std::to_underlying support.")
+endif()
+
 include(FetchContent)
 
 # DEPENDENCIES -------------------------------------------------------------------------

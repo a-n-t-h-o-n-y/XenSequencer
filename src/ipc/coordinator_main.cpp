@@ -1,6 +1,7 @@
 #include <chrono>
+#include <cstdio>
 #include <exception>
-#include <iostream>
+#include <print>
 #include <string>
 #include <thread>
 
@@ -35,15 +36,15 @@ auto main(int argc, char **argv) -> int
         auto const registry_path = argument_value(argc, argv, "--registry");
         if (session_id.empty() || registry_path.empty())
         {
-            std::cerr << "Usage: XenSequencerCoordinator --session-id <id> "
-                         "--registry <path>\n";
+            std::println(stderr, "Usage: XenSequencerCoordinator --session-id <id> "
+                                 "--registry <path>");
             return 2;
         }
 
         auto scoped_juce = juce::ScopedJuceInitialiser_GUI{};
         auto server = xen::ipc::CoordinatorServer{session_id, registry_path};
         auto const entry = server.start();
-        std::cout << "XenSequencerCoordinator listening on port " << entry.port << "\n";
+        std::println("XenSequencerCoordinator listening on port {}", entry.port);
 
         auto constexpr idle_grace_ms = int64_t{5000};
         for (;;)
@@ -60,7 +61,7 @@ auto main(int argc, char **argv) -> int
     }
     catch (std::exception const &e)
     {
-        std::cerr << "XenSequencerCoordinator error: " << e.what() << "\n";
+        std::println(stderr, "XenSequencerCoordinator error: {}", e.what());
         return 1;
     }
 }

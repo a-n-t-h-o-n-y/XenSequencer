@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -219,7 +220,7 @@ struct CommandDefinition
     std::function<BoundStep(CommandInvocation const &, std::size_t)> bind{};
 };
 
-using BindInvocationResult = std::variant<BoundStep, CatalogBindError>;
-using BindChainResult = std::variant<std::vector<BoundStep>, CatalogBindError>;
+using BindInvocationResult = std::expected<BoundStep, CatalogBindError>;
+using BindChainResult = std::expected<std::vector<BoundStep>, CatalogBindError>;
 
 } // namespace xen

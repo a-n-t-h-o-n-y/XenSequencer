@@ -20,8 +20,8 @@ namespace
 auto policy_for(std::string const &text) -> CommandPolicy
 {
     auto const result = bind_invocation(parse_command_chain(text).front());
-    REQUIRE(std::holds_alternative<BoundStep>(result));
-    auto const &step = std::get<BoundStep>(result);
+    REQUIRE(result.has_value());
+    auto const &step = result.value();
     if (std::holds_alternative<ExecutableCommand>(step))
     {
         return std::get<ExecutableCommand>(step).policy;
@@ -54,8 +54,8 @@ TEST_CASE("Catalog binds command chain to executable handlers",
     auto const chain = parse_command_chain("version; again; set key 7; undo");
     auto const result = bind_chain(chain);
 
-    REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
-    auto const &bound = std::get<std::vector<BoundStep>>(result);
+    REQUIRE(result.has_value());
+    auto const &bound = result.value();
     REQUIRE(bound.size() == 4);
 
     REQUIRE(std::holds_alternative<ExecutableCommand>(bound[0]));
@@ -71,8 +71,8 @@ TEST_CASE("Catalog binder applies defaults for commands", "[core][command][catal
 {
     auto const set_key_invocation = parse_command_chain("set key")[0];
     auto const set_key_result = bind_invocation(set_key_invocation);
-    REQUIRE(std::holds_alternative<BoundStep>(set_key_result));
-    auto const &set_key_step = std::get<BoundStep>(set_key_result);
+    REQUIRE(set_key_result.has_value());
+    auto const &set_key_step = set_key_result.value();
     REQUIRE(std::holds_alternative<ExecutableCommand>(set_key_step));
     auto const &set_key_command = std::get<ExecutableCommand>(set_key_step);
     REQUIRE(set_key_command.execute);
@@ -91,8 +91,8 @@ TEST_CASE("Catalog binder reports unknown command", "[core][command][catalog]")
     auto const invocation = parse_command_chain("notACommand 123")[0];
     auto const result = bind_invocation(invocation);
 
-    REQUIRE(std::holds_alternative<CatalogBindError>(result));
-    auto const &error = std::get<CatalogBindError>(result);
+    REQUIRE_FALSE(result.has_value());
+    auto const &error = result.error();
     CHECK(error.kind == CatalogBindErrorKind::UnknownCommand);
     CHECK(error.token == "notACommand");
 }
@@ -104,9 +104,8 @@ TEST_CASE("Removed project and arrangement commands are absent from the catalog"
                              "load composition example", "save composition example"})
     {
         auto const result = bind_invocation(parse_command_chain(text).front());
-        REQUIRE(std::holds_alternative<CatalogBindError>(result));
-        CHECK(std::get<CatalogBindError>(result).kind ==
-              CatalogBindErrorKind::UnknownCommand);
+        REQUIRE_FALSE(result.has_value());
+        CHECK(result.error().kind == CatalogBindErrorKind::UnknownCommand);
     }
 
     auto const metadata = command_metadata();
@@ -127,31 +126,31 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
 {
     auto const invalid_invocation = parse_command_chain("set key nope")[0];
     auto const invalid_result = bind_invocation(invalid_invocation);
-    REQUIRE(std::holds_alternative<CatalogBindError>(invalid_result));
-    auto const &invalid_error = std::get<CatalogBindError>(invalid_result);
+    REQUIRE_FALSE(invalid_result.has_value());
+    auto const &invalid_error = invalid_result.error();
     CHECK(invalid_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(invalid_error.message == "Invalid argument 'key': Invalid integer: nope");
 
     auto const out_of_range_result =
         bind_invocation(parse_command_chain("set key 128")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(out_of_range_result));
-    auto const &out_of_range_error = std::get<CatalogBindError>(out_of_range_result);
+    REQUIRE_FALSE(out_of_range_result.has_value());
+    auto const &out_of_range_error = out_of_range_result.error();
     CHECK(out_of_range_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(out_of_range_error.message ==
           "Invalid argument 'key': Must be in range [-127, 127].");
 
     auto const invalid_velocity =
         bind_invocation(parse_command_chain("set velocity 1.5")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(invalid_velocity));
-    auto const &velocity_error = std::get<CatalogBindError>(invalid_velocity);
+    REQUIRE_FALSE(invalid_velocity.has_value());
+    auto const &velocity_error = invalid_velocity.error();
     CHECK(velocity_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(velocity_error.message ==
           "Invalid argument 'velocity': Must be in range [0, 1].");
 
     auto const invalid_direction =
         bind_invocation(parse_command_chain("set translateDirection sideways")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(invalid_direction));
-    auto const &direction_error = std::get<CatalogBindError>(invalid_direction);
+    REQUIRE_FALSE(invalid_direction.has_value());
+    auto const &direction_error = invalid_direction.error();
     CHECK(direction_error.kind == CatalogBindErrorKind::InvalidArgument);
     CHECK(direction_error.message ==
           "Invalid argument 'direction': Must be up or down.");
@@ -160,19 +159,18 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     {
         auto const valid_direction = bind_invocation(
             parse_command_chain(std::string{"set translateDirection "} + direction)[0]);
-        CHECK(std::holds_alternative<BoundStep>(valid_direction));
+        CHECK(valid_direction.has_value());
     }
 
     auto const noncanonical_direction =
         bind_invocation(parse_command_chain("set translateDirection UP")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(noncanonical_direction));
-    CHECK(std::get<CatalogBindError>(noncanonical_direction).kind ==
-          CatalogBindErrorKind::InvalidArgument);
+    REQUIRE_FALSE(noncanonical_direction.has_value());
+    CHECK(noncanonical_direction.error().kind == CatalogBindErrorKind::InvalidArgument);
 
     auto const missing_invocation = parse_command_chain("load cell")[0];
     auto const missing_result = bind_invocation(missing_invocation);
-    REQUIRE(std::holds_alternative<CatalogBindError>(missing_result));
-    auto const &missing_error = std::get<CatalogBindError>(missing_result);
+    REQUIRE_FALSE(missing_result.has_value());
+    auto const &missing_error = missing_result.error();
     CHECK(missing_error.kind == CatalogBindErrorKind::MissingArgument);
     CHECK(missing_error.message == "Missing argument: filename");
 }
@@ -181,19 +179,17 @@ TEST_CASE("Catalog binder rejects trailing arguments and unsupported patterns",
           "[core][command][catalog]")
 {
     auto const trailing = bind_invocation(parse_command_chain("set key 3 extra")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(trailing));
-    CHECK(std::get<CatalogBindError>(trailing).kind ==
-          CatalogBindErrorKind::UnexpectedArgument);
+    REQUIRE_FALSE(trailing.has_value());
+    CHECK(trailing.error().kind == CatalogBindErrorKind::UnexpectedArgument);
 
     auto const pattern = bind_invocation(parse_command_chain("+2 set key 3")[0]);
-    REQUIRE(std::holds_alternative<CatalogBindError>(pattern));
-    CHECK(std::get<CatalogBindError>(pattern).kind ==
-          CatalogBindErrorKind::PatternPrefixNotAllowed);
+    REQUIRE_FALSE(pattern.has_value());
+    CHECK(pattern.error().kind == CatalogBindErrorKind::PatternPrefixNotAllowed);
 
     auto const accepted =
         bind_invocation(parse_command_chain("+2 set velocity 0.5")[0]);
-    REQUIRE(std::holds_alternative<BoundStep>(accepted));
-    CHECK(std::holds_alternative<ExecutableCommand>(std::get<BoundStep>(accepted)));
+    REQUIRE(accepted.has_value());
+    CHECK(std::holds_alternative<ExecutableCommand>(accepted.value()));
 }
 
 TEST_CASE("Catalog binds non-bootstrap commands to executors",
@@ -203,8 +199,8 @@ TEST_CASE("Catalog binds non-bootstrap commands to executors",
         parse_command_chain("set baseFrequency 333; load scales; save cell foo");
     auto const result = bind_chain(chain);
 
-    REQUIRE(std::holds_alternative<std::vector<BoundStep>>(result));
-    auto const &bound = std::get<std::vector<BoundStep>>(result);
+    REQUIRE(result.has_value());
+    auto const &bound = result.value();
     REQUIRE(bound.size() == 3);
     CHECK(std::holds_alternative<ExecutableCommand>(bound[0]));
     CHECK(std::holds_alternative<ExecutableCommand>(bound[1]));
@@ -216,8 +212,8 @@ TEST_CASE("Catalog bind_chain stops at first bind error", "[core][command][catal
     auto const chain = parse_command_chain("version; notACommand; set key 4");
     auto const result = bind_chain(chain);
 
-    REQUIRE(std::holds_alternative<CatalogBindError>(result));
-    auto const &error = std::get<CatalogBindError>(result);
+    REQUIRE_FALSE(result.has_value());
+    auto const &error = result.error();
     CHECK(error.kind == CatalogBindErrorKind::UnknownCommand);
     CHECK(error.token == "notACommand");
 }
@@ -395,9 +391,8 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
 
     auto const load_keys_result =
         bind_invocation(parse_command_chain("load keys").front());
-    REQUIRE(std::holds_alternative<CatalogBindError>(load_keys_result));
-    CHECK(std::get<CatalogBindError>(load_keys_result).kind ==
-          CatalogBindErrorKind::UnknownCommand);
+    REQUIRE_FALSE(load_keys_result.has_value());
+    CHECK(load_keys_result.error().kind == CatalogBindErrorKind::UnknownCommand);
 }
 
 TEST_CASE("Catalog bridge payload serializes schema version and keywords",

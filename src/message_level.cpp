@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <ostream>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 namespace xen
@@ -12,8 +11,7 @@ namespace xen
 
 auto operator<=>(MessageLevel const lhs, MessageLevel const rhs) -> std::strong_ordering
 {
-    using T = std::underlying_type_t<MessageLevel>;
-    return static_cast<T>(lhs) <=> static_cast<T>(rhs);
+    return std::to_underlying(lhs) <=> std::to_underlying(rhs);
 }
 
 auto operator<<(std::ostream &os, MessageLevel level) -> std::ostream &

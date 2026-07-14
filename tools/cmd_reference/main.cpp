@@ -1,7 +1,8 @@
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <print>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -85,12 +86,12 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception const &e)
     {
-        std::cerr << e.what() << '\n';
+        std::println(stderr, "{}", e.what());
         return EXIT_FAILURE;
     }
     catch (...)
     {
-        std::cerr << "Unknown exception\n";
+        std::println(stderr, "Unknown exception");
         return EXIT_FAILURE;
     }
 }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <ranges>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -213,13 +214,7 @@ auto SessionCoordinator::library_snapshot() const -> LibrarySnapshot
 
 auto SessionCoordinator::instances() const -> std::vector<InstanceBinding>
 {
-    auto result = std::vector<InstanceBinding>{};
-    result.reserve(bindings_.size());
-    for (auto const &[_, binding] : bindings_)
-    {
-        result.push_back(binding);
-    }
-    return result;
+    return bindings_ | std::views::values | std::ranges::to<std::vector>();
 }
 
 auto SessionCoordinator::binding_for(InstanceId const &instance_id) const
