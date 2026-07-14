@@ -24,6 +24,7 @@ constexpr auto transform_policy = CommandPolicy{ProjectOperation::Edit,
                                                 LibraryAccess::None,
                                                 WorkspaceAccess::None,
                                                 FileAccess::None,
+                                                CopyBufferAccess::None,
                                                 TargetRequirement::CellOrElement,
                                                 RepeatPolicy::OnSuccessfulProjectChange,
                                                 HistoryPolicy::Commit};
@@ -31,6 +32,7 @@ constexpr auto arp_policy = CommandPolicy{ProjectOperation::Edit,
                                           LibraryAccess::Read,
                                           WorkspaceAccess::None,
                                           FileAccess::None,
+                                          CopyBufferAccess::None,
                                           TargetRequirement::CellOrElement,
                                           RepeatPolicy::OnSuccessfulProjectChange,
                                           HistoryPolicy::AmendCompatibleTransform};
@@ -38,14 +40,18 @@ constexpr auto chord_policy = CommandPolicy{ProjectOperation::Edit,
                                             LibraryAccess::Read,
                                             WorkspaceAccess::None,
                                             FileAccess::None,
+                                            CopyBufferAccess::None,
                                             TargetRequirement::Cell,
                                             RepeatPolicy::OnSuccessfulProjectChange,
                                             HistoryPolicy::AmendCompatibleTransform};
-constexpr auto drums_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::Mutate,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
-                  HistoryPolicy::Commit};
+constexpr auto drums_policy = CommandPolicy{ProjectOperation::Edit,
+                                            LibraryAccess::Mutate,
+                                            WorkspaceAccess::None,
+                                            FileAccess::None,
+                                            CopyBufferAccess::None,
+                                            TargetRequirement::None,
+                                            RepeatPolicy::OnSuccessfulProjectChange,
+                                            HistoryPolicy::Commit};
 
 } // namespace
 

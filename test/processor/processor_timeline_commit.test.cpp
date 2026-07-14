@@ -65,6 +65,12 @@ TEST_CASE("Project new installs a fresh root and clears project command sessions
                 .status.first == MessageLevel::Info);
     REQUIRE_FALSE(session.command_session().repeat_chain.empty());
     REQUIRE(session.command_session().transform_cycle.has_value());
+    auto const copied_element =
+        selected_sequence(session.project_snapshot().project, {}).elements.at(0);
+    REQUIRE(session
+                .execute_command_string(
+                    "copy", current_context(session, select_element_in_cell({}, 0)))
+                .status.first == MessageLevel::Info);
 
     auto const resources = session.library_snapshot();
     auto const edited = session.project_snapshot();
@@ -94,6 +100,14 @@ TEST_CASE("Project new installs a fresh root and clears project command sessions
     CHECK(undo.status.second == "Nothing to undo.");
     auto const redo = session.execute_command_string("redo", current_context(session));
     CHECK(redo.status.second == "Nothing to redo.");
+
+    REQUIRE(
+        session
+            .execute_command_string("paste", current_context(session, SelectionPath{}))
+            .status.first == MessageLevel::Info);
+    auto const pasted = selected_sequence(session.project_snapshot().project, {});
+    REQUIRE(pasted.elements.size() == 1);
+    CHECK(pasted.elements.front() == copied_element);
 }
 
 TEST_CASE("Project new refreshes an already-default history root",
@@ -188,6 +202,49 @@ TEST_CASE("Preview updates stage repeatedly and commit one undo entry",
         "undo", {.expected_project_revision = final.project_revision});
     REQUIRE(undone.status.first == MessageLevel::Info);
     CHECK(session.project_snapshot().project == initial.project);
+}
+
+TEST_CASE("Previews allow copy buffer reads but reject writes",
+          "[processor][timeline][preview][copy-buffer]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(
+        session
+            .execute_command_string("note 5", current_context(session, SelectionPath{}))
+            .status.first == MessageLevel::Info);
+    REQUIRE(session
+                .execute_command_string(
+                    "copy", current_context(session, select_element_in_cell({}, 0)))
+                .status.first == MessageLevel::Info);
+
+    auto const before = session.project_snapshot();
+    auto const started = session.begin_preview(before.project_revision);
+    REQUIRE(started.preview_id.has_value());
+    auto preview_context = [&](SelectionPath selection) {
+        return CommandContext{
+            .selection = std::move(selection),
+            .expected_project_revision = session.project_snapshot().project_revision,
+            .preview_id = started.preview_id,
+        };
+    };
+
+    auto const cut = session.execute_command_string(
+        "cut", preview_context(select_element_in_cell({}, 0)));
+    CHECK(cut.status.first == MessageLevel::Error);
+    CHECK(cut.status.second ==
+          "Project previews accept only reversible project-edit commands.");
+    CHECK(session.project_snapshot().project == before.project);
+
+    auto const paste =
+        session.execute_command_string("paste", preview_context(SelectionPath{}));
+    REQUIRE(paste.status.first == MessageLevel::Info);
+    CHECK(selected_sequence(session.project_snapshot().project, {}).elements.size() ==
+          2);
+
+    REQUIRE(session
+                .cancel_preview(*started.preview_id,
+                                session.project_snapshot().project_revision)
+                .status.first == MessageLevel::Info);
 }
 
 TEST_CASE("Preview cancellation restores baseline and blocks ordinary edits",

@@ -63,16 +63,18 @@ TEST_CASE("Command transactions create resource candidates lazily",
         CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     (void)informational.make_handler_context(
         CommandPolicy{ProjectOperation::None, LibraryAccess::None,
-                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
-                      RepeatPolicy::Never, HistoryPolicy::None},
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::None,
+                      TargetRequirement::None, RepeatPolicy::Never,
+                      HistoryPolicy::None},
         execution);
     CHECK_FALSE(informational.has_domain_candidates());
 
     auto project = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto project_context = project.make_handler_context(
         CommandPolicy{ProjectOperation::Edit, LibraryAccess::None,
-                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
-                      RepeatPolicy::OnSuccessfulProjectChange, HistoryPolicy::Commit},
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::None,
+                      TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+                      HistoryPolicy::Commit},
         execution);
     project_context.edit_project().composition.columns.at(0).pitch.transposition = 2;
     CHECK(project.has_project_candidate());
@@ -82,8 +84,9 @@ TEST_CASE("Command transactions create resource candidates lazily",
     auto library = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto library_context = library.make_handler_context(
         CommandPolicy{ProjectOperation::None, LibraryAccess::Mutate,
-                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
-                      RepeatPolicy::Never, HistoryPolicy::None},
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::None,
+                      TargetRequirement::None, RepeatPolicy::Never,
+                      HistoryPolicy::None},
         execution);
     library_context.edit_library().scales.clear();
     CHECK_FALSE(library.has_project_candidate());
@@ -99,13 +102,66 @@ TEST_CASE("Command handler contexts deny undeclared capabilities",
     auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto context = transaction.make_handler_context(
         CommandPolicy{ProjectOperation::None, LibraryAccess::None,
-                      WorkspaceAccess::None, FileAccess::None, TargetRequirement::None,
-                      RepeatPolicy::Never, HistoryPolicy::None},
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::None,
+                      TargetRequirement::None, RepeatPolicy::Never,
+                      HistoryPolicy::None},
         execution);
 
     CHECK_THROWS_AS(context.edit_project(), std::logic_error);
     CHECK_THROWS_AS(context.library(), std::logic_error);
     CHECK_THROWS_AS(context.read_text({}), std::logic_error);
+    CHECK_THROWS_AS(context.copy_buffer(), std::logic_error);
+    CHECK_THROWS_AS(context.write_copy_buffer(sequence::Cell{}), std::logic_error);
+}
+
+TEST_CASE("Command transactions stage copy buffer updates until installation",
+          "[core][command][transaction][copy-buffer]")
+{
+    auto state = make_plugin_state();
+    state.copy_buffer = sequence::Cell{.elements = {}, .weight = 2.f};
+    auto execution = CommandExecutionContext{};
+
+    {
+        auto discarded =
+            CommandTransaction{state, SubmissionEffects::FailurePoint::None};
+        auto context = discarded.make_handler_context(
+            CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                          WorkspaceAccess::None, FileAccess::None,
+                          CopyBufferAccess::Write, TargetRequirement::None,
+                          RepeatPolicy::Never, HistoryPolicy::None},
+            execution);
+        context.write_copy_buffer(sequence::Cell{.elements = {}, .weight = 3.f});
+    }
+
+    REQUIRE(state.copy_buffer.has_value());
+    CHECK(std::get<sequence::Cell>(*state.copy_buffer).weight == 2.f);
+
+    auto transaction = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
+    auto write_context = transaction.make_handler_context(
+        CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::Write,
+                      TargetRequirement::None, RepeatPolicy::Never,
+                      HistoryPolicy::None},
+        execution);
+    write_context.write_copy_buffer(sequence::Cell{.elements = {}, .weight = 4.f});
+
+    auto read_context = transaction.make_handler_context(
+        CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                      WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::Read,
+                      TargetRequirement::None, RepeatPolicy::Never,
+                      HistoryPolicy::None},
+        execution);
+    REQUIRE(read_context.copy_buffer().has_value());
+    CHECK(std::get<sequence::Cell>(*read_context.copy_buffer()).weight == 4.f);
+    CHECK(std::get<sequence::Cell>(*state.copy_buffer).weight == 2.f);
+
+    transaction.prepare();
+    transaction.apply_effects();
+    transaction.install();
+    transaction.finalize_effects();
+
+    REQUIRE(state.copy_buffer.has_value());
+    CHECK(std::get<sequence::Cell>(*state.copy_buffer).weight == 4.f);
 }
 
 TEST_CASE("Direct handlers mutate engine without requiring session editor state",

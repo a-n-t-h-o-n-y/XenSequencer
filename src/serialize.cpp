@@ -584,47 +584,4 @@ auto deserialize_processor_state(std::string const &json_str) -> PersistedProces
     return state;
 }
 
-auto serialize_copy_buffer_content(CopyBufferContent const &content) -> std::string
-{
-    auto json = nlohmann::json{};
-    std::visit(
-        [&json](auto const &typed) {
-            using Typed = std::decay_t<decltype(typed)>;
-            if constexpr (std::is_same_v<Typed, sequence::Cell>)
-            {
-                json = nlohmann::json{
-                    {"kind", "Cell"},
-                    {"content", typed},
-                };
-            }
-            else
-            {
-                json = nlohmann::json{
-                    {"kind", "MusicElement"},
-                    {"content", typed},
-                };
-            }
-        },
-        content);
-    return json.dump();
-}
-
-auto deserialize_copy_buffer_content(std::string const &json_str) -> CopyBufferContent
-{
-    auto const json = nlohmann::json::parse(json_str);
-    auto const kind = json.at("kind").get<std::string>();
-
-    if (kind == "Cell")
-    {
-        return json.at("content").get<sequence::Cell>();
-    }
-
-    if (kind == "MusicElement")
-    {
-        return json.at("content").get<sequence::MusicElement>();
-    }
-
-    throw std::invalid_argument("Unknown copy buffer content kind.");
-}
-
 } // namespace xen

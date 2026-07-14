@@ -3,7 +3,6 @@
 #include <string>
 
 #include <sequence/sequence.hpp>
-#include <xen/copy_paste.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -67,11 +66,5 @@ namespace xen
 
 [[nodiscard]] auto deserialize_processor_state(std::string const &json_str)
     -> PersistedProcessorState;
-
-[[nodiscard]] auto serialize_copy_buffer_content(CopyBufferContent const &content)
-    -> std::string;
-
-[[nodiscard]] auto deserialize_copy_buffer_content(std::string const &json_str)
-    -> CopyBufferContent;
 
 } // namespace xen

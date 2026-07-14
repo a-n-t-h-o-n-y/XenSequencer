@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <atomic>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -278,6 +279,42 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
     CHECK(result.snapshot.project.composition.columns.at(0).pitch.transposition == 5);
     CHECK(coordinator.snapshot().project == result.snapshot.project);
     CHECK(coordinator.live_edit_started());
+}
+
+TEST_CASE("SessionCoordinator instances share one transient copy buffer",
+          "[sync][ipc][coordinator][copy-buffer]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
+    auto const hello_b = coordinator.connect({.binding = binding("instance-b")});
+    auto request_id = 0;
+    auto execute = [&](InstanceId const &instance_id, std::string command,
+                       std::optional<SelectionPath> selection = std::nullopt) {
+        return coordinator.execute({
+            .request_id = "copy-buffer-" + std::to_string(++request_id),
+            .source_instance_id = instance_id,
+            .command = std::move(command),
+            .context =
+                CommandContext{
+                    .selection = std::move(selection),
+                    .expected_project_revision =
+                        coordinator.snapshot().project_revision,
+                },
+        });
+    };
+
+    REQUIRE(execute(hello_a.binding.instance_id, "note 9", SelectionPath{})
+                .result.status.first == MessageLevel::Info);
+    REQUIRE(execute(hello_a.binding.instance_id, "copy", SelectionPath{})
+                .result.status.first == MessageLevel::Info);
+    REQUIRE(execute(hello_a.binding.instance_id, "project new").result.status.first ==
+            MessageLevel::Info);
+    REQUIRE(execute(hello_b.binding.instance_id, "paste", SelectionPath{})
+                .result.status.first == MessageLevel::Info);
+
+    auto const pasted = selected_sequence(coordinator.snapshot().project, {});
+    REQUIRE(pasted.elements.size() == 1);
+    CHECK(std::get<sequence::Note>(pasted.elements.front()).pitch == 9);
 }
 
 TEST_CASE("SessionCoordinator owns and cancels shared previews",

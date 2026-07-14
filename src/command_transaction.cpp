@@ -111,6 +111,16 @@ void FileWriteCapability::write_text(std::filesystem::path const &destination,
     transaction_.effects().write_text(destination, std::move(content));
 }
 
+auto CopyBufferReadCapability::get() const -> std::optional<CopyBufferContent> const &
+{
+    return transaction_.copy_buffer();
+}
+
+void CopyBufferWriteCapability::write(CopyBufferContent content)
+{
+    transaction_.write_copy_buffer(std::move(content));
+}
+
 auto CommandHandlerContext::project() const -> ProjectState const &
 {
     if (project_read != nullptr)
@@ -197,6 +207,25 @@ void CommandHandlerContext::write_text(std::filesystem::path const &destination,
     file_write->write_text(destination, std::move(content));
 }
 
+auto CommandHandlerContext::copy_buffer() const
+    -> std::optional<CopyBufferContent> const &
+{
+    if (copy_buffer_read == nullptr)
+    {
+        denied("copy-buffer-read");
+    }
+    return copy_buffer_read->get();
+}
+
+void CommandHandlerContext::write_copy_buffer(CopyBufferContent content)
+{
+    if (copy_buffer_write == nullptr)
+    {
+        denied("copy-buffer-write");
+    }
+    copy_buffer_write->write(std::move(content));
+}
+
 auto CommandHandlerContext::prepare_transform(TransformKind kind,
                                               std::string chord_name, int inversion)
     -> TransformInputs
@@ -236,6 +265,11 @@ auto CommandTransaction::make_handler_context(CommandPolicy const &policy,
             policy.workspace == WorkspaceAccess::Mutate ? &workspace_edit_ : nullptr,
         .file_read = policy.files == FileAccess::Read ? &file_read_ : nullptr,
         .file_write = policy.files == FileAccess::Write ? &file_write_ : nullptr,
+        .copy_buffer_read =
+            policy.copy_buffer == CopyBufferAccess::Read ? &copy_buffer_read_ : nullptr,
+        .copy_buffer_write = policy.copy_buffer == CopyBufferAccess::Write
+                                 ? &copy_buffer_write_
+                                 : nullptr,
         .execution = execution,
     };
 }
@@ -285,6 +319,16 @@ auto CommandTransaction::edit_workspace() -> WorkspaceSettings &
 auto CommandTransaction::effects() noexcept -> SubmissionEffects &
 {
     return effects_;
+}
+
+auto CommandTransaction::copy_buffer() const -> std::optional<CopyBufferContent> const &
+{
+    return copy_buffer_.has_value() ? copy_buffer_ : state_.copy_buffer;
+}
+
+void CommandTransaction::write_copy_buffer(CopyBufferContent content)
+{
+    copy_buffer_ = std::move(content);
 }
 
 auto CommandTransaction::prepare_transform(TransformKind kind,
@@ -533,6 +577,11 @@ void CommandTransaction::install() noexcept
         using std::swap;
         swap(state_.workspace, *workspace_);
         state_.library_revision = detail::allocate_library_revision();
+    }
+    if (copy_buffer_.has_value())
+    {
+        using std::swap;
+        swap(state_.copy_buffer, copy_buffer_);
     }
     if (sessions_.has_value())
     {

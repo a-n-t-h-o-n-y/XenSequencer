@@ -22,32 +22,48 @@ namespace
 {
 
 constexpr auto project_edit_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::None,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+    CommandPolicy{ProjectOperation::Edit,
+                  LibraryAccess::None,
+                  WorkspaceAccess::None,
+                  FileAccess::None,
+                  CopyBufferAccess::None,
+                  TargetRequirement::None,
+                  RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 constexpr auto targeted_edit_policy =
     CommandPolicy{ProjectOperation::Edit,
                   LibraryAccess::None,
                   WorkspaceAccess::None,
                   FileAccess::None,
+                  CopyBufferAccess::None,
                   TargetRequirement::CellOrElement,
                   RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
-constexpr auto cell_edit_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::None,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::Cell, RepeatPolicy::OnSuccessfulProjectChange,
-                  HistoryPolicy::Commit};
+constexpr auto cell_edit_policy = CommandPolicy{ProjectOperation::Edit,
+                                                LibraryAccess::None,
+                                                WorkspaceAccess::None,
+                                                FileAccess::None,
+                                                CopyBufferAccess::None,
+                                                TargetRequirement::Cell,
+                                                RepeatPolicy::OnSuccessfulProjectChange,
+                                                HistoryPolicy::Commit};
 constexpr auto library_read_edit_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::Read,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+    CommandPolicy{ProjectOperation::Edit,
+                  LibraryAccess::Read,
+                  WorkspaceAccess::None,
+                  FileAccess::None,
+                  CopyBufferAccess::None,
+                  TargetRequirement::None,
+                  RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 constexpr auto library_mutating_edit_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::Mutate,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+    CommandPolicy{ProjectOperation::Edit,
+                  LibraryAccess::Mutate,
+                  WorkspaceAccess::None,
+                  FileAccess::None,
+                  CopyBufferAccess::None,
+                  TargetRequirement::None,
+                  RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 
 [[nodiscard]] auto exceeds_max_column_duration(

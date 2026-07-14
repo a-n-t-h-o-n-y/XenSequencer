@@ -387,7 +387,8 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
                            command->policy.project == ProjectOperation::Edit &&
                            command->policy.library != LibraryAccess::Mutate &&
                            command->policy.workspace != WorkspaceAccess::Mutate &&
-                           command->policy.files != FileAccess::Write;
+                           command->policy.files != FileAccess::Write &&
+                           command->policy.copy_buffer != CopyBufferAccess::Write;
                 });
             if (!preview_safe)
             {

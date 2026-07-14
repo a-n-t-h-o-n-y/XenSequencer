@@ -17,9 +17,13 @@ namespace
 {
 
 constexpr auto composition_edit_policy =
-    CommandPolicy{ProjectOperation::Edit,  LibraryAccess::None,
-                  WorkspaceAccess::None,   FileAccess::None,
-                  TargetRequirement::None, RepeatPolicy::OnSuccessfulProjectChange,
+    CommandPolicy{ProjectOperation::Edit,
+                  LibraryAccess::None,
+                  WorkspaceAccess::None,
+                  FileAccess::None,
+                  CopyBufferAccess::None,
+                  TargetRequirement::None,
+                  RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 
 auto require_sequence_entry(SequenceBank &bank, SequenceId id) -> SequenceBankEntry &

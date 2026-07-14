@@ -22,6 +22,7 @@ constexpr auto targeted_edit_policy =
                   LibraryAccess::None,
                   WorkspaceAccess::None,
                   FileAccess::None,
+                  CopyBufferAccess::None,
                   TargetRequirement::CellOrElement,
                   RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};

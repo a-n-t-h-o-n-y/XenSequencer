@@ -128,6 +128,10 @@ TEST_CASE("Project open and save use document-boundary history semantics",
               before_failure.project_revision);
         REQUIRE(session.command_session().transform_cycle.has_value());
 
+        auto const copied_element =
+            selected_sequence(session.project_snapshot().project, {}).elements.at(0);
+        REQUIRE(execute("copy", select_element_in_cell({}, 0)).status.first ==
+                MessageLevel::Info);
         auto const opened = execute("project open song");
         REQUIRE(opened.status.first == MessageLevel::Info);
         auto const after_open = session.project_snapshot();
@@ -138,6 +142,13 @@ TEST_CASE("Project open and save use document-boundary history semantics",
         CHECK_FALSE(session.command_session().transform_cycle.has_value());
         CHECK(execute("undo").status.second == "Nothing to undo.");
         CHECK(execute("redo").status.second == "Nothing to redo.");
+
+        auto const element_count =
+            selected_sequence(session.project_snapshot().project, {}).elements.size();
+        REQUIRE(execute("paste", SelectionPath{}).status.first == MessageLevel::Info);
+        auto const pasted = selected_sequence(session.project_snapshot().project, {});
+        REQUIRE(pasted.elements.size() == element_count + 1);
+        CHECK(pasted.elements.back() == copied_element);
     }
 
     CHECK(directory.deleteRecursively());

@@ -13,7 +13,6 @@
 #include <xen/chord.hpp>
 #include <xen/command_dsl.hpp>
 #include <xen/constants.hpp>
-#include <xen/copy_paste.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
 #include <xen/serialize.hpp>
@@ -32,13 +31,14 @@ auto as_juce_file(std::filesystem::path const &path) -> juce::File
 }
 
 constexpr auto informational_policy = CommandPolicy{
-    ProjectOperation::None, LibraryAccess::None,     WorkspaceAccess::None,
-    FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::None};
+    ProjectOperation::None, LibraryAccess::None,    WorkspaceAccess::None,
+    FileAccess::None,       CopyBufferAccess::None, TargetRequirement::None,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 constexpr auto new_project_policy = CommandPolicy{ProjectOperation::ReplaceHistory,
                                                   LibraryAccess::None,
                                                   WorkspaceAccess::None,
                                                   FileAccess::None,
+                                                  CopyBufferAccess::None,
                                                   TargetRequirement::None,
                                                   RepeatPolicy::Never,
                                                   HistoryPolicy::None};
@@ -47,27 +47,27 @@ constexpr auto history_navigation_policy =
                   LibraryAccess::None,
                   WorkspaceAccess::None,
                   FileAccess::None,
+                  CopyBufferAccess::None,
                   TargetRequirement::None,
                   RepeatPolicy::Never,
                   HistoryPolicy::None};
-constexpr auto copy_policy = CommandPolicy{ProjectOperation::Read,
-                                           LibraryAccess::None,
-                                           WorkspaceAccess::None,
-                                           FileAccess::Write,
-                                           TargetRequirement::CellOrElement,
-                                           RepeatPolicy::Never,
-                                           HistoryPolicy::None};
+constexpr auto copy_policy = CommandPolicy{
+    ProjectOperation::Read, LibraryAccess::None,     WorkspaceAccess::None,
+    FileAccess::None,       CopyBufferAccess::Write, TargetRequirement::CellOrElement,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 constexpr auto cut_policy = CommandPolicy{ProjectOperation::Edit,
                                           LibraryAccess::None,
                                           WorkspaceAccess::None,
-                                          FileAccess::Write,
+                                          FileAccess::None,
+                                          CopyBufferAccess::Write,
                                           TargetRequirement::CellOrElement,
                                           RepeatPolicy::OnSuccessfulProjectChange,
                                           HistoryPolicy::Commit};
 constexpr auto paste_policy = CommandPolicy{ProjectOperation::Edit,
                                             LibraryAccess::None,
                                             WorkspaceAccess::None,
-                                            FileAccess::Read,
+                                            FileAccess::None,
+                                            CopyBufferAccess::Read,
                                             TargetRequirement::CellOrElement,
                                             RepeatPolicy::OnSuccessfulProjectChange,
                                             HistoryPolicy::Commit};
@@ -76,32 +76,34 @@ constexpr auto targeted_edit_policy =
                   LibraryAccess::None,
                   WorkspaceAccess::None,
                   FileAccess::None,
+                  CopyBufferAccess::None,
                   TargetRequirement::CellOrElement,
                   RepeatPolicy::OnSuccessfulProjectChange,
                   HistoryPolicy::Commit};
 constexpr auto load_project_resource_policy = CommandPolicy{
-    ProjectOperation::Edit, LibraryAccess::None,     WorkspaceAccess::Read,
-    FileAccess::Read,       TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::Commit};
+    ProjectOperation::Edit, LibraryAccess::None,    WorkspaceAccess::Read,
+    FileAccess::Read,       CopyBufferAccess::None, TargetRequirement::None,
+    RepeatPolicy::Never,    HistoryPolicy::Commit};
 constexpr auto open_project_policy = CommandPolicy{ProjectOperation::ReplaceHistory,
                                                    LibraryAccess::None,
                                                    WorkspaceAccess::Read,
                                                    FileAccess::Read,
+                                                   CopyBufferAccess::None,
                                                    TargetRequirement::None,
                                                    RepeatPolicy::Never,
                                                    HistoryPolicy::None};
 constexpr auto reload_library_policy = CommandPolicy{
-    ProjectOperation::None, LibraryAccess::Mutate,   WorkspaceAccess::None,
-    FileAccess::Read,       TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::None};
+    ProjectOperation::None, LibraryAccess::Mutate,  WorkspaceAccess::None,
+    FileAccess::Read,       CopyBufferAccess::None, TargetRequirement::None,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 constexpr auto save_document_policy = CommandPolicy{
-    ProjectOperation::Read, LibraryAccess::None,     WorkspaceAccess::Read,
-    FileAccess::Write,      TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::None};
+    ProjectOperation::Read, LibraryAccess::None,    WorkspaceAccess::Read,
+    FileAccess::Write,      CopyBufferAccess::None, TargetRequirement::None,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 constexpr auto workspace_mutation_policy = CommandPolicy{
-    ProjectOperation::None, LibraryAccess::None,     WorkspaceAccess::Mutate,
-    FileAccess::None,       TargetRequirement::None, RepeatPolicy::Never,
-    HistoryPolicy::None};
+    ProjectOperation::None, LibraryAccess::None,    WorkspaceAccess::Mutate,
+    FileAccess::None,       CopyBufferAccess::None, TargetRequirement::None,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 
 } // namespace
 
@@ -141,28 +143,24 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         {"redo"}, "Reapply the last undone action.", history_navigation_policy,
         HistoryNavigationDirection::Redo, {"reapply"}));
 
-    specs.push_back(
-        command({"copy"}, false, "Copy the current selection.", {"clipboard"},
-                copy_policy, std::make_tuple(),
-                [](CommandHandlerContext &context, CommandInvocation const &) {
-                    auto const &state = context.project();
-                    context.write_text(copy_buffer_filepath(),
-                                       serialize_copy_buffer_content(action::copy(
-                                           state, context.execution.cursor,
-                                           require_selection(context.execution))));
-                    return unchanged_selection_result(minfo("Copied Selection"),
-                                                      context.execution);
-                }));
+    specs.push_back(command(
+        {"copy"}, false, "Copy the current selection.", {"clipboard"}, copy_policy,
+        std::make_tuple(),
+        [](CommandHandlerContext &context, CommandInvocation const &) {
+            auto const &state = context.project();
+            context.write_copy_buffer(action::copy(
+                state, context.execution.cursor, require_selection(context.execution)));
+            return unchanged_selection_result(minfo("Copied Selection"),
+                                              context.execution);
+        }));
 
     specs.push_back(command(
         {"cut"}, false, "Cut the current selection.", {"remove", "clipboard"},
         cut_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            context.write_text(copy_buffer_filepath(),
-                               serialize_copy_buffer_content(
-                                   action::copy(state, context.execution.cursor,
-                                                require_selection(context.execution))));
+            context.write_copy_buffer(action::copy(
+                state, context.execution.cursor, require_selection(context.execution)));
             auto const mutation = action::delete_cell(
                 state, context.execution.cursor, require_selection(context.execution));
             context.edit_project() = std::move(state);
@@ -174,15 +172,14 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
         paste_policy, std::make_tuple(),
         [](CommandHandlerContext &context, CommandInvocation const &) {
             auto state = context.project();
-            auto const text = context.read_text(copy_buffer_filepath());
-            if (!text.has_value() || text->empty())
+            auto const &content = context.copy_buffer();
+            if (!content.has_value())
             {
                 throw std::runtime_error{"Copy Buffer Is Empty"};
             }
-            auto const content = deserialize_copy_buffer_content(*text);
             auto const mutation =
                 action::paste(state, context.execution.cursor,
-                              require_selection(context.execution), content);
+                              require_selection(context.execution), *content);
             context.edit_project() = std::move(state);
             return make_result(minfo("Selection Pasted Over"), mutation.selection);
         }));

@@ -221,10 +221,10 @@ TEST_CASE("Catalog bind_chain stops at first bind error", "[core][command][catal
 TEST_CASE("Catalog rejects incoherent command policies",
           "[core][command][catalog][policy]")
 {
-    auto const none = CommandPolicy{ProjectOperation::None,  LibraryAccess::None,
-                                    WorkspaceAccess::None,   FileAccess::None,
-                                    TargetRequirement::None, RepeatPolicy::Never,
-                                    HistoryPolicy::None};
+    auto const none = CommandPolicy{ProjectOperation::None, LibraryAccess::None,
+                                    WorkspaceAccess::None,  FileAccess::None,
+                                    CopyBufferAccess::None, TargetRequirement::None,
+                                    RepeatPolicy::Never,    HistoryPolicy::None};
 
     for (auto const project : {ProjectOperation::None, ProjectOperation::ReplaceHistory,
                                ProjectOperation::NavigateHistory})
@@ -272,13 +272,17 @@ TEST_CASE("Catalog exposes complete backend command policies",
 {
     CHECK(policy_for("version") ==
           CommandPolicy{ProjectOperation::None, LibraryAccess::None,
-                        WorkspaceAccess::None, FileAccess::None,
+                        WorkspaceAccess::None, FileAccess::None, CopyBufferAccess::None,
                         TargetRequirement::None, RepeatPolicy::Never,
                         HistoryPolicy::None});
     CHECK(policy_for("duplicate").target == TargetRequirement::CellOrElement);
     CHECK(policy_for("set key 1").history == HistoryPolicy::Commit);
-    CHECK(policy_for("cut").files == FileAccess::Write);
-    CHECK(policy_for("paste").files == FileAccess::Read);
+    CHECK(policy_for("copy").files == FileAccess::None);
+    CHECK(policy_for("copy").copy_buffer == CopyBufferAccess::Write);
+    CHECK(policy_for("cut").files == FileAccess::None);
+    CHECK(policy_for("cut").copy_buffer == CopyBufferAccess::Write);
+    CHECK(policy_for("paste").files == FileAccess::None);
+    CHECK(policy_for("paste").copy_buffer == CopyBufferAccess::Read);
     CHECK(policy_for("load cell example").workspace == WorkspaceAccess::Read);
     CHECK(policy_for("save cell example").project == ProjectOperation::Read);
     CHECK(policy_for("project new").project == ProjectOperation::ReplaceHistory);

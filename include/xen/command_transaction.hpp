@@ -154,6 +154,34 @@ class FileWriteCapability
     CommandTransaction &transaction_;
 };
 
+class CopyBufferReadCapability
+{
+  public:
+    [[nodiscard]] auto get() const -> std::optional<CopyBufferContent> const &;
+
+  private:
+    friend class CommandTransaction;
+    explicit CopyBufferReadCapability(CommandTransaction &transaction)
+        : transaction_{transaction}
+    {
+    }
+    CommandTransaction &transaction_;
+};
+
+class CopyBufferWriteCapability
+{
+  public:
+    void write(CopyBufferContent content);
+
+  private:
+    friend class CommandTransaction;
+    explicit CopyBufferWriteCapability(CommandTransaction &transaction)
+        : transaction_{transaction}
+    {
+    }
+    CommandTransaction &transaction_;
+};
+
 struct CommandHandlerContext
 {
     ProjectReadCapability *project_read{};
@@ -164,6 +192,8 @@ struct CommandHandlerContext
     WorkspaceEditCapability *workspace_edit{};
     FileReadCapability *file_read{};
     FileWriteCapability *file_write{};
+    CopyBufferReadCapability *copy_buffer_read{};
+    CopyBufferWriteCapability *copy_buffer_write{};
     CommandExecutionContext &execution;
 
     [[nodiscard]] auto project() const -> ProjectState const &;
@@ -175,6 +205,8 @@ struct CommandHandlerContext
     [[nodiscard]] auto read_text(std::filesystem::path const &source) const
         -> std::optional<std::string>;
     void write_text(std::filesystem::path const &destination, std::string content);
+    [[nodiscard]] auto copy_buffer() const -> std::optional<CopyBufferContent> const &;
+    void write_copy_buffer(CopyBufferContent content);
     [[nodiscard]] auto prepare_transform(TransformKind kind, std::string chord_name,
                                          int inversion) -> TransformInputs;
 };
@@ -195,6 +227,8 @@ class CommandTransaction
     [[nodiscard]] auto workspace() const -> WorkspaceSettings const &;
     [[nodiscard]] auto edit_workspace() -> WorkspaceSettings &;
     [[nodiscard]] auto effects() noexcept -> SubmissionEffects &;
+    [[nodiscard]] auto copy_buffer() const -> std::optional<CopyBufferContent> const &;
+    void write_copy_buffer(CopyBufferContent content);
     [[nodiscard]] auto prepare_transform(TransformKind kind,
                                          CompositionCursor const &cursor,
                                          SelectionPath const &selection,
@@ -233,6 +267,8 @@ class CommandTransaction
     friend class WorkspaceEditCapability;
     friend class FileReadCapability;
     friend class FileWriteCapability;
+    friend class CopyBufferReadCapability;
+    friend class CopyBufferWriteCapability;
 
     PluginState &state_;
     SubmissionEffects effects_;
@@ -240,6 +276,7 @@ class CommandTransaction
     std::optional<ProjectState> project_{};
     std::optional<ContentLibrary> library_{};
     std::optional<WorkspaceSettings> workspace_{};
+    std::optional<CopyBufferContent> copy_buffer_{};
     std::optional<CommandSessionState> sessions_{};
     std::optional<XenTimeline> prepared_timeline_{};
     std::optional<std::vector<CommandInvocation>> repeat_candidate_{};
@@ -252,6 +289,8 @@ class CommandTransaction
     WorkspaceEditCapability workspace_edit_{*this};
     FileReadCapability file_read_{*this};
     FileWriteCapability file_write_{*this};
+    CopyBufferReadCapability copy_buffer_read_{*this};
+    CopyBufferWriteCapability copy_buffer_write_{*this};
 };
 
 } // namespace xen

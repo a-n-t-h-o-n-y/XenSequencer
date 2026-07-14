@@ -236,7 +236,6 @@ set(XEN_DOMAIN_SOURCES
     src/chord.cpp
     src/composition.cpp
     src/command.cpp
-    src/copy_paste.cpp
     src/message_level.cpp
     src/midi_compiler.cpp
     src/realtime_midi_player.cpp

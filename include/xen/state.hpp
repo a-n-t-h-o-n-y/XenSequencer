@@ -14,6 +14,7 @@
 #include <xen/clock.hpp>
 #include <xen/command.hpp>
 #include <xen/composition.hpp>
+#include <xen/copy_paste.hpp>
 #include <xen/pitch_system.hpp>
 #include <xen/scale.hpp>
 #include <xen/timeline.hpp>
@@ -172,6 +173,7 @@ struct PluginState
     ContentLibrary library{};
     LibraryRevision library_revision{detail::allocate_library_revision()};
     CommandSessionState command_session{};
+    std::optional<CopyBufferContent> copy_buffer{};
     XenTimeline timeline;
 };
 

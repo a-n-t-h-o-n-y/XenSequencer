@@ -96,6 +96,13 @@ enum class FileAccess : std::uint8_t
     Write,
 };
 
+enum class CopyBufferAccess : std::uint8_t
+{
+    None,
+    Read,
+    Write,
+};
+
 enum class TargetRequirement : std::uint8_t
 {
     None,
@@ -122,10 +129,12 @@ struct CommandPolicy
     CommandPolicy() = delete;
     constexpr CommandPolicy(ProjectOperation project_in, LibraryAccess library_in,
                             WorkspaceAccess workspace_in, FileAccess files_in,
+                            CopyBufferAccess copy_buffer_in,
                             TargetRequirement target_in, RepeatPolicy repeat_in,
                             HistoryPolicy history_in) noexcept
         : project{project_in}, library{library_in}, workspace{workspace_in},
-          files{files_in}, target{target_in}, repeat{repeat_in}, history{history_in}
+          files{files_in}, copy_buffer{copy_buffer_in}, target{target_in},
+          repeat{repeat_in}, history{history_in}
     {
     }
 
@@ -133,6 +142,7 @@ struct CommandPolicy
     LibraryAccess library;
     WorkspaceAccess workspace;
     FileAccess files;
+    CopyBufferAccess copy_buffer;
     TargetRequirement target;
     RepeatPolicy repeat;
     HistoryPolicy history;
