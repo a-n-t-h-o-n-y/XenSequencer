@@ -1,8 +1,11 @@
 #include <atomic>
+#include <barrier>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <string>
+#include <thread>
 
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
@@ -193,4 +196,40 @@ TEST_CASE("Failed keymap deletes preserve the previous resource", "[core][keymap
     CHECK_THROWS_AS(store.erase(previous.revision), KeymapStorageError);
     CHECK(store.current() == previous);
     CHECK(std::filesystem::exists(file));
+}
+
+TEST_CASE("Keymap stores serialize writes from the same revision", "[core][keymap]")
+{
+    auto const file = temporary_keymap_file();
+    auto first = KeymapStore{file};
+    auto second = KeymapStore{file};
+    auto const revision = first.read().revision;
+    CHECK(second.read().revision == revision);
+
+    auto ready = std::barrier{2};
+    auto successes = std::atomic<int>{0};
+    auto conflicts = std::atomic<int>{0};
+    auto write = [&](KeymapStore &store, int value) {
+        ready.arrive_and_wait();
+        try
+        {
+            (void)store.write(revision, {{"value", value}});
+            successes.fetch_add(1, std::memory_order_relaxed);
+        }
+        catch (KeymapStorageError const &error)
+        {
+            if (error.code == KeymapStorageErrorCode::Conflict)
+            {
+                conflicts.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+    };
+
+    auto first_thread = std::thread{write, std::ref(first), 1};
+    auto second_thread = std::thread{write, std::ref(second), 2};
+    first_thread.join();
+    second_thread.join();
+
+    CHECK(successes.load(std::memory_order_relaxed) == 1);
+    CHECK(conflicts.load(std::memory_order_relaxed) == 1);
 }

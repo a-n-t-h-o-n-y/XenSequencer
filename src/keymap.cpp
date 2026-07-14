@@ -1,9 +1,11 @@
 #include <xen/keymap.hpp>
 
 #include <filesystem>
+#include <mutex>
 #include <system_error>
 #include <utility>
 
+#include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
 #include <xen/text_file.hpp>
@@ -12,12 +14,8 @@
 namespace
 {
 
-auto revision_for(std::optional<nlohmann::json> const &document) -> std::uint64_t
+auto fnv1a(std::string const &bytes) -> std::uint64_t
 {
-    // FNV-1a is used as a stable opaque content token. Prefixing the serialized
-    // value keeps a missing file distinct from a persisted JSON null.
-    auto const bytes =
-        document.has_value() ? "document:" + document->dump() : std::string{"missing"};
     auto hash = std::uint64_t{14695981039346656037ULL};
     for (auto const byte : bytes)
     {
@@ -25,6 +23,33 @@ auto revision_for(std::optional<nlohmann::json> const &document) -> std::uint64_
         hash *= 1099511628211ULL;
     }
     return hash;
+}
+
+auto revision_for(std::optional<nlohmann::json> const &document) -> std::uint64_t
+{
+    // Prefixing the serialized value keeps a missing file distinct from a persisted
+    // JSON null.
+    auto const bytes =
+        document.has_value() ? "document:" + document->dump() : std::string{"missing"};
+    return fnv1a(bytes);
+}
+
+auto mutation_lock_name(std::filesystem::path const &file) -> juce::String
+{
+    auto error = std::error_code{};
+    auto absolute = std::filesystem::absolute(file, error);
+    if (error)
+    {
+        absolute = file;
+    }
+    auto const path = absolute.lexically_normal().generic_string();
+    return "XenSequencerKeymap-" + juce::String{std::to_string(fnv1a(path))};
+}
+
+auto mutation_mutex() -> std::mutex &
+{
+    static auto mutex = std::mutex{};
+    return mutex;
 }
 
 auto storage_error(xen::KeymapStorageErrorCode code, std::string const &operation,
@@ -169,9 +194,6 @@ void KeymapStore::require_revision(std::uint64_t expected_revision) const
 auto KeymapStore::write(std::uint64_t expected_revision, nlohmann::json document)
     -> KeymapResource
 {
-    (void)refresh();
-    require_revision(expected_revision);
-
     auto serialized = std::string{};
     try
     {
@@ -188,6 +210,17 @@ auto KeymapStore::write(std::uint64_t expected_revision, nlohmann::json document
                             "Unable to serialize", file_, "document exceeds 4 MiB");
     }
 
+    auto process_lock = std::scoped_lock{mutation_mutex()};
+    auto interprocess_lock = juce::InterProcessLock{mutation_lock_name(file_)};
+    auto mutation_lock = juce::InterProcessLock::ScopedLockType{interprocess_lock};
+    if (!mutation_lock.isLocked())
+    {
+        throw storage_error(KeymapStorageErrorCode::Write, "Unable to write", file_,
+                            "unable to acquire mutation lock");
+    }
+
+    (void)refresh();
+    require_revision(expected_revision);
     auto const next = KeymapResource{
         .revision = revision_for(document),
         .document = std::move(document),
@@ -212,6 +245,15 @@ auto KeymapStore::write(std::uint64_t expected_revision, nlohmann::json document
 
 auto KeymapStore::erase(std::uint64_t expected_revision) -> KeymapResource
 {
+    auto process_lock = std::scoped_lock{mutation_mutex()};
+    auto interprocess_lock = juce::InterProcessLock{mutation_lock_name(file_)};
+    auto mutation_lock = juce::InterProcessLock::ScopedLockType{interprocess_lock};
+    if (!mutation_lock.isLocked())
+    {
+        throw storage_error(KeymapStorageErrorCode::Delete, "Unable to delete", file_,
+                            "unable to acquire mutation lock");
+    }
+
     (void)refresh();
     require_revision(expected_revision);
     if (!current_.document.has_value())

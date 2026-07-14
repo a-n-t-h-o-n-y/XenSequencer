@@ -185,6 +185,9 @@ only persistence, size limits, revisions, optimistic conflicts, deletion, and ch
 publication. The frontend owns recognized fields, defaults, validation, schema
 migrations, and merging after conflicts.
 
+Cooperating Xen instances serialize each resource's refresh, revision check, and
+mutation, so two writes based on the same revision cannot both commit.
+
 The available requests are `keymap.read`, `keymap.write`, `keymap.delete`,
 `preferences.read`, `preferences.write`, and `preferences.delete`. Read payloads are
 empty objects. Write payloads contain `expected_revision` and `document`; delete
