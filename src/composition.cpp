@@ -111,20 +111,6 @@ auto create_sequence(SequenceBank &bank, sequence::Cell cell) -> SequenceId
     return id;
 }
 
-auto remove_sequence(SequenceBank &bank, SequenceId id) -> bool
-{
-    auto const at = std::ranges::find(bank.sequences, id, &SequenceBankEntry::id);
-    if (at == bank.sequences.end())
-        return false;
-    bank.sequences.erase(at);
-    return true;
-}
-
-auto duplicate_sequence(SequenceBank &bank, SequenceId id) -> SequenceId
-{
-    return create_sequence(bank, require_sequence(bank, id));
-}
-
 auto find_sequence(SequenceBank &bank, SequenceId id) -> sequence::Cell *
 {
     auto const at = std::ranges::find(bank.sequences, id, &SequenceBankEntry::id);
@@ -144,11 +130,6 @@ auto update_sequence(SequenceBank &bank, SequenceId id, sequence::Cell cell) -> 
         return false;
     *target = std::move(cell);
     return true;
-}
-
-auto all_sequences(SequenceBank const &bank) -> std::vector<SequenceBankEntry> const &
-{
-    return bank.sequences;
 }
 
 auto composition_row(Composition &composition, CompositionCoordinate coordinate)
@@ -224,12 +205,6 @@ auto assign_row_channel(Composition &composition, CompositionCoordinate row,
     if (channel_id.empty())
         throw std::invalid_argument{"Channel ID must not be empty."};
     composition_row(composition, row).channel_id = std::move(channel_id);
-}
-
-auto set_column_duration(Composition &composition, CompositionCoordinate column,
-                         sequence::TimeSignature duration) -> void
-{
-    composition_column(composition, column).duration = duration;
 }
 
 auto set_loop_start(Composition &composition, CompositionCoordinate column) -> void
@@ -313,17 +288,6 @@ auto arranged_sequence(SequenceBank const &bank, Composition const &composition,
         throw std::invalid_argument{
             "Active composition placement does not reference the requested sequence."};
     return require_sequence(bank, *id);
-}
-
-auto default_column_duration(Composition &composition) -> sequence::TimeSignature &
-{
-    return composition.default_column.duration;
-}
-
-auto default_column_duration(Composition const &composition)
-    -> sequence::TimeSignature const &
-{
-    return composition.default_column.duration;
 }
 
 } // namespace xen

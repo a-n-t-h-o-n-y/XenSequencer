@@ -95,7 +95,7 @@ TEST_CASE("MidiCompiler includes sparse implicit columns in loop timing",
 {
     auto project = make_note_project();
     project.composition.default_column.duration = {1, 4};
-    xen::set_column_duration(project.composition, 0, {1, 4});
+    project.composition.columns.at(0).duration = {1, 4};
     xen::assign_sequence_reference(project.composition, 0, -2,
                                    xen::DEFAULT_SEQUENCE_ID);
     xen::set_loop_start(project.composition, -2);

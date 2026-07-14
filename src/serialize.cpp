@@ -5,7 +5,6 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -464,21 +463,6 @@ static void from_json(nlohmann::json const &j, InstanceBinding &binding)
     {
         throw std::invalid_argument{"Channel ID must not be empty."};
     }
-}
-
-auto serialize_cell(sequence::Cell const &c) -> std::string
-{
-    auto json = nlohmann::json{};
-    to_json(json, c);
-    return json.dump();
-}
-
-auto deserialize_cell(std::string const &json_str) -> sequence::Cell
-{
-    auto const json = nlohmann::json::parse(json_str);
-    auto cell = sequence::Cell{};
-    from_json(json, cell);
-    return cell;
 }
 
 auto serialize_cell_file(sequence::Cell const &cell) -> std::string

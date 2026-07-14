@@ -410,11 +410,6 @@ void CommandTransaction::record_repeat(CommandInvocation invocation)
     repeat_candidate_->push_back(std::move(invocation));
 }
 
-void CommandTransaction::clear_repeat() noexcept
-{
-    repeat_candidate_.reset();
-}
-
 void CommandTransaction::invalidate_transform_sessions()
 {
     if (!sessions_.has_value())
@@ -448,26 +443,6 @@ auto CommandTransaction::library_changed() const -> bool
 auto CommandTransaction::workspace_changed() const -> bool
 {
     return workspace_.has_value() && *workspace_ != state_.workspace;
-}
-
-auto CommandTransaction::has_domain_candidates() const noexcept -> bool
-{
-    return project_.has_value() || library_.has_value() || workspace_.has_value();
-}
-
-auto CommandTransaction::has_project_candidate() const noexcept -> bool
-{
-    return project_.has_value();
-}
-
-auto CommandTransaction::has_library_candidate() const noexcept -> bool
-{
-    return library_.has_value();
-}
-
-auto CommandTransaction::has_workspace_candidate() const noexcept -> bool
-{
-    return workspace_.has_value();
 }
 
 auto CommandTransaction::has_history_plan() const noexcept -> bool

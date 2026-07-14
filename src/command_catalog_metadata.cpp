@@ -1,7 +1,6 @@
 #include <xen/command_catalog.hpp>
 
 #include <string>
-#include <vector>
 
 #include "command_catalog_metadata_internal.hpp"
 
@@ -36,11 +35,6 @@ auto format_metadata_path(CatalogCommandMetadata const &metadata) -> std::string
 auto CommandCatalog::metadata() const -> std::vector<CatalogCommandMetadata> const &
 {
     return metadata_;
-}
-
-auto command_metadata() -> std::vector<CatalogCommandMetadata> const &
-{
-    return default_command_catalog().metadata();
 }
 
 } // namespace xen

@@ -205,15 +205,6 @@ auto get_selected_element_index(SelectionPath const &selected) -> std::size_t
     return selected.path.back().index;
 }
 
-auto get_selected_cell_index(SelectionPath const &selected) -> std::size_t
-{
-    if (selection_kind(selected) != SelectionKind::Cell || selected.path.empty())
-    {
-        throw std::invalid_argument("Selection does not resolve to a child Cell.");
-    }
-    return selected.path.back().index;
-}
-
 auto get_parent_of_selected(sequence::Cell &root, SelectionPath const &selected)
     -> sequence::Cell *
 {
@@ -245,19 +236,6 @@ auto get_parent_of_selected_const(sequence::Cell const &root,
     }
 
     return get_parent_cell_of_selection_const(root, selection_parent(selected));
-}
-
-auto get_parent_sequence_of_selected_cell(sequence::Cell &root,
-                                          SelectionPath const &selected)
-    -> sequence::Sequence *
-{
-    if (selection_kind(selected) != SelectionKind::Cell || selected.path.empty())
-    {
-        return nullptr;
-    }
-
-    auto parent_selection = selection_parent(selected);
-    return &get_selected_sequence(root, parent_selection);
 }
 
 auto get_parent_sequence_of_selected_cell_const(sequence::Cell const &root,

@@ -1,10 +1,7 @@
 #pragma once
 
-#include <functional>
 #include <string>
-#include <vector>
 
-#include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
 
 namespace xen

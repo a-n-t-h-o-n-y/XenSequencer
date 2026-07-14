@@ -240,21 +240,6 @@ auto parsed_input(LexedSegment const &segment) -> ParsedCommandInput
 
 } // namespace
 
-auto parse_command_input(std::string const &input) -> ParsedCommandInput
-{
-    auto const segments = lex_commands(input);
-    if (segments.empty())
-    {
-        return ParsedCommandInput{
-            .pattern = {0, {1}},
-            .has_pattern_prefix = false,
-            .words = {},
-            .word_spans = {},
-        };
-    }
-    return parsed_input(segments.back());
-}
-
 auto parse_command_chain(std::string const &raw_command_string)
     -> std::vector<CommandInvocation>
 {

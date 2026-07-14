@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include <vector>
 
 #include <xen/command.hpp>
@@ -38,8 +37,6 @@ class CommandCatalog
 
 [[nodiscard]] auto bind_chain(std::vector<CommandInvocation> const &invocations)
     -> BindChainResult;
-
-[[nodiscard]] auto command_metadata() -> std::vector<CatalogCommandMetadata> const &;
 
 [[nodiscard]] auto catalog_docs() -> std::vector<Documentation>;
 

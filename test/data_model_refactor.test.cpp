@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -171,19 +170,18 @@ TEST_CASE("Sequence bank and sparse composition API covers editing operations",
 {
     auto project = ProjectState{};
 
-    auto const duplicate_id =
-        duplicate_sequence(project.sequence_bank, DEFAULT_SEQUENCE_ID);
-    REQUIRE(duplicate_id != DEFAULT_SEQUENCE_ID);
-    REQUIRE(find_sequence(project.sequence_bank, duplicate_id) != nullptr);
+    auto const sequence_id = create_sequence(project.sequence_bank, sequence::Cell{});
+    REQUIRE(sequence_id != DEFAULT_SEQUENCE_ID);
+    REQUIRE(find_sequence(project.sequence_bank, sequence_id) != nullptr);
 
-    assign_sequence_reference(project.composition, -2, 5, duplicate_id);
-    CHECK(sequence_reference_at(project.composition, -2, 5) == duplicate_id);
-    set_column_duration(project.composition, 5, sequence::TimeSignature{5, 8});
+    assign_sequence_reference(project.composition, -2, 5, sequence_id);
+    CHECK(sequence_reference_at(project.composition, -2, 5) == sequence_id);
+    project.composition.columns.at(5).duration = sequence::TimeSignature{5, 8};
     CHECK(project.composition.columns.at(5).duration == sequence::TimeSignature{5, 8});
     assign_row_channel(project.composition, -2, "peer");
     move_sequence_reference(project.composition, {-2, 5}, {-3, 8});
     CHECK_FALSE(sequence_reference_at(project.composition, -2, 5).has_value());
-    CHECK(sequence_reference_at(project.composition, -3, 8) == duplicate_id);
+    CHECK(sequence_reference_at(project.composition, -3, 8) == sequence_id);
     CHECK(project.composition.rows.at(-3).channel_id == "peer");
     CHECK_FALSE(project.composition.rows.contains(-2));
     CHECK_FALSE(project.composition.columns.contains(5));
@@ -195,8 +193,6 @@ TEST_CASE("Sequence bank and sparse composition API covers editing operations",
     unassign_sequence_reference(project.composition, -3, 8);
     CHECK(project.composition.rows.contains(-3));
     CHECK(project.composition.columns.contains(8));
-    CHECK(remove_sequence(project.sequence_bank, duplicate_id));
-    CHECK(find_sequence(project.sequence_bank, duplicate_id) == nullptr);
 }
 
 TEST_CASE("Sparse assignments leave explicit loop coordinates stable",
@@ -253,15 +249,6 @@ TEST_CASE("Sequence and composition row names serialize and validate",
     CHECK(duplicate_case_id != DEFAULT_SEQUENCE_ID);
     project.sequence_bank.sequences.back().name = "wow";
     CHECK_THROWS_AS(validate(project), std::invalid_argument);
-
-    project = ProjectState{};
-    project.sequence_bank.sequences.front().name = "Named";
-    auto const duplicated_named_id =
-        duplicate_sequence(project.sequence_bank, DEFAULT_SEQUENCE_ID);
-    auto const duplicated_named = std::ranges::find(
-        project.sequence_bank.sequences, duplicated_named_id, &SequenceBankEntry::id);
-    REQUIRE(duplicated_named != project.sequence_bank.sequences.end());
-    CHECK_FALSE(duplicated_named->name.has_value());
 
     project = ProjectState{};
     project.composition.rows.at(0).name = "";

@@ -11,7 +11,6 @@
 #include <juce_core/juce_core.h>
 
 #include <xen/chord.hpp>
-#include <xen/clock.hpp>
 #include <xen/command.hpp>
 #include <xen/composition.hpp>
 #include <xen/copy_paste.hpp>

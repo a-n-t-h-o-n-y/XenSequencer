@@ -217,14 +217,6 @@ class Timeline
     }
 
     /**
-     * Retrieve the current committed state at the timeline cursor.
-     */
-    [[nodiscard]] auto get_committed_state() const -> State const &
-    {
-        return timeline_[at_].state;
-    }
-
-    /**
      * Return the immutable identity of the current history entry.
      */
     [[nodiscard]] auto get_current_entry_id() const noexcept -> HistoryEntryId

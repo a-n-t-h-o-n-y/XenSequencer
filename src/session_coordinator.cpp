@@ -224,11 +224,6 @@ auto SessionCoordinator::binding_for(InstanceId const &instance_id) const
     return it == bindings_.end() ? nullptr : &it->second;
 }
 
-auto SessionCoordinator::live_edit_started() const noexcept -> bool
-{
-    return live_edit_started_;
-}
-
 void SessionCoordinator::maybe_seed_from(ClientHello const &hello)
 {
     if (!hello.restore_state.has_value())

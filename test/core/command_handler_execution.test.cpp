@@ -53,7 +53,7 @@ auto execute(PluginState &state, std::string const &text,
 
 static_assert(noexcept(std::declval<CommandTransaction &>().install()));
 
-TEST_CASE("Command transactions create resource candidates lazily",
+TEST_CASE("Command transactions report resource changes",
           "[core][command][transaction]")
 {
     auto state = make_plugin_state();
@@ -67,7 +67,9 @@ TEST_CASE("Command transactions create resource candidates lazily",
                       TargetRequirement::None, RepeatPolicy::Never,
                       HistoryPolicy::None},
         execution);
-    CHECK_FALSE(informational.has_domain_candidates());
+    CHECK_FALSE(informational.project_changed());
+    CHECK_FALSE(informational.library_changed());
+    CHECK_FALSE(informational.workspace_changed());
 
     auto project = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto project_context = project.make_handler_context(
@@ -77,9 +79,9 @@ TEST_CASE("Command transactions create resource candidates lazily",
                       HistoryPolicy::Commit},
         execution);
     project_context.edit_project().composition.columns.at(0).pitch.transposition = 2;
-    CHECK(project.has_project_candidate());
-    CHECK_FALSE(project.has_library_candidate());
-    CHECK_FALSE(project.has_workspace_candidate());
+    CHECK(project.project_changed());
+    CHECK_FALSE(project.library_changed());
+    CHECK_FALSE(project.workspace_changed());
 
     auto library = CommandTransaction{state, SubmissionEffects::FailurePoint::None};
     auto library_context = library.make_handler_context(
@@ -89,9 +91,9 @@ TEST_CASE("Command transactions create resource candidates lazily",
                       HistoryPolicy::None},
         execution);
     library_context.edit_library().scales.clear();
-    CHECK_FALSE(library.has_project_candidate());
-    CHECK(library.has_library_candidate());
-    CHECK_FALSE(library.has_workspace_candidate());
+    CHECK_FALSE(library.project_changed());
+    CHECK(library.library_changed());
+    CHECK_FALSE(library.workspace_changed());
 }
 
 TEST_CASE("Command handler contexts deny undeclared capabilities",

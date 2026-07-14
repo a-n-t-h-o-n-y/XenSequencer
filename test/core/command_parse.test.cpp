@@ -25,10 +25,12 @@ auto parse_error(std::string const &input) -> std::string
 
 } // namespace
 
-TEST_CASE("parse_command_input parses quoted arguments with default pattern",
+TEST_CASE("parse_command_chain parses quoted arguments with default pattern",
           "[core][command]")
 {
-    auto const parsed = parse_command_input("load cell \"my seq\"");
+    auto const chain = parse_command_chain("load cell \"my seq\"");
+    REQUIRE(chain.size() == 1);
+    auto const &parsed = chain.front().input;
 
     CHECK(parsed.pattern == sequence::Pattern{0, {1}});
     REQUIRE(parsed.words.size() == 3);
@@ -39,9 +41,11 @@ TEST_CASE("parse_command_input parses quoted arguments with default pattern",
     CHECK(parsed.word_spans[2].end == 18);
 }
 
-TEST_CASE("parse_command_input parses explicit pattern prefix", "[core][command]")
+TEST_CASE("parse_command_chain parses explicit pattern prefix", "[core][command]")
 {
-    auto const parsed = parse_command_input("+5 4 set key 7");
+    auto const chain = parse_command_chain("+5 4 set key 7");
+    REQUIRE(chain.size() == 1);
+    auto const &parsed = chain.front().input;
 
     CHECK(parsed.pattern == sequence::Pattern{5, {4}});
     REQUIRE(parsed.words.size() == 3);

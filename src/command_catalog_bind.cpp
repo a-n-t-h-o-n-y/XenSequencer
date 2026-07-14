@@ -7,8 +7,6 @@
 
 #include <xen/string_manip.hpp>
 
-#include "command_catalog_metadata_internal.hpp"
-
 namespace xen
 {
 

@@ -237,7 +237,6 @@ class CommandTransaction
 
     void plan_history(HistoryPlan plan) noexcept;
     void record_repeat(CommandInvocation invocation);
-    void clear_repeat() noexcept;
     void invalidate_transform_sessions();
     void clear_project_sessions();
     [[nodiscard]] auto repeat_candidate() const
@@ -245,10 +244,6 @@ class CommandTransaction
     [[nodiscard]] auto project_changed() const -> bool;
     [[nodiscard]] auto library_changed() const -> bool;
     [[nodiscard]] auto workspace_changed() const -> bool;
-    [[nodiscard]] auto has_domain_candidates() const noexcept -> bool;
-    [[nodiscard]] auto has_project_candidate() const noexcept -> bool;
-    [[nodiscard]] auto has_library_candidate() const noexcept -> bool;
-    [[nodiscard]] auto has_workspace_candidate() const noexcept -> bool;
     [[nodiscard]] auto has_history_plan() const noexcept -> bool;
     [[nodiscard]] auto history_plan_is_amend() const noexcept -> bool;
 

@@ -9,21 +9,6 @@ namespace xen
 {
 
 /**
- * Serialize a sequence::Cell object to a JSON string.
- * @param c The sequence::Cell object to serialize.
- * @return std::string The JSON string.
- */
-[[nodiscard]] auto serialize_cell(sequence::Cell const &c) -> std::string;
-
-/**
- * Deserialize a JSON string to a sequence::Cell object.
- * @param json_str The JSON string to deserialize.
- * @return sequence::Cell The deserialized Cell object.
- * @throw std::invalid_argument If the JSON string is invalid.
- */
-[[nodiscard]] auto deserialize_cell(std::string const &json_str) -> sequence::Cell;
-
-/**
  * Serialize a Cell object to a JSON string.
  *
  * @param cell The Cell object to serialize.

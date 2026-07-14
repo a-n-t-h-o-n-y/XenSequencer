@@ -48,14 +48,6 @@ struct CommandInvocation
 };
 
 /**
- * Parse the final command segment into a Pattern and a vector of words.
- *
- * @param input The input string to parse.
- * @exception std::invalid_argument Thrown when syntax is malformed.
- */
-[[nodiscard]] auto parse_command_input(std::string const &input) -> ParsedCommandInput;
-
-/**
  * Parse a raw command string into a canonical command chain.
  *
  * @details Splits on top-level semicolons, normalizes per-segment whitespace,

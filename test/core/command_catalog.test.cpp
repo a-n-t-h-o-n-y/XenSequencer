@@ -108,7 +108,7 @@ TEST_CASE("Removed project and arrangement commands are absent from the catalog"
         CHECK(result.error().kind == CatalogBindErrorKind::UnknownCommand);
     }
 
-    auto const metadata = command_metadata();
+    auto const &metadata = default_command_catalog().metadata();
     for (auto const &removed :
          {std::vector<std::string>{"reset"},
           std::vector<std::string>{"composition", "cell", "clear"},
@@ -316,9 +316,10 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(arp.history == HistoryPolicy::AmendCompatibleTransform);
 }
 
-TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][catalog]")
+TEST_CASE("Catalog metadata exposes paths, arguments, and descriptions",
+          "[core][command][catalog]")
 {
-    auto const &metadata = command_metadata();
+    auto const &metadata = default_command_catalog().metadata();
     REQUIRE_FALSE(metadata.empty());
 
     auto const set_pitch = std::find_if(
@@ -402,7 +403,8 @@ TEST_CASE("Catalog metadata exposes path, args, and docs", "[core][command][cata
 TEST_CASE("Catalog bridge payload serializes schema version and keywords",
           "[core][command][catalog][bridge]")
 {
-    auto const payload = bridge::make_catalog_payload(command_metadata());
+    auto const payload =
+        bridge::make_catalog_payload(default_command_catalog().metadata());
     CHECK(payload.at("schema_version") == 3);
 
     auto const &commands = payload.at("commands");

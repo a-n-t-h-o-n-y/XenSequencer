@@ -14,7 +14,6 @@
 
 #include <xen/constants.hpp>
 #include <xen/string_manip.hpp>
-#include <xen/user_directory.hpp>
 #include <xen/utility.hpp>
 
 #include "numeric.hpp"
@@ -106,12 +105,6 @@ void validate_scale(Scale const &scale)
     {
         throw std::invalid_argument{"Scale intervals must sum to tuning_length."};
     }
-}
-
-auto load_scales_from_files() -> std::vector<LibraryScale>
-{
-    return load_scales(get_system_scales_file().loadFileAsString().toStdString(),
-                       get_user_scales_file().loadFileAsString().toStdString());
 }
 
 auto load_scales(std::string const &system_yaml, std::string const &user_yaml)

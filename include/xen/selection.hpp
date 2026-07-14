@@ -67,9 +67,6 @@ enum class SelectionKind
 [[nodiscard]] auto get_selected_element_index(SelectionPath const &selected)
     -> std::size_t;
 
-[[nodiscard]] auto get_selected_cell_index(SelectionPath const &selected)
-    -> std::size_t;
-
 /**
  * Get the parent Cell of the selected child Cell.
  *
@@ -93,10 +90,6 @@ enum class SelectionKind
 [[nodiscard]] auto get_parent_of_selected_const(sequence::Cell const &root,
                                                 SelectionPath const &selected)
     -> sequence::Cell const *;
-
-[[nodiscard]] auto get_parent_sequence_of_selected_cell(sequence::Cell &root,
-                                                        SelectionPath const &selected)
-    -> sequence::Sequence *;
 
 [[nodiscard]] auto get_parent_sequence_of_selected_cell_const(
     sequence::Cell const &root, SelectionPath const &selected)

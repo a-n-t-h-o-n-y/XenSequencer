@@ -278,7 +278,6 @@ TEST_CASE("SessionCoordinator broadcasts authoritative command results",
     CHECK(result.result.status.first == MessageLevel::Info);
     CHECK(result.snapshot.project.composition.columns.at(0).pitch.transposition == 5);
     CHECK(coordinator.snapshot().project == result.snapshot.project);
-    CHECK(coordinator.live_edit_started());
 }
 
 TEST_CASE("SessionCoordinator instances share one transient copy buffer",

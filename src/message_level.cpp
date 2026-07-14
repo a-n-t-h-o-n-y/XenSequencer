@@ -1,44 +1,10 @@
 #include <xen/message_level.hpp>
 
-#include <compare>
-#include <cstdint>
-#include <ostream>
 #include <string>
 #include <utility>
 
 namespace xen
 {
-
-auto operator<=>(MessageLevel const lhs, MessageLevel const rhs) -> std::strong_ordering
-{
-    return std::to_underlying(lhs) <=> std::to_underlying(rhs);
-}
-
-auto operator<<(std::ostream &os, MessageLevel level) -> std::ostream &
-{
-    switch (level)
-    {
-    case MessageLevel::Debug:
-        os << "Debug";
-        break;
-    case MessageLevel::Info:
-        os << "Info";
-        break;
-    case MessageLevel::Warning:
-        os << "Warning";
-        break;
-    case MessageLevel::Error:
-        os << "Error";
-        break;
-    }
-
-    return os;
-}
-
-auto mdebug(std::string msg) -> std::pair<MessageLevel, std::string>
-{
-    return {MessageLevel::Debug, std::move(msg)};
-}
 
 auto minfo(std::string msg) -> std::pair<MessageLevel, std::string>
 {

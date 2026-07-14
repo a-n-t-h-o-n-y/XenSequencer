@@ -7,7 +7,6 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
-#include <xen/clock.hpp>
 #include <xen/webview_bridge.hpp>
 #include <xen/xen_processor.hpp>
 

@@ -1,5 +1,6 @@
 #include <xen/command_catalog.hpp>
 
+#include <utility>
 #include <vector>
 
 #include "command_catalog_metadata_internal.hpp"

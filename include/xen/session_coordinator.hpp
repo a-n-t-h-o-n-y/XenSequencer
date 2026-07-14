@@ -33,7 +33,6 @@ class SessionCoordinator
     [[nodiscard]] auto instances() const -> std::vector<InstanceBinding>;
     [[nodiscard]] auto binding_for(InstanceId const &instance_id) const
         -> InstanceBinding const *;
-    [[nodiscard]] auto live_edit_started() const noexcept -> bool;
 
   private:
     SequencerSession session_;

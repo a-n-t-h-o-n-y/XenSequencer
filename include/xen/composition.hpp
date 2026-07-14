@@ -96,14 +96,10 @@ struct Composition
 
 [[nodiscard]] auto create_sequence(SequenceBank &bank, sequence::Cell cell)
     -> SequenceId;
-auto remove_sequence(SequenceBank &bank, SequenceId id) -> bool;
-[[nodiscard]] auto duplicate_sequence(SequenceBank &bank, SequenceId id) -> SequenceId;
 [[nodiscard]] auto find_sequence(SequenceBank &bank, SequenceId id) -> sequence::Cell *;
 [[nodiscard]] auto find_sequence(SequenceBank const &bank, SequenceId id)
     -> sequence::Cell const *;
 auto update_sequence(SequenceBank &bank, SequenceId id, sequence::Cell cell) -> bool;
-[[nodiscard]] auto all_sequences(SequenceBank const &bank)
-    -> std::vector<SequenceBankEntry> const &;
 
 [[nodiscard]] auto composition_row(Composition &composition,
                                    CompositionCoordinate coordinate)
@@ -124,8 +120,6 @@ auto ensure_composition_column(Composition &composition,
                                CompositionCoordinate coordinate) -> CompositionColumn &;
 auto assign_row_channel(Composition &composition, CompositionCoordinate row,
                         ChannelId channel_id) -> void;
-auto set_column_duration(Composition &composition, CompositionCoordinate column,
-                         sequence::TimeSignature duration) -> void;
 auto set_loop_start(Composition &composition, CompositionCoordinate column) -> void;
 auto set_loop_end(Composition &composition, CompositionCoordinate column) -> void;
 
@@ -147,9 +141,4 @@ auto move_sequence_reference(Composition &composition, CompositionPosition from,
                                      Composition const &composition,
                                      CompositionCursor const &cursor)
     -> sequence::Cell const &;
-[[nodiscard]] auto default_column_duration(Composition &composition)
-    -> sequence::TimeSignature &;
-[[nodiscard]] auto default_column_duration(Composition const &composition)
-    -> sequence::TimeSignature const &;
-
 } // namespace xen

@@ -41,10 +41,6 @@ struct LibraryScale
  */
 void validate_scale(Scale const &scale);
 
-/**
- * Loads in Scales from library directory's scales.yml and user_scales.yml files.
- */
-[[nodiscard]] auto load_scales_from_files() -> std::vector<LibraryScale>;
 [[nodiscard]] auto load_scales(std::string const &system_yaml,
                                std::string const &user_yaml)
     -> std::vector<LibraryScale>;
