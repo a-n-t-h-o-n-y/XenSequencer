@@ -12,7 +12,7 @@
 
 using namespace xen;
 
-TEST_CASE("Effect failures leave backend state unchanged and report rollback failures",
+TEST_CASE("Effect failures leave the canonical file unchanged",
           "[processor][command][transaction][effects]")
 {
     auto const directory =
@@ -32,21 +32,23 @@ TEST_CASE("Effect failures leave backend state unchanged and report rollback fai
                                SubmissionEffects::FailurePoint::Apply,
                                SubmissionEffects::FailurePoint::ApplyAndRollback})
     {
-        auto session =
-            SequencerSession{failure, settings_file.getFullPathName().toStdString()};
-        auto const before = session.project_snapshot();
-        auto const result = session.execute_command_string(
-            "save cell effect-test",
-            {.expected_project_revision = before.project_revision});
-
-        CHECK(result.status.first == MessageLevel::Error);
-        CHECK(session.project_snapshot().project_revision == before.project_revision);
-        CHECK(session.project_snapshot().project == before.project);
-        if (failure == SubmissionEffects::FailurePoint::ApplyAndRollback)
+        auto effects = SubmissionEffects{failure};
+        effects.write_text(directory.getChildFile("effect-test.xencell")
+                               .getFullPathName()
+                               .toStdString(),
+                           "replacement");
+        if (failure == SubmissionEffects::FailurePoint::Prepare)
         {
-            CHECK(result.status.second.find("rollback failed for:") !=
-                  std::string::npos);
+            CHECK_THROWS(effects.prepare());
         }
+        else
+        {
+            REQUIRE_NOTHROW(effects.prepare());
+            CHECK_THROWS(effects.apply());
+            CHECK(effects.rollback().empty());
+        }
+        CHECK(directory.getChildFile("effect-test.xencell").loadFileAsString() ==
+              "baseline");
     }
 
     CHECK(directory.deleteRecursively());
@@ -91,18 +93,19 @@ TEST_CASE("Project open and save use document-boundary history semantics",
         REQUIRE_FALSE(session.command_session().repeat_chain.empty());
 
         auto const before_save = session.project_snapshot();
-        REQUIRE(execute("project save song").status.first == MessageLevel::Info);
+        REQUIRE_NOTHROW(session.save_project_as(
+            "song.xenproj", before_save.project_revision, std::nullopt));
         auto const after_save = session.project_snapshot();
         CHECK(after_save.project == before_save.project);
         CHECK(after_save.history_entry_id == before_save.history_entry_id);
         CHECK(after_save.project_revision == before_save.project_revision);
-        CHECK(directory.getChildFile("song.xencomp").existsAsFile());
+        CHECK(directory.getChildFile("song.xenproj").existsAsFile());
 
         auto const before_failure = session.project_snapshot();
         auto const repeat_command =
             session.command_session().repeat_chain.front().canonical_segment;
         auto const transform = *session.command_session().transform_cycle;
-        auto const missing = execute("project open missing");
+        auto const missing = execute("project open missing.xenproj");
         CHECK(missing.status.first == MessageLevel::Error);
         CHECK(session.project_snapshot().project == before_failure.project);
         CHECK(session.project_snapshot().history_entry_id ==
@@ -118,9 +121,9 @@ TEST_CASE("Project open and save use document-boundary history semantics",
         CHECK(session.command_session().transform_cycle->previous_chord_name ==
               transform.previous_chord_name);
 
-        REQUIRE(directory.getChildFile("malformed.xencomp")
+        REQUIRE(directory.getChildFile("malformed.xenproj")
                     .replaceWithText("not valid project json"));
-        auto const malformed = execute("project open malformed");
+        auto const malformed = execute("project open malformed.xenproj");
         CHECK(malformed.status.first == MessageLevel::Error);
         CHECK(session.project_snapshot().history_entry_id ==
               before_failure.history_entry_id);
@@ -132,7 +135,7 @@ TEST_CASE("Project open and save use document-boundary history semantics",
             selected_sequence(session.project_snapshot().project, {}).elements.at(0);
         REQUIRE(execute("copy", select_element_in_cell({}, 0)).status.first ==
                 MessageLevel::Info);
-        auto const opened = execute("project open song");
+        auto const opened = execute("project open song.xenproj");
         REQUIRE(opened.status.first == MessageLevel::Info);
         auto const after_open = session.project_snapshot();
         CHECK(after_open.project == before_save.project);

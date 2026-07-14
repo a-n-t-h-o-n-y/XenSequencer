@@ -1,6 +1,7 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <utility>
 
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
@@ -63,13 +64,48 @@ TEST_CASE("Project validation covers scalar and recursive invariants",
     CHECK_THROWS_AS(timeline.commit(project), std::invalid_argument);
 }
 
-TEST_CASE("Project schema 5 stores sequence bank and sparse composition",
+TEST_CASE("Cell file validation rejects excessive recursive depth",
+          "[data-model][validation][limits]")
+{
+    auto cell = sequence::Cell{};
+    for (auto depth = 0; depth < 65; ++depth)
+    {
+        cell = sequence::Cell{
+            .elements = {sequence::Sequence{.cells = {std::move(cell)}}},
+            .weight = 1.f,
+        };
+    }
+    CHECK_THROWS_AS(serialize_cell_file(cell), std::invalid_argument);
+}
+
+TEST_CASE("Valid deeply nested Cell files round-trip within the depth budget",
+          "[data-model][validation][limits]")
+{
+    auto cell = sequence::Cell{};
+    for (auto depth = 0; depth < 32; ++depth)
+    {
+        cell = sequence::Cell{
+            .elements = {sequence::Sequence{.cells = {std::move(cell)}}},
+            .weight = 1.f,
+        };
+    }
+    CHECK(deserialize_cell_file(serialize_cell_file(cell)) == cell);
+}
+
+TEST_CASE("Cell file schema requires explicit weight", "[data-model][serialize]")
+{
+    auto encoded = nlohmann::json::parse(serialize_cell_file(sequence::Cell{}));
+    encoded.at("cell").erase("weight");
+    CHECK_THROWS(deserialize_cell_file(encoded.dump()));
+}
+
+TEST_CASE("Project file schema 1 stores sequence bank and sparse composition",
           "[data-model][serialize]")
 {
     auto const project = ProjectState{};
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("schema") == 5);
-    CHECK(encoded.at("kind") == "xen_composition");
+    CHECK(encoded.at("schema") == 1);
+    CHECK(encoded.at("kind") == "xen_project");
     CHECK_FALSE(encoded.at("project").contains("pitch"));
     CHECK(encoded.at("project").contains("sequence_bank"));
     CHECK(encoded.at("project").contains("composition"));
@@ -85,8 +121,12 @@ TEST_CASE("Project schema 5 stores sequence bank and sparse composition",
               .contains("time_signature") == false);
 
     auto old_schema = encoded;
-    old_schema["schema"] = 4;
+    old_schema["schema"] = 0;
     CHECK_THROWS(deserialize_project(old_schema.dump()));
+
+    auto old_kind = encoded;
+    old_kind["kind"] = "xen_composition";
+    CHECK_THROWS(deserialize_project(old_kind.dump()));
 
     auto const old = nlohmann::json{
         {"sequence", encoded.at("project").at("sequence_bank").at("sequences").front()},
@@ -152,7 +192,7 @@ TEST_CASE("Sparse axis inheritance and movement are deterministic",
                     std::invalid_argument);
 }
 
-TEST_CASE("Typed Cell and Composition documents round-trip", "[data-model][serialize]")
+TEST_CASE("Cell and Project documents round-trip", "[data-model][serialize]")
 {
     auto cell = sequence::Cell{
         .elements = {sequence::Note{.pitch = 7}},
@@ -162,7 +202,7 @@ TEST_CASE("Typed Cell and Composition documents round-trip", "[data-model][seria
 
     auto project = ProjectState{};
     project.composition.columns.at(0).pitch.transposition = 11;
-    CHECK(deserialize_composition(serialize_composition(project)) == project);
+    CHECK(deserialize_project(serialize_project(project)) == project);
 }
 
 TEST_CASE("Sequence bank and sparse composition API covers editing operations",

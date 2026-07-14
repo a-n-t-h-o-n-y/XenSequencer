@@ -94,6 +94,13 @@ void SubmissionEffects::prepare()
             throw std::runtime_error{"Failed to prepare file replacement: " +
                                      replacement.destination.string()};
         }
+        replacement.destination_existed = destination.existsAsFile();
+        if (replacement.destination_existed &&
+            !destination.copyFileTo(as_juce_file(replacement.backup)))
+        {
+            throw std::runtime_error{"Failed to prepare file replacement backup: " +
+                                     replacement.destination.string()};
+        }
     }
 }
 
@@ -103,20 +110,12 @@ void SubmissionEffects::apply()
     {
         auto destination = as_juce_file(replacement.destination);
         auto temporary = as_juce_file(replacement.temporary);
-        auto backup = as_juce_file(replacement.backup);
-        replacement.destination_existed = destination.existsAsFile();
-        if (replacement.destination_existed && !destination.moveFileTo(backup))
-        {
-            throw std::runtime_error{"Failed to back up file replacement target: " +
-                                     replacement.destination.string()};
-        }
-        replacement.applied = replacement.destination_existed;
         if (failure_point_ == FailurePoint::Apply ||
             failure_point_ == FailurePoint::ApplyAndRollback)
         {
             throw std::runtime_error{"Injected effect apply failure"};
         }
-        if (!temporary.moveFileTo(destination))
+        if (!temporary.replaceFileIn(destination))
         {
             throw std::runtime_error{"Failed to apply file replacement: " +
                                      replacement.destination.string()};

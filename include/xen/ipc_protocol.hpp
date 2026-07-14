@@ -7,12 +7,13 @@
 #include <nlohmann/json.hpp>
 
 #include <xen/command_catalog_types.hpp>
+#include <xen/document.hpp>
 #include <xen/state.hpp>
 
 namespace xen::ipc
 {
 
-inline constexpr auto protocol = "xen.ipc.v2";
+inline constexpr auto protocol = "xen.ipc.v3";
 
 struct ClientHello
 {
@@ -66,6 +67,26 @@ struct PreviewResponse
     ProjectSnapshot snapshot{};
 };
 
+struct DocumentRequest
+{
+    std::string request_id{};
+    InstanceId source_instance_id{};
+    std::string operation{};
+    std::string relative_path{};
+    ProjectRevision expected_project_revision{};
+    bool discard_unsaved{false};
+    std::optional<std::string> expected_file_revision{};
+    std::string recovery_revision{};
+    CompositionCursor cursor{};
+    std::optional<SelectionPath> selection{};
+};
+
+struct DocumentResponse
+{
+    std::string request_id{};
+    DocumentOperationResult result{};
+};
+
 struct ProjectChanged
 {
     ProjectSnapshot snapshot{};
@@ -116,6 +137,7 @@ struct IpcError
     std::string request_id{};
     std::string code{};
     std::string message{};
+    std::optional<std::string> current_file_revision{};
 };
 
 [[nodiscard]] auto encode_client_hello(ClientHello const &message) -> nlohmann::json;
@@ -151,6 +173,15 @@ struct IpcError
     -> nlohmann::json;
 [[nodiscard]] auto decode_preview_response(nlohmann::json const &message)
     -> PreviewResponse;
+
+[[nodiscard]] auto encode_document_request(DocumentRequest const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_document_request(nlohmann::json const &message)
+    -> DocumentRequest;
+[[nodiscard]] auto encode_document_response(DocumentResponse const &message)
+    -> nlohmann::json;
+[[nodiscard]] auto decode_document_response(nlohmann::json const &message)
+    -> DocumentResponse;
 
 [[nodiscard]] auto encode_project_changed(ProjectChanged const &message)
     -> nlohmann::json;

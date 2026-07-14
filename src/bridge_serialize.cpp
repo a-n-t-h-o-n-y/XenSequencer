@@ -3,6 +3,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -314,11 +316,38 @@ auto to_string(MessageLevel level) -> std::string
 
 auto make_project_snapshot(ProjectSnapshot const &snapshot) -> nlohmann::json
 {
+    auto const optional_text = [](std::optional<std::string> const &value) {
+        return value.has_value() ? nlohmann::json(*value) : nlohmann::json(nullptr);
+    };
+    auto display_name = std::string{"Untitled"};
+    if (snapshot.document.relative_path.has_value())
+    {
+        display_name =
+            std::filesystem::path{*snapshot.document.relative_path}.stem().string();
+    }
     return nlohmann::json{
         {"schema_version", project_schema_version},
-        {"history_entry_id", snapshot.history_entry_id.value()},
-        {"project_revision", snapshot.project_revision.value()},
+        {"history_entry_id", std::to_string(snapshot.history_entry_id.value())},
+        {"project_revision", std::to_string(snapshot.project_revision.value())},
+        {"state_revision", std::to_string(snapshot.state_revision.value())},
         {"preview_active", snapshot.preview_active},
+        {"document",
+         {{"relative_path", optional_text(snapshot.document.relative_path)},
+          {"display_name", display_name},
+          {"dirty", snapshot.document.dirty},
+          {"file_revision", optional_text(snapshot.document.file_revision)}}},
+        {"recovery",
+         snapshot.recovery.has_value()
+             ? nlohmann::json{
+                   {"revision", snapshot.recovery->revision},
+                   {"saved_at_unix_ms",
+                    std::to_string(snapshot.recovery->saved_at_unix_ms)},
+                   {"relative_path",
+                    optional_text(snapshot.recovery->relative_path)},
+                   {"project_revision",
+                    std::to_string(snapshot.recovery->project_revision.value())},
+               }
+             : nlohmann::json(nullptr)},
         {"project", detail::project_to_json(snapshot.project)},
     };
 }

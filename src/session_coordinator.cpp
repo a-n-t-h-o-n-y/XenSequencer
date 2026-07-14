@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include <juce_core/juce_core.h>
+
 #include <xen/composition.hpp>
 
 namespace xen::ipc
@@ -20,13 +22,19 @@ SessionCoordinator::SessionCoordinator(SubmissionEffects::FailurePoint effect_fa
 
 auto SessionCoordinator::connect(ClientHello hello) -> CoordinatorHello
 {
-    if (hello.binding.session_id.empty())
+    if (hello.binding.session_id.empty() ||
+        hello.binding.session_id.size() > MAX_PERSISTED_STRING_BYTES)
     {
-        throw std::invalid_argument{"Session ID must not be empty."};
+        throw std::invalid_argument{"Session ID has an invalid length."};
     }
-    if (hello.binding.instance_id.empty())
+    if (hello.binding.instance_id.empty() ||
+        hello.binding.instance_id.size() > MAX_PERSISTED_STRING_BYTES)
     {
-        throw std::invalid_argument{"Instance ID must not be empty."};
+        throw std::invalid_argument{"Instance ID has an invalid length."};
+    }
+    if (hello.binding.channel_id.size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Instance channel ID is too long."};
     }
     if (preview_owner_.has_value())
     {
@@ -148,22 +156,90 @@ auto SessionCoordinator::cancel_preview(PreviewEndRequest request) -> PreviewRes
     };
 }
 
+auto SessionCoordinator::execute_document(DocumentRequest request) -> DocumentResponse
+{
+    if (bindings_.find(request.source_instance_id) == bindings_.end())
+    {
+        throw std::invalid_argument{"Unknown source instance ID."};
+    }
+    live_edit_started_ = true;
+    auto result = DocumentOperationResult{};
+    if (request.operation == "project.new")
+    {
+        result = session_.create_project(request.expected_project_revision,
+                                         request.discard_unsaved);
+    }
+    else if (request.operation == "project.open")
+    {
+        result = session_.open_project(std::move(request.relative_path),
+                                       request.expected_project_revision,
+                                       request.discard_unsaved);
+    }
+    else if (request.operation == "project.save")
+    {
+        result = session_.save_project(request.expected_project_revision);
+    }
+    else if (request.operation == "project.save_as")
+    {
+        result = session_.save_project_as(std::move(request.relative_path),
+                                          request.expected_project_revision,
+                                          std::move(request.expected_file_revision));
+    }
+    else if (request.operation == "project.recovery.restore")
+    {
+        result = session_.restore_recovery(std::move(request.recovery_revision),
+                                           request.expected_project_revision,
+                                           request.discard_unsaved);
+    }
+    else if (request.operation == "project.recovery.discard")
+    {
+        result = session_.discard_recovery(std::move(request.recovery_revision));
+    }
+    else if (request.operation == "cell.import")
+    {
+        result =
+            session_.import_cell(std::move(request.relative_path),
+                                 request.expected_project_revision, request.cursor);
+    }
+    else if (request.operation == "cell.save")
+    {
+        if (!request.selection.has_value())
+        {
+            throw std::invalid_argument{"Cell save selection is required."};
+        }
+        result = session_.save_cell(std::move(request.relative_path),
+                                    request.expected_project_revision, request.cursor,
+                                    std::move(*request.selection),
+                                    std::move(request.expected_file_revision));
+    }
+    else
+    {
+        throw std::invalid_argument{"Unknown document operation."};
+    }
+    return {.request_id = std::move(request.request_id), .result = std::move(result)};
+}
+
 auto SessionCoordinator::disconnect(InstanceId const &instance_id)
     -> std::optional<ProjectSnapshot>
 {
-    if (!preview_owner_.has_value() || preview_owner_->instance_id != instance_id)
+    auto restored = std::optional<ProjectSnapshot>{};
+    if (preview_owner_.has_value() && preview_owner_->instance_id == instance_id)
     {
-        return std::nullopt;
+        auto const preview_id = preview_owner_->preview_id;
+        auto const revision = session_.project_snapshot().project_revision;
+        auto const result = session_.cancel_preview(preview_id, revision);
+        preview_owner_.reset();
+        if (result.status.first != MessageLevel::Error)
+        {
+            restored = session_.project_snapshot();
+        }
     }
-    auto const preview_id = preview_owner_->preview_id;
-    auto const revision = session_.project_snapshot().project_revision;
-    auto const result = session_.cancel_preview(preview_id, revision);
-    preview_owner_.reset();
-    if (result.status.first == MessageLevel::Error)
+    bindings_.erase(instance_id);
+    if (session_.instance_binding().instance_id == instance_id && !bindings_.empty())
     {
-        return std::nullopt;
+        session_.replace_instance_binding(bindings_.begin()->second);
     }
-    return session_.project_snapshot();
+    return restored;
 }
 
 auto SessionCoordinator::set_binding(BindingSetRequest request) -> BindingSetResponse
@@ -173,14 +249,20 @@ auto SessionCoordinator::set_binding(BindingSetRequest request) -> BindingSetRes
         throw std::runtime_error{"A project preview is active; commit or cancel it "
                                  "before changing bindings."};
     }
+    if (session_.project_snapshot().recovery.has_value())
+    {
+        throw std::runtime_error{
+            "Restore or discard the pending recovery before changing bindings."};
+    }
     auto const found = bindings_.find(request.instance_id);
     if (found == bindings_.end())
     {
         throw std::invalid_argument{"Unknown binding instance ID."};
     }
-    if (request.channel_id.empty())
+    if (request.channel_id.empty() ||
+        request.channel_id.size() > MAX_PERSISTED_STRING_BYTES)
     {
-        throw std::invalid_argument{"Instance channel ID must not be empty."};
+        throw std::invalid_argument{"Instance channel ID has an invalid length."};
     }
 
     found->second.channel_id = std::move(request.channel_id);
@@ -224,27 +306,42 @@ auto SessionCoordinator::binding_for(InstanceId const &instance_id) const
     return it == bindings_.end() ? nullptr : &it->second;
 }
 
+void SessionCoordinator::perform_recovery_maintenance(std::uint64_t now_unix_ms,
+                                                      bool force)
+{
+    session_.perform_recovery_maintenance(now_unix_ms, force);
+}
+
 void SessionCoordinator::maybe_seed_from(ClientHello const &hello)
 {
     if (!hello.restore_state.has_value())
     {
         return;
     }
+    if (hello.restore_state->binding.session_id != hello.binding.session_id ||
+        hello.restore_state->binding.instance_id != hello.binding.instance_id)
+    {
+        throw std::invalid_argument{
+            "Restore binding does not match the connecting instance."};
+    }
     if (live_edit_started_)
     {
         return;
     }
 
-    auto const revision = hello.restore_state->saved_project_revision;
+    auto const revision = hello.restore_state->saved_state_revision;
     if (revision > seed_revision_)
     {
-        session_.replace_project_history(hello.restore_state->project);
+        session_.restore_persisted_state(*hello.restore_state);
         seed_revision_ = revision;
         return;
     }
 
     if (revision == seed_revision_ &&
-        hello.restore_state->project != session_.project_snapshot().project)
+        (hello.restore_state->project != session_.project_snapshot().project ||
+         hello.restore_state->document != session_.project_snapshot().document ||
+         hello.restore_state->saved_project_revision !=
+             session_.project_snapshot().project_revision))
     {
         throw std::runtime_error{
             "Conflicting restore snapshots share the same revision."};
@@ -253,6 +350,10 @@ void SessionCoordinator::maybe_seed_from(ClientHello const &hello)
 
 auto SessionCoordinator::assign_binding(InstanceBinding binding) -> InstanceBinding
 {
+    while (bindings_.contains(binding.instance_id))
+    {
+        binding.instance_id = "instance-" + juce::Uuid{}.toString().toStdString();
+    }
     auto auto_assigned = false;
     if (binding.channel_id.empty())
     {
@@ -270,7 +371,7 @@ auto SessionCoordinator::assign_binding(InstanceBinding binding) -> InstanceBind
     }
 
     session_.replace_instance_binding(binding);
-    if (auto_assigned)
+    if (auto_assigned && !session_.project_snapshot().recovery.has_value())
     {
         ensure_channel_row(binding.channel_id);
     }

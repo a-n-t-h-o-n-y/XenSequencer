@@ -26,7 +26,7 @@ class SequencerSession final : public SequencerSessionPort
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto persistent_project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
-    [[nodiscard]] auto instance_binding() const -> InstanceBinding const & override;
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding override;
     [[nodiscard]] auto command_catalog() const noexcept -> CommandCatalog const &;
     [[nodiscard]] auto command_catalog_metadata() const
         -> std::vector<CatalogCommandMetadata> override;
@@ -43,12 +43,42 @@ class SequencerSession final : public SequencerSessionPort
     [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto create_project(ProjectRevision expected_revision,
+                                      bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto open_project(std::string relative_path,
+                                    ProjectRevision expected_revision,
+                                    bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project(ProjectRevision expected_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project_as(
+        std::string relative_path, ProjectRevision expected_revision,
+        std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto restore_recovery(std::string recovery_revision,
+                                        ProjectRevision expected_revision,
+                                        bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto discard_recovery(std::string recovery_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto import_cell(std::string relative_path,
+                                   ProjectRevision expected_revision,
+                                   CompositionCursor cursor)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_cell(std::string relative_path,
+                                 ProjectRevision expected_revision,
+                                 CompositionCursor cursor, SelectionPath selection,
+                                 std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
 
     void replace_project_history(ProjectState state);
     void replace_library(ContentLibrary library);
     void replace_instance_binding(InstanceBinding binding);
     void replace_project_history_and_binding(ProjectState state,
                                              InstanceBinding binding);
+    void restore_persisted_state(PersistedProcessorState state);
+    void perform_recovery_maintenance(std::uint64_t now_unix_ms, bool force);
     void set_channel_id(ChannelId channel_id) override;
 
   private:
@@ -65,6 +95,18 @@ class SequencerSession final : public SequencerSessionPort
         CommandSessionState command_session{};
     };
     std::optional<ActivePreview> active_preview_{};
+    std::optional<PersistedRecoveryState> recovery_candidate_{};
+    std::filesystem::path recovery_file_{};
+    std::optional<std::uint64_t> recovery_due_unix_ms_{};
+
+    void require_document_operation(
+        ProjectRevision expected_revision, bool discard_unsaved,
+        bool pending_recovery_requires_discard = true) const;
+    void advance_state_revision();
+    void refresh_document_dirty(std::string const &project_digest);
+    void schedule_recovery();
+    void clear_recovery();
+    void configure_recovery(std::optional<StateRevision> baseline_revision);
 };
 
 } // namespace xen

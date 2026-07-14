@@ -44,6 +44,34 @@ class ApplicationBridgeService
     [[nodiscard]] virtual auto cancel_preview(PreviewId const &preview_id,
                                               ProjectRevision expected_revision)
         -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto create_project(ProjectRevision expected_revision,
+                                              bool discard_unsaved)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto open_project(std::string relative_path,
+                                            ProjectRevision expected_revision,
+                                            bool discard_unsaved)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto save_project(ProjectRevision expected_revision)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto save_project_as(
+        std::string relative_path, ProjectRevision expected_revision,
+        std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto restore_recovery(std::string recovery_revision,
+                                                ProjectRevision expected_revision,
+                                                bool discard_unsaved)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto discard_recovery(std::string recovery_revision)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto import_cell(std::string relative_path,
+                                           ProjectRevision expected_revision,
+                                           CompositionCursor cursor)
+        -> DocumentOperationResult = 0;
+    [[nodiscard]] virtual auto save_cell(
+        std::string relative_path, ProjectRevision expected_revision,
+        CompositionCursor cursor, SelectionPath selection,
+        std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult = 0;
     virtual void set_channel_id(ChannelId channel_id) = 0;
 };
 
@@ -87,7 +115,7 @@ struct LibraryFileEntry
     std::string name{};
     std::string relative_path{};
     std::string stem{};
-    std::string path{};
+    std::string file_revision{};
 };
 
 struct LibraryTuningEntry
@@ -106,7 +134,7 @@ class LibraryFilePort
     [[nodiscard]] virtual auto library_root() const -> std::filesystem::path = 0;
     [[nodiscard]] virtual auto cell_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryFileEntry> = 0;
-    [[nodiscard]] virtual auto composition_files(std::filesystem::path const &directory)
+    [[nodiscard]] virtual auto project_files(std::filesystem::path const &directory)
         const -> std::vector<LibraryFileEntry> = 0;
     [[nodiscard]] virtual auto tuning_files(std::filesystem::path const &directory)
         const -> std::vector<LibraryTuningEntry> = 0;
@@ -133,6 +161,34 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
     [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto create_project(ProjectRevision expected_revision,
+                                      bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto open_project(std::string relative_path,
+                                    ProjectRevision expected_revision,
+                                    bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project(ProjectRevision expected_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project_as(
+        std::string relative_path, ProjectRevision expected_revision,
+        std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto restore_recovery(std::string recovery_revision,
+                                        ProjectRevision expected_revision,
+                                        bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto discard_recovery(std::string recovery_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto import_cell(std::string relative_path,
+                                   ProjectRevision expected_revision,
+                                   CompositionCursor cursor)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_cell(std::string relative_path,
+                                 ProjectRevision expected_revision,
+                                 CompositionCursor cursor, SelectionPath selection,
+                                 std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
     void set_channel_id(ChannelId channel_id) override;
 
   private:
@@ -191,7 +247,7 @@ class JuceLibraryFilePort final : public LibraryFilePort
     [[nodiscard]] auto library_root() const -> std::filesystem::path override;
     [[nodiscard]] auto cell_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryFileEntry> override;
-    [[nodiscard]] auto composition_files(std::filesystem::path const &directory) const
+    [[nodiscard]] auto project_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryFileEntry> override;
     [[nodiscard]] auto tuning_files(std::filesystem::path const &directory) const
         -> std::vector<LibraryTuningEntry> override;
@@ -232,6 +288,8 @@ class BridgeRequestDispatcher
     [[nodiscard]] auto handle_preview_cancel(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_library_get(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_document_operation(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_keymap_read(ParsedRequest const &request)
         -> nlohmann::json;

@@ -141,7 +141,7 @@ auto CoordinatorRegistry::default_file(SessionId const &session_id)
         throw std::invalid_argument{"Session ID must not be empty."};
     }
     auto file = juce::File{default_directory().string()}.getChildFile(
-        "coordinator-" + juce::String{session_id} + ".json");
+        "coordinator-" + juce::String{text_revision(session_id).substr(7)} + ".json");
     return file.getFullPathName().toStdString();
 }
 

@@ -436,7 +436,7 @@ WebviewHost::WebviewHost(XenProcessor &processor)
 
     load_initial_url();
 
-    last_project_revision_ = processor_.session().project_snapshot().project_revision;
+    last_state_revision_ = processor_.session().project_snapshot().state_revision;
     last_library_revision_ = processor_.session().library_snapshot().library_revision;
     last_keymap_revision_ = bridge_.keymap_revision();
     last_preferences_revision_ = bridge_.preferences_revision();
@@ -459,11 +459,10 @@ void WebviewHost::resized()
 
 void WebviewHost::timerCallback()
 {
-    auto const project_revision =
-        processor_.session().project_snapshot().project_revision;
-    if (project_revision != last_project_revision_)
+    auto const state_revision = processor_.session().project_snapshot().state_revision;
+    if (state_revision != last_state_revision_)
     {
-        last_project_revision_ = project_revision;
+        last_state_revision_ = state_revision;
         emit_state_changed_event();
     }
     auto const library_revision =

@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,7 @@ class SessionCoordinator
     [[nodiscard]] auto begin_preview(PreviewBeginRequest request) -> PreviewResponse;
     [[nodiscard]] auto commit_preview(PreviewEndRequest request) -> PreviewResponse;
     [[nodiscard]] auto cancel_preview(PreviewEndRequest request) -> PreviewResponse;
+    [[nodiscard]] auto execute_document(DocumentRequest request) -> DocumentResponse;
     [[nodiscard]] auto disconnect(InstanceId const &instance_id)
         -> std::optional<ProjectSnapshot>;
     [[nodiscard]] auto set_binding(BindingSetRequest request) -> BindingSetResponse;
@@ -33,11 +35,12 @@ class SessionCoordinator
     [[nodiscard]] auto instances() const -> std::vector<InstanceBinding>;
     [[nodiscard]] auto binding_for(InstanceId const &instance_id) const
         -> InstanceBinding const *;
+    void perform_recovery_maintenance(std::uint64_t now_unix_ms, bool force);
 
   private:
     SequencerSession session_;
     std::map<InstanceId, InstanceBinding> bindings_;
-    ProjectRevision seed_revision_{};
+    StateRevision seed_revision_{};
     bool live_edit_started_{false};
     struct PreviewOwner
     {

@@ -176,9 +176,87 @@ TEST_CASE("IPC protocol round-trips coordinator broadcasts and errors", "[sync][
     CHECK(error.message == "failed");
 }
 
+TEST_CASE("Document IPC messages preserve structured lifecycle fields",
+          "[sync][ipc][document]")
+{
+    auto const request = ipc::decode_document_request(ipc::encode_document_request({
+        .request_id = "document-1",
+        .source_instance_id = "instance-a",
+        .operation = "cell.save",
+        .relative_path = "folder/cell.xencell",
+        .expected_project_revision = ProjectRevision{17},
+        .expected_file_revision = "sha256:expected",
+        .cursor = CompositionCursor{.row_coordinate = -2, .column_coordinate = 4},
+        .selection = SelectionPath{},
+    }));
+    CHECK(request.operation == "cell.save");
+    CHECK(request.relative_path == "folder/cell.xencell");
+    CHECK(request.expected_project_revision == ProjectRevision{17});
+    CHECK(request.expected_file_revision == "sha256:expected");
+    REQUIRE(request.selection.has_value());
+
+    auto snapshot = ProjectSnapshot{
+        .project = ProjectState{},
+        .history_entry_id = HistoryEntryId{3},
+        .project_revision = ProjectRevision{17},
+        .state_revision = StateRevision{21},
+    };
+    auto const response = ipc::decode_document_response(ipc::encode_document_response({
+        .request_id = "document-1",
+        .result =
+            DocumentOperationResult{
+                .snapshot = snapshot,
+                .file =
+                    ContentFileInfo{
+                        .name = "cell.xencell",
+                        .relative_path = "folder/cell.xencell",
+                        .stem = "cell",
+                        .file_revision = "sha256:written",
+                    },
+            },
+    }));
+    CHECK(response.result.snapshot.state_revision == StateRevision{21});
+    REQUIRE(response.result.file.has_value());
+    CHECK(response.result.file->file_revision == "sha256:written");
+}
+
+TEST_CASE("Coordinator hello preserves a distinct persistent preview baseline",
+          "[sync][ipc][preview]")
+{
+    auto persistent = ProjectSnapshot{
+        .project = ProjectState{},
+        .history_entry_id = HistoryEntryId{3},
+        .project_revision = ProjectRevision{17},
+        .state_revision = StateRevision{21},
+    };
+    auto live = persistent;
+    live.project.composition.columns.at(0).pitch.transposition = 9;
+    live.project_revision = ProjectRevision{18};
+    live.preview_active = true;
+
+    auto const message = ipc::encode_coordinator_hello({
+        .binding = binding("instance-a", "channel-1"),
+        .snapshot = live,
+        .persistent_snapshot = persistent,
+    });
+    CHECK_FALSE(message.at("payload").at("persistent_snapshot").is_null());
+
+    auto const decoded = ipc::decode_coordinator_hello(message);
+    CHECK(decoded.snapshot.project.composition.columns.at(0).pitch.transposition == 9);
+    CHECK(decoded.persistent_snapshot.project.composition.columns.at(0)
+              .pitch.transposition == 0);
+    CHECK(decoded.persistent_snapshot.state_revision == live.state_revision);
+}
+
 TEST_CASE("CoordinatorRegistry round-trips valid entries and clears invalid files",
           "[sync][ipc][registry]")
 {
+    auto const hostile_default = ipc::CoordinatorRegistry::default_file("../../escape");
+    CHECK(hostile_default.parent_path() ==
+          ipc::CoordinatorRegistry::default_directory());
+    CHECK(hostile_default.filename().string().starts_with("coordinator-"));
+    CHECK(hostile_default.filename().string().find("escape") == std::string::npos);
+
     auto const file = juce::File::getSpecialLocation(juce::File::tempDirectory)
                           .getNonexistentChildFile("xen-registry-test", ".json");
     auto registry = ipc::CoordinatorRegistry{file.getFullPathName().toStdString()};
@@ -306,8 +384,13 @@ TEST_CASE("SessionCoordinator instances share one transient copy buffer",
                 .result.status.first == MessageLevel::Info);
     REQUIRE(execute(hello_a.binding.instance_id, "copy", SelectionPath{})
                 .result.status.first == MessageLevel::Info);
-    REQUIRE(execute(hello_a.binding.instance_id, "project new").result.status.first ==
-            MessageLevel::Info);
+    REQUIRE_NOTHROW(coordinator.execute_document({
+        .request_id = "copy-buffer-new",
+        .source_instance_id = hello_a.binding.instance_id,
+        .operation = "project.new",
+        .expected_project_revision = coordinator.snapshot().project_revision,
+        .discard_unsaved = true,
+    }));
     REQUIRE(execute(hello_b.binding.instance_id, "paste", SelectionPath{})
                 .result.status.first == MessageLevel::Info);
 
@@ -363,6 +446,8 @@ TEST_CASE("SessionCoordinator owns and cancels shared previews",
     CHECK_FALSE(restored->preview_active);
     CHECK(restored->project == baseline.project);
     CHECK_FALSE(coordinator.disconnect(hello_a.binding.instance_id).has_value());
+    CHECK(coordinator.binding_for(hello_a.binding.instance_id) == nullptr);
+    CHECK(coordinator.instances().size() == 1);
 }
 
 TEST_CASE("IPC protocol round-trips preview lifecycle messages", "[sync][ipc][preview]")
@@ -478,20 +563,35 @@ TEST_CASE("SessionCoordinator allows duplicate listener channels",
           DEFAULT_CHANNEL_ID);
 }
 
+TEST_CASE("SessionCoordinator rekeys duplicated active instance identities",
+          "[sync][ipc][coordinator][binding]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const first = coordinator.connect({.binding = binding("duplicated", "lead")});
+    auto const second = coordinator.connect({.binding = binding("duplicated", "lead")});
+
+    CHECK(first.binding.instance_id == "duplicated");
+    CHECK(second.binding.instance_id != first.binding.instance_id);
+    CHECK(second.binding.instance_id.starts_with("instance-"));
+    CHECK(coordinator.instances().size() == 2);
+}
+
 TEST_CASE("SessionCoordinator seeds from the newest restore snapshot before edits",
           "[sync][ipc][coordinator]")
 {
     auto coordinator = ipc::SessionCoordinator{};
     auto older = PersistedProcessorState{
-        .binding = binding("instance-a"),
+        .binding = binding("instance-a", "channel-1"),
         .project = ProjectState{},
-        .saved_history_entry_id = HistoryEntryId{1},
         .saved_project_revision = ProjectRevision{1},
+        .saved_state_revision = StateRevision{1},
+        .document = ProjectDocumentState{.dirty = true},
     };
     auto newer = older;
-    newer.binding = binding("instance-b");
+    newer.binding = binding("instance-b", "channel-2");
     newer.project.composition.columns.at(0).pitch.transposition = 8;
     newer.saved_project_revision = ProjectRevision{2};
+    newer.saved_state_revision = StateRevision{2};
 
     (void)coordinator.connect({.binding = older.binding, .restore_state = older});
     auto const hello =
@@ -508,17 +608,47 @@ TEST_CASE("SessionCoordinator rejects equal-revision restore conflicts",
 {
     auto coordinator = ipc::SessionCoordinator{};
     auto first = PersistedProcessorState{
-        .binding = binding("instance-a"),
+        .binding = binding("instance-a", "channel-1"),
         .project = ProjectState{},
-        .saved_history_entry_id = HistoryEntryId{1},
         .saved_project_revision = ProjectRevision{2},
+        .saved_state_revision = StateRevision{2},
+        .document = ProjectDocumentState{.dirty = true},
     };
     auto conflicting = first;
-    conflicting.binding = binding("instance-b");
+    conflicting.binding = binding("instance-b", "channel-2");
     conflicting.project.composition.columns.at(0).pitch.transposition = 9;
 
     (void)coordinator.connect({.binding = first.binding, .restore_state = first});
     CHECK_THROWS_AS(coordinator.connect(
                         {.binding = conflicting.binding, .restore_state = conflicting}),
                     std::runtime_error);
+}
+
+TEST_CASE("Restored durable revisions remain monotonic after coordinator restart",
+          "[sync][ipc][coordinator][restore]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto restored = PersistedProcessorState{
+        .binding = binding("instance-a", "channel-1"),
+        .project = ProjectState{},
+        .saved_project_revision = ProjectRevision{10'000},
+        .saved_state_revision = StateRevision{20'000},
+        .document = ProjectDocumentState{.dirty = true},
+    };
+    auto const hello =
+        coordinator.connect({.binding = restored.binding, .restore_state = restored});
+    CHECK(hello.snapshot.project_revision == restored.saved_project_revision);
+    CHECK(hello.snapshot.state_revision > restored.saved_state_revision);
+
+    auto const response = coordinator.execute({
+        .request_id = "after-restore",
+        .source_instance_id = restored.binding.instance_id,
+        .command = "set key 7",
+        .context =
+            CommandContext{
+                .expected_project_revision = restored.saved_project_revision,
+            },
+    });
+    CHECK(response.snapshot.project_revision > restored.saved_project_revision);
+    CHECK(response.snapshot.state_revision > restored.saved_state_revision);
 }

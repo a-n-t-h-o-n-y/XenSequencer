@@ -62,10 +62,14 @@ Multiple commands can be run at once by separating them with a semicolon `;`.
 
 The `again` command will repeat the previous command and has the `.` keybinding.
 
-Use `project new` to start a new project, `project open <name>` to open a `.xencomp`
-project from the content directory, and `project save <name>` to write the complete
-current project. New and open begin a fresh undo timeline; save does not change undo or
-redo history. Use `composition cell unassign <row> <column>` to remove an arrangement
+Use `project new` to start a new project, `project open <path.xenproj>` to open a
+project from the content directory, `project save` to update the current file, and
+`project save as <path.xenproj>` to name a project. New and open begin a fresh undo
+timeline; save does not change undo or redo history. The backend refuses to discard
+dirty work or overwrite another file without explicit confirmation from the UI. Use
+`load cell <path.xencell>` and `save cell <path.xencell>` for reusable musical
+fragments; Cell files do not replace the current project. Use
+`composition cell unassign <row> <column>` to remove an arrangement
 reference without deleting its shared sequence, and `sequence clear` to empty the
 active shared sequence without unassigning it.
 

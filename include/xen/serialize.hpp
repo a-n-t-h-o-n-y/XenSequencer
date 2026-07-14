@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 #include <sequence/sequence.hpp>
@@ -7,6 +8,8 @@
 
 namespace xen
 {
+
+inline constexpr auto MAX_PERSISTED_STATE_BYTES = std::size_t{65 * 1'024 * 1'024};
 
 /**
  * Serialize a Cell object to a JSON string.
@@ -25,19 +28,16 @@ namespace xen
  */
 [[nodiscard]] auto deserialize_cell_file(std::string const &json_str) -> sequence::Cell;
 
-[[nodiscard]] auto serialize_composition(ProjectState const &project) -> std::string;
-[[nodiscard]] auto deserialize_composition(std::string const &json_str) -> ProjectState;
-
 /**
- * Serialize project state using project schema 5.
+ * Serialize a complete .xenproj document.
  *
- * @param state The plugin state to serialize.
+ * @param project The project state to serialize.
  * @return std::string The JSON string.
  */
 [[nodiscard]] auto serialize_project(ProjectState const &project) -> std::string;
 
 /**
- * Deserialize project schema 5.
+ * Deserialize a complete .xenproj document.
  *
  * @param json_str The JSON string to deserialize.
  * @return ProjectState The deserialized project state.
@@ -51,5 +51,13 @@ namespace xen
 
 [[nodiscard]] auto deserialize_processor_state(std::string const &json_str)
     -> PersistedProcessorState;
+
+void validate_persisted_processor_state(PersistedProcessorState const &state);
+
+[[nodiscard]] auto serialize_recovery_state(PersistedRecoveryState const &state)
+    -> std::string;
+
+[[nodiscard]] auto deserialize_recovery_state(std::string const &json_str)
+    -> PersistedRecoveryState;
 
 } // namespace xen

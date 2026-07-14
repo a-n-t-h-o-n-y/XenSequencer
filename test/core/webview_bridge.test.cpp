@@ -80,6 +80,7 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
         .project = ProjectState{},
         .history_entry_id = HistoryEntryId{3},
         .project_revision = ProjectRevision{7},
+        .state_revision = StateRevision{9},
     };
     LibrarySnapshot library{
         .library = ContentLibrary{},
@@ -160,6 +161,65 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
     {
         project.preview_active = false;
         return {.status = {MessageLevel::Info, "Preview cancelled."}};
+    }
+
+    [[nodiscard]] auto create_project(ProjectRevision, bool)
+        -> DocumentOperationResult override
+    {
+        return {.snapshot = project};
+    }
+
+    [[nodiscard]] auto open_project(std::string relative_path, ProjectRevision, bool)
+        -> DocumentOperationResult override
+    {
+        project.document.relative_path = relative_path;
+        return {.snapshot = project};
+    }
+
+    [[nodiscard]] auto save_project(ProjectRevision) -> DocumentOperationResult override
+    {
+        return {.snapshot = project};
+    }
+
+    [[nodiscard]] auto save_project_as(std::string relative_path, ProjectRevision,
+                                       std::optional<std::string>)
+        -> DocumentOperationResult override
+    {
+        project.document.relative_path = relative_path;
+        return {.snapshot = project,
+                .file = ContentFileInfo{.name = "project.xenproj",
+                                        .relative_path = relative_path,
+                                        .stem = "project",
+                                        .file_revision = "sha256:project"}};
+    }
+
+    [[nodiscard]] auto restore_recovery(std::string, ProjectRevision, bool)
+        -> DocumentOperationResult override
+    {
+        return {.snapshot = project};
+    }
+
+    [[nodiscard]] auto discard_recovery(std::string) -> DocumentOperationResult override
+    {
+        return {.snapshot = project};
+    }
+
+    [[nodiscard]] auto import_cell(std::string, ProjectRevision, CompositionCursor)
+        -> DocumentOperationResult override
+    {
+        return {.snapshot = project, .suggested_selection = SelectionPath{}};
+    }
+
+    [[nodiscard]] auto save_cell(std::string relative_path, ProjectRevision,
+                                 CompositionCursor, SelectionPath,
+                                 std::optional<std::string>)
+        -> DocumentOperationResult override
+    {
+        return {.snapshot = project,
+                .file = ContentFileInfo{.name = "cell.xencell",
+                                        .relative_path = relative_path,
+                                        .stem = "cell",
+                                        .file_revision = "sha256:cell"}};
     }
 
     void set_channel_id(ChannelId channel_id) override
@@ -274,7 +334,7 @@ class FakeLibraryService final : public bridge::LibraryBridgeService
     {
         return {
             {"schema_version", bridge::library_schema_version},
-            {"library_revision", snapshot.library_revision.value()},
+            {"library_revision", std::to_string(snapshot.library_revision.value())},
             {"fake_library", true},
         };
     }
@@ -295,18 +355,18 @@ class FakeLibraryFilePort final : public bridge::LibraryFilePort
             .name = "cell.xencell",
             .relative_path = "folder/cell.xencell",
             .stem = "folder/cell",
-            .path = "/fake/content/folder/cell.xencell",
+            .file_revision = "sha256:cell",
         }};
     }
 
-    [[nodiscard]] auto composition_files(std::filesystem::path const &) const
+    [[nodiscard]] auto project_files(std::filesystem::path const &) const
         -> std::vector<bridge::LibraryFileEntry> override
     {
         return {{
-            .name = "project.xencomp",
-            .relative_path = "folder/project.xencomp",
+            .name = "project.xenproj",
+            .relative_path = "folder/project.xenproj",
             .stem = "folder/project",
-            .path = "/fake/content/folder/project.xencomp",
+            .file_revision = "sha256:project",
         }};
     }
 
@@ -319,7 +379,7 @@ class FakeLibraryFilePort final : public bridge::LibraryFilePort
                     .name = "tuning.scl",
                     .relative_path = "tuning.scl",
                     .stem = "tuning",
-                    .path = "/fake/tunings/tuning.scl",
+                    .file_revision = "sha256:tuning",
                 },
             .description = "fake tuning",
             .intervals = {0.f, 100.f},
@@ -373,7 +433,7 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.at("project_schema_version") == bridge::project_schema_version);
     CHECK(payload.at("library_schema_version") == bridge::library_schema_version);
     CHECK(payload.contains("catalog"));
-    CHECK(payload.at("catalog").at("schema_version") == 3);
+    CHECK(payload.at("catalog").at("schema_version") == bridge::catalog_schema_version);
     for (auto const &command : payload.at("catalog").at("commands"))
     {
         for (auto const &argument : command.at("arguments"))
@@ -439,7 +499,7 @@ TEST_CASE("Bridge command response contains current project snapshot", "[core][b
         {
             {"command", "set key 7"},
             {"context",
-             {{"expected_project_revision", revision},
+             {{"expected_project_revision", std::to_string(revision)},
               {"cursor",
                {{"row_coordinate", 0}, {"column_coordinate", 0}, {"sequence_id", 1}}}}},
         });
@@ -456,34 +516,36 @@ TEST_CASE("Bridge exposes generic project preview lifecycle", "[core][bridge][pr
     auto session = make_session();
     auto host_bridge = make_bridge(session);
     auto const initial = session.project_snapshot();
-    auto const begin =
-        response(host_bridge, "preview.begin",
-                 {{"expected_project_revision", initial.project_revision.value()}})
-            .at("payload");
+    auto const begin = response(host_bridge, "preview.begin",
+                                {{"expected_project_revision",
+                                  std::to_string(initial.project_revision.value())}})
+                           .at("payload");
     REQUIRE(begin.at("preview_id").is_string());
     auto const preview_id = begin.at("preview_id").get<std::string>();
     CHECK(begin.at("snapshot").at("preview_active") == true);
 
     auto const updated =
-        response(host_bridge, "command.execute",
-                 {{"command", "set key 7"},
-                  {"context",
-                   {{"expected_project_revision",
-                     session.project_snapshot().project_revision.value()},
-                    {"preview_id", preview_id},
-                    {"cursor",
-                     {{"row_coordinate", 0},
-                      {"column_coordinate", 0},
-                      {"sequence_id", 1}}}}}})
+        response(
+            host_bridge, "command.execute",
+            {{"command", "set key 7"},
+             {"context",
+              {{"expected_project_revision",
+                std::to_string(session.project_snapshot().project_revision.value())},
+               {"preview_id", preview_id},
+               {"cursor",
+                {{"row_coordinate", 0},
+                 {"column_coordinate", 0},
+                 {"sequence_id", 1}}}}}})
             .at("payload");
     CHECK(updated.at("snapshot").at("preview_active") == true);
     CHECK(session.project_snapshot().history_entry_id == initial.history_entry_id);
 
     auto const cancelled =
-        response(host_bridge, "preview.cancel",
-                 {{"preview_id", preview_id},
-                  {"expected_project_revision",
-                   session.project_snapshot().project_revision.value()}})
+        response(
+            host_bridge, "preview.cancel",
+            {{"preview_id", preview_id},
+             {"expected_project_revision",
+              std::to_string(session.project_snapshot().project_revision.value())}})
             .at("payload");
     CHECK(cancelled.at("snapshot").at("preview_active") == false);
     CHECK(session.project_snapshot().project == initial.project);
@@ -652,7 +714,8 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
     CHECK(hello.at("payload").at("binding").at("channel_id") == DEFAULT_CHANNEL_ID);
 
     auto const state = fake_response(dispatcher, "state.get").at("payload");
-    CHECK(state.at("project_revision") == 7);
+    CHECK(state.at("project_revision") == "7");
+    CHECK(state.at("state_revision") == "9");
 
     auto const binding = fake_response(dispatcher, "session.binding.get").at("payload");
     CHECK(binding.at("instance_id") == "instance-test");
@@ -669,7 +732,7 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
                           {"command", "fake"},
                           {"context",
                            {
-                               {"expected_project_revision", 7},
+                               {"expected_project_revision", "7"},
                                {"selection", {{"path", nlohmann::json::array()}}},
                                {"cursor",
                                 {
@@ -692,7 +755,7 @@ TEST_CASE("Bridge dispatcher handles service requests with fake services",
 
     auto const library_payload = fake_response(dispatcher, "library.get").at("payload");
     CHECK(library_payload.at("fake_library") == true);
-    CHECK(library_payload.at("library_revision") == 11);
+    CHECK(library_payload.at("library_revision") == "11");
 }
 
 TEST_CASE("Bridge library payload uses file port entries", "[core][bridge]")
@@ -712,12 +775,45 @@ TEST_CASE("Bridge library payload uses file port entries", "[core][bridge]")
     auto const payload = service.make_payload(snapshot);
     CHECK(payload.at("paths").at("library") == "/fake/library");
     REQUIRE(payload.at("cells").size() == 1);
-    CHECK(payload.at("cells").front().at("command") == "load cell \"folder/cell\"");
-    REQUIRE(payload.at("compositions").size() == 1);
-    CHECK(payload.at("compositions").front().at("command") ==
-          "project open \"folder/project\"");
+    CHECK(payload.at("cells").front().at("command") ==
+          "load cell \"folder/cell.xencell\"");
+    REQUIRE(payload.at("projects").size() == 1);
+    CHECK(payload.at("projects").front().at("command") ==
+          "project open \"folder/project.xenproj\"");
     REQUIRE(payload.at("tunings").size() == 1);
     CHECK(payload.at("tunings").front().at("description") == "fake tuning");
+}
+
+TEST_CASE("Bridge exposes structured project and cell document operations",
+          "[core][bridge][document]")
+{
+    auto application = FakeApplicationService{};
+    auto library = FakeLibraryService{};
+    auto keymap = FakeKeymapService{};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
+
+    auto const saved = fake_response(dispatcher, "project.save_as",
+                                     {{"relative_path", "folder/project.xenproj"},
+                                      {"expected_project_revision", "7"},
+                                      {"expected_file_revision", nullptr}})
+                           .at("payload");
+    CHECK(saved.at("file").at("relative_path") == "folder/project.xenproj");
+    CHECK(saved.at("file").at("file_revision") == "sha256:project");
+    CHECK(saved.at("snapshot").at("document").at("display_name") == "project");
+
+    auto const cell =
+        fake_response(
+            dispatcher, "cell.save",
+            {{"relative_path", "folder/cell.xencell"},
+             {"expected_project_revision", "7"},
+             {"expected_file_revision", nullptr},
+             {"cursor",
+              {{"row_coordinate", 0}, {"column_coordinate", 0}, {"sequence_id", 1}}},
+             {"selection", {{"path", nlohmann::json::array()}}}})
+            .at("payload");
+    CHECK(cell.at("file").at("file_revision") == "sha256:cell");
 }
 
 TEST_CASE("Bridge dispatcher handles keymap requests with fake services",

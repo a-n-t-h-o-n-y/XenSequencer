@@ -9,6 +9,8 @@
 
 #include <juce_core/juce_core.h>
 
+#include <xen/text_file.hpp>
+
 namespace xen::ipc
 {
 namespace
@@ -16,7 +18,8 @@ namespace
 
 [[nodiscard]] auto make_lock_name(SessionId const &session_id) -> juce::String
 {
-    return "XenSequencerCoordinator-" + juce::String{session_id};
+    return "XenSequencerCoordinator-" +
+           juce::String{text_revision(session_id).substr(7)};
 }
 
 [[nodiscard]] auto dev_helper_path() -> std::filesystem::path

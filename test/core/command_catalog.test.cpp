@@ -172,7 +172,7 @@ TEST_CASE("Catalog binder reports invalid and missing arguments",
     REQUIRE_FALSE(missing_result.has_value());
     auto const &missing_error = missing_result.error();
     CHECK(missing_error.kind == CatalogBindErrorKind::MissingArgument);
-    CHECK(missing_error.message == "Missing argument: filename");
+    CHECK(missing_error.message == "Missing argument: path");
 }
 
 TEST_CASE("Catalog binder rejects trailing arguments and unsupported patterns",
@@ -289,7 +289,9 @@ TEST_CASE("Catalog exposes complete backend command policies",
     CHECK(policy_for("project new").history == HistoryPolicy::None);
     CHECK(policy_for("project open example").project ==
           ProjectOperation::ReplaceHistory);
-    CHECK(policy_for("project save example").project == ProjectOperation::Read);
+    CHECK(policy_for("project save").project == ProjectOperation::Read);
+    CHECK(policy_for("project save as example.xenproj").project ==
+          ProjectOperation::Read);
     CHECK(policy_for("load chords").library == LibraryAccess::Mutate);
     CHECK(policy_for("undo").project == ProjectOperation::NavigateHistory);
     CHECK(policy_for("composition loop start 0").history == HistoryPolicy::Commit);
@@ -405,7 +407,7 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
 {
     auto const payload =
         bridge::make_catalog_payload(default_command_catalog().metadata());
-    CHECK(payload.at("schema_version") == 3);
+    CHECK(payload.at("schema_version") == bridge::catalog_schema_version);
 
     auto const &commands = payload.at("commands");
     REQUIRE_FALSE(commands.empty());

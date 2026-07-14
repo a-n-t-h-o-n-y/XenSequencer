@@ -21,6 +21,8 @@
 namespace xen
 {
 
+inline constexpr auto MAX_PERSISTED_STRING_BYTES = std::size_t{4'096};
+
 using SessionId = std::string;
 
 using InstanceId = std::string;
@@ -166,6 +168,26 @@ struct ContentLibrary
     auto operator==(ContentLibrary const &) const -> bool = default;
 };
 
+struct ProjectDocumentState
+{
+    std::optional<std::string> relative_path{};
+    std::optional<std::string> file_revision{};
+    std::optional<std::string> saved_project_digest{};
+    bool dirty{false};
+
+    auto operator==(ProjectDocumentState const &) const -> bool = default;
+};
+
+struct RecoveryMetadata
+{
+    std::string revision{};
+    std::uint64_t saved_at_unix_ms{};
+    std::optional<std::string> relative_path{};
+    ProjectRevision project_revision{};
+
+    auto operator==(RecoveryMetadata const &) const -> bool = default;
+};
+
 struct PluginState
 {
     WorkspaceSettings workspace{};
@@ -173,6 +195,9 @@ struct PluginState
     LibraryRevision library_revision{detail::allocate_library_revision()};
     CommandSessionState command_session{};
     std::optional<CopyBufferContent> copy_buffer{};
+    ProjectDocumentState document{};
+    std::optional<RecoveryMetadata> recovery{};
+    StateRevision state_revision{detail::allocate_state_revision()};
     XenTimeline timeline;
 };
 
@@ -181,7 +206,10 @@ struct ProjectSnapshot
     ProjectState project{};
     HistoryEntryId history_entry_id{};
     ProjectRevision project_revision{};
+    StateRevision state_revision{};
     bool preview_active{false};
+    ProjectDocumentState document{};
+    std::optional<RecoveryMetadata> recovery{};
 };
 
 struct InstanceBinding
@@ -197,10 +225,23 @@ struct PersistedProcessorState
 {
     InstanceBinding binding{};
     ProjectState project{};
-    HistoryEntryId saved_history_entry_id{};
     ProjectRevision saved_project_revision{};
+    StateRevision saved_state_revision{};
+    ProjectDocumentState document{};
 
     auto operator==(PersistedProcessorState const &) const -> bool = default;
+};
+
+struct PersistedRecoveryState
+{
+    SessionId session_id{};
+    ProjectState project{};
+    ProjectRevision project_revision{};
+    StateRevision state_revision{};
+    ProjectDocumentState document{};
+    std::uint64_t saved_at_unix_ms{};
+
+    auto operator==(PersistedRecoveryState const &) const -> bool = default;
 };
 
 struct LibrarySnapshot

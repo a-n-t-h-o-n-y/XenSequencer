@@ -47,6 +47,19 @@ namespace
     return message.at("payload");
 }
 
+[[nodiscard]] auto optional_string_from_json(nlohmann::json const &json)
+    -> std::optional<std::string>
+{
+    return json.is_null() ? std::nullopt
+                          : std::optional<std::string>{json.get<std::string>()};
+}
+
+[[nodiscard]] auto optional_string_to_json(std::optional<std::string> const &value)
+    -> nlohmann::json
+{
+    return value.has_value() ? nlohmann::json(*value) : nlohmann::json(nullptr);
+}
+
 [[nodiscard]] auto binding_to_json(InstanceBinding const &binding,
                                    bool require_channel = true) -> nlohmann::json
 {
@@ -61,6 +74,12 @@ namespace
     if (require_channel && binding.channel_id.empty())
     {
         throw std::invalid_argument{"Channel ID must not be empty."};
+    }
+    if (binding.session_id.size() > MAX_PERSISTED_STRING_BYTES ||
+        binding.instance_id.size() > MAX_PERSISTED_STRING_BYTES ||
+        binding.channel_id.size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Instance binding field is too long."};
     }
     return {
         {"session_id", binding.session_id},
@@ -86,21 +105,61 @@ namespace
     return {
         {"history_entry_id", snapshot.history_entry_id.value()},
         {"project_revision", snapshot.project_revision.value()},
+        {"state_revision", snapshot.state_revision.value()},
         {"preview_active", snapshot.preview_active},
+        {"document",
+         {{"relative_path", optional_string_to_json(snapshot.document.relative_path)},
+          {"file_revision", optional_string_to_json(snapshot.document.file_revision)},
+          {"saved_project_digest",
+           optional_string_to_json(snapshot.document.saved_project_digest)},
+          {"dirty", snapshot.document.dirty}}},
+        {"recovery",
+         snapshot.recovery.has_value()
+             ? nlohmann::json{{"revision", snapshot.recovery->revision},
+                              {"saved_at_unix_ms", snapshot.recovery->saved_at_unix_ms},
+                              {"relative_path", optional_string_to_json(
+                                                    snapshot.recovery->relative_path)},
+                              {"project_revision",
+                               snapshot.recovery->project_revision.value()}}
+             : nlohmann::json(nullptr)},
         {"project", nlohmann::json::parse(serialize_project(snapshot.project))},
     };
 }
 
 [[nodiscard]] auto snapshot_from_json(nlohmann::json const &json) -> ProjectSnapshot
 {
-    return {
+    auto const &document = json.at("document");
+    auto snapshot = ProjectSnapshot{
         .project = deserialize_project(json.at("project").dump()),
         .history_entry_id =
             HistoryEntryId{json.at("history_entry_id").get<std::uint64_t>()},
         .project_revision =
             ProjectRevision{json.at("project_revision").get<std::uint64_t>()},
+        .state_revision = StateRevision{json.at("state_revision").get<std::uint64_t>()},
         .preview_active = json.at("preview_active").get<bool>(),
+        .document =
+            ProjectDocumentState{
+                .relative_path =
+                    optional_string_from_json(document.at("relative_path")),
+                .file_revision =
+                    optional_string_from_json(document.at("file_revision")),
+                .saved_project_digest =
+                    optional_string_from_json(document.at("saved_project_digest")),
+                .dirty = document.at("dirty").get<bool>(),
+            },
     };
+    if (!json.at("recovery").is_null())
+    {
+        auto const &recovery = json.at("recovery");
+        snapshot.recovery = RecoveryMetadata{
+            .revision = recovery.at("revision").get<std::string>(),
+            .saved_at_unix_ms = recovery.at("saved_at_unix_ms").get<std::uint64_t>(),
+            .relative_path = optional_string_from_json(recovery.at("relative_path")),
+            .project_revision =
+                ProjectRevision{recovery.at("project_revision").get<std::uint64_t>()},
+        };
+    }
+    return snapshot;
 }
 
 [[nodiscard]] auto scale_to_json(Scale const &scale) -> nlohmann::json
@@ -405,12 +464,22 @@ auto encode_client_hello(ClientHello const &message) -> nlohmann::json
     };
     if (message.restore_state.has_value())
     {
+        validate_persisted_processor_state(*message.restore_state);
         payload["restore_state"] = {
             {"binding", binding_to_json(message.restore_state->binding)},
-            {"saved_history_entry_id",
-             message.restore_state->saved_history_entry_id.value()},
             {"saved_project_revision",
              message.restore_state->saved_project_revision.value()},
+            {"saved_state_revision",
+             message.restore_state->saved_state_revision.value()},
+            {"document",
+             {{"relative_path",
+               optional_string_to_json(message.restore_state->document.relative_path)},
+              {"file_revision",
+               optional_string_to_json(message.restore_state->document.file_revision)},
+              {"saved_project_digest",
+               optional_string_to_json(
+                   message.restore_state->document.saved_project_digest)},
+              {"dirty", message.restore_state->document.dirty}}},
             {"project",
              nlohmann::json::parse(serialize_project(message.restore_state->project))},
         };
@@ -429,37 +498,57 @@ auto decode_client_hello(nlohmann::json const &message) -> ClientHello
         hello.restore_state = PersistedProcessorState{
             .binding = binding_from_json(restore.at("binding")),
             .project = deserialize_project(restore.at("project").dump()),
-            .saved_history_entry_id =
-                HistoryEntryId{
-                    restore.at("saved_history_entry_id").get<std::uint64_t>()},
             .saved_project_revision =
                 ProjectRevision{
                     restore.at("saved_project_revision").get<std::uint64_t>()},
+            .saved_state_revision =
+                StateRevision{restore.at("saved_state_revision").get<std::uint64_t>()},
+            .document =
+                ProjectDocumentState{
+                    .relative_path = optional_string_from_json(
+                        restore.at("document").at("relative_path")),
+                    .file_revision = optional_string_from_json(
+                        restore.at("document").at("file_revision")),
+                    .saved_project_digest = optional_string_from_json(
+                        restore.at("document").at("saved_project_digest")),
+                    .dirty = restore.at("document").at("dirty").get<bool>(),
+                },
         };
+        validate_persisted_processor_state(*hello.restore_state);
     }
     return hello;
 }
 
 auto encode_coordinator_hello(CoordinatorHello const &message) -> nlohmann::json
 {
-    return envelope(
-        "coordinator.hello",
-        {
-            {"binding", binding_to_json(message.binding)},
-            {"snapshot", snapshot_to_json(message.snapshot)},
-            {"persistent_snapshot", snapshot_to_json(message.persistent_snapshot)},
-            {"library", library_to_json(message.library)},
-            {"instances", bindings_to_json(message.instances)},
-        });
+    auto const persistent_snapshot =
+        !message.snapshot.preview_active &&
+                message.persistent_snapshot.state_revision ==
+                    message.snapshot.state_revision
+            ? nlohmann::json(nullptr)
+            : snapshot_to_json(message.persistent_snapshot);
+    return envelope("coordinator.hello",
+                    {
+                        {"binding", binding_to_json(message.binding)},
+                        {"snapshot", snapshot_to_json(message.snapshot)},
+                        {"persistent_snapshot", std::move(persistent_snapshot)},
+                        {"library", library_to_json(message.library)},
+                        {"instances", bindings_to_json(message.instances)},
+                    });
 }
 
 auto decode_coordinator_hello(nlohmann::json const &message) -> CoordinatorHello
 {
     auto const &payload = require_protocol(message, "coordinator.hello");
+    auto snapshot = snapshot_from_json(payload.at("snapshot"));
+    auto persistent_snapshot =
+        payload.at("persistent_snapshot").is_null()
+            ? snapshot
+            : snapshot_from_json(payload.at("persistent_snapshot"));
     return {
         .binding = binding_from_json(payload.at("binding")),
-        .snapshot = snapshot_from_json(payload.at("snapshot")),
-        .persistent_snapshot = snapshot_from_json(payload.at("persistent_snapshot")),
+        .snapshot = std::move(snapshot),
+        .persistent_snapshot = std::move(persistent_snapshot),
         .library = library_from_json(payload.at("library")),
         .instances = bindings_from_json(payload.at("instances")),
     };
@@ -618,6 +707,102 @@ auto decode_preview_response(nlohmann::json const &message) -> PreviewResponse
     };
 }
 
+auto encode_document_request(DocumentRequest const &message) -> nlohmann::json
+{
+    return envelope(
+        "document.execute",
+        {{"request_id", message.request_id},
+         {"source_instance_id", message.source_instance_id},
+         {"operation", message.operation},
+         {"relative_path", message.relative_path},
+         {"expected_project_revision", message.expected_project_revision.value()},
+         {"discard_unsaved", message.discard_unsaved},
+         {"expected_file_revision",
+          optional_string_to_json(message.expected_file_revision)},
+         {"recovery_revision", message.recovery_revision},
+         {"cursor",
+          {{"row_coordinate", message.cursor.row_coordinate},
+           {"column_coordinate", message.cursor.column_coordinate},
+           {"sequence_id", message.cursor.sequence_id.has_value()
+                               ? nlohmann::json(*message.cursor.sequence_id)
+                               : nlohmann::json(nullptr)}}},
+         {"selection", selection_to_json(message.selection)}});
+}
+
+auto decode_document_request(nlohmann::json const &message) -> DocumentRequest
+{
+    auto const &payload = require_protocol(message, "document.execute");
+    auto const &cursor = payload.at("cursor");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .source_instance_id = payload.at("source_instance_id").get<InstanceId>(),
+        .operation = payload.at("operation").get<std::string>(),
+        .relative_path = payload.at("relative_path").get<std::string>(),
+        .expected_project_revision =
+            ProjectRevision{
+                payload.at("expected_project_revision").get<std::uint64_t>()},
+        .discard_unsaved = payload.at("discard_unsaved").get<bool>(),
+        .expected_file_revision =
+            optional_string_from_json(payload.at("expected_file_revision")),
+        .recovery_revision = payload.at("recovery_revision").get<std::string>(),
+        .cursor =
+            CompositionCursor{
+                .row_coordinate =
+                    composition_coordinate_from_json(cursor, "row_coordinate"),
+                .column_coordinate =
+                    composition_coordinate_from_json(cursor, "column_coordinate"),
+                .sequence_id = cursor.at("sequence_id").is_null()
+                                   ? std::optional<SequenceId>{}
+                                   : std::optional<SequenceId>{cursor.at("sequence_id")
+                                                                   .get<SequenceId>()},
+            },
+        .selection = selection_from_json(payload.at("selection")),
+    };
+}
+
+auto encode_document_response(DocumentResponse const &message) -> nlohmann::json
+{
+    auto file = nlohmann::json(nullptr);
+    if (message.result.file.has_value())
+    {
+        file = {
+            {"name", message.result.file->name},
+            {"relative_path", message.result.file->relative_path},
+            {"stem", message.result.file->stem},
+            {"file_revision", message.result.file->file_revision},
+        };
+    }
+    return envelope("document.result",
+                    {{"request_id", message.request_id},
+                     {"snapshot", snapshot_to_json(message.result.snapshot)},
+                     {"file", std::move(file)},
+                     {"suggested_selection",
+                      selection_to_json(message.result.suggested_selection)}});
+}
+
+auto decode_document_response(nlohmann::json const &message) -> DocumentResponse
+{
+    auto const &payload = require_protocol(message, "document.result");
+    auto result = DocumentOperationResult{
+        .snapshot = snapshot_from_json(payload.at("snapshot")),
+        .suggested_selection = selection_from_json(payload.at("suggested_selection")),
+    };
+    if (!payload.at("file").is_null())
+    {
+        auto const &file = payload.at("file");
+        result.file = ContentFileInfo{
+            .name = file.at("name").get<std::string>(),
+            .relative_path = file.at("relative_path").get<std::string>(),
+            .stem = file.at("stem").get<std::string>(),
+            .file_revision = file.at("file_revision").get<std::string>(),
+        };
+    }
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .result = std::move(result),
+    };
+}
+
 auto encode_project_changed(ProjectChanged const &message) -> nlohmann::json
 {
     return envelope("project.changed",
@@ -757,11 +942,14 @@ auto decode_shutdown_if_idle_response(nlohmann::json const &message)
 
 auto encode_error(IpcError const &message) -> nlohmann::json
 {
-    return envelope("error", {
-                                 {"request_id", message.request_id},
-                                 {"code", message.code},
-                                 {"message", message.message},
-                             });
+    return envelope("error",
+                    {
+                        {"request_id", message.request_id},
+                        {"code", message.code},
+                        {"message", message.message},
+                        {"current_file_revision",
+                         optional_string_to_json(message.current_file_revision)},
+                    });
 }
 
 auto decode_error(nlohmann::json const &message) -> IpcError
@@ -771,6 +959,8 @@ auto decode_error(nlohmann::json const &message) -> IpcError
         .request_id = payload.at("request_id").get<std::string>(),
         .code = payload.at("code").get<std::string>(),
         .message = payload.at("message").get<std::string>(),
+        .current_file_revision =
+            optional_string_from_json(payload.at("current_file_revision")),
     };
 }
 

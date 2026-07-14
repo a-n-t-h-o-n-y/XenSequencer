@@ -16,6 +16,8 @@
 
 #include <xen/bridge_serialize.hpp>
 #include <xen/constants.hpp>
+#include <xen/document_storage.hpp>
+#include <xen/text_file.hpp>
 #include <xen/user_directory.hpp>
 
 namespace xen::bridge
@@ -88,8 +90,9 @@ auto file_entry_to_json(LibraryFileEntry const &file, std::string const &command
         {"name", normalize_utf8(file.name)},
         {"relative_path", normalize_utf8(file.relative_path)},
         {"stem", normalize_utf8(file.stem)},
-        {"path", normalize_utf8(file.path)},
-        {"command", normalize_utf8(command_prefix + quote_command_arg(file.stem))},
+        {"file_revision", file.file_revision},
+        {"command",
+         normalize_utf8(command_prefix + quote_command_arg(file.relative_path))},
     };
 }
 
@@ -130,12 +133,135 @@ auto make_library_file_entry(juce::File const &directory, juce::File const &file
     {
         stem_path.erase(dot);
     }
+    auto const extension = file.getFileExtension().toStdString();
+    auto maximum_bytes = std::size_t{};
+    if (extension == ".xencell")
+    {
+        maximum_bytes = MAX_CELL_FILE_BYTES;
+    }
+    else if (extension == ".xenproj")
+    {
+        maximum_bytes = MAX_PROJECT_FILE_BYTES;
+    }
+    else if (extension == ".scl")
+    {
+        maximum_bytes = MAX_TUNING_FILE_BYTES;
+    }
+    else
+    {
+        throw DocumentError{DocumentErrorCode::InvalidPath,
+                            "Library entry has an unsupported extension."};
+    }
+    auto const safe_path =
+        resolve_content_path(directory.getFullPathName().toStdString(),
+                             relative_path.toStdString(), extension);
+    auto error = std::error_code{};
+    if (std::filesystem::weakly_canonical(file.getFullPathName().toStdString(),
+                                          error) != safe_path ||
+        error)
+    {
+        throw DocumentError{DocumentErrorCode::InvalidPath,
+                            "Library entry escapes its configured directory."};
+    }
 
+    auto const path = file.getFullPathName().toStdString();
+    auto revision = std::optional<std::string>{};
+    try
+    {
+        revision = xen::file_revision(path, maximum_bytes);
+    }
+    catch (std::length_error const &)
+    {
+        throw DocumentError{DocumentErrorCode::FileTooLarge,
+                            "Library file exceeds the permitted size."};
+    }
+    if (!revision.has_value())
+    {
+        throw std::runtime_error{"Library file disappeared while being scanned."};
+    }
     return {
         .name = file.getFileName().toStdString(),
         .relative_path = relative_path.toStdString(),
         .stem = stem_path,
-        .path = file.getFullPathName().toStdString(),
+        .file_revision = *revision,
+    };
+}
+
+auto require_boolean(nlohmann::json const &json, std::string_view field) -> bool
+{
+    auto const key = std::string{field};
+    if (!json.contains(key) || !json.at(key).is_boolean())
+    {
+        throw BridgeError{"invalid_request", "Field must be boolean: " + key};
+    }
+    return json.at(key).get<bool>();
+}
+
+auto optional_revision(nlohmann::json const &json, std::string_view field)
+    -> std::optional<std::string>
+{
+    auto const key = std::string{field};
+    if (!json.contains(key) || json.at(key).is_null())
+    {
+        return std::nullopt;
+    }
+    if (!json.at(key).is_string() ||
+        json.at(key).get_ref<std::string const &>().empty())
+    {
+        throw BridgeError{"invalid_request",
+                          "Field must be null or a non-empty string: " + key};
+    }
+    return json.at(key).get<std::string>();
+}
+
+auto document_error_code(DocumentErrorCode code) -> std::string
+{
+    switch (code)
+    {
+    case DocumentErrorCode::StaleProject:
+        return "stale_project";
+    case DocumentErrorCode::UnsavedChanges:
+        return "unsaved_changes";
+    case DocumentErrorCode::InvalidPath:
+        return "invalid_path";
+    case DocumentErrorCode::NotFound:
+        return "not_found";
+    case DocumentErrorCode::FileExists:
+        return "file_exists";
+    case DocumentErrorCode::FileConflict:
+        return "file_conflict";
+    case DocumentErrorCode::ProjectPathRequired:
+        return "project_path_required";
+    case DocumentErrorCode::FileTooLarge:
+        return "file_too_large";
+    case DocumentErrorCode::InvalidDocument:
+        return "invalid_document";
+    case DocumentErrorCode::PreviewActive:
+        return "preview_active";
+    case DocumentErrorCode::RecoveryConflict:
+        return "recovery_conflict";
+    case DocumentErrorCode::Io:
+        return "io_error";
+    }
+    return "io_error";
+}
+
+auto document_result_to_json(DocumentOperationResult const &result) -> nlohmann::json
+{
+    auto file = nlohmann::json(nullptr);
+    if (result.file.has_value())
+    {
+        file = {
+            {"name", normalize_utf8(result.file->name)},
+            {"relative_path", normalize_utf8(result.file->relative_path)},
+            {"stem", normalize_utf8(result.file->stem)},
+            {"file_revision", result.file->file_revision},
+        };
+    }
+    return {
+        {"snapshot", make_project_snapshot(result.snapshot)},
+        {"file", std::move(file)},
+        {"suggested_selection", selection_to_json(result.suggested_selection)},
     };
 }
 
@@ -193,6 +319,66 @@ auto SequencerApplicationBridgeService::cancel_preview(
     -> PreviewControlResult
 {
     return session_.cancel_preview(preview_id, expected_revision);
+}
+
+auto SequencerApplicationBridgeService::create_project(
+    ProjectRevision expected_revision, bool discard_unsaved) -> DocumentOperationResult
+{
+    return session_.create_project(expected_revision, discard_unsaved);
+}
+
+auto SequencerApplicationBridgeService::open_project(std::string relative_path,
+                                                     ProjectRevision expected_revision,
+                                                     bool discard_unsaved)
+    -> DocumentOperationResult
+{
+    return session_.open_project(std::move(relative_path), expected_revision,
+                                 discard_unsaved);
+}
+
+auto SequencerApplicationBridgeService::save_project(ProjectRevision expected_revision)
+    -> DocumentOperationResult
+{
+    return session_.save_project(expected_revision);
+}
+
+auto SequencerApplicationBridgeService::save_project_as(
+    std::string relative_path, ProjectRevision expected_revision,
+    std::optional<std::string> expected_file_revision) -> DocumentOperationResult
+{
+    return session_.save_project_as(std::move(relative_path), expected_revision,
+                                    std::move(expected_file_revision));
+}
+
+auto SequencerApplicationBridgeService::restore_recovery(
+    std::string recovery_revision, ProjectRevision expected_revision,
+    bool discard_unsaved) -> DocumentOperationResult
+{
+    return session_.restore_recovery(std::move(recovery_revision), expected_revision,
+                                     discard_unsaved);
+}
+
+auto SequencerApplicationBridgeService::discard_recovery(std::string recovery_revision)
+    -> DocumentOperationResult
+{
+    return session_.discard_recovery(std::move(recovery_revision));
+}
+
+auto SequencerApplicationBridgeService::import_cell(std::string relative_path,
+                                                    ProjectRevision expected_revision,
+                                                    CompositionCursor cursor)
+    -> DocumentOperationResult
+{
+    return session_.import_cell(std::move(relative_path), expected_revision, cursor);
+}
+
+auto SequencerApplicationBridgeService::save_cell(
+    std::string relative_path, ProjectRevision expected_revision,
+    CompositionCursor cursor, SelectionPath selection,
+    std::optional<std::string> expected_file_revision) -> DocumentOperationResult
+{
+    return session_.save_cell(std::move(relative_path), expected_revision, cursor,
+                              std::move(selection), std::move(expected_file_revision));
 }
 
 void SequencerApplicationBridgeService::set_channel_id(ChannelId channel_id)
@@ -311,7 +497,7 @@ auto JuceLibraryBridgeService::make_payload(LibrarySnapshot const &snapshot) con
 
     return nlohmann::json{
         {"schema_version", library_schema_version},
-        {"library_revision", snapshot.library_revision.value()},
+        {"library_revision", std::to_string(snapshot.library_revision.value())},
         {"paths",
          {
              {"library", normalize_utf8(files_.library_root().string())},
@@ -320,8 +506,8 @@ auto JuceLibraryBridgeService::make_payload(LibrarySnapshot const &snapshot) con
          }},
         {"cells", file_entries_to_json(files_.cell_files(workspace.content_directory),
                                        "load cell ")},
-        {"compositions",
-         file_entries_to_json(files_.composition_files(workspace.content_directory),
+        {"projects",
+         file_entries_to_json(files_.project_files(workspace.content_directory),
                               "project open ")},
         {"tunings",
          tuning_entries_to_json(files_.tuning_files(workspace.tuning_directory))},
@@ -362,7 +548,7 @@ auto JuceLibraryFilePort::cell_files(std::filesystem::path const &directory_path
     return out;
 }
 
-auto JuceLibraryFilePort::composition_files(
+auto JuceLibraryFilePort::project_files(
     std::filesystem::path const &directory_path) const -> std::vector<LibraryFileEntry>
 {
     auto const directory = as_juce_file(directory_path);
@@ -370,7 +556,7 @@ auto JuceLibraryFilePort::composition_files(
         throw std::runtime_error("Invalid library directory: " +
                                  directory.getFullPathName().toStdString());
     auto const files = to_sorted_files(
-        directory.findChildFiles(juce::File::findFiles, true, "*.xencomp"));
+        directory.findChildFiles(juce::File::findFiles, true, "*.xenproj"));
     auto out = std::vector<LibraryFileEntry>{};
     out.reserve(files.size());
     for (auto const &file : files)
@@ -394,9 +580,16 @@ auto JuceLibraryFilePort::tuning_files(std::filesystem::path const &directory_pa
     out.reserve(files.size());
     for (auto const &file : files)
     {
+        auto entry = make_library_file_entry(directory, file);
         auto const tuning = sequence::from_scala(file.getFullPathName().toStdString());
+        auto const refreshed_entry = make_library_file_entry(directory, file);
+        if (refreshed_entry.file_revision != entry.file_revision)
+        {
+            throw std::runtime_error{
+                "Tuning file changed while the library was being scanned."};
+        }
         out.push_back({
-            .file = make_library_file_entry(directory, file),
+            .file = std::move(entry),
             .description = tuning.description,
             .intervals = tuning.intervals,
             .octave = tuning.octave,
@@ -445,6 +638,38 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
          }},
         {"library.get",
          [this](ParsedRequest const &request) { return handle_library_get(request); }},
+        {"project.new",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"project.open",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"project.save",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"project.save_as",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"project.recovery.restore",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"project.recovery.discard",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"cell.import",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
+        {"cell.save",
+         [this](ParsedRequest const &request) {
+             return handle_document_operation(request);
+         }},
         {"keymap.read",
          [this](ParsedRequest const &request) { return handle_keymap_read(request); }},
         {"keymap.write",
@@ -496,6 +721,25 @@ auto BridgeRequestDispatcher::handle_request_json(std::string const &request_jso
     {
         return make_envelope("response", error.name, error.request_id,
                              make_error_payload(error.code, error.what()))
+            .dump();
+    }
+    catch (DocumentError const &error)
+    {
+        auto payload =
+            make_error_payload(document_error_code(error.code), error.what());
+        if (error.code == DocumentErrorCode::FileConflict ||
+            error.code == DocumentErrorCode::FileExists)
+        {
+            payload["error"]["details"] = {
+                {"current_file_revision",
+                 error.current_file_revision.has_value()
+                     ? nlohmann::json(*error.current_file_revision)
+                     : nlohmann::json(nullptr)},
+            };
+        }
+        return make_envelope("response",
+                             request.name.empty() ? "bridge.error" : request.name,
+                             request.request_id, std::move(payload))
             .dump();
     }
     catch (KeymapStorageError const &error)
@@ -619,11 +863,11 @@ auto BridgeRequestDispatcher::handle_session_binding_set(ParsedRequest const &re
     -> nlohmann::json
 {
     auto channel_id = require_string(request.payload, "channel_id");
-    if (channel_id.empty())
+    if (channel_id.empty() || channel_id.size() > MAX_PERSISTED_STRING_BYTES)
     {
         throw BridgeError{
             "invalid_request",
-            "Field must not be empty: channel_id",
+            "Field must contain between 1 and 4096 bytes: channel_id",
             request.name,
             request.request_id,
         };
@@ -653,8 +897,8 @@ auto BridgeRequestDispatcher::handle_command_execute(ParsedRequest const &reques
 auto BridgeRequestDispatcher::handle_preview_begin(ParsedRequest const &request)
     -> nlohmann::json
 {
-    auto const revision =
-        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const revision = ProjectRevision{
+        require_resource_revision(request.payload, "expected_project_revision")};
     auto const result = application_.begin_preview(revision);
     return {
         {"status",
@@ -675,8 +919,8 @@ auto BridgeRequestDispatcher::handle_preview_commit(ParsedRequest const &request
     {
         throw BridgeError{"invalid_request", "Field must not be empty: preview_id"};
     }
-    auto const revision =
-        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const revision = ProjectRevision{
+        require_resource_revision(request.payload, "expected_project_revision")};
     auto const result = application_.commit_preview(preview_id, revision);
     return {
         {"status",
@@ -694,8 +938,8 @@ auto BridgeRequestDispatcher::handle_preview_cancel(ParsedRequest const &request
     {
         throw BridgeError{"invalid_request", "Field must not be empty: preview_id"};
     }
-    auto const revision =
-        ProjectRevision{require_unsigned(request.payload, "expected_project_revision")};
+    auto const revision = ProjectRevision{
+        require_resource_revision(request.payload, "expected_project_revision")};
     auto const result = application_.cancel_preview(preview_id, revision);
     return {
         {"status",
@@ -710,6 +954,87 @@ auto BridgeRequestDispatcher::handle_library_get(ParsedRequest const &request)
 {
     validate_empty_object_payload(request.payload, request);
     return library_.make_payload(application_.library_snapshot());
+}
+
+auto BridgeRequestDispatcher::handle_document_operation(ParsedRequest const &request)
+    -> nlohmann::json
+{
+    auto const project_revision = [&] {
+        return ProjectRevision{
+            require_resource_revision(request.payload, "expected_project_revision")};
+    };
+    if (request.name == "project.new")
+    {
+        return document_result_to_json(application_.create_project(
+            project_revision(), require_boolean(request.payload, "discard_unsaved")));
+    }
+    if (request.name == "project.open")
+    {
+        return document_result_to_json(application_.open_project(
+            require_string(request.payload, "relative_path"), project_revision(),
+            require_boolean(request.payload, "discard_unsaved")));
+    }
+    if (request.name == "project.save")
+    {
+        return document_result_to_json(application_.save_project(project_revision()));
+    }
+    if (request.name == "project.save_as")
+    {
+        if (!request.payload.contains("expected_file_revision"))
+        {
+            throw BridgeError{"invalid_request",
+                              "Missing field: expected_file_revision"};
+        }
+        return document_result_to_json(application_.save_project_as(
+            require_string(request.payload, "relative_path"), project_revision(),
+            optional_revision(request.payload, "expected_file_revision")));
+    }
+    if (request.name == "project.recovery.restore")
+    {
+        return document_result_to_json(application_.restore_recovery(
+            require_string(request.payload, "recovery_revision"), project_revision(),
+            require_boolean(request.payload, "discard_unsaved")));
+    }
+    if (request.name == "project.recovery.discard")
+    {
+        return document_result_to_json(application_.discard_recovery(
+            require_string(request.payload, "recovery_revision")));
+    }
+
+    auto context_payload = nlohmann::json{
+        {"context",
+         {{"expected_project_revision",
+           request.payload.at("expected_project_revision")},
+          {"cursor", request.payload.at("cursor")}}},
+    };
+    if (request.payload.contains("selection"))
+    {
+        context_payload["context"]["selection"] = request.payload.at("selection");
+    }
+    auto const context = parse_command_context(context_payload);
+    if (request.name == "cell.import")
+    {
+        return document_result_to_json(
+            application_.import_cell(require_string(request.payload, "relative_path"),
+                                     project_revision(), context.cursor));
+    }
+    if (request.name == "cell.save")
+    {
+        if (!context.selection.has_value())
+        {
+            throw BridgeError{"invalid_request", "Field is required: selection"};
+        }
+        if (!request.payload.contains("expected_file_revision"))
+        {
+            throw BridgeError{"invalid_request",
+                              "Missing field: expected_file_revision"};
+        }
+        return document_result_to_json(application_.save_cell(
+            require_string(request.payload, "relative_path"), project_revision(),
+            context.cursor, *context.selection,
+            optional_revision(request.payload, "expected_file_revision")));
+    }
+    throw BridgeError{"invalid_request", "Unknown document operation: " + request.name};
 }
 
 auto BridgeRequestDispatcher::handle_keymap_read(ParsedRequest const &request)

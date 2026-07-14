@@ -2,9 +2,12 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -52,6 +55,24 @@ class ProjectRevision
     std::uint64_t value_;
 };
 
+class StateRevision
+{
+  public:
+    explicit constexpr StateRevision(std::uint64_t value = 0) noexcept : value_{value}
+    {
+    }
+
+    [[nodiscard]] constexpr auto value() const noexcept -> std::uint64_t
+    {
+        return value_;
+    }
+
+    auto operator<=>(StateRevision const &) const = default;
+
+  private:
+    std::uint64_t value_;
+};
+
 class LibraryRevision
 {
   public:
@@ -73,16 +94,81 @@ class LibraryRevision
 namespace detail
 {
 
+inline auto durable_revision_seed() noexcept -> std::uint64_t
+{
+    auto const elapsed = std::chrono::system_clock::now().time_since_epoch();
+    auto const nanoseconds =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+    if (nanoseconds <= 0)
+    {
+        return 1;
+    }
+    auto const value = static_cast<std::uint64_t>(nanoseconds);
+    return value == std::numeric_limits<std::uint64_t>::max() ? value - 1 : value;
+}
+
+inline auto project_revision_counter() noexcept -> std::atomic<std::uint64_t> &
+{
+    static auto next_value = std::atomic<std::uint64_t>{durable_revision_seed()};
+    return next_value;
+}
+
+inline auto state_revision_counter() noexcept -> std::atomic<std::uint64_t> &
+{
+    static auto next_value = std::atomic<std::uint64_t>{durable_revision_seed()};
+    return next_value;
+}
+
 inline auto allocate_history_entry_id() noexcept -> HistoryEntryId
 {
     static auto next_value = std::atomic<std::uint64_t>{1};
     return HistoryEntryId{next_value.fetch_add(1, std::memory_order_relaxed)};
 }
 
-inline auto allocate_project_revision() noexcept -> ProjectRevision
+inline auto allocate_project_revision() -> ProjectRevision
 {
-    static auto next_value = std::atomic<std::uint64_t>{1};
-    return ProjectRevision{next_value.fetch_add(1, std::memory_order_relaxed)};
+    auto const value =
+        project_revision_counter().fetch_add(1, std::memory_order_relaxed);
+    if (value == std::numeric_limits<std::uint64_t>::max())
+    {
+        project_revision_counter().fetch_sub(1, std::memory_order_relaxed);
+        throw std::overflow_error{"Project revision space is exhausted."};
+    }
+    return ProjectRevision{value};
+}
+
+inline auto allocate_state_revision() -> StateRevision
+{
+    auto const value = state_revision_counter().fetch_add(1, std::memory_order_relaxed);
+    if (value == std::numeric_limits<std::uint64_t>::max())
+    {
+        state_revision_counter().fetch_sub(1, std::memory_order_relaxed);
+        throw std::overflow_error{"State revision space is exhausted."};
+    }
+    return StateRevision{value};
+}
+
+template <typename Revision>
+void reserve_revision(std::atomic<std::uint64_t> &counter, Revision observed) noexcept
+{
+    auto expected = counter.load(std::memory_order_relaxed);
+    auto const desired = observed.value() == std::numeric_limits<std::uint64_t>::max()
+                             ? observed.value()
+                             : observed.value() + 1;
+    while (expected < desired &&
+           !counter.compare_exchange_weak(expected, desired, std::memory_order_relaxed))
+    {
+    }
+}
+
+inline void reserve_project_revision(ProjectRevision observed) noexcept
+{
+    reserve_revision(project_revision_counter(), observed);
+}
+
+inline void reserve_state_revision(StateRevision observed) noexcept
+{
+    reserve_revision(state_revision_counter(), observed);
 }
 
 inline auto allocate_library_revision() noexcept -> LibraryRevision
@@ -203,6 +289,20 @@ class Timeline
         timeline_ = std::move(next_timeline);
         at_ = 0;
         revision_ = next_revision;
+    }
+
+    /** Restore a persisted root while preserving its durable project revision. */
+    auto restore_history(State state, ProjectRevision revision) -> void
+    {
+        validate_timeline_state(state);
+        detail::reserve_project_revision(revision);
+        auto next_timeline = std::vector<Entry>{};
+        next_timeline.push_back({state, detail::allocate_history_entry_id()});
+
+        stage_ = std::move(state);
+        timeline_ = std::move(next_timeline);
+        at_ = 0;
+        revision_ = revision;
     }
 
     /**

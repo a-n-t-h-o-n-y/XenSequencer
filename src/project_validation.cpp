@@ -20,6 +20,24 @@ namespace xen
 namespace
 {
 
+constexpr auto MAX_CELL_DEPTH = std::size_t{64};
+constexpr auto MAX_CELL_FILE_NODES = std::size_t{100'000};
+constexpr auto MAX_PROJECT_NODES = std::size_t{250'000};
+
+struct ValidationBudget
+{
+    std::size_t remaining{};
+
+    void consume(std::size_t amount = 1)
+    {
+        if (amount > remaining)
+        {
+            throw std::invalid_argument{"Document contains too many objects."};
+        }
+        remaining -= amount;
+    }
+};
+
 void require_unit_interval(float value, char const *name)
 {
     if (!std::isfinite(value) || value < 0.f || value > 1.f)
@@ -28,8 +46,14 @@ void require_unit_interval(float value, char const *name)
     }
 }
 
-void validate_cell(sequence::Cell const &cell)
+void validate_cell(sequence::Cell const &cell, std::size_t depth,
+                   ValidationBudget &budget)
 {
+    if (depth > MAX_CELL_DEPTH)
+    {
+        throw std::invalid_argument{"Cell nesting exceeds the permitted depth."};
+    }
+    budget.consume();
     if (!std::isfinite(cell.weight) || cell.weight <= 0.f)
     {
         throw std::invalid_argument{"Cell weight must be finite and positive."};
@@ -37,8 +61,9 @@ void validate_cell(sequence::Cell const &cell)
 
     for (auto const &element : cell.elements)
     {
+        budget.consume();
         std::visit(
-            [](auto const &typed) {
+            [depth, &budget](auto const &typed) {
                 using Typed = std::decay_t<decltype(typed)>;
                 if constexpr (std::is_same_v<Typed, sequence::Note>)
                 {
@@ -50,7 +75,7 @@ void validate_cell(sequence::Cell const &cell)
                 {
                     for (auto const &child : typed.cells)
                     {
-                        validate_cell(child);
+                        validate_cell(child, depth + 1, budget);
                     }
                 }
             },
@@ -104,12 +129,20 @@ auto sequence_name_key(std::string const &name) -> std::string
 
 } // namespace
 
+void validate_cell_file(sequence::Cell const &cell)
+{
+    auto budget = ValidationBudget{.remaining = MAX_CELL_FILE_NODES};
+    validate_cell(cell, 0, budget);
+}
+
 void validate(ProjectState const &project)
 {
+    auto budget = ValidationBudget{.remaining = MAX_PROJECT_NODES};
     auto sequence_ids = std::unordered_set<SequenceId>{};
     auto sequence_names = std::unordered_set<std::string>{};
     for (auto const &entry : project.sequence_bank.sequences)
     {
+        budget.consume();
         if (entry.id == 0)
         {
             throw std::invalid_argument{"Sequence IDs must be nonzero."};
@@ -128,7 +161,7 @@ void validate(ProjectState const &project)
         {
             throw std::invalid_argument{"Duplicate sequence name."};
         }
-        validate_cell(entry.cell);
+        validate_cell(entry.cell, 0, budget);
     }
     if (project.sequence_bank.next_id == 0)
     {
@@ -145,7 +178,8 @@ void validate(ProjectState const &project)
         throw std::invalid_argument{"Composition loop start must not exceed loop end."};
     }
 
-    auto const validate_column = [](CompositionColumn const &column) {
+    auto const validate_column = [&budget](CompositionColumn const &column) {
+        budget.consume();
         auto const &time_signature = column.duration;
         if (time_signature.numerator == 0 || time_signature.denominator == 0)
             throw std::invalid_argument{"Column duration values must be nonzero."};
@@ -156,6 +190,7 @@ void validate(ProjectState const &project)
                 "Column duration must not exceed 64 whole notes."};
         auto const &pitch = column.pitch;
         validate_tuning(pitch.tuning.definition);
+        budget.consume(pitch.tuning.definition.intervals.size());
         if (!std::isfinite(pitch.base_frequency) || pitch.base_frequency <= 0.f)
             throw std::invalid_argument{"Base frequency must be finite and positive."};
         if (pitch.transposition < -127 || pitch.transposition > 127)
@@ -163,6 +198,7 @@ void validate(ProjectState const &project)
         if (pitch.scale.has_value())
         {
             validate_scale(pitch.scale->definition);
+            budget.consume(pitch.scale->definition.intervals.size());
             if (pitch.scale->definition.tuning_length !=
                 pitch.tuning.definition.intervals.size())
                 throw std::invalid_argument{
@@ -181,6 +217,7 @@ void validate(ProjectState const &project)
     }
     for (auto const &[coordinate, row] : project.composition.rows)
     {
+        budget.consume();
         (void)coordinate;
         if (row.name.has_value() && row.name->empty())
         {
@@ -194,6 +231,7 @@ void validate(ProjectState const &project)
     }
     for (auto const &[position, sequence_id] : project.composition.placements)
     {
+        budget.consume();
         if (!project.composition.rows.contains(position.row_coordinate) ||
             !project.composition.columns.contains(position.column_coordinate))
             throw std::invalid_argument{

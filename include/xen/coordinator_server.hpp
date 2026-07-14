@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -31,8 +33,11 @@ class CoordinatorServer final : public juce::InterprocessConnectionServer
     void connection_closed(CoordinatorConnection &connection);
     [[nodiscard]] auto coordinator() noexcept -> SessionCoordinator &;
     [[nodiscard]] auto request_shutdown_if_idle() noexcept -> bool;
+    void perform_maintenance(std::uint64_t now_unix_ms, bool force = false);
 
   private:
+    friend class CoordinatorConnection;
+
     SessionId session_id_;
     CoordinatorRegistry registry_;
     SessionCoordinator coordinator_;
@@ -41,6 +46,7 @@ class CoordinatorServer final : public juce::InterprocessConnectionServer
     std::atomic<int> client_count_{0};
     std::atomic<int64_t> last_disconnect_ms_{0};
     std::atomic<bool> shutdown_requested_{false};
+    mutable std::mutex coordinator_mutex_;
 
     auto createConnectionObject() -> juce::InterprocessConnection * override;
 };

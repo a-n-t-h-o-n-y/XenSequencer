@@ -1,57 +1,16 @@
-# Frontend/Backend Contract and Migration Guide
+# Frontend/Backend Contract
 
-This is the consolidated handoff for the breaking backend changes that are not yet
-implemented in `../xen-frontend`. The current C++ implementation and bridge tests are
-authoritative if this document drifts.
+This document is the authoritative handoff for the native backend. The persistence
+cutover is intentionally breaking: there are no compatibility aliases or mixed old
+and new payloads.
 
-There are no compatibility aliases or mixed old/new payloads. The frontend must move
-to the contract below as one migration.
+## Transport and schemas
 
-## Breaking changes
-
-- Project snapshots use project schema `5` and a grouped `project` object. The old
-  `snapshot_version`, `commit_id`, `engine`, and `editor` fields are gone.
-- Project history identity and project revision are separate:
-  `history_entry_id` identifies the timeline entry, while `project_revision` changes
-  whenever the published project changes, including compatible history amendments.
-- Selection and input mode are frontend-owned. They are not published in project
-  snapshots.
-- Targeted commands receive the frontend selection in
-  `command.execute.payload.context.selection`.
-- Every project-aware command requires
-  `command.execute.payload.context.expected_project_revision`.
-- Command responses include nullable `suggested_selection`.
-- Backend `move ...` and `inputMode ...` commands were removed. Navigation and input
-  mode changes must be handled locally.
-- Bare `reset`, `composition cell clear`, `load composition`, and `save composition`
-  were removed. Use `project new`, `composition cell unassign`, `project open`, and
-  `project save` respectively; there are no aliases.
-- Project and library publication are separate revision domains. Library data is not
-  included in project snapshots.
-- `session.hello` contains the immutable command catalog and revisioned keymap and
-  preferences resources.
-- `catalog.get`, `command.complete`, `command.completeText`, `command.completeId`, and
-  the old raw-string keymap contract were removed. Completion and keymap routing are
-  frontend-local; keymap persistence uses the dedicated keymap requests.
-- Active scales use stable library IDs and preserve an optional `source_id`.
-- Composition positions are signed 32-bit coordinates. Rows, columns, and placements
-  are sparse; dense `cells` arrays and index-shifting axis commands are gone.
-
-## Transport
-
-JUCE exposes:
-
-- native function: `xenBridgeRequest`;
-- native event: `xenBridgeEvent`.
-
-The native function receives one JSON-string argument and resolves to a parsed
-response-envelope object.
-
-All messages use:
+JUCE exposes the native function `xenBridgeRequest` and event `xenBridgeEvent`.
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v5";
+  protocol: "xen.bridge.v6";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -59,10 +18,37 @@ type Envelope = {
 };
 ```
 
-Requests must use `type: "request"` and an object payload. Responses echo
-`request_id` when supplied. Events do not have a request ID.
+`session.hello` reports:
 
-Errors are returned inside a normal response envelope:
+```ts
+type CatalogCommand = {
+  path: string[];
+  keywords: string[];
+  accepts_pattern_prefix: boolean;
+  target_requirement: "none" | "cell" | "element" | "cell_or_element";
+  arguments: unknown[];
+  description: string;
+};
+
+type SessionHello = {
+  protocol: "xen.bridge.v6";
+  plugin_version: string;
+  project_schema_version: 6;
+  library_schema_version: 2;
+  catalog: { schema_version: 4; commands: CatalogCommand[] };
+  binding: { session_id: string; instance_id: string; channel_id: string };
+  keymap: KeymapResource;
+  preferences: PreferencesResource;
+};
+```
+
+All history, state, project, library, keymap, and preferences revisions crossing the
+WebView boundary are decimal strings. Preserve them losslessly and parse numeric
+revisions as `BigInt`. Order project snapshots only by `state_revision`;
+`project_revision` is an optimistic-edit token and can jump when persisted history is
+restored. File and recovery revisions are opaque strings compared only for equality.
+
+Errors use normal response envelopes:
 
 ```ts
 type ErrorPayload = {
@@ -71,527 +57,270 @@ type ErrorPayload = {
       | "invalid_request"
       | "unsupported_protocol"
       | "internal_error"
-      | "conflict"
-      | "malformed_document"
-      | "keymap_read_error"
-      | "keymap_write_error"
-      | "keymap_delete_error"
-      | "preferences_read_error"
-      | "preferences_write_error"
-      | "preferences_delete_error";
+      | "stale_project"
+      | "unsaved_changes"
+      | "invalid_path"
+      | "not_found"
+      | "file_exists"
+      | "file_conflict"
+      | "project_path_required"
+      | "file_too_large"
+      | "invalid_document"
+      | "preview_active"
+      | "recovery_conflict"
+      | "io_error"
+      | string;
     message: string;
+    details?: { current_file_revision?: string | null };
   };
 };
 ```
 
-## Session startup
-
-Request:
-
-```json
-{
-  "protocol": "xen.bridge.v5",
-  "type": "request",
-  "name": "session.hello",
-  "request_id": "hello-1",
-  "payload": {
-    "protocol": "xen.bridge.v5",
-    "frontend_app": "xen-web-ui",
-    "frontend_version": "..."
-  }
-}
-```
-
-Response payload:
+## Project state and document lifecycle
 
 ```ts
-type SessionHello = {
-  protocol: "xen.bridge.v5";
-  plugin_version: string;
-  project_schema_version: 5;
-  library_schema_version: 1;
-  catalog: {
-    schema_version: 3;
-    commands: CatalogCommand[];
-  };
-  keymap: KeymapResource;
-  preferences: PreferencesResource;
-};
-```
+type FileRevision = string; // opaque "sha256:<hex>" token
 
-```ts
-type KeymapResource = {
-  revision: string;
-  document: unknown | null;
-};
-
-type PreferencesResource = {
-  revision: string;
-  document: Record<string, unknown> | null;
-};
-```
-
-Keymap and preferences revisions are opaque decimal strings, including every
-`expected_revision` request field. They may exceed both JavaScript's safe integer
-range and signed 64-bit range; preserve them as strings and compare only for equality.
-
-The hello response contains no project or library snapshot. After a successful hello,
-request both `state.get` and `library.get`. Do not wait for initial change events; the
-backend only emits them after a revision changes.
-
-There is no combined `snapshot_schema_version` handshake field. Validate the separate
-project, library, and catalog schema versions returned by the backend.
-
-## Command catalog and completion
-
-```ts
-type CatalogConstraint = {
-  kind: string;
-  minimum: number | null;
-  maximum: number | null;
-  values: string[];
-};
-
-type CatalogArgument = {
-  kind: string;
-  display_name: string;
-  required: boolean;
-  default_value: string | null;
-  constraints: CatalogConstraint[];
-};
-
-type CatalogCommand = {
-  path: string[];
-  keywords: string[];
-  accepts_pattern_prefix: boolean;
-  target_requirement: "none" | "cell" | "element" | "cell_or_element";
-  arguments: CatalogArgument[];
-  description: string;
-};
-```
-
-Finite accepted value sets use the constraint kind `one_of`; its `values` array
-contains the canonical command tokens accepted by the backend parser.
-
-Cache `session.hello.payload.catalog.commands` and use it for command help,
-autocomplete, filtering, and ranking. Completion should tolerantly parse only the
-active semicolon-delimited chain segment. Final command text is still submitted to the
-strict backend parser.
-
-## Frontend-owned documents
-
-Keymaps and preferences are independent whole-document resources. The backend owns
-only persistence, size limits, revisions, optimistic conflicts, deletion, and change
-publication. The frontend owns recognized fields, defaults, validation, schema
-migrations, and merging after conflicts.
-
-Cooperating Xen instances serialize each resource's refresh, revision check, and
-mutation, so two writes based on the same revision cannot both commit.
-
-The available requests are `keymap.read`, `keymap.write`, `keymap.delete`,
-`preferences.read`, `preferences.write`, and `preferences.delete`. Read payloads are
-empty objects. Write payloads contain `expected_revision` and `document`; delete
-payloads contain only `expected_revision`. A successful response returns the complete
-updated resource.
-
-Preferences documents must be JSON objects and may be at most 4 MiB when serialized.
-The file is stored separately as `settings/preferences.json`; a missing file is
-represented as `document: null`. The backend does not inspect `schema_version` or any
-preference field. Frontend migrations and individual preference updates must preserve
-unknown fields. On `conflict`, reload the latest resource, reapply only the intended
-change, and retry or ask the user to retry.
-
-## Project resource
-
-`state.get`, `state.changed`, and `command.execute.payload.snapshot` all use the same
-payload:
-
-```ts
-type Note = {
-  type: "Note";
-  pitch: number;
-  velocity: number;
-  delay: number;
-  gate: number;
-};
-
-type Sequence = {
-  type: "Sequence";
-  cells: Cell[];
-};
-
-type MusicElement = Note | Sequence;
-
-type Cell = {
-  weight: number;
-  elements: MusicElement[];
-};
-
-type ScaleDefinition = {
-  name: string;
-  tuning_length: number;
-  intervals: number[];
-  mode: number;
-};
-
-type PitchState = {
-  tuning: {
-    name: string;
-    definition: {
-      intervals: number[];
-      octave: number;
-    };
-  };
-  scale: {
-    source_id: string | null;
-    definition: ScaleDefinition;
-  } | null;
-  transposition: number;
-  translation_direction: "up" | "down";
-  base_frequency: number;
-};
-
-type CompositionColumn = {
-  duration: {
-    numerator: number;
-    denominator: number;
-  };
-  pitch: PitchState;
-};
-
-type ProjectSnapshot = {
-  schema_version: 5;
-  history_entry_id: number;
-  project_revision: number;
-  project: {
-    sequence_bank: {
-      next_id: number;
-      sequences: Array<{
-        id: number;
-        name?: string;
-        cell: Cell;
-      }>;
-    };
-    composition: {
-      default_column: CompositionColumn;
-      columns: Array<CompositionColumn & {
-        coordinate: number;
-      }>;
-      rows: Array<{
-        coordinate: number;
-        name?: string;
-        channel_id: string;
-      }>;
-      placements: Array<{
-        row: number;
-        column: number;
-        sequence_id: number;
-      }>;
-      loop_region: {
-        start_column: number;
-        end_column: number;
-      };
-    };
-  };
-};
-```
-
-An empty `Cell.elements` array represents silence. Musical content lives in
-`sequence_bank.sequences[].cell`; arrangement lives in `composition.placements`.
-An absent placement is an empty/rest cell and consumes no serialized storage.
-Rows and columns may remain materialized after their last placement is unassigned.
-Missing horizontal coordinates inside the loop are silent columns using
-`default_column.duration`. Materialized columns carry their own duration and pitch
-state.
-
-Coordinates must be integers in `[-2147483648, 2147483647]`. `(0, 0)` is the default
-placement and remains stable when negative coordinates are added. Loop bounds may
-reference implicit columns, must satisfy `start_column <= end_column`, and do not
-automatically expand when content is created outside them. Playback rebases the loop
-start to local sample zero.
-
-The active scale embeds the complete musical definition. `source_id` identifies the
-library entry used to create it and may be null for an embedded/untracked scale.
-Chromatic state is represented by `scale: null`.
-
-### Project ingestion
-
-Use one ingestion function for `state.get`, `state.changed`, and command response
-snapshots:
-
-1. Reject schemas other than `5`.
-2. Install the first valid snapshot.
-3. Ignore an older `project_revision`.
-4. Treat an equal revision as an idempotent duplicate.
-5. Install a newer revision, then reconcile frontend-owned selection against the new
-   sequence. Fall back to the root selection when the path no longer resolves.
-
-Do not use `history_entry_id` for freshness. It can stay unchanged while
-`project_revision` advances.
-
-## Frontend-owned selection
-
-```ts
 type Selection = {
   path: Array<
     | { kind: "element"; index: number }
     | { kind: "cell"; index: number }
   >;
 };
+
+type Cursor = {
+  row_coordinate: number;
+  column_coordinate: number;
+  sequence_id: number | null;
+};
+
+type ProjectSnapshot = {
+  schema_version: 6;
+  state_revision: string;
+  project_revision: string;
+  history_entry_id: string;
+  preview_active: boolean;
+  document: {
+    relative_path: string | null;
+    display_name: string;
+    dirty: boolean;
+    file_revision: FileRevision | null;
+  };
+  recovery: null | {
+    revision: string;
+    saved_at_unix_ms: string;
+    relative_path: string | null;
+    project_revision: string;
+  };
+  project: Project;
+};
+
+type DocumentFile = {
+  name: string;
+  relative_path: string;
+  stem: string; // content-relative path without the extension
+  file_revision: FileRevision;
+};
+
+type DocumentOperationResult = {
+  snapshot: ProjectSnapshot;
+  file: DocumentFile | null;
+  suggested_selection: Selection | null;
+};
 ```
 
-The root cell is `{ path: [] }`. Paths alternate:
+`state.get`, `state.changed`, document responses, preview responses, and
+`command.execute.payload.snapshot` all carry this shape. Ingest snapshots by
+`state_revision`; use `project_revision` for optimistic project edits. A document save
+can advance `state_revision` without changing `project_revision`.
 
-1. `element` indexes `Cell.elements`;
-2. `cell` indexes the child cells of the selected `Sequence`;
-3. repeat as needed.
+The backend owns current path, clean baseline, dirty state, file-conflict token,
+recovery state, and unsaved-change enforcement for the shared multi-instance session.
+The frontend owns confirmation dialogs and sends an explicit confirmation on retry.
 
-A path ending in `element` selects a `MusicElement`. An empty path or a path ending in
-`cell` selects a `Cell`.
+### Project requests
 
-The frontend owns selection traversal, input mode, focus, panels, command text, zoom,
-and scroll state. Backend snapshots must not overwrite them.
+```ts
+type ProjectNewRequest = {
+  expected_project_revision: string;
+  discard_unsaved: boolean;
+};
 
-## Command execution
+type ProjectOpenRequest = ProjectNewRequest & {
+  relative_path: string; // exact content-relative .xenproj path
+};
 
-Request:
+type ProjectSaveRequest = {
+  expected_project_revision: string;
+};
+
+type ProjectSaveAsRequest = ProjectSaveRequest & {
+  relative_path: string;
+  expected_file_revision: FileRevision | null;
+};
+
+type RecoveryRestoreRequest = ProjectNewRequest & {
+  recovery_revision: string;
+};
+
+type RecoveryDiscardRequest = { recovery_revision: string };
+```
+
+Request names are `project.new`, `project.open`, `project.save`, `project.save_as`,
+`project.recovery.restore`, and `project.recovery.discard`. New/open with
+`discard_unsaved: false` also protect a pending recovery. Recovery restore requires
+discard confirmation only when the current document itself is dirty.
+Every successful response payload is a `DocumentOperationResult`; project saves and
+opens populate `file`.
+
+For Save As, `expected_file_revision: null` is create-only. If the target exists, the
+backend returns `file_exists` and the current token in error details. After confirmation,
+retry with that token. A later mismatch returns `file_conflict`. `project.save` uses the
+backend-owned current path and token; an untitled project returns
+`project_path_required`. To confirm an external change reported by `project.save`, retry
+as `project.save_as` with the same `relative_path` and the returned current token (or
+`null` when the file was deleted).
+
+### Cell requests
+
+```ts
+type CellImportRequest = {
+  relative_path: string; // exact content-relative .xencell path
+  expected_project_revision: string;
+  cursor: Cursor;
+};
+
+type CellSaveRequest = CellImportRequest & {
+  selection: Selection; // must resolve to a Cell
+  expected_file_revision: FileRevision | null;
+};
+```
+
+Request names are `cell.import` and `cell.save`. Import creates and arranges a new
+sequence named from the file stem. Save exports the selected recursive cell. Both use
+`DocumentOperationResult`; import populates `file` and `suggested_selection`, while
+save populates `file` and echoes the resolved selection. Cell saves use the same
+create-only/CAS overwrite protocol as Project Save As: send `null` first, then retry
+with the backend's current file token only after user confirmation.
+Cell files are reusable assets and never become the current project document.
+
+All document paths are nested relative paths under the configured content directory.
+Absolute paths, traversal, symlink escapes, non-portable names, and wrong extensions
+are rejected by the backend.
+
+## Commands and previews
+
+`command.execute` remains the general editing API:
 
 ```ts
 type CommandExecuteRequest = {
   command: string;
   context?: {
-    expected_project_revision?: number;
+    expected_project_revision?: string;
     selection?: Selection;
-    cursor: {
-      row_coordinate: number;
-      column_coordinate: number;
-      sequence_id: number | null;
-    };
+    preview_id?: string;
+    cursor: Cursor;
   };
 };
 ```
 
-Project-aware commands fail when `expected_project_revision` is missing or stale.
-Targeted commands fail when selection is missing, invalid, or resolves to the wrong
-target kind.
+The response contains status, nullable `suggested_selection`, and the current
+`snapshot`. Project-aware commands require a current project revision. The command
+catalog remains immutable per hello response and drives frontend completion.
 
-The catalog exposes target requirements but not project-awareness. The simplest safe
-frontend policy is to include the current `project_revision` and current valid
-selection with every command. The backend ignores selection for untargeted commands
-and does not require a revision for commands that do not access project state.
-
-Response payload:
-
-```ts
-type CommandExecuteResponse = {
-  status: {
-    level: "debug" | "info" | "warning" | "error";
-    message: string;
-  };
-  suggested_selection: Selection | null;
-  snapshot: ProjectSnapshot;
-};
-```
-
-Always ingest `snapshot` through the normal project-ingestion path. If
-`suggested_selection` is non-null, adopt it after installing the snapshot. Otherwise
-keep the existing selection if it still resolves, falling back to the root when it
-does not.
-
-Current structural suggestions include:
-
-- `duplicate`: select the duplicate;
-- `delete` and `cut`: select the nearest surviving sibling or parent;
-- pasting a cell over an element: select the parent cell;
-- successful non-structural targeted edits: retain the submitted selection.
-
-`undo` and `redo` are still backend commands, must be submitted alone, and require the
-current project revision.
-
-`project new` and `project open <project-name>` replace the complete project as a new
-history root. They require the current project revision, must be submitted alone, are
-rejected during previews, and discard the previous undo/redo and project-specific
-command-session state only after success. `project save <project-name>` writes the
-complete project without changing history identity or revision. Open and save continue
-to use the existing `.xencomp` serialization in the content directory.
-
-`sequence clear` empties the sequence identified by the submitted composition cursor
-while preserving its ID, name, arrangement references, and composition metadata. It is
-an ordinary undoable edit and fails if the cursor does not resolve to an assigned
-sequence. The frontend-local actions are
-`composition.cell.edit_sequence`,
-`composition.cell.rename_or_create_sequence`, and `composition.cell.unassign`.
-
-Composition commands use signed coordinates:
+Document commands are retained for the keyboard command line and use the same backend
+service:
 
 ```text
-composition cell assign <row> <column> <sequence-name>
-composition cell unassign <row> <column>
-composition cell move <from-row> <from-column> <to-row> <to-column>
-composition row rename <row> <name>
-composition row channel <row> <channel-id>
-composition loop start <column>
-composition loop end <column>
+project new
+project open <relative-path.xenproj>
+project save
+project save as <relative-path.xenproj>
+load cell <relative-path.xencell>
+save cell <relative-path.xencell>
+load tuning <relative-path.scl>
 ```
 
-Assigning at an empty position atomically materializes missing axes. A new row inherits
-the nearest materialized row's channel and a new column copies the nearest materialized
-column; ties prefer the candidate nearest coordinate zero, then the lower coordinate.
-Unassigning removes only the placement's sequence reference. Moving preserves the
-sequence reference, materializes destination axes before pruning source axes, and fails
-if the source is absent or destination occupied. Row/column insert, delete, move, and
-duplicate commands no longer exist.
+Commands never discard dirty work or overwrite an existing file. When confirmation is
+needed, the frontend retries through the structured API.
+
+Preview requests are `preview.begin`, `preview.commit`, and `preview.cancel`; every
+`expected_project_revision` is a decimal string. Document operations are rejected while
+a preview is active. Processor/DAW persistence always saves the persistent baseline,
+not transient preview state.
 
 ## Library resource
 
-`library.get` and `library.changed` share:
-
 ```ts
+type ContentFile = {
+  name: string;
+  relative_path: string;
+  stem: string; // content-relative path without the extension
+  file_revision: FileRevision;
+  command: string;
+};
+
 type LibrarySnapshot = {
-  schema_version: 1;
-  library_revision: number;
-  paths: {
-    library: string;
-    content: string;
-    tunings: string;
-  };
-  cells: Array<{
-    name: string;
-    relative_path: string;
-    stem: string;
-    path: string;
-    command: string;
-  }>;
-  compositions: Array<{
-    name: string;
-    relative_path: string;
-    stem: string;
-    path: string;
-    command: string;
-  }>;
-  tunings: Array<{
-    name: string;
-    relative_path: string;
-    stem: string;
-    path: string;
-    command: string;
+  schema_version: 2;
+  library_revision: string;
+  paths: { library: string; content: string; tunings: string };
+  cells: ContentFile[];
+  projects: ContentFile[];
+  tunings: Array<ContentFile & {
     description: string;
     intervals: number[];
     octave: number;
     note_count: number;
   }>;
-  scales: Array<
-    | {
-        id: "chromatic";
-        name: "chromatic";
-        definition: null;
-        intervals: [];
-        command: string;
-      }
-    | {
-        id: string;
-        definition: ScaleDefinition;
-        command: string;
-      }
-  >;
-  chords: Array<{
-    name: string;
-    intervals: number[];
-    command: string;
-  }>;
-  commands: {
-    reload_scales: "load scales";
-    reload_chords: "load chords";
-    library_directory: "libraryDirectory";
-  };
+  scales: unknown[];
+  chords: unknown[];
+  commands: Record<string, string>;
 };
 ```
 
-Project and library revisions are independent. Use a separate revision-aware ingestion
-path for library responses/events.
+`library.get` and `library.changed` use this schema. Project discovery recognizes only
+`.xenproj`; the old `compositions` key and absolute per-entry `path` fields are gone.
+Successful project saves and cell exports advance `library_revision` and publish a
+library event to every instance.
 
-`library.get` scans sequence and tuning files recursively on each request. Scales and
-chords reflect backend memory; execute `load scales` or `load chords` to reload those
-files. Library reloads advance `library_revision` even when the loaded values compare
-equal. Workspace path changes also publish a new library revision.
+## Persistence formats and limits
 
-The library payload no longer contains active tuning/scale fields. Read active pitch
-state from the project snapshot.
+- `.xencell`: reusable cell, `{ "kind": "xen_cell", "schema": 1, ... }`, 16 MiB.
+- `.xenproj`: complete project, `{ "kind": "xen_project", "schema": 1, ... }`,
+  64 MiB.
+- DAW state: internal `{ "kind": "xen_processor_state", "schema": 5, ... }`,
+  65 MiB including its envelope.
+- Recovery: internal `{ "kind": "xen_recovery", "schema": 1, ... }`, 65 MiB
+  including its envelope.
 
-The frontend presents cell documents as reusable sequences and aggregates them with
-project documents, tunings, and scales in Quick Access. Sequence and project documents
-appear in its Files scope; discovered `.xencomp` entries invoke `project open`. Chords
-remain cached as command-argument data and are not standalone Quick Access actions.
-This is presentation behavior and does not add a bridge endpoint.
+`.xencomp` and `xen_composition` are unsupported. Project files embed their complete
+tuning and active-scale definitions. JSON structural depth and event counts are bounded;
+cell recursion above 64, cell assets above 100,000 musical nodes, and projects above
+250,000 aggregate nodes are rejected.
+
+Dirty persistent projects are atomically autosaved within two seconds after recovery
+work becomes pending, even during continuous editing.
+The active run's autosave is internal and does not populate `snapshot.recovery`. After
+restart, that field is populated only when the autosave is newer than and differs from
+the restored DAW state. If no DAW state is supplied, any valid recovery for the session
+is offered. A pending candidate blocks edits, previews, binding changes, project saves,
+imports, and forced autosave until the frontend explicitly restores or discards it.
+Manual project save, opening/new-project replacement, or undoing exactly to the saved
+content clears the active recovery file.
 
 ## Events
 
-All events arrive through `xenBridgeEvent`.
+The native `xenBridgeEvent` emits:
 
 ```ts
 type BridgeEvent =
-  | Envelope & { name: "state.changed"; payload: ProjectSnapshot }
-  | Envelope & { name: "library.changed"; payload: LibrarySnapshot }
-  | Envelope & {
-      name: "transport.phase.sync";
-      payload: { bpm: number; phase: number };
-    }
-  | Envelope & { name: "transport.stopped"; payload: {} }
-  | Envelope & { name: "keymap.changed"; payload: KeymapResource }
-  | Envelope & {
-      name: "preferences.changed";
-      payload: PreferencesResource;
-    };
+  | (Envelope & { name: "state.changed"; payload: ProjectSnapshot })
+  | (Envelope & { name: "library.changed"; payload: LibrarySnapshot })
+  | (Envelope & { name: "keymap.changed"; payload: KeymapResource })
+  | (Envelope & { name: "preferences.changed"; payload: PreferencesResource })
+  | (Envelope & { name: "phase.sync" | "transport.stopped"; payload: object });
 ```
 
-`transport.phase.sync.phase` is normalized to `[0, 1)`. Treat transport events as
-transient animation state; they do not participate in project or library revisions.
-`transport.stopped` is the authoritative stop edge.
-
-## Required frontend migration
-
-The frontend migration must cover the resource contracts below as one breaking
-change.
-
-At minimum:
-
-- remove the old `snapshot_schema_version` hello field and validate the three returned
-  resource/catalog schema versions;
-- replace project schema `4` parsing with project schema `5`;
-- replace `snapshot_version`/`commit_id` with
-  `project_revision`/`history_entry_id`;
-- replace flat `engine` fields with `project.sequence_bank` and
-  `project.composition`, including each column's `pitch` context;
-- replace dense row/column indices and `cells` arrays with signed coordinates,
-  materialized axis records, and sparse placements;
-- render a finite viewport of virtual empty cells instead of iterating the stored
-  row/column Cartesian product;
-- remove row/column insert/delete controls and make selection navigation unbounded;
-- remove all reads of `snapshot.editor`;
-- keep selection and input mode in frontend state;
-- implement local selection navigation and input-mode actions;
-- send current revision and selection in command context;
-- consume `suggested_selection`;
-- consume the catalog and opaque keymap and preferences resources from
-  `session.hello`;
-- own keymap defaults, validation, merging, trigger matching, and target dispatch;
-- implement whole-document keymap responses and `keymap.changed`;
-- own preferences defaults, fields, validation, schema migrations, and conflict
-  merging while preserving unknown fields;
-- implement whole-document preferences responses and `preferences.changed`;
-- remove all `command.complete*` and `catalog.get` requests;
-- implement completion from the cached catalog;
-- add `library.changed` handling and revision-aware library ingestion;
-- remove assumptions that library payloads contain active tuning/scale state;
-- use stable scale IDs and backend-provided command strings;
-- update runtime validators and tests for all new payloads.
-
-Relevant backend anchors:
-
-- `src/webview_bridge.cpp`
-- `src/bridge_serialize.cpp`
-- `src/gui/webview_host.cpp`
-- `src/xen_processor.cpp`
-- `test/core/webview_bridge.test.cpp`
-- `test/processor/processor_commands.test.cpp`
-- `test/data_model_refactor.test.cpp`
+After `session.hello`, request both `state.get` and `library.get`; initial events are
+not guaranteed. Always ingest snapshots returned directly by a request as well as
+events, treating equal revisions as idempotent duplicates.

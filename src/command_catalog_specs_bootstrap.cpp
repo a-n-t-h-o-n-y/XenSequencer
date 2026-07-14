@@ -1,9 +1,8 @@
 #include "command_catalog_specs_internal.hpp"
 
+#include <cstdint>
 #include <filesystem>
-#include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 #include <sequence/modify.hpp>
@@ -13,11 +12,9 @@
 #include <xen/chord.hpp>
 #include <xen/command_dsl.hpp>
 #include <xen/constants.hpp>
+#include <xen/document_storage.hpp>
 #include <xen/message_level.hpp>
 #include <xen/selection.hpp>
-#include <xen/serialize.hpp>
-#include <xen/string_manip.hpp>
-#include <xen/submission_effects.hpp>
 #include <xen/user_directory.hpp>
 
 namespace xen::catalog_detail
@@ -100,6 +97,10 @@ constexpr auto save_document_policy = CommandPolicy{
     ProjectOperation::Read, LibraryAccess::None,    WorkspaceAccess::Read,
     FileAccess::Write,      CopyBufferAccess::None, TargetRequirement::None,
     RepeatPolicy::Never,    HistoryPolicy::None};
+constexpr auto save_cell_policy = CommandPolicy{
+    ProjectOperation::Read, LibraryAccess::None,    WorkspaceAccess::Read,
+    FileAccess::Write,      CopyBufferAccess::None, TargetRequirement::Cell,
+    RepeatPolicy::Never,    HistoryPolicy::None};
 constexpr auto workspace_mutation_policy = CommandPolicy{
     ProjectOperation::None, LibraryAccess::None,    WorkspaceAccess::Mutate,
     FileAccess::None,       CopyBufferAccess::None, TargetRequirement::None,
@@ -120,13 +121,13 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                                    "Replay the previously executed command chain.",
                                    informational_policy, {"repeat", "replay"}));
 
-    specs.push_back(
-        command({"project", "new"}, false, "Create a new Project document.",
-                new_project_policy, std::make_tuple(),
-                [](CommandHandlerContext &context, CommandInvocation const &) {
-                    context.edit_project() = ProjectState{};
-                    return make_result(minfo("New Project"), SelectionPath{});
-                }));
+    specs.push_back(command(
+        {"project", "new"}, false, "Create a new Project document.", new_project_policy,
+        std::make_tuple(), [](CommandHandlerContext &, CommandInvocation const &) {
+            throw std::logic_error{
+                "Project new must execute through SequencerSession."};
+            return make_result(merror("Project new unavailable"));
+        }));
 
     specs.push_back(history_navigation_command(
         {"undo"}, "Revert state to before the last action.", history_navigation_policy,
@@ -191,57 +192,25 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"load", "cell"}, false, "Load a Cell into a new selected Sequence.",
         {"open", "file", "sequence"}, load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("cell_name", "filename")),
-        [](CommandHandlerContext &context, CommandInvocation const &,
-           std::string const &filename) {
-            auto const cd = context.workspace().content_directory;
-            auto const directory = as_juce_file(cd);
-            if (!directory.isDirectory())
-            {
-                return make_result(merror("Invalid Current Content Directory"));
-            }
-            auto const filepath = cd / (filename + ".xencell");
-            auto const text = context.read_text(filepath);
-            if (!text.has_value())
-            {
-                return make_result(merror("File Not Found: " + filepath.string()));
-            }
-            auto state = context.project();
-            if (text->size() > (128 * 1'024 * 1'024))
-            {
-                throw std::runtime_error{"Cell file size exceeds 128MB"};
-            }
-            for (auto const &entry : state.sequence_bank.sequences)
-                if (entry.name.has_value() && *entry.name == filename)
-                    throw std::invalid_argument{"Sequence name is already in use."};
-            auto const id =
-                create_sequence(state.sequence_bank, deserialize_cell_file(*text));
-            state.sequence_bank.sequences.back().name = filename;
-            assign_sequence_reference(state.composition,
-                                      context.execution.cursor.row_coordinate,
-                                      context.execution.cursor.column_coordinate, id);
-            context.edit_project() = std::move(state);
-            return make_result(minfo("Cell Loaded"));
+        std::make_tuple(required_arg<std::string>("relative_path", "path")),
+        [](CommandHandlerContext &, CommandInvocation const &, std::string const &) {
+            throw std::logic_error{"Cell load must execute through SequencerSession."};
+            return make_result(merror("Cell load unavailable"));
         }));
 
     specs.push_back(command(
         {"project", "open"}, false, "Open a Project document.", open_project_policy,
-        std::make_tuple(required_arg<std::string>("project_name", "filename")),
-        [](CommandHandlerContext &context, CommandInvocation const &,
-           std::string const &filename) {
-            auto const path =
-                context.workspace().content_directory / (filename + ".xencomp");
-            auto const text = context.read_text(path);
-            if (!text.has_value())
-                return make_result(merror("File Not Found: " + path.string()));
-            context.edit_project() = deserialize_composition(*text);
-            return make_result(minfo("Project Opened"), SelectionPath{});
+        std::make_tuple(required_arg<std::string>("relative_path", "path")),
+        [](CommandHandlerContext &, CommandInvocation const &, std::string const &) {
+            throw std::logic_error{
+                "Project open must execute through SequencerSession."};
+            return make_result(merror("Project open unavailable"));
         }));
 
     specs.push_back(command(
         {"load", "tuning"}, false, "Load a tuning from the current tuning directory.",
         {"open", "file", "scala", "scl"}, load_project_resource_policy,
-        std::make_tuple(required_arg<std::string>("tuning_name", "filename")),
+        std::make_tuple(required_arg<std::string>("relative_path", "path")),
         [](CommandHandlerContext &context, CommandInvocation const &,
            std::string const &filename) {
             auto const cd = context.workspace().tuning_directory;
@@ -250,11 +219,16 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
             {
                 return make_result(merror("Invalid Current Tuning Library Directory"));
             }
-            auto const filepath = cd / (filename + ".scl");
+            auto const filepath = resolve_content_path(cd, filename, ".scl");
             auto const file = as_juce_file(filepath);
             if (!file.exists())
             {
                 return make_result(merror("File Not Found: " + filepath.string()));
+            }
+            if (file.getSize() < 0 ||
+                static_cast<std::uint64_t>(file.getSize()) > MAX_TUNING_FILE_BYTES)
+            {
+                throw std::runtime_error{"Tuning file exceeds the permitted size."};
             }
             auto state = context.project();
             auto &pitch = selected_column(state, context.execution.cursor).pitch;
@@ -298,38 +272,33 @@ void append_bootstrap_specs(std::vector<CommandSpec> &specs)
                                      std::to_string(context.library().chords.size())));
         }));
 
-    specs.push_back(
-        command({"save", "cell"}, false, "Save the selected Cell to file.",
-                {"write", "file", "sequence"}, save_document_policy,
-                std::make_tuple(required_arg<std::string>("cell_name", "filename")),
-                [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::string const &filename) {
-                    auto const cd = context.workspace().content_directory;
-                    auto const directory = as_juce_file(cd);
-                    if (!directory.isDirectory())
-                    {
-                        return make_result(merror("Invalid Current Content Directory"));
-                    }
-                    auto const filepath = cd / (filename + ".xencell");
-                    context.write_text(
-                        filepath, serialize_cell_file(selected_sequence(
-                                      context.project(), context.execution.cursor)));
-                    return make_result(
-                        minfo("Cell Saved to " + single_quote(filepath.string())));
-                }));
+    specs.push_back(command(
+        {"save", "cell"}, false, "Save the selected Cell to file.",
+        {"write", "file", "sequence"}, save_cell_policy,
+        std::make_tuple(required_arg<std::string>("relative_path", "path")),
+        [](CommandHandlerContext &, CommandInvocation const &, std::string const &) {
+            throw std::logic_error{"Cell save must execute through SequencerSession."};
+            return make_result(merror("Cell save unavailable"));
+        }));
 
     specs.push_back(
         command({"project", "save"}, false, "Save the current Project document.",
-                save_document_policy,
-                std::make_tuple(required_arg<std::string>("project_name", "filename")),
-                [](CommandHandlerContext &context, CommandInvocation const &,
-                   std::string const &filename) {
-                    auto const path =
-                        context.workspace().content_directory / (filename + ".xencomp");
-                    context.write_text(path, serialize_composition(context.project()));
-                    return make_result(
-                        minfo("Project Saved to " + single_quote(path.string())));
+                save_document_policy, std::make_tuple(),
+                [](CommandHandlerContext &, CommandInvocation const &) {
+                    throw std::logic_error{
+                        "Project save must execute through SequencerSession."};
+                    return make_result(merror("Project save unavailable"));
                 }));
+
+    specs.push_back(command(
+        {"project", "save", "as"}, false,
+        "Save the current Project document under a new name.", save_document_policy,
+        std::make_tuple(required_arg<std::string>("relative_path", "path")),
+        [](CommandHandlerContext &, CommandInvocation const &, std::string const &) {
+            throw std::logic_error{
+                "Project save as must execute through SequencerSession."};
+            return make_result(merror("Project save as unavailable"));
+        }));
 
     specs.push_back(
         command({"libraryDirectory"}, false, "Display the user library directory path.",

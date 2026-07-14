@@ -1,6 +1,7 @@
 #include <xen/coordinator_server.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <exception>
 #include <random>
 #include <string>
@@ -14,6 +15,10 @@ namespace xen::ipc
 {
 namespace
 {
+
+constexpr auto MAX_IPC_MESSAGE_BYTES = std::size_t{160 * 1'024 * 1'024};
+constexpr auto MAX_IPC_MESSAGE_DEPTH = std::size_t{384};
+constexpr auto MAX_IPC_MESSAGE_EVENTS = std::size_t{10'000'000};
 
 void append_coordinator_error_log(juce::String const &message)
 {
@@ -37,11 +42,86 @@ void append_coordinator_error_log(juce::String const &message)
     return juce::MemoryBlock{text.data(), text.size()};
 }
 
+[[nodiscard]] auto memory_block_excerpt(juce::MemoryBlock const &message)
+    -> juce::String
+{
+    auto constexpr maximum = std::size_t{4096};
+    auto const size = std::min(message.getSize(), maximum);
+    auto excerpt = juce::String::fromUTF8(static_cast<char const *>(message.getData()),
+                                          static_cast<int>(size));
+    if (message.getSize() > maximum)
+    {
+        excerpt += "...<truncated>";
+    }
+    return excerpt;
+}
+
 [[nodiscard]] auto json_from_memory_block(juce::MemoryBlock const &message)
     -> nlohmann::json
 {
+    if (message.getSize() > MAX_IPC_MESSAGE_BYTES)
+    {
+        throw std::length_error{"Coordinator IPC message exceeds 160 MiB."};
+    }
+    auto events = std::size_t{};
     return nlohmann::json::parse(
-        std::string{static_cast<char const *>(message.getData()), message.getSize()});
+        std::string{static_cast<char const *>(message.getData()), message.getSize()},
+        [&events](int depth, nlohmann::json::parse_event_t, nlohmann::json &) {
+            ++events;
+            if (depth < 0 || static_cast<std::size_t>(depth) > MAX_IPC_MESSAGE_DEPTH ||
+                events > MAX_IPC_MESSAGE_EVENTS)
+            {
+                throw std::invalid_argument{"Coordinator IPC message is too complex."};
+            }
+            return true;
+        });
+}
+
+[[nodiscard]] auto request_id_from_message(juce::MemoryBlock const &message) noexcept
+    -> std::string
+{
+    try
+    {
+        return json_from_memory_block(message)
+            .value("payload", nlohmann::json::object())
+            .value("request_id", std::string{});
+    }
+    catch (...)
+    {
+        return {};
+    }
+}
+
+auto document_error_code(DocumentErrorCode code) -> std::string
+{
+    switch (code)
+    {
+    case DocumentErrorCode::StaleProject:
+        return "stale_project";
+    case DocumentErrorCode::UnsavedChanges:
+        return "unsaved_changes";
+    case DocumentErrorCode::InvalidPath:
+        return "invalid_path";
+    case DocumentErrorCode::NotFound:
+        return "not_found";
+    case DocumentErrorCode::FileExists:
+        return "file_exists";
+    case DocumentErrorCode::FileConflict:
+        return "file_conflict";
+    case DocumentErrorCode::ProjectPathRequired:
+        return "project_path_required";
+    case DocumentErrorCode::FileTooLarge:
+        return "file_too_large";
+    case DocumentErrorCode::InvalidDocument:
+        return "invalid_document";
+    case DocumentErrorCode::PreviewActive:
+        return "preview_active";
+    case DocumentErrorCode::RecoveryConflict:
+        return "recovery_conflict";
+    case DocumentErrorCode::Io:
+        return "io_error";
+    }
+    return "io_error";
 }
 
 } // namespace
@@ -82,30 +162,67 @@ class CoordinatorConnection final : public juce::InterprocessConnection
             if (type == "client.hello")
             {
                 auto request = decode_client_hello(json);
-                auto const hello = server_.coordinator().connect(std::move(request));
+                if (request.binding.session_id != server_.session_id_)
+                {
+                    throw std::invalid_argument{
+                        "Client session ID does not match this coordinator."};
+                }
+                auto const hello = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().connect(std::move(request));
+                }();
                 instance_id_ = hello.binding.instance_id;
                 (void)sendMessage(
                     memory_block_from_json(encode_coordinator_hello(hello)));
-                server_.broadcast(encode_instances_changed(
-                    {.instances = server_.coordinator().instances()}));
-                server_.broadcast(encode_project_changed(
-                    {.snapshot = server_.coordinator().snapshot()}));
+                server_.broadcast(
+                    encode_instances_changed({.instances = hello.instances}));
+                server_.broadcast(encode_project_changed({.snapshot = hello.snapshot}));
                 return;
             }
             if (type == "command.execute")
             {
-                auto const response =
-                    server_.coordinator().execute(decode_command_request(json));
+                auto const response = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().execute(decode_command_request(json));
+                }();
                 (void)sendMessage(
                     memory_block_from_json(encode_command_response(response)));
                 server_.broadcast(
                     encode_project_changed({.snapshot = response.snapshot}));
+                auto library = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().library_snapshot();
+                }();
+                server_.broadcast(
+                    encode_library_changed({.snapshot = std::move(library)}));
+                return;
+            }
+            if (type == "document.execute")
+            {
+                auto const response = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().execute_document(
+                        decode_document_request(json));
+                }();
+                (void)sendMessage(
+                    memory_block_from_json(encode_document_response(response)));
+                server_.broadcast(
+                    encode_project_changed({.snapshot = response.result.snapshot}));
+                auto library = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().library_snapshot();
+                }();
+                server_.broadcast(
+                    encode_library_changed({.snapshot = std::move(library)}));
                 return;
             }
             if (type == "preview.begin")
             {
-                auto const response = server_.coordinator().begin_preview(
-                    decode_preview_begin_request(json));
+                auto const response = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().begin_preview(
+                        decode_preview_begin_request(json));
+                }();
                 (void)sendMessage(
                     memory_block_from_json(encode_preview_response(response)));
                 server_.broadcast(
@@ -114,8 +231,11 @@ class CoordinatorConnection final : public juce::InterprocessConnection
             }
             if (type == "preview.commit")
             {
-                auto const response = server_.coordinator().commit_preview(
-                    decode_preview_commit_request(json));
+                auto const response = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().commit_preview(
+                        decode_preview_commit_request(json));
+                }();
                 (void)sendMessage(
                     memory_block_from_json(encode_preview_response(response)));
                 server_.broadcast(
@@ -124,8 +244,11 @@ class CoordinatorConnection final : public juce::InterprocessConnection
             }
             if (type == "preview.cancel")
             {
-                auto const response = server_.coordinator().cancel_preview(
-                    decode_preview_cancel_request(json));
+                auto const response = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    return server_.coordinator().cancel_preview(
+                        decode_preview_cancel_request(json));
+                }();
                 (void)sendMessage(
                     memory_block_from_json(encode_preview_response(response)));
                 server_.broadcast(
@@ -134,12 +257,16 @@ class CoordinatorConnection final : public juce::InterprocessConnection
             }
             if (type == "instance.binding.set")
             {
-                auto const response =
-                    server_.coordinator().set_binding(decode_binding_set_request(json));
+                auto const [response, instances] = [&] {
+                    auto const lock = std::scoped_lock{server_.coordinator_mutex_};
+                    auto response = server_.coordinator().set_binding(
+                        decode_binding_set_request(json));
+                    return std::pair{std::move(response),
+                                     server_.coordinator().instances()};
+                }();
                 (void)sendMessage(
                     memory_block_from_json(encode_binding_set_response(response)));
-                server_.broadcast(encode_instances_changed(
-                    {.instances = server_.coordinator().instances()}));
+                server_.broadcast(encode_instances_changed({.instances = instances}));
                 server_.broadcast(
                     encode_project_changed({.snapshot = response.snapshot}));
                 return;
@@ -163,15 +290,24 @@ class CoordinatorConnection final : public juce::InterprocessConnection
                 encode_error({.code = "unknown-message",
                               .message = "Unknown coordinator IPC message type."})));
         }
+        catch (DocumentError const &error)
+        {
+            (void)sendMessage(memory_block_from_json(encode_error({
+                .request_id = request_id_from_message(message),
+                .code = document_error_code(error.code),
+                .message = error.what(),
+                .current_file_revision = error.current_file_revision,
+            })));
+        }
         catch (std::exception const &e)
         {
             append_coordinator_error_log(
                 juce::String{"XenSequencer coordinator IPC exception: "} + e.what() +
-                "\nraw_message: " +
-                juce::String::fromUTF8(static_cast<char const *>(message.getData()),
-                                       static_cast<int>(message.getSize())));
+                "\nraw_message: " + memory_block_excerpt(message));
             (void)sendMessage(memory_block_from_json(
-                encode_error({.code = "ipc-error", .message = e.what()})));
+                encode_error({.request_id = request_id_from_message(message),
+                              .code = "ipc-error",
+                              .message = e.what()})));
         }
     }
 
@@ -193,6 +329,16 @@ CoordinatorServer::CoordinatorServer(SessionId session_id,
 
 CoordinatorServer::~CoordinatorServer()
 {
+    try
+    {
+        perform_maintenance(static_cast<std::uint64_t>(juce::Time::currentTimeMillis()),
+                            true);
+    }
+    catch (std::exception const &error)
+    {
+        append_coordinator_error_log(
+            juce::String{"XenSequencer shutdown recovery error: "} + error.what());
+    }
     stop();
     registry_.clear();
 }
@@ -262,9 +408,12 @@ void CoordinatorServer::broadcast(nlohmann::json const &message)
 void CoordinatorServer::connection_closed(CoordinatorConnection &connection)
 {
     auto restored = std::optional<ProjectSnapshot>{};
+    auto instances = std::optional<std::vector<InstanceBinding>>{};
     if (connection.instance_id().has_value())
     {
+        auto const lock = std::scoped_lock{coordinator_mutex_};
         restored = coordinator_.disconnect(*connection.instance_id());
+        instances = coordinator_.instances();
     }
     {
         auto const lock = std::scoped_lock{connections_mutex_};
@@ -277,11 +426,40 @@ void CoordinatorServer::connection_closed(CoordinatorConnection &connection)
     {
         broadcast(encode_project_changed({.snapshot = std::move(*restored)}));
     }
+    if (instances.has_value())
+    {
+        broadcast(encode_instances_changed({.instances = std::move(*instances)}));
+    }
 }
 
 auto CoordinatorServer::coordinator() noexcept -> SessionCoordinator &
 {
     return coordinator_;
+}
+
+void CoordinatorServer::perform_maintenance(std::uint64_t now_unix_ms, bool force)
+{
+    auto changed = false;
+    auto snapshot = ProjectSnapshot{};
+    {
+        auto const lock = std::scoped_lock{coordinator_mutex_};
+        auto const before = coordinator_.snapshot().state_revision;
+        try
+        {
+            coordinator_.perform_recovery_maintenance(now_unix_ms, force);
+        }
+        catch (std::exception const &error)
+        {
+            append_coordinator_error_log(
+                juce::String{"XenSequencer recovery write error: "} + error.what());
+        }
+        snapshot = coordinator_.snapshot();
+        changed = snapshot.state_revision != before;
+    }
+    if (changed)
+    {
+        broadcast(encode_project_changed({.snapshot = std::move(snapshot)}));
+    }
 }
 
 auto CoordinatorServer::request_shutdown_if_idle() noexcept -> bool

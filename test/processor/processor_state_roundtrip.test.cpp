@@ -61,15 +61,21 @@ TEST_CASE("Processor state round-trip preserves engine state", "[processor][stat
     CHECK(encoded.at("kind") == "xen_processor_state");
     CHECK(encoded.at("binding").at("channel_id") ==
           source.session().instance_binding().channel_id);
-    CHECK(encoded.at("shared_snapshot").contains("history_entry_id"));
+    CHECK_FALSE(encoded.at("shared_snapshot").contains("history_entry_id"));
     CHECK(encoded.at("shared_snapshot").contains("project_revision"));
+    CHECK(encoded.at("shared_snapshot").contains("state_revision"));
+    CHECK(encoded.at("shared_snapshot").contains("document"));
 
     auto target = XenProcessor{};
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
     auto const actual = target.session().project_snapshot().project;
     CHECK(actual == expected);
-    CHECK(target.session().instance_binding() == source.session().instance_binding());
+    auto const target_binding = target.session().instance_binding();
+    auto const source_binding = source.session().instance_binding();
+    CHECK(target_binding.session_id == source_binding.session_id);
+    CHECK(target_binding.channel_id == source_binding.channel_id);
+    CHECK(target_binding.instance_id != source_binding.instance_id);
 }
 
 TEST_CASE("Processor setStateInformation rejects raw project payloads",
@@ -151,7 +157,8 @@ TEST_CASE("Processor equal-data restoration replaces project history",
     auto const after = processor.session().project_snapshot();
     CHECK(after.project == before.project);
     CHECK(after.history_entry_id != before.history_entry_id);
-    CHECK(after.project_revision != before.project_revision);
+    CHECK(after.project_revision == before.project_revision);
+    CHECK(after.state_revision == before.state_revision);
     CHECK(processor.session()
               .execute_command_string(
                   "undo", {.expected_project_revision =

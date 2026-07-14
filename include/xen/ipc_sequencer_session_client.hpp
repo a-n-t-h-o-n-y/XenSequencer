@@ -33,7 +33,7 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     [[nodiscard]] auto project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto persistent_project_snapshot() const -> ProjectSnapshot override;
     [[nodiscard]] auto library_snapshot() const -> LibrarySnapshot override;
-    [[nodiscard]] auto instance_binding() const -> InstanceBinding const & override;
+    [[nodiscard]] auto instance_binding() const -> InstanceBinding override;
     [[nodiscard]] auto command_catalog_metadata() const
         -> std::vector<CatalogCommandMetadata> override;
 
@@ -48,6 +48,34 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     [[nodiscard]] auto cancel_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto create_project(ProjectRevision expected_revision,
+                                      bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto open_project(std::string relative_path,
+                                    ProjectRevision expected_revision,
+                                    bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project(ProjectRevision expected_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_project_as(
+        std::string relative_path, ProjectRevision expected_revision,
+        std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto restore_recovery(std::string recovery_revision,
+                                        ProjectRevision expected_revision,
+                                        bool discard_unsaved)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto discard_recovery(std::string recovery_revision)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto import_cell(std::string relative_path,
+                                   ProjectRevision expected_revision,
+                                   CompositionCursor cursor)
+        -> DocumentOperationResult override;
+    [[nodiscard]] auto save_cell(std::string relative_path,
+                                 ProjectRevision expected_revision,
+                                 CompositionCursor cursor, SelectionPath selection,
+                                 std::optional<std::string> expected_file_revision)
+        -> DocumentOperationResult override;
     void set_channel_id(ChannelId channel_id) override;
 
     [[nodiscard]] auto compiled_midi_generation() const noexcept
@@ -61,6 +89,7 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     [[nodiscard]] auto last_error() const -> std::string;
 
   private:
+    std::mutex request_mutex_;
     mutable std::mutex mutex_;
     std::condition_variable response_ready_;
     InstanceBinding binding_;
@@ -74,6 +103,7 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     std::uint64_t next_request_id_{1};
     std::optional<CommandResponse> pending_command_response_;
     std::optional<PreviewResponse> pending_preview_response_;
+    std::optional<DocumentResponse> pending_document_response_;
     std::optional<BindingSetResponse> pending_binding_response_;
     std::optional<ShutdownIfIdleResponse> pending_shutdown_response_;
     std::optional<IpcError> pending_error_;
@@ -84,10 +114,13 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     [[nodiscard]] auto next_request_id() -> std::string;
     [[nodiscard]] auto request_helper_shutdown_if_idle() -> bool;
     void submit_midi_compilation();
+    void ingest_project_snapshot(ProjectSnapshot snapshot);
     void send_json(nlohmann::json const &message);
     [[nodiscard]] auto finish_preview_request(nlohmann::json request,
                                               std::string const &request_id)
         -> PreviewControlResult;
+    [[nodiscard]] auto finish_document_request(DocumentRequest request)
+        -> DocumentOperationResult;
 
     void connectionMade() override;
     void connectionLost() override;

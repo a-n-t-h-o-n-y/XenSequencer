@@ -1,8 +1,12 @@
 #include <xen/serialize.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -110,7 +114,7 @@ static void from_json(nlohmann::json const &j, Cell &cell)
         throw std::invalid_argument("Legacy cell format is unsupported.");
     }
 
-    cell.weight = j.value("weight", 1.f);
+    cell.weight = j.at("weight").get<float>();
     cell.elements = j.at("elements").get<std::vector<MusicElement>>();
 }
 
@@ -311,9 +315,98 @@ namespace xen
 namespace
 {
 
-constexpr auto PROJECT_SCHEMA_VERSION = 5;
-constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 4;
+constexpr auto PROJECT_SCHEMA_VERSION = 1;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 5;
 constexpr auto CELL_SCHEMA_VERSION = 1;
+constexpr auto RECOVERY_SCHEMA_VERSION = 1;
+// A nested Cell adds several JSON container levels per musical nesting level.
+constexpr auto MAX_JSON_DEPTH = std::size_t{320};
+constexpr auto MAX_JSON_EVENTS = std::size_t{8'000'000};
+constexpr auto MAX_PROJECT_BYTES = std::size_t{64 * 1'024 * 1'024};
+constexpr auto MAX_CELL_BYTES = std::size_t{16 * 1'024 * 1'024};
+constexpr auto MAX_PERSISTED_TEXT_BYTES = MAX_PERSISTED_STATE_BYTES;
+
+auto parse_bounded(std::string const &text, std::size_t maximum_bytes) -> nlohmann::json
+{
+    if (text.size() > maximum_bytes)
+    {
+        throw std::invalid_argument{"Serialized state exceeds the permitted size."};
+    }
+    auto events = std::size_t{};
+    return nlohmann::json::parse(
+        text, [&events](int depth, nlohmann::json::parse_event_t, nlohmann::json &) {
+            ++events;
+            if (depth < 0 || static_cast<std::size_t>(depth) > MAX_JSON_DEPTH ||
+                events > MAX_JSON_EVENTS)
+            {
+                throw std::invalid_argument{"Serialized state is too complex."};
+            }
+            return true;
+        });
+}
+
+auto valid_digest(std::string const &value) -> bool
+{
+    if (!value.starts_with("sha256:") || value.size() != 71)
+    {
+        return false;
+    }
+    return std::ranges::all_of(value.begin() + 7, value.end(),
+                               [](unsigned char ch) { return std::isxdigit(ch) != 0; });
+}
+
+void validate_persisted_revision(std::uint64_t value, char const *name)
+{
+    if (value == 0 || value == std::numeric_limits<std::uint64_t>::max())
+    {
+        throw std::invalid_argument{std::string{name} + " is out of range."};
+    }
+}
+
+void validate_document_state(ProjectDocumentState const &document)
+{
+    if (document.relative_path.has_value() && document.relative_path->empty())
+    {
+        throw std::invalid_argument{"Persisted project path must not be empty."};
+    }
+    if (document.relative_path.has_value() &&
+        document.relative_path->size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Persisted project path is too long."};
+    }
+    if (document.relative_path.has_value() != document.file_revision.has_value())
+    {
+        throw std::invalid_argument{
+            "Persisted project path and file revision must appear together."};
+    }
+    if (!document.dirty && !document.saved_project_digest.has_value())
+    {
+        throw std::invalid_argument{
+            "A clean persisted document requires a saved project digest."};
+    }
+    if ((document.file_revision.has_value() &&
+         !valid_digest(*document.file_revision)) ||
+        (document.saved_project_digest.has_value() &&
+         !valid_digest(*document.saved_project_digest)))
+    {
+        throw std::invalid_argument{"Persisted project digest is malformed."};
+    }
+}
+
+void validate_binding(InstanceBinding const &binding)
+{
+    if (binding.session_id.empty() || binding.instance_id.empty() ||
+        binding.channel_id.empty())
+    {
+        throw std::invalid_argument{"Persisted binding fields must not be empty."};
+    }
+    if (binding.session_id.size() > MAX_PERSISTED_STRING_BYTES ||
+        binding.instance_id.size() > MAX_PERSISTED_STRING_BYTES ||
+        binding.channel_id.size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Persisted binding field is too long."};
+    }
+}
 
 } // namespace
 
@@ -465,47 +558,72 @@ static void from_json(nlohmann::json const &j, InstanceBinding &binding)
     }
 }
 
+static void to_json(nlohmann::json &j, ProjectDocumentState const &document)
+{
+    j = nlohmann::json{
+        {"relative_path", document.relative_path},
+        {"file_revision", document.file_revision},
+        {"saved_project_digest", document.saved_project_digest},
+        {"dirty", document.dirty},
+    };
+}
+
+static void from_json(nlohmann::json const &j, ProjectDocumentState &document)
+{
+    document.relative_path = j.at("relative_path").get<std::optional<std::string>>();
+    document.file_revision = j.at("file_revision").get<std::optional<std::string>>();
+    document.saved_project_digest =
+        j.at("saved_project_digest").get<std::optional<std::string>>();
+    document.dirty = j.at("dirty").get<bool>();
+    validate_document_state(document);
+}
+
 auto serialize_cell_file(sequence::Cell const &cell) -> std::string
 {
-    return nlohmann::json{
-        {"schema", CELL_SCHEMA_VERSION}, {"kind", "xen_cell"}, {"cell", cell}}
-        .dump();
+    validate_cell_file(cell);
+    auto const text = nlohmann::json{
+        {"schema", CELL_SCHEMA_VERSION},
+        {"kind", "xen_cell"},
+        {"cell", cell}}.dump();
+    if (text.size() > MAX_CELL_BYTES)
+    {
+        throw std::length_error{"Cell file exceeds the permitted size."};
+    }
+    return text;
 }
 
 auto deserialize_cell_file(std::string const &json_str) -> sequence::Cell
 {
-    auto const json = nlohmann::json::parse(json_str);
+    auto const json = parse_bounded(json_str, MAX_CELL_BYTES);
     if (json.at("kind").get<std::string>() != "xen_cell" ||
         json.at("schema").get<int>() != CELL_SCHEMA_VERSION)
         throw std::invalid_argument{"Unsupported Cell schema."};
-    return json.at("cell").get<sequence::Cell>();
-}
-
-auto serialize_composition(ProjectState const &project) -> std::string
-{
-    return serialize_project(project);
-}
-
-auto deserialize_composition(std::string const &json_str) -> ProjectState
-{
-    return deserialize_project(json_str);
+    auto cell = json.at("cell").get<sequence::Cell>();
+    validate_cell_file(cell);
+    return cell;
 }
 
 auto serialize_project(ProjectState const &project) -> std::string
 {
     validate(project);
-    return nlohmann::json{
-        {"schema", PROJECT_SCHEMA_VERSION},
-        {"kind", "xen_composition"},
-        {"project", project},
+    auto const text =
+        nlohmann::json{
+            {"schema", PROJECT_SCHEMA_VERSION},
+            {"kind", "xen_project"},
+            {"project", project},
+        }
+            .dump();
+    if (text.size() > MAX_PROJECT_BYTES)
+    {
+        throw std::length_error{"Project file exceeds the permitted size."};
     }
-        .dump();
+    return text;
 }
 
 auto deserialize_project(std::string const &json_str) -> ProjectState
 {
-    auto const json = nlohmann::json::parse(json_str);
-    if (json.at("kind").get<std::string>() != "xen_composition" ||
+    auto const json = parse_bounded(json_str, MAX_PROJECT_BYTES);
+    if (json.at("kind").get<std::string>() != "xen_project" ||
         json.at("schema").get<int>() != PROJECT_SCHEMA_VERSION)
     {
         throw std::invalid_argument{"Unsupported project schema."};
@@ -519,36 +637,37 @@ auto serialize_processor_state(InstanceBinding const &binding,
                                ProjectSnapshot const &snapshot) -> std::string
 {
     validate(snapshot.project);
-    if (binding.session_id.empty())
-    {
-        throw std::invalid_argument{"Session ID must not be empty."};
-    }
-    if (binding.instance_id.empty())
-    {
-        throw std::invalid_argument{"Instance ID must not be empty."};
-    }
-    if (binding.channel_id.empty())
-    {
-        throw std::invalid_argument{"Channel ID must not be empty."};
-    }
+    validate_persisted_revision(snapshot.project_revision.value(),
+                                "Saved project revision");
+    validate_persisted_revision(snapshot.state_revision.value(),
+                                "Saved state revision");
+    validate_document_state(snapshot.document);
+    validate_binding(binding);
 
-    return nlohmann::json{
-        {"schema", PROCESSOR_STATE_SCHEMA_VERSION},
-        {"kind", "xen_processor_state"},
-        {"binding", binding},
-        {"shared_snapshot",
-         {
-             {"history_entry_id", snapshot.history_entry_id.value()},
-             {"project_revision", snapshot.project_revision.value()},
-             {"project", snapshot.project},
-         }},
+    auto const text =
+        nlohmann::json{
+            {"schema", PROCESSOR_STATE_SCHEMA_VERSION},
+            {"kind", "xen_processor_state"},
+            {"binding", binding},
+            {"shared_snapshot",
+             {
+                 {"project_revision", snapshot.project_revision.value()},
+                 {"state_revision", snapshot.state_revision.value()},
+                 {"document", snapshot.document},
+                 {"project", snapshot.project},
+             }},
+        }
+            .dump();
+    if (text.size() > MAX_PERSISTED_TEXT_BYTES)
+    {
+        throw std::length_error{"Processor state exceeds the permitted size."};
     }
-        .dump();
+    return text;
 }
 
 auto deserialize_processor_state(std::string const &json_str) -> PersistedProcessorState
 {
-    auto const json = nlohmann::json::parse(json_str);
+    auto const json = parse_bounded(json_str, MAX_PERSISTED_TEXT_BYTES);
     if (json.at("kind").get<std::string>() != "xen_processor_state" ||
         json.at("schema").get<int>() != PROCESSOR_STATE_SCHEMA_VERSION)
     {
@@ -559,11 +678,91 @@ auto deserialize_processor_state(std::string const &json_str) -> PersistedProces
     auto state = PersistedProcessorState{
         .binding = json.at("binding").get<InstanceBinding>(),
         .project = snapshot.at("project").get<ProjectState>(),
-        .saved_history_entry_id =
-            HistoryEntryId{snapshot.at("history_entry_id").get<std::uint64_t>()},
         .saved_project_revision =
             ProjectRevision{snapshot.at("project_revision").get<std::uint64_t>()},
+        .saved_state_revision =
+            StateRevision{snapshot.at("state_revision").get<std::uint64_t>()},
+        .document = snapshot.at("document").get<ProjectDocumentState>(),
     };
+    validate_persisted_processor_state(state);
+    return state;
+}
+
+void validate_persisted_processor_state(PersistedProcessorState const &state)
+{
+    validate_binding(state.binding);
+    validate_persisted_revision(state.saved_project_revision.value(),
+                                "Saved project revision");
+    validate_persisted_revision(state.saved_state_revision.value(),
+                                "Saved state revision");
+    validate_document_state(state.document);
+    validate(state.project);
+}
+
+auto serialize_recovery_state(PersistedRecoveryState const &state) -> std::string
+{
+    if (state.session_id.empty())
+    {
+        throw std::invalid_argument{"Recovery session ID must not be empty."};
+    }
+    if (state.session_id.size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Recovery session ID is too long."};
+    }
+    validate_persisted_revision(state.project_revision.value(),
+                                "Recovery project revision");
+    validate_persisted_revision(state.state_revision.value(),
+                                "Recovery state revision");
+    validate_document_state(state.document);
+    validate(state.project);
+    auto const text =
+        nlohmann::json{
+            {"schema", RECOVERY_SCHEMA_VERSION},
+            {"kind", "xen_recovery"},
+            {"session_id", state.session_id},
+            {"project_revision", state.project_revision.value()},
+            {"state_revision", state.state_revision.value()},
+            {"saved_at_unix_ms", state.saved_at_unix_ms},
+            {"document", state.document},
+            {"project", state.project},
+        }
+            .dump();
+    if (text.size() > MAX_PERSISTED_TEXT_BYTES)
+    {
+        throw std::length_error{"Recovery state exceeds the permitted size."};
+    }
+    return text;
+}
+
+auto deserialize_recovery_state(std::string const &json_str) -> PersistedRecoveryState
+{
+    auto const json = parse_bounded(json_str, MAX_PERSISTED_TEXT_BYTES);
+    if (json.at("kind").get<std::string>() != "xen_recovery" ||
+        json.at("schema").get<int>() != RECOVERY_SCHEMA_VERSION)
+    {
+        throw std::invalid_argument{"Unsupported recovery schema."};
+    }
+    auto state = PersistedRecoveryState{
+        .session_id = json.at("session_id").get<std::string>(),
+        .project = json.at("project").get<ProjectState>(),
+        .project_revision =
+            ProjectRevision{json.at("project_revision").get<std::uint64_t>()},
+        .state_revision = StateRevision{json.at("state_revision").get<std::uint64_t>()},
+        .document = json.at("document").get<ProjectDocumentState>(),
+        .saved_at_unix_ms = json.at("saved_at_unix_ms").get<std::uint64_t>(),
+    };
+    if (state.session_id.empty())
+    {
+        throw std::invalid_argument{"Recovery session ID must not be empty."};
+    }
+    if (state.session_id.size() > MAX_PERSISTED_STRING_BYTES)
+    {
+        throw std::invalid_argument{"Recovery session ID is too long."};
+    }
+    validate_persisted_revision(state.project_revision.value(),
+                                "Recovery project revision");
+    validate_persisted_revision(state.state_revision.value(),
+                                "Recovery state revision");
     validate(state.project);
     return state;
 }

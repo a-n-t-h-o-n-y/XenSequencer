@@ -10,6 +10,15 @@
 namespace xen::bridge
 {
 
+namespace
+{
+
+constexpr auto MAX_BRIDGE_REQUEST_BYTES = std::size_t{1 * 1'024 * 1'024};
+constexpr auto MAX_BRIDGE_REQUEST_DEPTH = std::size_t{64};
+constexpr auto MAX_BRIDGE_REQUEST_EVENTS = std::size_t{100'000};
+
+} // namespace
+
 BridgeError::BridgeError(std::string code_in, std::string message_in,
                          std::string name_in, std::optional<std::string> request_id_in)
     : std::runtime_error(std::move(message_in)), code{std::move(code_in)},
@@ -102,15 +111,15 @@ auto parse_command_context(nlohmann::json const &payload) -> CommandContext
     if (json_context.contains("expected_project_revision"))
     {
         auto const &revision = json_context.at("expected_project_revision");
-        if (!revision.is_number_unsigned())
+        if (!revision.is_string())
         {
             throw BridgeError{
                 "invalid_request",
-                "Field must be an unsigned integer: context.expected_project_revision",
+                "Field must be a decimal string: context.expected_project_revision",
             };
         }
-        context.expected_project_revision =
-            ProjectRevision{revision.get<std::uint64_t>()};
+        context.expected_project_revision = ProjectRevision{
+            require_resource_revision(json_context, "expected_project_revision")};
     }
     if (json_context.contains("preview_id"))
     {
@@ -209,7 +218,23 @@ auto selection_to_json(std::optional<SelectionPath> const &selection) -> nlohman
 
 auto parse_request(std::string const &request_json) -> ParsedRequest
 {
-    auto const parsed = nlohmann::json::parse(request_json);
+    if (request_json.size() > MAX_BRIDGE_REQUEST_BYTES)
+    {
+        throw BridgeError{"invalid_request", "Bridge request exceeds 1 MiB."};
+    }
+    auto events = std::size_t{};
+    auto const parsed = nlohmann::json::parse(
+        request_json,
+        [&events](int depth, nlohmann::json::parse_event_t, nlohmann::json &) {
+            ++events;
+            if (depth < 0 ||
+                static_cast<std::size_t>(depth) > MAX_BRIDGE_REQUEST_DEPTH ||
+                events > MAX_BRIDGE_REQUEST_EVENTS)
+            {
+                throw BridgeError{"invalid_request", "Bridge request is too complex."};
+            }
+            return true;
+        });
     if (!parsed.is_object())
     {
         throw BridgeError{"invalid_request", "Request must be a JSON object."};

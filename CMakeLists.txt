@@ -265,6 +265,7 @@ set(XEN_APPLICATION_SOURCES
     src/coordinator_launcher.cpp
     src/coordinator_registry.cpp
     src/coordinator_server.cpp
+    src/document_storage.cpp
     src/keymap.cpp
     src/ipc_sequencer_session_client.cpp
     src/midi_compilation_service.cpp
@@ -320,6 +321,7 @@ target_link_libraries(XenDomain
         signals-light
         juce::juce_audio_basics
         juce::juce_core
+        juce::juce_cryptography
         yaml-cpp
         nlohmann_json::nlohmann_json
         EmbedScales
@@ -462,6 +464,7 @@ if (XEN_BUILD_TESTS)
         test/realtime_midi_player.test.cpp
         test/numeric_safety.test.cpp
         test/processor/command_effects.test.cpp
+        test/processor/document_persistence.test.cpp
         test/processor/processor_commands.test.cpp
         test/processor/processor_timeline_commit.test.cpp
         test/sync/audio_thread_state_exchange.test.cpp

@@ -74,11 +74,8 @@ TEST_CASE("Project new installs a fresh root and clears project command sessions
 
     auto const resources = session.library_snapshot();
     auto const edited = session.project_snapshot();
-    auto const result =
-        session.execute_command_string("project new", current_context(session));
+    auto const result = session.create_project(edited.project_revision, true);
 
-    REQUIRE(result.status.first == MessageLevel::Info);
-    CHECK(result.status.second == "New Project");
     REQUIRE(result.suggested_selection.has_value());
     CHECK(result.suggested_selection->path.empty());
     auto const replaced = session.project_snapshot();
@@ -136,7 +133,7 @@ TEST_CASE("Project history replacement commands must be submitted alone",
 
     CHECK(result.status.first == MessageLevel::Error);
     CHECK(result.status.second ==
-          "Project history replacement commands must be submitted alone.");
+          "Project and Cell document commands must be submitted alone.");
     auto const after = session.project_snapshot();
     CHECK(after.project == before.project);
     CHECK(after.history_entry_id == before.history_entry_id);

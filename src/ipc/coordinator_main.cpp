@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <exception>
 #include <print>
@@ -50,9 +51,13 @@ auto main(int argc, char **argv) -> int
         for (;;)
         {
             juce::MessageManager::getInstance()->runDispatchLoopUntil(20);
+            server.perform_maintenance(
+                static_cast<std::uint64_t>(juce::Time::currentTimeMillis()));
             if (server.shutdown_requested() ||
                 (server.client_count() == 0 && server.idle_for_ms() > idle_grace_ms))
             {
+                server.perform_maintenance(
+                    static_cast<std::uint64_t>(juce::Time::currentTimeMillis()), true);
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds{20});

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <exception>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -90,7 +91,7 @@ class OfflineSequencerSession final : public xen::ProcessorSessionPort
         return library_;
     }
 
-    [[nodiscard]] auto instance_binding() const -> xen::InstanceBinding const & override
+    [[nodiscard]] auto instance_binding() const -> xen::InstanceBinding override
     {
         return binding_;
     }
@@ -129,6 +130,58 @@ class OfflineSequencerSession final : public xen::ProcessorSessionPort
         return {.status = {xen::MessageLevel::Error, error_message_}};
     }
 
+    [[nodiscard]] auto create_project(xen::ProjectRevision, bool)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto open_project(std::string, xen::ProjectRevision, bool)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto save_project(xen::ProjectRevision)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto save_project_as(std::string, xen::ProjectRevision,
+                                       std::optional<std::string>)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto restore_recovery(std::string, xen::ProjectRevision, bool)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto discard_recovery(std::string)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto import_cell(std::string, xen::ProjectRevision,
+                                   xen::CompositionCursor)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
+    [[nodiscard]] auto save_cell(std::string, xen::ProjectRevision,
+                                 xen::CompositionCursor, xen::SelectionPath,
+                                 std::optional<std::string>)
+        -> xen::DocumentOperationResult override
+    {
+        throw xen::DocumentError{xen::DocumentErrorCode::Io, error_message_};
+    }
+
     void set_channel_id(xen::ChannelId) override
     {
         throw std::runtime_error{error_message_};
@@ -159,7 +212,8 @@ class OfflineSequencerSession final : public xen::ProcessorSessionPort
     xen::ProjectSnapshot snapshot_{
         .project = xen::ProjectState{},
         .history_entry_id = xen::HistoryEntryId{1},
-        .project_revision = xen::ProjectRevision{1},
+        .project_revision = xen::detail::allocate_project_revision(),
+        .state_revision = xen::detail::allocate_state_revision(),
     };
     xen::LibrarySnapshot library_{};
 };
@@ -319,6 +373,11 @@ void XenProcessor::setStateInformation(void const *data, int sizeInBytes)
 {
     try
     {
+        if (data == nullptr || sizeInBytes <= 0 ||
+            static_cast<std::size_t>(sizeInBytes) > MAX_PERSISTED_STATE_BYTES)
+        {
+            throw std::invalid_argument{"Processor state has an invalid size."};
+        }
         auto const json_str =
             std::string(static_cast<char const *>(data), (std::size_t)sizeInBytes);
         auto state = deserialize_processor_state(json_str);

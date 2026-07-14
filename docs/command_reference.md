@@ -11,13 +11,14 @@ copy | `copy` | Copy the current selection.
 cut | `cut` | Cut the current selection.
 paste | `paste` | Paste over the current selection.
 duplicate | `duplicate` | Duplicate the current selection.
-load cell | `load cell [cell_name: filename]` | Load a Cell into a new selected Sequence.
-project open | `project open [project_name: filename]` | Open a Project document.
-load tuning | `load tuning [tuning_name: filename]` | Load a tuning from the current tuning directory.
+load cell | `load cell [relative_path: path]` | Load a Cell into a new selected Sequence.
+project open | `project open [relative_path: path]` | Open a Project document.
+load tuning | `load tuning [relative_path: path]` | Load a tuning from the current tuning directory.
 load scales | `load scales` | Load scales from library files.
 load chords | `load chords` | Load chords from library files.
-save cell | `save cell [cell_name: filename]` | Save the selected Cell to file.
-project save | `project save [project_name: filename]` | Save the current Project document.
+save cell | `save cell [relative_path: path]` | Save the selected Cell to file.
+project save | `project save` | Save the current Project document.
+project save as | `project save as [relative_path: path]` | Save the current Project document under a new name.
 libraryDirectory | `libraryDirectory` | Display the user library directory path.
 set contentDirectory | `set contentDirectory [directory_path: path]` | Set the content directory.
 set tuningDirectory | `set tuningDirectory [directory_path: path]` | Set the tuning library directory.
