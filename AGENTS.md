@@ -24,30 +24,17 @@
 
 ## Build And Verification
 
-- Keep default validation lightweight. Do not treat a full build-and-test cycle as the baseline for every task.
-- Builds and tests may take a while; run them when they provide useful verification, not as a reflex after every change.
-- Run only one build command at a time and use at most 6 parallel compile jobs:
-  - Before starting, check once that no `cmake --build`, Ninja, or compiler process for
-    this workspace is already running, including processes from earlier tool sessions.
-  - Set `CMAKE_BUILD_PARALLEL_LEVEL=6` (or lower); do not rely on Ninja's machine-wide
-    default parallelism.
-  - If the command returns a live execution session ID, wait on that exact session at
-    60-second intervals with a small output limit. Do not poll an outer orchestration
-    cell, repeatedly dump the process table, or start other work while the build runs.
-  - Treat the build as finished only when that session reports an exit code. Then check
-    once that its Ninja and compiler processes have exited.
-- Avoid repetitive validation loops. While iterating, prefer the smallest meaningful build or test that checks the change, and stop once you have enough signal to proceed.
-- Run expensive verification only when the task actually requires it, such as shared-core changes, build-system changes, release/plugin packaging work, or when a narrow check cannot cover the risk.
-- Use the canonical dev workflow:
-  - Configure: `./configure.sh`
-  - Build: `CMAKE_BUILD_PARALLEL_LEVEL=6 cmake --build build`
-  - Test: `ctest --test-dir build`
-- Use the release workflow only for a requested release/plugin build:
-  - Configure: `./configure.sh release`
-  - Build: `CMAKE_BUILD_PARALLEL_LEVEL=6 cmake --build build-release --target XenSequencer_VST3`
-- Pass local compiler or path changes as environment/CMake overrides, for example `CC=clang CXX=clang++ ./configure.sh` or `./configure.sh -DNAME=VALUE`.
-- Do not invoke raw configure commands or create alternate build directories unless explicitly needed; use `configure.sh` and the existing preset directories.
-- Do not pass explicit `-j` options to Ninja or CMake build commands.
+- Never configure, compile, link, launch the application or plugins, or run tests. The
+  user will perform all runtime verification and report the results.
+- Static inspection is allowed, including focused searches, diff review,
+  `git diff --check`, and formatting changed files.
+- After any code-changing task, end the handoff with the briefest relevant commands for
+  the user to compile and run the changed code or tests. Do not include unrelated or
+  exhaustive verification steps.
+- Use the repository's canonical workflows when suggesting commands: `./configure.sh`
+  for development configuration and `./configure.sh release` only for requested
+  release/plugin work. Keep build parallelism at six or fewer jobs and do not suggest
+  explicit `-j` options.
 
 ## Token-Efficient Agent Workflow
 
@@ -57,12 +44,6 @@ Repository characteristics that matter for agent context:
   all of them costs roughly 120k tokens before reasoning or command output.
 - Recent changes commonly span several files, but the relevant code is usually localized
   by symbol. Read search hits and nearby declarations first instead of whole modules.
-- The dev build exposes roughly 990 Ninja targets because it includes JUCE, plugin
-  formats, tools, tests, and the audio host. Build only the affected target while
-  iterating.
-- `XenTests` contains more than 100 Catch2 cases. Listing or running them verbosely
-  produces much more context than a filtered run; ordinary successful `ctest` output is
-  small.
 
 Use the following operating rules:
 
@@ -78,26 +59,6 @@ Use the following operating rules:
   Query CMake targets or project source lists instead.
 - Inspect `CMakeLists.txt` by relevant section (`XEN_*_SOURCES`, target definition,
   tests, or dependency declaration), not by repeatedly printing the whole file.
-- During implementation, build the narrowest useful target: `XenCore` for core logic,
-  `XenUI` for editor/webview code, `XenTests` for tests or processor code, and a plugin
-  format target only when plugin packaging is relevant. Use
-  `cmake --build build --target <target> -- --quiet` so successful Ninja progress does
-  not enter context; diagnostics are still emitted.
-- Default to a narrow validation pass for local changes. Do not escalate to a full
-  `ctest` run or broader target build unless the edited code path, failure mode, or
-  user request makes that coverage necessary.
-- Run an exact Catch2 case or a relevant tag while iterating, for example
-  `build/XenTests "exact test case name"` or `build/XenTests "[tag]"`. Run
-  `ctest --test-dir build --output-on-failure` for final code verification only when a
-  broader test pass is warranted. Do not use `ctest -V`, Catch2 `-s`, or
-  `--list-tests` unless their extra output is needed.
-- When a command may be noisy, capture it under `/tmp`, report its exit status and a
-  short tail, then inspect only the first relevant error and its surrounding lines.
-  Expand diagnostics as needed; do not paste an entire compiler or test log into
-  context. Never suppress or discard diagnostics before confirming success.
-- Compiler failures can produce large template cascades through JUCE and Catch2. Fix
-  the first project-source error, rebuild the affected target quietly, and only inspect
-  later diagnostics if they remain.
 - Run `clang-format` only on changed C++ files. In-place formatting normally emits no
   output; use `--dry-run --Werror` on those same files when a formatting check is
   useful. Do not format or check the whole tree for a localized change.
@@ -123,5 +84,7 @@ Use the following operating rules:
 ## Completion
 
 - Review the final diff for accidental scope growth, stale comments, and temporary code.
-- State what changed and what verification was or was not performed.
+- State what changed and note that compilation and tests were left to the user.
+- After code changes, give only the shortest relevant compile/run or test instructions
+  for the user to execute and report back.
 - Leave a short git commit message if the change is enough for a commit.
