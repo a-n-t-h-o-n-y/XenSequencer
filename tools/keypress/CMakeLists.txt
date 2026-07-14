@@ -5,11 +5,6 @@ target_sources(KeyPress PRIVATE
     src/main.cpp
 )
 
-target_compile_features(KeyPress
-    PUBLIC
-        cxx_std_20
-)
-
 xen_apply_compile_settings(KeyPress PRIVATE)
 
 target_link_libraries(KeyPress PRIVATE

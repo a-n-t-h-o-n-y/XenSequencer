@@ -11,7 +11,7 @@
 ## Building from Source
 
 ### Prerequisites
-- A C++20 Compiler
+- A C++23 Compiler
 - CMake
 - Git
 - Ninja
