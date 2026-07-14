@@ -2,7 +2,6 @@
 
 name | signature | description
 ---- | --------- | -----------
-welcome | `welcome` | Display welcome message.
 version | `version` | Print the current XenSequencer version.
 again | `again` | Replay the previously executed command chain.
 project new | `project new` | Create a new Project document.

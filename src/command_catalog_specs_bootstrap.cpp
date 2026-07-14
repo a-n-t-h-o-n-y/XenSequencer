@@ -109,13 +109,6 @@ constexpr auto workspace_mutation_policy = CommandPolicy{
 
 void append_bootstrap_specs(std::vector<CommandSpec> &specs)
 {
-    specs.push_back(command(
-        {"welcome"}, false, "Display welcome message.", informational_policy,
-        std::make_tuple(), [](CommandHandlerContext &, CommandInvocation const &) {
-            return make_result(
-                minfo(std::string{"Welcome to XenSequencer v"} + VERSION));
-        }));
-
     specs.push_back(command({"version"}, false,
                             "Print the current XenSequencer version.",
                             informational_policy, std::make_tuple(),
