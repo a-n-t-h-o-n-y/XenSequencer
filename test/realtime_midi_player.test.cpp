@@ -167,6 +167,63 @@ TEST_CASE("RealtimeMidiPlayer loops with note-off before the next note-on",
     CHECK(looped[0].sample == looped[1].sample);
 }
 
+TEST_CASE("RealtimeMidiPlayer emits sorted CC before velocity-zero notes",
+          "[midi][player][midi-cc]")
+{
+    auto project = make_project(0, 0.f);
+    auto &note =
+        std::get<sequence::Note>(xen::selected_sequence(project, {}).elements.front());
+    note.midi_cc = {{1, 0.f}, {74, 0.5f}, {127, 1.f}};
+    auto const update = make_update(project);
+    auto player = prepared_player();
+    player.adopt(update);
+    auto buffer = juce::MidiBuffer{};
+
+    player.process(playing(0.0), buffer);
+    auto const output = events(buffer);
+    REQUIRE(output.size() == 5);
+    CHECK(output[0].message.isPitchWheel());
+    for (auto index = std::size_t{1}; index < 4; ++index)
+    {
+        CHECK(output[index].message.isController());
+        CHECK(output[index].message.getChannel() == output[0].message.getChannel());
+    }
+    CHECK(output[1].message.getControllerNumber() == 1);
+    CHECK(output[1].message.getControllerValue() == 0);
+    CHECK(output[2].message.getControllerNumber() == 74);
+    CHECK(output[2].message.getControllerValue() == 64);
+    CHECK(output[3].message.getControllerNumber() == 127);
+    CHECK(output[3].message.getControllerValue() == 127);
+    CHECK((output[4].message.getRawData()[0] & 0xf0U) == 0x90U);
+    CHECK(output[4].message.getVelocity() == 0);
+    CHECK(output[4].message.getChannel() == output[0].message.getChannel());
+}
+
+TEST_CASE("RealtimeMidiPlayer re-emits controllers when adopting a held note",
+          "[midi][player][midi-cc]")
+{
+    auto project = make_project();
+    auto &note =
+        std::get<sequence::Note>(xen::selected_sequence(project, {}).elements.front());
+    note.midi_cc = {{74, 0.25f}};
+    auto original = make_update(project, 1);
+    auto player = prepared_player();
+    player.adopt(original);
+    auto buffer = juce::MidiBuffer{};
+    player.process(playing(1.0), buffer);
+
+    note.midi_cc.at(74) = 0.75f;
+    auto changed = make_update(project, 2);
+    player.adopt(changed);
+    buffer.clear();
+    player.process(playing(1.01), buffer);
+    auto const output = events(buffer);
+    REQUIRE(output.size() == 1);
+    CHECK(output.front().message.isController());
+    CHECK(output.front().message.getControllerNumber() == 74);
+    CHECK(output.front().message.getControllerValue() == 95);
+}
+
 TEST_CASE("RealtimeMidiPlayer steals the oldest MPE voice deterministically",
           "[midi][player][mpe]")
 {

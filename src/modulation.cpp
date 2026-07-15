@@ -209,14 +209,16 @@ void validate(ModulationDefinition const &modulation)
     }
 }
 
-void validate(ModulationDestination destination, ModulationOutputRange const &range)
+void validate(ModulationDestination const &destination,
+              ModulationOutputRange const &range)
 {
     if (!std::isfinite(range.minimum) || !std::isfinite(range.maximum) ||
         range.minimum > range.maximum)
     {
         throw std::invalid_argument{"Modulation output range is invalid."};
     }
-    if (destination == ModulationDestination::Pitch)
+    auto const *builtin = std::get_if<BuiltinModulationDestination>(&destination);
+    if (builtin != nullptr && *builtin == BuiltinModulationDestination::Pitch)
     {
         auto const int_min = static_cast<double>(std::numeric_limits<int>::min());
         auto const int_max = static_cast<double>(std::numeric_limits<int>::max());
@@ -229,7 +231,7 @@ void validate(ModulationDestination destination, ModulationOutputRange const &ra
         }
         return;
     }
-    if (destination == ModulationDestination::Weight)
+    if (builtin != nullptr && *builtin == BuiltinModulationDestination::Weight)
     {
         if (range.minimum <
                 static_cast<double>(std::numeric_limits<float>::denorm_min()) ||
@@ -240,10 +242,18 @@ void validate(ModulationDestination destination, ModulationOutputRange const &ra
         }
         return;
     }
+    if (auto const *midi_cc = std::get_if<MidiCcModulationDestination>(&destination);
+        midi_cc != nullptr &&
+        (midi_cc->controller < 0 ||
+         midi_cc->controller > sequence::MAX_MIDI_CONTROLLER_NUMBER))
+    {
+        throw std::invalid_argument{
+            "MIDI CC modulation controller must be in [0, 127]."};
+    }
     if (range.minimum < 0.0 || range.maximum > 1.0)
     {
         throw std::invalid_argument{
-            "Velocity, delay, and gate modulation ranges must be in [0, 1]."};
+            "Velocity, delay, gate, and MIDI CC modulation ranges must be in [0, 1]."};
     }
 }
 

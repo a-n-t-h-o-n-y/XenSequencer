@@ -34,6 +34,11 @@ note | `note [pitch: pitch=0] [velocity: velocity=0.787402] [delay: delay=0] [ga
 delete | `delete` | Delete the current selection.
 split | `split [repeat_count: count=2]` | Split the current selection.
 lift | `lift` | Lift the current selection up one level.
+set midiCC | `[pattern] set midiCC [midi_controller: controller] [normalized_value: value]` | Set per-note MIDI controller values.
+shift midiCC | `[pattern] shift midiCC [midi_controller: controller] [normalized_delta: amount]` | Shift per-note MIDI controller values.
+remove midiCC | `[pattern] remove midiCC [midi_controller: controller]` | Remove per-note MIDI controller values.
+set midiCCLabel | `set midiCCLabel [midi_controller: controller] [string: label]` | Set a persistent MIDI controller label.
+remove midiCCLabel | `remove midiCCLabel [midi_controller: controller]` | Remove a persistent MIDI controller label.
 set pitch | `[pattern] set pitch [pitch: pitch=0]` | Set selected note pitches.
 set octave | `[pattern] set octave [octave: octave=0]` | Set selected note octaves.
 set velocity | `[pattern] set velocity [velocity: velocity=0.787402]` | Set selected note velocities.

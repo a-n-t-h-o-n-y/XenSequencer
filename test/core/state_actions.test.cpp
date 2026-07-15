@@ -124,3 +124,64 @@ TEST_CASE("Independent sessions have isolated copy buffers", "[core][copy-paste]
     CHECK(result.status.first == MessageLevel::Error);
     CHECK(result.status.second == "Copy Buffer Is Empty");
 }
+
+TEST_CASE("MIDI CC commands materialize, edit, remove, and undo note automation",
+          "[core][state-actions][midi-cc]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(execute(session, "note 4", SelectionPath{}).status.first ==
+            MessageLevel::Info);
+    auto const note_selection = select_element_in_cell({}, 0);
+
+    REQUIRE(execute(session, "shift midiCC 74 -0.1", note_selection).status.first ==
+            MessageLevel::Info);
+    auto note = std::get<sequence::Note>(
+        selected_sequence(session.project_snapshot().project, {}).elements.front());
+    REQUIRE(note.midi_cc.contains(74));
+    CHECK(note.midi_cc.at(74) == 0.4f);
+
+    REQUIRE(execute(session, "undo").status.first == MessageLevel::Info);
+    note = std::get<sequence::Note>(
+        selected_sequence(session.project_snapshot().project, {}).elements.front());
+    CHECK_FALSE(note.midi_cc.contains(74));
+
+    REQUIRE(execute(session, "set midiCC 1 0", note_selection).status.first ==
+            MessageLevel::Info);
+    note = std::get<sequence::Note>(
+        selected_sequence(session.project_snapshot().project, {}).elements.front());
+    REQUIRE(note.midi_cc.contains(1));
+    CHECK(note.midi_cc.at(1) == 0.f);
+
+    REQUIRE(execute(session, "remove midiCC 1", note_selection).status.first ==
+            MessageLevel::Info);
+    note = std::get<sequence::Note>(
+        selected_sequence(session.project_snapshot().project, {}).elements.front());
+    CHECK_FALSE(note.midi_cc.contains(1));
+
+    auto const before_noop = session.project_snapshot().project_revision;
+    REQUIRE(execute(session, "remove midiCC 1", note_selection).status.first ==
+            MessageLevel::Info);
+    CHECK(session.project_snapshot().project_revision == before_noop);
+}
+
+TEST_CASE("MIDI CC label commands enforce case-insensitive uniqueness",
+          "[core][state-actions][midi-cc]")
+{
+    auto session = SequencerSession{};
+    REQUIRE(execute(session, "set midiCCLabel 74 \"Filter Cutoff\"").status.first ==
+            MessageLevel::Info);
+    CHECK(session.project_snapshot().project.midi_cc_labels.at(74) == "Filter Cutoff");
+
+    auto const duplicate = execute(session, "set midiCCLabel 71 \"filter cutoff\"");
+    CHECK(duplicate.status.first == MessageLevel::Error);
+    CHECK_FALSE(session.project_snapshot().project.midi_cc_labels.contains(71));
+
+    REQUIRE(execute(session, "remove midiCCLabel 74").status.first ==
+            MessageLevel::Info);
+    CHECK(session.project_snapshot().project.midi_cc_labels.empty());
+
+    REQUIRE(execute(session, "undo").status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project.midi_cc_labels.at(74) == "Filter Cutoff");
+    REQUIRE(execute(session, "redo").status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project.midi_cc_labels.empty());
+}

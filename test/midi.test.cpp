@@ -120,3 +120,18 @@ TEST_CASE("MidiCompiler suppresses zero-duration notes", "[midi][compiler]")
     CHECK(schedule.notes.empty());
     CHECK(schedule.boundaries.empty());
 }
+
+TEST_CASE("MidiCompiler quantizes sorted per-note MIDI controllers",
+          "[midi][compiler][midi-cc]")
+{
+    auto project = make_note_project();
+    auto &note =
+        std::get<sequence::Note>(xen::selected_sequence(project, {}).elements.front());
+    note.midi_cc = {{1, 0.f}, {74, 0.5f}, {127, 1.f}};
+
+    auto const schedule =
+        xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
+    REQUIRE(schedule.notes.size() == 1);
+    CHECK(schedule.notes.front().midi_cc ==
+          std::vector<xen::CompiledMidiCc>{{1, 0}, {74, 64}, {127, 127}});
+}

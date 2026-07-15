@@ -559,12 +559,14 @@ TEST_CASE("IPC protocol round-trips preview lifecycle messages", "[sync][ipc][pr
             .update = {.preview_id = "token",
                        .update_sequence = 8,
                        .expected_project_revision = ProjectRevision{15},
-                       .destination = ModulationDestination::Velocity,
+                       .destination = MidiCcModulationDestination{.controller = 74},
                        .output_range = {.minimum = 0.0, .maximum = 1.0},
                        .modulation = {.waveforms = {{}}}},
         }));
     CHECK(modulation_update.update.update_sequence == 8);
     CHECK(modulation_update.update.modulation.waveforms.size() == 1);
+    CHECK(std::get<MidiCcModulationDestination>(modulation_update.update.destination)
+              .controller == 74);
 }
 
 TEST_CASE("SessionCoordinator accepts inactive composition row channels",

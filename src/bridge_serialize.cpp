@@ -22,9 +22,17 @@ auto element_to_json(sequence::MusicElement const &element) -> nlohmann::json;
 
 auto note_to_json(sequence::Note const &note) -> nlohmann::json
 {
+    auto midi_cc = nlohmann::json::array();
+    for (auto const &[controller, value] : note.midi_cc)
+    {
+        midi_cc.push_back({
+            {"controller", static_cast<unsigned>(controller)},
+            {"value", value},
+        });
+    }
     return nlohmann::json{
         {"type", "Note"},      {"pitch", note.pitch}, {"velocity", note.velocity},
-        {"delay", note.delay}, {"gate", note.gate},
+        {"delay", note.delay}, {"gate", note.gate},   {"midi_cc", std::move(midi_cc)},
     };
 }
 
@@ -221,9 +229,18 @@ auto pitch_to_json(xen::PitchSystem const &pitch) -> nlohmann::json
 
 auto project_to_json(xen::ProjectState const &project) -> nlohmann::json
 {
+    auto midi_cc_labels = nlohmann::json::array();
+    for (auto const &[controller, label] : project.midi_cc_labels)
+    {
+        midi_cc_labels.push_back({
+            {"controller", static_cast<unsigned>(controller)},
+            {"label", label},
+        });
+    }
     return nlohmann::json{
         {"sequence_bank", sequence_bank_to_json(project.sequence_bank)},
         {"composition", composition_to_json(project.composition)},
+        {"midi_cc_labels", std::move(midi_cc_labels)},
     };
 }
 

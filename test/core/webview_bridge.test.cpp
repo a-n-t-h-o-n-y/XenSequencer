@@ -465,6 +465,15 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
         payload.at("modulation").at("waveform_parameters").at("frequency");
     CHECK(frequency.at("minimum") == 0.f);
     CHECK(frequency.at("maximum") == MAX_MODULATION_FREQUENCY);
+    auto const &destinations = payload.at("modulation").at("destinations");
+    auto const midi_cc = std::find_if(
+        destinations.begin(), destinations.end(),
+        [](nlohmann::json const &entry) { return entry.at("id") == "midi_cc"; });
+    REQUIRE(midi_cc != destinations.end());
+    REQUIRE(midi_cc->at("parameters").size() == 1);
+    CHECK(midi_cc->at("parameters").front().at("id") == "controller");
+    CHECK(midi_cc->at("parameters").front().at("constraints").front().at("maximum") ==
+          127);
     for (auto const &command : payload.at("catalog").at("commands"))
     {
         for (auto const &argument : command.at("arguments"))
@@ -505,6 +514,7 @@ TEST_CASE("Bridge project and library resources are separated", "[core][bridge]"
     CHECK(state.contains("project_revision"));
     CHECK(state.contains("history_entry_id"));
     CHECK(state.at("project").at("composition").contains("loop_region"));
+    CHECK(state.at("project").at("midi_cc_labels").is_array());
     CHECK_FALSE(state.contains("library"));
     CHECK_FALSE(state.contains("paths"));
 
@@ -518,6 +528,59 @@ TEST_CASE("Bridge project and library resources are separated", "[core][bridge]"
     CHECK(library.contains("paths"));
     CHECK_FALSE(library.contains("project"));
     CHECK_FALSE(library.contains("project_revision"));
+}
+
+TEST_CASE("Bridge project snapshots expose MIDI CC entries and labels",
+          "[core][bridge][midi-cc]")
+{
+    auto session = make_session();
+    auto revision = session.project_snapshot().project_revision;
+    REQUIRE(
+        session
+            .execute_command_string("note 4", {.selection = SelectionPath{},
+                                               .expected_project_revision = revision})
+            .status.first == MessageLevel::Info);
+    revision = session.project_snapshot().project_revision;
+    REQUIRE(session
+                .execute_command_string("set midiCC 74 0",
+                                        {.selection = select_element_in_cell({}, 0),
+                                         .expected_project_revision = revision})
+                .status.first == MessageLevel::Info);
+    revision = session.project_snapshot().project_revision;
+    REQUIRE(session
+                .execute_command_string("set midiCCLabel 74 Cutoff",
+                                        {.expected_project_revision = revision})
+                .status.first == MessageLevel::Info);
+
+    auto host_bridge = make_bridge(session);
+    auto const state = response(host_bridge, "state.get").at("payload");
+    auto const &note = state.at("project")
+                           .at("sequence_bank")
+                           .at("sequences")
+                           .front()
+                           .at("cell")
+                           .at("elements")
+                           .front();
+    REQUIRE(note.at("midi_cc").size() == 1);
+    CHECK(note.at("midi_cc").front() ==
+          nlohmann::json{{"controller", 74}, {"value", 0.f}});
+    REQUIRE(state.at("project").at("midi_cc_labels").size() == 1);
+    CHECK(state.at("project").at("midi_cc_labels").front() ==
+          nlohmann::json{{"controller", 74}, {"label", "Cutoff"}});
+
+    auto const changed =
+        nlohmann::json::parse(host_bridge.make_state_changed_event_json())
+            .at("payload");
+    CHECK(changed.at("project").at("midi_cc_labels") ==
+          state.at("project").at("midi_cc_labels"));
+    CHECK(changed.at("project")
+              .at("sequence_bank")
+              .at("sequences")
+              .front()
+              .at("cell")
+              .at("elements")
+              .front()
+              .at("midi_cc") == note.at("midi_cc"));
 }
 
 TEST_CASE("Bridge command response contains current project snapshot", "[core][bridge]")
@@ -612,7 +675,7 @@ TEST_CASE("Bridge exposes snapshot-free modulation preview updates",
             {{"preview_id", "modulation-preview-test"},
              {"update_sequence", "1"},
              {"expected_project_revision", "7"},
-             {"destination", "velocity"},
+             {"destination", {{"id", "velocity"}}},
              {"output_range", {{"minimum", 0.0}, {"maximum", 1.0}}},
              {"modulation",
               {{"operation", "average"},

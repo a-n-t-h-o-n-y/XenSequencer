@@ -14,7 +14,7 @@
 namespace xen::ipc
 {
 
-inline constexpr auto protocol = "xen.ipc.v4";
+inline constexpr auto protocol = "xen.ipc.v5";
 
 struct ClientHello
 {

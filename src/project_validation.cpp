@@ -70,6 +70,17 @@ void validate_cell(sequence::Cell const &cell, std::size_t depth,
                     require_unit_interval(typed.velocity, "Note velocity");
                     require_unit_interval(typed.delay, "Note delay");
                     require_unit_interval(typed.gate, "Note gate");
+                    budget.consume(typed.midi_cc.size());
+                    for (auto const &[controller, value] : typed.midi_cc)
+                    {
+                        if (controller < 0 ||
+                            controller > sequence::MAX_MIDI_CONTROLLER_NUMBER)
+                        {
+                            throw std::invalid_argument{
+                                "MIDI controller must be in [0, 127]."};
+                        }
+                        require_unit_interval(value, "MIDI controller value");
+                    }
                 }
                 else
                 {
@@ -127,6 +138,18 @@ auto sequence_name_key(std::string const &name) -> std::string
     return key;
 }
 
+auto midi_cc_label_key(std::string label) -> std::string
+{
+    for (auto &character : label)
+    {
+        if (character >= 'A' && character <= 'Z')
+        {
+            character = static_cast<char>(character - 'A' + 'a');
+        }
+    }
+    return label;
+}
+
 } // namespace
 
 void validate_cell_file(sequence::Cell const &cell)
@@ -138,6 +161,25 @@ void validate_cell_file(sequence::Cell const &cell)
 void validate(ProjectState const &project)
 {
     auto budget = ValidationBudget{.remaining = MAX_PROJECT_NODES};
+    budget.consume(project.midi_cc_labels.size());
+    auto label_names = std::unordered_set<std::string>{};
+    for (auto const &[controller, label] : project.midi_cc_labels)
+    {
+        if (controller < 0 || controller > sequence::MAX_MIDI_CONTROLLER_NUMBER)
+        {
+            throw std::invalid_argument{
+                "MIDI CC label controller must be in [0, 127]."};
+        }
+        if (label.empty() || label.size() > MAX_PERSISTED_STRING_BYTES)
+        {
+            throw std::invalid_argument{
+                "MIDI CC labels must contain between 1 and 4096 bytes."};
+        }
+        if (!label_names.insert(midi_cc_label_key(label)).second)
+        {
+            throw std::invalid_argument{"Duplicate MIDI CC label."};
+        }
+    }
     auto sequence_ids = std::unordered_set<SequenceId>{};
     auto sequence_names = std::unordered_set<std::string>{};
     for (auto const &entry : project.sequence_bank.sequences)

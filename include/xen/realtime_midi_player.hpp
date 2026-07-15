@@ -68,9 +68,13 @@ class RealtimeMidiPlayer
     [[nodiscard]] auto stage_note_off(ActiveVoice const &voice,
                                       int sample_position) noexcept -> bool;
     [[nodiscard]] auto stage_note_start(ActiveVoice const &voice,
+                                        CompiledMidiNote const &note,
                                         int sample_position) noexcept -> bool;
     [[nodiscard]] auto stage_pitch_bend(ActiveVoice const &voice,
                                         int sample_position) noexcept -> bool;
+    [[nodiscard]] auto stage_note_controllers(ActiveVoice const &voice,
+                                              CompiledMidiNote const &note,
+                                              int sample_position) noexcept -> bool;
     [[nodiscard]] auto stage_all_note_offs(VoiceSet const &voices,
                                            int sample_position) noexcept -> bool;
     [[nodiscard]] auto reconcile(VoiceSet &voices, std::uint64_t &activation_order,

@@ -230,7 +230,7 @@ TEST_CASE("Modulation preview updates replace the staged result from its baselin
         .preview_id = *started.preview_id,
         .update_sequence = 1,
         .expected_project_revision = session.project_snapshot().project_revision,
-        .destination = ModulationDestination::Velocity,
+        .destination = BuiltinModulationDestination::Velocity,
         .output_range = {.minimum = 0.0, .maximum = 1.0},
         .modulation = {.waveforms = {{.frequency = 1.f}}},
     };
@@ -262,6 +262,54 @@ TEST_CASE("Modulation preview updates replace the staged result from its baselin
     REQUIRE(session
                 .cancel_preview(*started.preview_id,
                                 session.project_snapshot().project_revision)
+                .status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project == baseline.project);
+}
+
+TEST_CASE("MIDI CC modulation materializes values and commits one undoable edit",
+          "[processor][timeline][preview][modulation][midi-cc]")
+{
+    auto session = SequencerSession{};
+    auto project = session.project_snapshot().project;
+    selected_sequence(project, {}) = sequence::Cell{
+        .elements = {sequence::Sequence{
+            {sequence::Cell{.elements = {sequence::Note{}}},
+             sequence::Cell{.elements = {sequence::Note{}}}}}},
+    };
+    session.replace_project_history(std::move(project));
+    auto const baseline = session.project_snapshot();
+    auto const started = session.begin_modulation_preview(
+        baseline.project_revision,
+        {.selection = select_element_in_cell({}, 0), .pattern = {0, {1}}});
+    REQUIRE(started.preview_id.has_value());
+
+    auto const updated = session.update_modulation_preview({
+        .preview_id = *started.preview_id,
+        .update_sequence = 1,
+        .expected_project_revision = session.project_snapshot().project_revision,
+        .destination = MidiCcModulationDestination{.controller = 74},
+        .output_range = {.minimum = 0.0, .maximum = 1.0},
+        .modulation = {.waveforms = {{.frequency = 0.f,
+                                      .amplitude = 0.f,
+                                      .amplitude_offset = 0.f}}},
+    });
+    REQUIRE(updated.accepted);
+    auto const staged = session.project_snapshot();
+    auto const &sequence = std::get<sequence::Sequence>(
+        selected_sequence(staged.project, {}).elements.front());
+    for (auto const &cell : sequence.cells)
+    {
+        auto const &note = std::get<sequence::Note>(cell.elements.front());
+        REQUIRE(note.midi_cc.contains(74));
+        CHECK(note.midi_cc.at(74) == 0.5f);
+    }
+
+    REQUIRE(session.commit_preview(*started.preview_id, staged.project_revision)
+                .status.first == MessageLevel::Info);
+    auto const committed = session.project_snapshot();
+    REQUIRE(session
+                .execute_command_string(
+                    "undo", {.expected_project_revision = committed.project_revision})
                 .status.first == MessageLevel::Info);
     CHECK(session.project_snapshot().project == baseline.project);
 }

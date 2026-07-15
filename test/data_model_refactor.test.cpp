@@ -99,16 +99,17 @@ TEST_CASE("Cell file schema requires explicit weight", "[data-model][serialize]"
     CHECK_THROWS(deserialize_cell_file(encoded.dump()));
 }
 
-TEST_CASE("Project file schema 1 stores sequence bank and sparse composition",
+TEST_CASE("Project file schema 2 stores sequence bank and sparse composition",
           "[data-model][serialize]")
 {
     auto const project = ProjectState{};
     auto const encoded = nlohmann::json::parse(serialize_project(project));
-    CHECK(encoded.at("schema") == 1);
+    CHECK(encoded.at("schema") == 2);
     CHECK(encoded.at("kind") == "xen_project");
     CHECK_FALSE(encoded.at("project").contains("pitch"));
     CHECK(encoded.at("project").contains("sequence_bank"));
     CHECK(encoded.at("project").contains("composition"));
+    CHECK(encoded.at("project").at("midi_cc_labels").empty());
     CHECK(encoded.at("project").at("composition").contains("placements"));
     CHECK(encoded.at("project").at("composition").contains("default_column"));
     CHECK_FALSE(encoded.at("project").contains("measure"));
@@ -194,15 +195,110 @@ TEST_CASE("Sparse axis inheritance and movement are deterministic",
 
 TEST_CASE("Cell and Project documents round-trip", "[data-model][serialize]")
 {
+    auto note = sequence::Note{.pitch = 7};
+    note.midi_cc = {{1, 0.f}, {74, 0.75f}};
     auto cell = sequence::Cell{
-        .elements = {sequence::Note{.pitch = 7}},
+        .elements = {note},
         .weight = 2.f,
     };
     CHECK(deserialize_cell_file(serialize_cell_file(cell)) == cell);
 
     auto project = ProjectState{};
     project.composition.columns.at(0).pitch.transposition = 11;
+    project.midi_cc_labels = {{1, "Modulation"}, {74, "Cutoff"}};
+    selected_sequence(project, {}).elements = {note};
     CHECK(deserialize_project(serialize_project(project)) == project);
+}
+
+TEST_CASE("MIDI controller persistence validates entries and labels",
+          "[data-model][serialize][midi-cc]")
+{
+    auto project = ProjectState{};
+    auto note = sequence::Note{};
+    note.midi_cc = {{1, 0.f}, {74, 0.5f}};
+    selected_sequence(project, {}).elements = {note};
+    project.midi_cc_labels = {{1, "Modulation"}, {74, "Cutoff"}};
+
+    auto encoded = nlohmann::json::parse(serialize_project(project));
+    auto const &note_json = encoded.at("project")
+                                .at("sequence_bank")
+                                .at("sequences")
+                                .front()
+                                .at("cell")
+                                .at("elements")
+                                .front();
+    REQUIRE(note_json.at("midi_cc").size() == 2);
+    CHECK(note_json.at("midi_cc").front().at("controller") == 1);
+    CHECK(note_json.at("midi_cc").front().at("value") == 0.f);
+    CHECK(encoded.at("project").at("midi_cc_labels").front().at("controller") == 1);
+
+    auto duplicate = encoded;
+    auto &duplicate_cc = duplicate.at("project")
+                             .at("sequence_bank")
+                             .at("sequences")
+                             .front()
+                             .at("cell")
+                             .at("elements")
+                             .front()
+                             .at("midi_cc");
+    duplicate_cc.push_back(duplicate_cc.front());
+    CHECK_THROWS_AS(deserialize_project(duplicate.dump()), std::invalid_argument);
+
+    auto invalid_note_controller = encoded;
+    invalid_note_controller.at("project")
+        .at("sequence_bank")
+        .at("sequences")
+        .front()
+        .at("cell")
+        .at("elements")
+        .front()
+        .at("midi_cc")
+        .front()["controller"] = 128;
+    CHECK_THROWS_AS(deserialize_project(invalid_note_controller.dump()),
+                    std::invalid_argument);
+
+    auto invalid_note_value = encoded;
+    invalid_note_value.at("project")
+        .at("sequence_bank")
+        .at("sequences")
+        .front()
+        .at("cell")
+        .at("elements")
+        .front()
+        .at("midi_cc")
+        .front()["value"] = 1.1;
+    CHECK_THROWS_AS(deserialize_project(invalid_note_value.dump()),
+                    std::invalid_argument);
+
+    auto nonfinite_project = ProjectState{};
+    auto nonfinite_note = sequence::Note{};
+    nonfinite_note.midi_cc[74] = std::numeric_limits<float>::quiet_NaN();
+    selected_sequence(nonfinite_project, {}).elements = {nonfinite_note};
+    CHECK_THROWS_AS(serialize_project(nonfinite_project), std::invalid_argument);
+
+    auto invalid_controller = encoded;
+    invalid_controller.at("project").at("midi_cc_labels").front()["controller"] = 128;
+    CHECK_THROWS_AS(deserialize_project(invalid_controller.dump()),
+                    std::invalid_argument);
+
+    auto duplicate_label_controller = encoded;
+    auto &labels = duplicate_label_controller.at("project").at("midi_cc_labels");
+    labels.push_back(labels.front());
+    CHECK_THROWS_AS(deserialize_project(duplicate_label_controller.dump()),
+                    std::invalid_argument);
+
+    auto const recovery = PersistedRecoveryState{
+        .session_id = "midi-cc-recovery",
+        .project = project,
+        .project_revision = ProjectRevision{1},
+        .state_revision = StateRevision{2},
+        .document = {.dirty = true},
+        .saved_at_unix_ms = 3,
+    };
+    CHECK(deserialize_recovery_state(serialize_recovery_state(recovery)) == recovery);
+
+    project.midi_cc_labels = {{1, "Cutoff"}, {2, "cutoff"}};
+    CHECK_THROWS_AS(serialize_project(project), std::invalid_argument);
 }
 
 TEST_CASE("Sequence bank and sparse composition API covers editing operations",

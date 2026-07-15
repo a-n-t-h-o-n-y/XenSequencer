@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <sequence/pattern.hpp>
@@ -57,7 +58,7 @@ struct ModulationDefinition
     auto operator==(ModulationDefinition const &) const -> bool = default;
 };
 
-enum class ModulationDestination : std::uint8_t
+enum class BuiltinModulationDestination : std::uint8_t
 {
     Pitch,
     Velocity,
@@ -65,6 +66,16 @@ enum class ModulationDestination : std::uint8_t
     Gate,
     Weight,
 };
+
+struct MidiCcModulationDestination
+{
+    sequence::MidiControllerNumber controller{};
+
+    auto operator==(MidiCcModulationDestination const &) const -> bool = default;
+};
+
+using ModulationDestination =
+    std::variant<BuiltinModulationDestination, MidiCcModulationDestination>;
 
 struct ModulationOutputRange
 {
@@ -88,7 +99,7 @@ struct ModulationPreviewUpdate
     PreviewId preview_id{};
     std::uint64_t update_sequence{};
     ProjectRevision expected_project_revision{};
-    ModulationDestination destination{ModulationDestination::Velocity};
+    ModulationDestination destination{BuiltinModulationDestination::Velocity};
     ModulationOutputRange output_range{};
     ModulationDefinition modulation{};
 };
@@ -105,7 +116,8 @@ struct ModulationPreviewUpdateResult
 };
 
 void validate(ModulationDefinition const &modulation);
-void validate(ModulationDestination destination, ModulationOutputRange const &range);
+void validate(ModulationDestination const &destination,
+              ModulationOutputRange const &range);
 
 /** Evaluate normalized modulation amounts at x = index / sample_count. */
 [[nodiscard]] auto evaluate(ModulationDefinition const &modulation,

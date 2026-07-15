@@ -28,6 +28,14 @@ struct LogicalNoteKey
     auto operator<=>(LogicalNoteKey const &) const = default;
 };
 
+struct CompiledMidiCc
+{
+    std::uint8_t controller{};
+    std::uint8_t value{};
+
+    auto operator==(CompiledMidiCc const &) const -> bool = default;
+};
+
 struct CompiledMidiNote
 {
     LogicalNoteKey key{};
@@ -36,6 +44,7 @@ struct CompiledMidiNote
     std::uint8_t note{};
     std::uint8_t velocity{};
     std::uint16_t pitch_bend{8192};
+    std::vector<CompiledMidiCc> midi_cc{};
 
     auto operator==(CompiledMidiNote const &) const -> bool = default;
 };

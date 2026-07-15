@@ -123,19 +123,19 @@ auto operation_from_name(std::string const &name) -> ModulationOperation
     throw std::invalid_argument{"Unknown modulation operation: " + name};
 }
 
-auto destination_name(ModulationDestination destination) -> std::string_view
+auto destination_name(BuiltinModulationDestination destination) -> std::string_view
 {
     switch (destination)
     {
-    case ModulationDestination::Pitch:
+    case BuiltinModulationDestination::Pitch:
         return "pitch";
-    case ModulationDestination::Velocity:
+    case BuiltinModulationDestination::Velocity:
         return "velocity";
-    case ModulationDestination::Delay:
+    case BuiltinModulationDestination::Delay:
         return "delay";
-    case ModulationDestination::Gate:
+    case BuiltinModulationDestination::Gate:
         return "gate";
-    case ModulationDestination::Weight:
+    case BuiltinModulationDestination::Weight:
         return "weight";
     }
     throw std::invalid_argument{"Unknown modulation destination."};
@@ -243,25 +243,62 @@ auto modulation_definition_from_json(nlohmann::json const &json) -> ModulationDe
 
 auto modulation_destination_to_json(ModulationDestination destination) -> nlohmann::json
 {
-    return destination_name(destination);
+    if (auto const *builtin = std::get_if<BuiltinModulationDestination>(&destination))
+    {
+        return {{"id", destination_name(*builtin)}};
+    }
+    auto const controller =
+        std::get<MidiCcModulationDestination>(destination).controller;
+    if (controller < 0 || controller > sequence::MAX_MIDI_CONTROLLER_NUMBER)
+    {
+        throw std::invalid_argument{
+            "MIDI CC modulation controller must be in [0, 127]."};
+    }
+    return {
+        {"id", "midi_cc"},
+        {"controller", static_cast<unsigned>(controller)},
+    };
 }
 
 auto modulation_destination_from_json(nlohmann::json const &json)
     -> ModulationDestination
 {
-    if (!json.is_string())
-        throw std::invalid_argument{"Modulation destination must be a string."};
-    auto const name = json.get<std::string>();
+    if (!json.is_object() || !json.contains("id") || !json.at("id").is_string())
+        throw std::invalid_argument{"Modulation destination must contain an ID."};
+    auto const name = json.at("id").get<std::string>();
+    if (name == "midi_cc")
+    {
+        if (!json.contains("controller") ||
+            (!json.at("controller").is_number_integer() &&
+             !json.at("controller").is_number_unsigned()))
+        {
+            throw std::invalid_argument{
+                "MIDI CC modulation controller must be an integer."};
+        }
+        auto const controller = json.at("controller").get<std::int64_t>();
+        if (controller < 0 || controller > sequence::MAX_MIDI_CONTROLLER_NUMBER)
+        {
+            throw std::invalid_argument{
+                "MIDI CC modulation controller must be in [0, 127]."};
+        }
+        return MidiCcModulationDestination{
+            .controller = static_cast<sequence::MidiControllerNumber>(controller)};
+    }
+    if (json.contains("controller"))
+    {
+        throw std::invalid_argument{
+            "Built-in modulation destinations do not accept a controller."};
+    }
     if (name == "pitch")
-        return ModulationDestination::Pitch;
+        return BuiltinModulationDestination::Pitch;
     if (name == "velocity")
-        return ModulationDestination::Velocity;
+        return BuiltinModulationDestination::Velocity;
     if (name == "delay")
-        return ModulationDestination::Delay;
+        return BuiltinModulationDestination::Delay;
     if (name == "gate")
-        return ModulationDestination::Gate;
+        return BuiltinModulationDestination::Gate;
     if (name == "weight")
-        return ModulationDestination::Weight;
+        return BuiltinModulationDestination::Weight;
     throw std::invalid_argument{"Unknown modulation destination: " + name};
 }
 
@@ -372,11 +409,26 @@ auto modulation_catalog_to_json() -> nlohmann::json
            {"enabled_waveforms", 2},
            {"roles", {"carrier", "modulator"}}}}},
         {"destinations",
-         {{{"id", "pitch"}, {"range", "integer"}, {"quantization", "nearest"}},
-          {{"id", "velocity"}, {"range", "unit"}},
-          {{"id", "delay"}, {"range", "unit"}},
-          {{"id", "gate"}, {"range", "unit"}},
-          {{"id", "weight"}, {"range", "positive"}}}},
+         {{{"id", "pitch"},
+           {"range", "integer"},
+           {"quantization", "nearest"},
+           {"parameters", nlohmann::json::array()}},
+          {{"id", "velocity"},
+           {"range", "unit"},
+           {"parameters", nlohmann::json::array()}},
+          {{"id", "delay"}, {"range", "unit"}, {"parameters", nlohmann::json::array()}},
+          {{"id", "gate"}, {"range", "unit"}, {"parameters", nlohmann::json::array()}},
+          {{"id", "weight"},
+           {"range", "positive"},
+           {"parameters", nlohmann::json::array()}},
+          {{"id", "midi_cc"},
+           {"range", "unit"},
+           {"parameters",
+            {{{"id", "controller"},
+              {"kind", "integer"},
+              {"required", true},
+              {"constraints",
+               {{{"kind", "range"}, {"minimum", 0}, {"maximum", 127}}}}}}}}}},
         {"normalization", "clamp((raw + 1) / 2, 0, 1)"},
     };
 }

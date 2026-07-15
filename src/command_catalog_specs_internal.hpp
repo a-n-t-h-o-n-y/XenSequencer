@@ -13,6 +13,7 @@ namespace xen::catalog_detail
 void append_bootstrap_specs(std::vector<CommandSpec> &specs);
 void append_composition_specs(std::vector<CommandSpec> &specs);
 void append_edit_specs(std::vector<CommandSpec> &specs);
+void append_midi_cc_specs(std::vector<CommandSpec> &specs);
 void append_set_and_shift_specs(std::vector<CommandSpec> &specs);
 void append_transform_specs(std::vector<CommandSpec> &specs);
 

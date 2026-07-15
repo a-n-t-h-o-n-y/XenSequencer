@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -26,11 +27,17 @@ namespace sequence
 
 static void to_json(nlohmann::json &j, Note const &note)
 {
-    j = nlohmann::json{{"type", "Note"},
-                       {"pitch", note.pitch},
-                       {"velocity", note.velocity},
-                       {"delay", note.delay},
-                       {"gate", note.gate}};
+    auto midi_cc = nlohmann::json::array();
+    for (auto const &[controller, value] : note.midi_cc)
+    {
+        midi_cc.push_back({
+            {"controller", static_cast<unsigned>(controller)},
+            {"value", value},
+        });
+    }
+    j = nlohmann::json{
+        {"type", "Note"},      {"pitch", note.pitch}, {"velocity", note.velocity},
+        {"delay", note.delay}, {"gate", note.gate},   {"midi_cc", std::move(midi_cc)}};
 }
 
 static void to_json(nlohmann::json &j, MusicElement const &element);
@@ -79,6 +86,41 @@ static void from_json(nlohmann::json const &j, Note &note)
     note.velocity = j.at("velocity").get<float>();
     note.delay = j.at("delay").get<float>();
     note.gate = j.at("gate").get<float>();
+    auto const &midi_cc = j.at("midi_cc");
+    if (!midi_cc.is_array())
+    {
+        throw std::invalid_argument{"Note MIDI CC values must be an array."};
+    }
+    note.midi_cc.clear();
+    for (auto const &entry : midi_cc)
+    {
+        if (!entry.is_object() || !entry.contains("controller") ||
+            (!entry.at("controller").is_number_integer() &&
+             !entry.at("controller").is_number_unsigned()))
+        {
+            throw std::invalid_argument{"MIDI controller must be an integer."};
+        }
+        auto const controller = entry.at("controller").get<std::int64_t>();
+        if (controller < 0 || controller > MAX_MIDI_CONTROLLER_NUMBER)
+        {
+            throw std::invalid_argument{"MIDI controller must be in [0, 127]."};
+        }
+        if (!entry.contains("value") || !entry.at("value").is_number())
+        {
+            throw std::invalid_argument{"MIDI controller value must be numeric."};
+        }
+        auto const value = entry.at("value").get<double>();
+        if (!std::isfinite(value) || value < 0.0 || value > 1.0)
+        {
+            throw std::invalid_argument{"MIDI controller value must be in [0, 1]."};
+        }
+        auto const inserted = note.midi_cc.emplace(
+            static_cast<MidiControllerNumber>(controller), static_cast<float>(value));
+        if (!inserted.second)
+        {
+            throw std::invalid_argument{"Duplicate MIDI controller entry."};
+        }
+    }
 }
 
 static void from_json(nlohmann::json const &j, Sequence &sequence)
@@ -315,10 +357,10 @@ namespace xen
 namespace
 {
 
-constexpr auto PROJECT_SCHEMA_VERSION = 1;
-constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 5;
-constexpr auto CELL_SCHEMA_VERSION = 1;
-constexpr auto RECOVERY_SCHEMA_VERSION = 1;
+constexpr auto PROJECT_SCHEMA_VERSION = 2;
+constexpr auto PROCESSOR_STATE_SCHEMA_VERSION = 6;
+constexpr auto CELL_SCHEMA_VERSION = 2;
+constexpr auto RECOVERY_SCHEMA_VERSION = 2;
 // A nested Cell adds several JSON container levels per musical nesting level.
 constexpr auto MAX_JSON_DEPTH = std::size_t{320};
 constexpr auto MAX_JSON_EVENTS = std::size_t{8'000'000};
@@ -518,9 +560,18 @@ static void from_json(nlohmann::json const &j, PitchSystem &pitch)
 
 static void to_json(nlohmann::json &j, ProjectState const &project)
 {
+    auto midi_cc_labels = nlohmann::json::array();
+    for (auto const &[controller, label] : project.midi_cc_labels)
+    {
+        midi_cc_labels.push_back({
+            {"controller", static_cast<unsigned>(controller)},
+            {"label", label},
+        });
+    }
     j = nlohmann::json{
         {"sequence_bank", project.sequence_bank},
         {"composition", project.composition},
+        {"midi_cc_labels", std::move(midi_cc_labels)},
     };
 }
 
@@ -528,6 +579,38 @@ static void from_json(nlohmann::json const &j, ProjectState &project)
 {
     project.sequence_bank = j.at("sequence_bank").get<SequenceBank>();
     project.composition = j.at("composition").get<Composition>();
+    auto const &labels = j.at("midi_cc_labels");
+    if (!labels.is_array())
+    {
+        throw std::invalid_argument{"MIDI CC labels must be an array."};
+    }
+    project.midi_cc_labels.clear();
+    for (auto const &entry : labels)
+    {
+        if (!entry.is_object() || !entry.contains("controller") ||
+            (!entry.at("controller").is_number_integer() &&
+             !entry.at("controller").is_number_unsigned()))
+        {
+            throw std::invalid_argument{"MIDI CC label controller must be an integer."};
+        }
+        auto const controller = entry.at("controller").get<std::int64_t>();
+        if (controller < 0 || controller > sequence::MAX_MIDI_CONTROLLER_NUMBER)
+        {
+            throw std::invalid_argument{
+                "MIDI CC label controller must be in [0, 127]."};
+        }
+        if (!entry.contains("label") || !entry.at("label").is_string())
+        {
+            throw std::invalid_argument{"MIDI CC label must be a string."};
+        }
+        auto inserted = project.midi_cc_labels.emplace(
+            static_cast<sequence::MidiControllerNumber>(controller),
+            entry.at("label").get<std::string>());
+        if (!inserted.second)
+        {
+            throw std::invalid_argument{"Duplicate MIDI CC label controller."};
+        }
+    }
 }
 
 static void to_json(nlohmann::json &j, InstanceBinding const &binding)

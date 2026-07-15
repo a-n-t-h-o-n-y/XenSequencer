@@ -10,7 +10,7 @@ JUCE exposes the native function `xenBridgeRequest` and event `xenBridgeEvent`.
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v8";
+  protocol: "xen.bridge.v9";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -26,24 +26,61 @@ type CatalogCommand = {
   keywords: string[];
   accepts_pattern_prefix: boolean;
   target_requirement: "none" | "cell" | "element" | "cell_or_element";
-  arguments: unknown[];
+  arguments: Array<{
+    kind: string;
+    display_name: string;
+    required: boolean;
+    default_value: string | null;
+    constraints: Array<{
+      kind: string;
+      minimum: number | null;
+      maximum: number | null;
+      values: string[];
+    }>;
+  }>;
   description: string;
 };
 
+type ModulationDestinationCatalogEntry = {
+  id: "pitch" | "velocity" | "delay" | "gate" | "weight" | "midi_cc";
+  range: "integer" | "unit" | "positive";
+  quantization?: "nearest";
+  parameters: Array<{
+    id: "controller";
+    kind: "integer";
+    required: true;
+    constraints: [{ kind: "range"; minimum: 0; maximum: 127 }];
+  }>;
+};
+
 type ModulationCatalog = {
-  schema_version: 2;
+  schema_version: 3;
+  maximum_waveforms: 64;
+  waveform_shapes: Array<
+    "sine" | "triangle" | "sawtooth_up" | "sawtooth_down" | "square"
+  >;
   waveform_parameters: {
     frequency: { minimum: 0; maximum: 64 };
+    phase: { minimum: 0; maximum: 1 };
+    amplitude: { minimum: -1; maximum: 1 };
+    amplitude_offset: { minimum: -1; maximum: 1 };
   };
-  // Additional waveform, operation, and destination metadata omitted here.
+  operations: Array<{
+    id: "average" | "sum" | "product" | "am" | "ring" | "fm" | "pm";
+    minimum_enabled_waveforms?: 1;
+    enabled_waveforms?: 2;
+    roles?: ["carrier", "modulator"];
+  }>;
+  destinations: ModulationDestinationCatalogEntry[];
+  normalization: "clamp((raw + 1) / 2, 0, 1)";
 };
 
 type SessionHello = {
-  protocol: "xen.bridge.v8";
+  protocol: "xen.bridge.v9";
   plugin_version: string;
-  project_schema_version: 6;
+  project_schema_version: 7;
   library_schema_version: 2;
-  catalog: { schema_version: 6; commands: CatalogCommand[] };
+  catalog: { schema_version: 7; commands: CatalogCommand[] };
   modulation: ModulationCatalog;
   binding: { session_id: string; instance_id: string; channel_id: string };
   keymap: KeymapResource;
@@ -103,8 +140,33 @@ type Cursor = {
   sequence_id: number | null;
 };
 
+type MidiCcEntry = {
+  controller: number; // unique integer in [0, 127]
+  value: number; // finite normalized value in [0, 1]
+};
+
+type MidiCcLabel = {
+  controller: number; // unique integer in [0, 127]
+  label: string; // 1–4096 UTF-8 bytes
+};
+
+type Note = {
+  type: "Note";
+  pitch: number;
+  velocity: number;
+  delay: number;
+  gate: number;
+  midi_cc: MidiCcEntry[];
+};
+
+type Project = {
+  sequence_bank: SequenceBank;
+  composition: Composition;
+  midi_cc_labels: MidiCcLabel[];
+};
+
 type ProjectSnapshot = {
-  schema_version: 6;
+  schema_version: 7;
   state_revision: string;
   project_revision: string;
   history_entry_id: string;
@@ -137,6 +199,12 @@ type DocumentOperationResult = {
   suggested_selection: Selection | null;
 };
 ```
+
+`Note.midi_cc` and `Project.midi_cc_labels` are always present and sorted by numeric
+controller number. A zero-valued entry remains present; only a missing entry means the
+controller is absent. Controller labels are unique under ASCII case-insensitive
+comparison and otherwise retain their exact spelling. The frontend owns label lookup
+and display behavior.
 
 `state.get`, `state.changed`, document responses, generic preview responses,
 modulation begin/end responses, and `command.execute.payload.snapshot` all carry this
@@ -238,6 +306,29 @@ The response contains status, nullable `suggested_selection`, and the current
 `snapshot`. Project-aware commands require a current project revision. The command
 catalog remains immutable per hello response and drives frontend completion.
 
+Per-note MIDI CC editing and persistent labels use these catalog-advertised commands:
+
+```text
+set midiCC <controller:0..127> <value:0..1>
+shift midiCC <controller:0..127> <amount:-1..1>
+remove midiCC <controller:0..127>
+set midiCCLabel <controller:0..127> <label>
+remove midiCCLabel <controller:0..127>
+```
+
+Their catalog argument kinds and constraints are exact: `midi_controller` is a
+required integer with a `[0,127]` range constraint; `normalized_value` is a required
+float with `[0,1]`; `normalized_delta` is a required float with `[-1,1]`; and the
+label is a required `string` with a `byte_length` constraint of `[1,4096]`.
+
+The first three accept the existing pattern prefix and require a cell-or-element
+selection. Set materializes or overwrites the selected controller. Shift uses `0.5`
+for each note where the controller is absent, then clamps to `[0,1]`. Remove is a
+successful no-op where absent. Label commands do not accept a pattern or selection;
+labels containing whitespace use the existing quoted-token syntax. All five commands
+participate in revisions, committed history, dirty state, recovery, undo/redo, and
+multi-instance snapshot publication. Successful no-ops do not advance project history.
+
 Document commands are retained for the keyboard command line and use the same backend
 service:
 
@@ -260,11 +351,56 @@ a preview is active. Processor/DAW persistence always saves the persistent basel
 not transient preview state.
 
 Modulation uses the separate `modulation.preview.begin`, `.update`, `.commit`, and
-`.cancel` lifecycle. The begin/commit/cancel responses contain snapshots. Update
-responses are small acknowledgements and intentionally omit the project snapshot;
-accepted updates publish coalesced `state.changed` events at the coordinator maintenance
-rate. See [Modulation frontend specification](modulation_frontend_spec.md) for the
-complete schema, validation rules, target semantics, and client flow.
+`.cancel` lifecycle. Destinations are parameterized objects in schema 3:
+
+```ts
+type ModulationDestination =
+  | { id: "pitch" }
+  | { id: "velocity" }
+  | { id: "delay" }
+  | { id: "gate" }
+  | { id: "weight" }
+  | { id: "midi_cc"; controller: number };
+
+type ModulationPreviewUpdateRequest = {
+  preview_id: string;
+  update_sequence: string;
+  expected_project_revision: string;
+  destination: ModulationDestination;
+  output_range: { minimum: number; maximum: number };
+  modulation: {
+    operation: "average" | "sum" | "product" | "am" | "ring" | "fm" | "pm";
+    waveforms: Array<{
+      enabled: boolean;
+      shape: "sine" | "triangle" | "sawtooth_up" | "sawtooth_down" | "square";
+      frequency: number;
+      phase: number;
+      amplitude: number;
+      amplitude_offset: number;
+    }>;
+  };
+};
+```
+
+The `midi_cc` controller is a required integer in `[0,127]`, and its output-range
+endpoints must be finite and contained in `[0,1]`. Applying it writes ordinary
+`Note.midi_cc` entries, including explicit zero values and controllers that were absent
+in the preview baseline. Each update replaces the staged result from that baseline.
+Begin/commit/cancel responses contain snapshots; update responses are small
+acknowledgements and intentionally omit the snapshot. Accepted updates publish
+coalesced `state.changed` events at the coordinator maintenance rate. Commit creates
+one undoable edit and cancel restores the baseline.
+
+### MIDI CC rendering
+
+The backend quantizes controller values as `round(value * 127)`, so `0.5` becomes
+`64`. Each CC uses the same MPE member channel and start sample as its note. Generated
+events at a shared beat are deterministic: note-off boundaries precede starts;
+simultaneous starts use logical-note-key order; and each start emits any voice-steal
+note-off, pitch bend, controllers in ascending numeric order, then note-on. Attached
+controllers are emitted even when note velocity is zero. Zero-duration notes remain
+suppressed. Schedule adoption and transport reconciliation re-emit the currently
+attached values for held notes; removing a controller does not synthesize a reset.
 
 ## Library resource
 
@@ -302,12 +438,12 @@ library event to every instance.
 
 ## Persistence formats and limits
 
-- `.xencell`: reusable cell, `{ "kind": "xen_cell", "schema": 1, ... }`, 16 MiB.
-- `.xenproj`: complete project, `{ "kind": "xen_project", "schema": 1, ... }`,
+- `.xencell`: reusable cell, `{ "kind": "xen_cell", "schema": 2, ... }`, 16 MiB.
+- `.xenproj`: complete project, `{ "kind": "xen_project", "schema": 2, ... }`,
   64 MiB.
-- DAW state: internal `{ "kind": "xen_processor_state", "schema": 5, ... }`,
+- DAW state: internal `{ "kind": "xen_processor_state", "schema": 6, ... }`,
   65 MiB including its envelope.
-- Recovery: internal `{ "kind": "xen_recovery", "schema": 1, ... }`, 65 MiB
+- Recovery: internal `{ "kind": "xen_recovery", "schema": 2, ... }`, 65 MiB
   including its envelope.
 
 `.xencomp` and `xen_composition` are unsupported. Project files embed their complete

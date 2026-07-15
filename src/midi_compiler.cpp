@@ -208,6 +208,16 @@ void append_note(sequence::Note const &source, double begin, double length,
 
     auto const midi = to_midi_pitch(static_cast<int>(widened), context.tuning,
                                     context.base_frequency);
+    auto midi_cc = std::vector<xen::CompiledMidiCc>{};
+    midi_cc.reserve(source.midi_cc.size());
+    for (auto const &[controller, value] : source.midi_cc)
+    {
+        auto const quantized = std::lround(static_cast<double>(value) * 127.0);
+        midi_cc.push_back({
+            .controller = static_cast<std::uint8_t>(controller),
+            .value = static_cast<std::uint8_t>(quantized),
+        });
+    }
     context.schedule.notes.push_back({
         .key =
             {
@@ -222,6 +232,7 @@ void append_note(sequence::Note const &source, double begin, double length,
         .note = midi.note,
         .velocity = static_cast<std::uint8_t>(source.velocity * 127.0F),
         .pitch_bend = midi.pitch_bend,
+        .midi_cc = std::move(midi_cc),
     });
 }
 

@@ -134,11 +134,28 @@ auto RealtimeMidiPlayer::stage_pitch_bend(ActiveVoice const &voice,
 }
 
 auto RealtimeMidiPlayer::stage_note_start(ActiveVoice const &voice,
+                                          CompiledMidiNote const &note,
                                           int sample_position) noexcept -> bool
 {
     return stage_pitch_bend(voice, sample_position) &&
+           stage_note_controllers(voice, note, sample_position) &&
            stage_message(sample_position, channel_status(0x90U, voice.channel),
                          voice.note, voice.velocity);
+}
+
+auto RealtimeMidiPlayer::stage_note_controllers(ActiveVoice const &voice,
+                                                CompiledMidiNote const &note,
+                                                int sample_position) noexcept -> bool
+{
+    for (auto const &controller : note.midi_cc)
+    {
+        if (!stage_message(sample_position, channel_status(0xb0U, voice.channel),
+                           controller.controller, controller.value))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 auto RealtimeMidiPlayer::stage_all_note_offs(VoiceSet const &voices,
@@ -230,6 +247,10 @@ auto RealtimeMidiPlayer::reconcile(VoiceSet &voices, std::uint64_t &activation_o
     auto matched = std::array<bool, MPE_MEMBER_CHANNEL_COUNT>{};
     auto restart = std::array<bool, MPE_MEMBER_CHANNEL_COUNT>{};
     auto bend_update = std::array<bool, MPE_MEMBER_CHANNEL_COUNT>{};
+    auto restart_note = std::array<std::uint32_t, MPE_MEMBER_CHANNEL_COUNT>{};
+    auto controller_note = std::array<std::uint32_t, MPE_MEMBER_CHANNEL_COUNT>{};
+    restart_note.fill(std::numeric_limits<std::uint32_t>::max());
+    controller_note.fill(std::numeric_limits<std::uint32_t>::max());
     for (auto voice_index = std::size_t{0}; voice_index < voices.size(); ++voice_index)
     {
         auto &voice = voices[voice_index];
@@ -268,11 +289,16 @@ auto RealtimeMidiPlayer::reconcile(VoiceSet &voices, std::uint64_t &activation_o
             voice.velocity = note.velocity;
             voice.pitch_bend = note.pitch_bend;
             restart[voice_index] = true;
+            restart_note[voice_index] = desired[desired_index];
         }
         else if (voice.pitch_bend != note.pitch_bend)
         {
             voice.pitch_bend = note.pitch_bend;
             bend_update[voice_index] = true;
+        }
+        if (!restart[voice_index])
+        {
+            controller_note[voice_index] = desired[desired_index];
         }
     }
 
@@ -285,7 +311,17 @@ auto RealtimeMidiPlayer::reconcile(VoiceSet &voices, std::uint64_t &activation_o
     }
     for (auto index = std::size_t{0}; index < voices.size(); ++index)
     {
-        if (restart[index] && !stage_note_start(voices[index], 0))
+        if (controller_note[index] != std::numeric_limits<std::uint32_t>::max() &&
+            !stage_note_controllers(voices[index],
+                                    schedule_->notes[controller_note[index]], 0))
+        {
+            return false;
+        }
+    }
+    for (auto index = std::size_t{0}; index < voices.size(); ++index)
+    {
+        if (restart[index] &&
+            !stage_note_start(voices[index], schedule_->notes[restart_note[index]], 0))
         {
             return false;
         }
@@ -313,7 +349,7 @@ auto RealtimeMidiPlayer::reconcile(VoiceSet &voices, std::uint64_t &activation_o
                 static_cast<std::uint8_t>(MPE_FIRST_MEMBER_CHANNEL + voice_index),
             .activation_order = activation_order++,
         };
-        if (!stage_note_start(voices[voice_index], 0))
+        if (!stage_note_start(voices[voice_index], note, 0))
         {
             return false;
         }
@@ -388,7 +424,7 @@ auto RealtimeMidiPlayer::render_boundaries(VoiceSet &voices,
                     static_cast<std::uint8_t>(MPE_FIRST_MEMBER_CHANNEL + voice_index),
                 .activation_order = activation_order++,
             };
-            if (!stage_note_start(voices[voice_index], sample_position))
+            if (!stage_note_start(voices[voice_index], note, sample_position))
             {
                 return false;
             }

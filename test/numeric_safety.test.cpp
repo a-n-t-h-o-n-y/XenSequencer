@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -13,6 +14,7 @@
 #include <xen/actions.hpp>
 #include <xen/midi_compiler.hpp>
 #include <xen/modulation.hpp>
+#include <xen/modulation_json.hpp>
 #include <xen/scale.hpp>
 #include <xen/serialize.hpp>
 
@@ -162,12 +164,49 @@ TEST_CASE("Modulation rejects invalid definitions and output ranges",
     CHECK_THROWS_AS(xen::evaluate(modulation, 16), std::invalid_argument);
 
     CHECK_THROWS_AS(
-        xen::validate(xen::ModulationDestination::Weight,
+        xen::validate(xen::BuiltinModulationDestination::Weight,
                       xen::ModulationOutputRange{.minimum = 0.0, .maximum = 1.0}),
         std::invalid_argument);
     CHECK_THROWS_AS(
-        xen::validate(xen::ModulationDestination::Pitch,
+        xen::validate(xen::BuiltinModulationDestination::Pitch,
                       xen::ModulationOutputRange{.minimum = 0.5, .maximum = 12.0}),
+        std::invalid_argument);
+    CHECK_NOTHROW(
+        xen::validate(xen::MidiCcModulationDestination{.controller = 74},
+                      xen::ModulationOutputRange{.minimum = 0.0, .maximum = 1.0}));
+    CHECK_THROWS_AS(
+        xen::validate(xen::MidiCcModulationDestination{.controller = -1},
+                      xen::ModulationOutputRange{.minimum = 0.0, .maximum = 1.0}),
+        std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::validate(xen::MidiCcModulationDestination{.controller = 128},
+                      xen::ModulationOutputRange{.minimum = 0.0, .maximum = 1.0}),
+        std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::validate(xen::MidiCcModulationDestination{.controller = 74},
+                      xen::ModulationOutputRange{.minimum = -0.1, .maximum = 1.0}),
+        std::invalid_argument);
+}
+
+TEST_CASE("Parameterized modulation destinations use strict object payloads",
+          "[numeric][modulation][json]")
+{
+    auto const encoded = xen::modulation_destination_to_json(
+        xen::MidiCcModulationDestination{.controller = 74});
+    CHECK(encoded == nlohmann::json{{"id", "midi_cc"}, {"controller", 74}});
+    auto const decoded = xen::modulation_destination_from_json(encoded);
+    CHECK(std::get<xen::MidiCcModulationDestination>(decoded).controller == 74);
+
+    CHECK(xen::modulation_destination_to_json(
+              xen::BuiltinModulationDestination::Velocity) ==
+          nlohmann::json{{"id", "velocity"}});
+    CHECK_THROWS_AS(xen::modulation_destination_from_json("velocity"),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::modulation_destination_from_json({{"id", "midi_cc"}, {"controller", 128}}),
+        std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::modulation_destination_from_json({{"id", "midi_cc"}, {"controller", 0.5}}),
         std::invalid_argument);
 }
 

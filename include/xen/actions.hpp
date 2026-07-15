@@ -161,7 +161,7 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
 
 [[nodiscard]]
 auto apply_modulation(ProjectState state, ModulationTarget const &target,
-                      ModulationDestination destination,
+                      ModulationDestination const &destination,
                       ModulationOutputRange const &output_range,
                       ModulationDefinition const &modulation) -> ProjectState;
 

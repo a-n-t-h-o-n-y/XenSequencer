@@ -659,7 +659,7 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
 }
 
 auto apply_modulation(ProjectState state, ModulationTarget const &target,
-                      ModulationDestination destination,
+                      ModulationDestination const &destination,
                       ModulationOutputRange const &output_range,
                       ModulationDefinition const &modulation) -> ProjectState
 {
@@ -676,28 +676,41 @@ auto apply_modulation(ProjectState state, ModulationTarget const &target,
             }
             auto &cell = sequence.cells[i];
             auto const value = modulation_value(amounts[i], output_range);
-            switch (destination)
+            auto const *builtin =
+                std::get_if<BuiltinModulationDestination>(&destination);
+            if (builtin == nullptr)
             {
-            case ModulationDestination::Pitch:
-                cell = sequence::modify::set_pitch(
-                    std::move(cell), target.pattern,
-                    modulation_pitch(amounts[i], output_range));
-                break;
-            case ModulationDestination::Velocity:
-                cell = sequence::modify::set_velocity(std::move(cell), target.pattern,
+                auto const controller =
+                    std::get<MidiCcModulationDestination>(destination).controller;
+                cell = sequence::modify::set_midi_cc(std::move(cell), target.pattern,
+                                                     controller,
+                                                     static_cast<float>(value));
+            }
+            else
+            {
+                switch (*builtin)
+                {
+                case BuiltinModulationDestination::Pitch:
+                    cell = sequence::modify::set_pitch(
+                        std::move(cell), target.pattern,
+                        modulation_pitch(amounts[i], output_range));
+                    break;
+                case BuiltinModulationDestination::Velocity:
+                    cell = sequence::modify::set_velocity(
+                        std::move(cell), target.pattern, static_cast<float>(value));
+                    break;
+                case BuiltinModulationDestination::Delay:
+                    cell = sequence::modify::set_delay(std::move(cell), target.pattern,
+                                                       static_cast<float>(value));
+                    break;
+                case BuiltinModulationDestination::Gate:
+                    cell = sequence::modify::set_gate(std::move(cell), target.pattern,
                                                       static_cast<float>(value));
-                break;
-            case ModulationDestination::Delay:
-                cell = sequence::modify::set_delay(std::move(cell), target.pattern,
-                                                   static_cast<float>(value));
-                break;
-            case ModulationDestination::Gate:
-                cell = sequence::modify::set_gate(std::move(cell), target.pattern,
-                                                  static_cast<float>(value));
-                break;
-            case ModulationDestination::Weight:
-                cell.weight = static_cast<float>(value);
-                break;
+                    break;
+                case BuiltinModulationDestination::Weight:
+                    cell.weight = static_cast<float>(value);
+                    break;
+                }
             }
             ++applied;
         }

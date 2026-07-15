@@ -169,7 +169,7 @@ void recover_content_directory(std::filesystem::path const &content_directory)
         throw DocumentError{DocumentErrorCode::Io,
                             "The configured content directory is unavailable."};
     }
-    for (auto const marker : {juce::String{".xen-backup."}, juce::String{".xen-tmp."}})
+    for (auto const &marker : {juce::String{".xen-backup."}, juce::String{".xen-tmp."}})
     {
         auto const interrupted =
             root.findChildFiles(juce::File::findFiles, true, "*" + marker + "*");

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -29,10 +30,13 @@ using InstanceId = std::string;
 
 using PreviewId = std::string;
 
+using MidiCcLabels = std::map<sequence::MidiControllerNumber, std::string>;
+
 struct ProjectState
 {
     SequenceBank sequence_bank{make_default_sequence_bank()};
     Composition composition{make_default_composition()};
+    MidiCcLabels midi_cc_labels{};
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -40,7 +44,9 @@ struct ProjectState
 #endif
     [[nodiscard]] auto operator==(ProjectState const &other) const -> bool
     {
-        return sequence_bank == other.sequence_bank && composition == other.composition;
+        return sequence_bank == other.sequence_bank &&
+               composition == other.composition &&
+               midi_cc_labels == other.midi_cc_labels;
     }
     [[nodiscard]] auto operator!=(ProjectState const &other) const -> bool
     {

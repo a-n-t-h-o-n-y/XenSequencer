@@ -54,10 +54,17 @@ auto main() -> int
     auto project = xen::ProjectState{};
     xen::selected_sequence(project, xen::CompositionCursor{}) = {
         .elements = {sequence::Note{.pitch = 0}}, .weight = 1.0F};
+    std::get<sequence::Note>(
+        xen::selected_sequence(project, xen::CompositionCursor{}).elements.front())
+        .midi_cc = {{1, 0.f}, {74, 0.5f}, {127, 1.f}};
     auto update = xen::CompiledMidiUpdate{.generation = 1};
     update.schedule = xen::MidiCompiler::compile(project, xen::DEFAULT_CHANNEL_ID, 1);
     auto changed_project = project;
     changed_project.composition.columns.at(0).pitch.base_frequency = 441.0F;
+    std::get<sequence::Note>(
+        xen::selected_sequence(changed_project, xen::CompositionCursor{})
+            .elements.front())
+        .midi_cc.at(74) = 0.75f;
     auto changed_update = xen::CompiledMidiUpdate{.generation = 2};
     changed_update.schedule =
         xen::MidiCompiler::compile(changed_project, xen::DEFAULT_CHANNEL_ID, 2);

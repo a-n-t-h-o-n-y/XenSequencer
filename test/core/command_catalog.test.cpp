@@ -446,6 +446,29 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
     CHECK(translate_argument.at("constraints")[0].at("kind") == "one_of");
     CHECK(translate_argument.at("constraints")[0].at("values") ==
           std::vector<std::string>{"up", "down"});
+
+    auto const set_midi_cc = std::find_if(
+        commands.begin(), commands.end(), [](nlohmann::json const &command) {
+            return command.at("path") == std::vector<std::string>{"set", "midiCC"};
+        });
+    REQUIRE(set_midi_cc != commands.end());
+    CHECK(set_midi_cc->at("accepts_pattern_prefix"));
+    CHECK(set_midi_cc->at("target_requirement") == "cell_or_element");
+    REQUIRE(set_midi_cc->at("arguments").size() == 2);
+    CHECK(set_midi_cc->at("arguments")[0].at("kind") == "midi_controller");
+    CHECK(set_midi_cc->at("arguments")[0].at("required"));
+    CHECK(set_midi_cc->at("arguments")[0].at("constraints")[0].at("maximum") == 127);
+    CHECK(set_midi_cc->at("arguments")[1].at("kind") == "normalized_value");
+
+    auto const set_label = std::find_if(
+        commands.begin(), commands.end(), [](nlohmann::json const &command) {
+            return command.at("path") == std::vector<std::string>{"set", "midiCCLabel"};
+        });
+    REQUIRE(set_label != commands.end());
+    CHECK_FALSE(set_label->at("accepts_pattern_prefix"));
+    CHECK(set_label->at("target_requirement") == "none");
+    CHECK(set_label->at("arguments")[1].at("constraints")[0].at("kind") ==
+          "byte_length");
 }
 
 TEST_CASE("Catalog docs are generated from catalog metadata",
