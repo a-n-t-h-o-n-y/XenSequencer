@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <exception>
 #include <functional>
 #include <ranges>
@@ -9,11 +10,13 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
+#include <xen/actions.hpp>
 #include <xen/command_transaction.hpp>
 #include <xen/document_storage.hpp>
 #include <xen/project_validation.hpp>
@@ -38,6 +41,24 @@ auto preview_error(std::string message) -> xen::PreviewControlResult
 {
     return {
         .status = {xen::MessageLevel::Error, std::move(message)},
+    };
+}
+
+auto modulation_preview_error(std::string message,
+                              xen::ModulationPreviewUpdate const &update,
+                              xen::ProjectRevision project_revision,
+                              xen::StateRevision state_revision,
+                              std::uint64_t accepted_sequence = 0)
+    -> xen::ModulationPreviewUpdateResult
+{
+    return {
+        .status = {xen::MessageLevel::Error, std::move(message)},
+        .preview_id = update.preview_id,
+        .accepted_update_sequence = accepted_sequence,
+        .accepted = false,
+        .project_changed = false,
+        .project_revision = project_revision,
+        .state_revision = state_revision,
     };
 }
 
@@ -298,6 +319,7 @@ auto SequencerSession::begin_preview(ProjectRevision expected_revision)
         .id = id,
         .baseline = baseline,
         .command_session = state_.command_session,
+        .kind = ActivePreview::Kind::Command,
     };
     state_.command_session.transform_cycle.reset();
     advance_state_revision();
@@ -305,6 +327,153 @@ auto SequencerSession::begin_preview(ProjectRevision expected_revision)
         .status = {MessageLevel::Info, "Preview started."},
         .preview_id = std::move(id),
     };
+}
+
+auto SequencerSession::begin_modulation_preview(ProjectRevision expected_revision,
+                                                ModulationTarget target)
+    -> PreviewControlResult
+{
+    if (active_preview_.has_value())
+    {
+        return preview_error("A project preview is already active.");
+    }
+    if (state_.recovery.has_value())
+    {
+        return preview_error("Restore or discard the pending recovery before editing.");
+    }
+    auto const current_revision = state_.timeline.get_project_revision();
+    if (expected_revision != current_revision)
+    {
+        return preview_error("stale project revision: expected " +
+                             std::to_string(expected_revision.value()) + ", current " +
+                             std::to_string(current_revision.value()));
+    }
+    if (target.pattern.intervals.empty() ||
+        std::ranges::any_of(target.pattern.intervals,
+                            [](auto interval) { return interval == 0; }))
+    {
+        return preview_error("Modulation pattern intervals must be positive.");
+    }
+
+    try
+    {
+        auto const &root =
+            selected_sequence(state_.timeline.get_state(), target.cursor);
+        auto const matches_pattern = [&target](sequence::Sequence const &sequence) {
+            for (auto i = std::size_t{}; i < sequence.cells.size(); ++i)
+            {
+                if (sequence::pattern_contains(target.pattern, i))
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        auto target_matches = false;
+        if (selection_kind(target.selection) == SelectionKind::Cell)
+        {
+            auto const &cell = get_selected_cell_const(root, target.selection);
+            target_matches = std::ranges::any_of(
+                cell.elements, [&matches_pattern](auto const &element) {
+                    auto const *sequence = std::get_if<sequence::Sequence>(&element);
+                    return sequence != nullptr && matches_pattern(*sequence);
+                });
+        }
+        else
+        {
+            auto const &element = get_selected_element_const(root, target.selection);
+            auto const *sequence = std::get_if<sequence::Sequence>(&element);
+            target_matches = sequence != nullptr && matches_pattern(*sequence);
+        }
+        if (!target_matches)
+        {
+            throw std::invalid_argument{
+                "Modulation target and pattern select no Sequence cells."};
+        }
+    }
+    catch (std::exception const &error)
+    {
+        return preview_error(error.what());
+    }
+
+    auto id = juce::Uuid{}.toString().toStdString();
+    auto const baseline = project_snapshot();
+    active_preview_ = ActivePreview{
+        .id = id,
+        .baseline = baseline,
+        .command_session = state_.command_session,
+        .kind = ActivePreview::Kind::Modulation,
+        .modulation_target = std::move(target),
+    };
+    state_.command_session.transform_cycle.reset();
+    advance_state_revision();
+    return {
+        .status = {MessageLevel::Info, "Modulation preview started."},
+        .preview_id = std::move(id),
+    };
+}
+
+auto SequencerSession::update_modulation_preview(ModulationPreviewUpdate const &update)
+    -> ModulationPreviewUpdateResult
+{
+    auto const current_revision = state_.timeline.get_project_revision();
+    if (!active_preview_.has_value() || active_preview_->id != update.preview_id ||
+        active_preview_->kind != ActivePreview::Kind::Modulation ||
+        !active_preview_->modulation_target.has_value())
+    {
+        return modulation_preview_error("Unknown modulation preview.", update,
+                                        current_revision, state_.state_revision);
+    }
+    auto const accepted_sequence = active_preview_->accepted_update_sequence;
+    if (update.update_sequence <= accepted_sequence)
+    {
+        return {
+            .status = {MessageLevel::Info, "Modulation update already superseded."},
+            .preview_id = update.preview_id,
+            .accepted_update_sequence = accepted_sequence,
+            .accepted = false,
+            .project_changed = false,
+            .project_revision = current_revision,
+            .state_revision = state_.state_revision,
+        };
+    }
+    if (update.expected_project_revision != current_revision)
+    {
+        return modulation_preview_error(
+            "stale project revision: expected " +
+                std::to_string(update.expected_project_revision.value()) +
+                ", current " + std::to_string(current_revision.value()),
+            update, current_revision, state_.state_revision, accepted_sequence);
+    }
+
+    try
+    {
+        auto candidate = active_preview_->baseline.project;
+        candidate = action::apply_modulation(
+            std::move(candidate), *active_preview_->modulation_target,
+            update.destination, update.output_range, update.modulation);
+        auto const changed = state_.timeline.stage(std::move(candidate));
+        active_preview_->accepted_update_sequence = update.update_sequence;
+        if (changed)
+        {
+            advance_state_revision();
+        }
+        return {
+            .status = {MessageLevel::Info, "Modulation preview updated."},
+            .preview_id = update.preview_id,
+            .accepted_update_sequence = update.update_sequence,
+            .accepted = true,
+            .project_changed = changed,
+            .project_revision = state_.timeline.get_project_revision(),
+            .state_revision = state_.state_revision,
+        };
+    }
+    catch (std::exception const &error)
+    {
+        return modulation_preview_error(
+            error.what(), update, state_.timeline.get_project_revision(),
+            state_.state_revision, active_preview_->accepted_update_sequence);
+    }
 }
 
 auto SequencerSession::commit_preview(PreviewId const &preview_id,
@@ -601,6 +770,11 @@ auto SequencerSession::execute_command_string(std::string const &command_string,
                 active_preview_->id != *context.preview_id)
             {
                 return error_result("Unknown project preview.");
+            }
+            if (active_preview_->kind != ActivePreview::Kind::Command)
+            {
+                return error_result(
+                    "Modulation previews accept only modulation updates.");
             }
             auto const preview_safe =
                 !steps.empty() && std::ranges::all_of(steps, [](BoundStep const &step) {
@@ -1359,6 +1533,11 @@ void SequencerSession::restore_persisted_state(PersistedProcessorState state)
     validate_persisted_processor_state(state);
     auto const project_digest = text_revision(serialize_project(state.project));
     auto const previous_state_revision = state_.state_revision;
+    auto const restores_current_snapshot =
+        state.saved_project_revision == state_.timeline.get_project_revision() &&
+        state.saved_state_revision == previous_state_revision &&
+        state.project == state_.timeline.get_state() &&
+        state.document == state_.document;
     detail::reserve_project_revision(state.saved_project_revision);
     detail::reserve_state_revision(state.saved_state_revision);
     instance_binding_ = std::move(state.binding);
@@ -1367,9 +1546,14 @@ void SequencerSession::restore_persisted_state(PersistedProcessorState state)
                                     state.saved_project_revision);
     state_.document = std::move(state.document);
     refresh_document_dirty(project_digest);
-    state_.state_revision = state.saved_state_revision > previous_state_revision
-                                ? state.saved_state_revision
-                                : detail::allocate_state_revision();
+    if (state.saved_state_revision > previous_state_revision)
+    {
+        state_.state_revision = state.saved_state_revision;
+    }
+    else if (!restores_current_snapshot)
+    {
+        advance_state_revision();
+    }
     state_.command_session = CommandSessionState{};
     configure_recovery(state.saved_state_revision);
 }

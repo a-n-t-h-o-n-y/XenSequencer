@@ -6,7 +6,6 @@
 #include <ranges>
 #include <string>
 #include <utility>
-#include <variant>
 
 #include <sequence/modify.hpp>
 
@@ -84,32 +83,17 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
 {
     specs.push_back(command(
         {"set", "pitch"}, true, "Set selected note pitches.", targeted_edit_policy,
-        std::make_tuple(
-            note_pitch_or_modulator_arg("pitch", std::variant<int, Modulator>{0})),
+        std::make_tuple(note_pitch_arg("pitch", 0)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
-           std::variant<int, Modulator> const &pitch) {
+           int pitch) {
             auto state = context.project();
-            if (std::holds_alternative<int>(pitch))
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern, int value) {
-                        return sequence::modify::set_pitch(target, pattern, value);
-                    },
-                    invocation.input.pattern, std::get<int>(pitch));
-            }
-            else
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern,
-                       Modulator const &modulator) {
-                        return action::set_pitches(target, pattern, modulator);
-                    },
-                    invocation.input.pattern, std::get<Modulator>(pitch));
-            }
+            state = increment_state(
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
+                [](auto target, sequence::Pattern const &pattern, int value) {
+                    return sequence::modify::set_pitch(target, pattern, value);
+                },
+                invocation.input.pattern, pitch);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo("Note Set"), context.execution);
         }));
@@ -130,56 +114,29 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(command(
         {"set", "velocity"}, true, "Set selected note velocities.",
         {"volume", "gain", "level", "loudness"}, targeted_edit_policy,
-        std::make_tuple(velocity_or_modulator_arg(
-            "velocity", std::variant<float, Modulator>{100.f / 127.f})),
+        std::make_tuple(velocity_arg("velocity", 100.f / 127.f)),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
-           std::variant<float, Modulator> const &velocity) {
+           float velocity) {
             auto state = context.project();
-            if (std::holds_alternative<float>(velocity))
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern, float value) {
-                        return sequence::modify::set_velocity(target, pattern, value);
-                    },
-                    invocation.input.pattern, std::get<float>(velocity));
-            }
-            else
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern,
-                       Modulator const &modulator) {
-                        return action::set_velocities(target, pattern, modulator);
-                    },
-                    invocation.input.pattern, std::get<Modulator>(velocity));
-            }
+            state = increment_state(
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
+                [](auto target, sequence::Pattern const &pattern, float value) {
+                    return sequence::modify::set_velocity(target, pattern, value);
+                },
+                invocation.input.pattern, velocity);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo("Velocity Set"), context.execution);
         }));
 
-    auto const set_fractional = [](auto scalar_fn, auto modulator_fn,
-                                   std::string message) {
-        return [scalar_fn, modulator_fn, message = std::move(message)](
+    auto const set_fractional = [](auto scalar_fn, std::string message) {
+        return [scalar_fn, message = std::move(message)](
                    CommandHandlerContext &context, CommandInvocation const &invocation,
-                   std::variant<float, Modulator> const &value) {
+                   float value) {
             auto state = context.project();
-            if (std::holds_alternative<float>(value))
-            {
-                state =
-                    increment_state(std::move(state), context.execution.cursor,
+            state = increment_state(std::move(state), context.execution.cursor,
                                     require_selection(context.execution), scalar_fn,
-                                    invocation.input.pattern, std::get<float>(value));
-            }
-            else
-            {
-                state = increment_state(std::move(state), context.execution.cursor,
-                                        require_selection(context.execution),
-                                        modulator_fn, invocation.input.pattern,
-                                        std::get<Modulator>(value));
-            }
+                                    invocation.input.pattern, value);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo(message), context.execution);
         };
@@ -188,31 +145,20 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
     specs.push_back(
         command({"set", "delay"}, true, "Set selected note delays.",
                 {"offset", "timing", "shift"}, targeted_edit_policy,
-                std::make_tuple(delay_or_modulator_arg(
-                    "delay", std::variant<float, Modulator>{0.f})),
+                std::make_tuple(delay_arg("delay", 0.f)),
                 set_fractional(
                     [](auto target, sequence::Pattern const &pattern, float value) {
                         return sequence::modify::set_delay(target, pattern, value);
                     },
-                    [](auto target, sequence::Pattern const &pattern,
-                       Modulator const &modulator) {
-                        return action::set_delays(target, pattern, modulator);
-                    },
                     "Delay Set")));
-    specs.push_back(
-        command({"set", "gate"}, true, "Set selected note gates.",
-                {"duration", "length"}, targeted_edit_policy,
-                std::make_tuple(
-                    gate_or_modulator_arg("gate", std::variant<float, Modulator>{1.f})),
-                set_fractional(
-                    [](auto target, sequence::Pattern const &pattern, float value) {
-                        return sequence::modify::set_gate(target, pattern, value);
-                    },
-                    [](auto target, sequence::Pattern const &pattern,
-                       Modulator const &modulator) {
-                        return action::set_gates(target, pattern, modulator);
-                    },
-                    "Gate Set")));
+    specs.push_back(command(
+        {"set", "gate"}, true, "Set selected note gates.", {"duration", "length"},
+        targeted_edit_policy, std::make_tuple(gate_arg("gate", 1.f)),
+        set_fractional(
+            [](auto target, sequence::Pattern const &pattern, float value) {
+                return sequence::modify::set_gate(target, pattern, value);
+            },
+            "Gate Set")));
 
     specs.push_back(command(
         {"set", "duration"}, false, "Set selected column duration.",
@@ -330,44 +276,31 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
         }));
 
     specs.push_back(command(
-        {"set", "weight"}, false, "Set selected cell weight.", cell_edit_policy,
+        {"set", "weight"}, false, "Set selected or parent cell weight.",
+        targeted_edit_policy,
         std::make_tuple(positive_weight_arg("cell_weight", "value")),
         [](CommandHandlerContext &context, CommandInvocation const &, float value) {
             auto state = context.project();
-            state = increment_state(std::move(state), context.execution.cursor,
-                                    require_selection(context.execution),
-                                    &action::set_weight, value);
+            state = action::set_selected_weight(
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution), value);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo("Weight Set"), context.execution);
         }));
 
     specs.push_back(command(
         {"set", "weights"}, true, "Set child weights in selected cell.",
-        cell_edit_policy, std::make_tuple(positive_weight_or_modulator_arg("weight")),
+        cell_edit_policy, std::make_tuple(positive_weight_arg("cell_weight", "weight")),
         [](CommandHandlerContext &context, CommandInvocation const &invocation,
-           std::variant<float, Modulator> const &weight) {
+           float weight) {
             auto state = context.project();
-            if (std::holds_alternative<float>(weight))
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern, float value) {
-                        return action::set_weights(target, pattern, value);
-                    },
-                    invocation.input.pattern, std::get<float>(weight));
-            }
-            else
-            {
-                state = increment_state(
-                    std::move(state), context.execution.cursor,
-                    require_selection(context.execution),
-                    [](auto target, sequence::Pattern const &pattern,
-                       Modulator const &modulator) {
-                        return action::set_weights(target, pattern, modulator);
-                    },
-                    invocation.input.pattern, std::get<Modulator>(weight));
-            }
+            state = increment_state(
+                std::move(state), context.execution.cursor,
+                require_selection(context.execution),
+                [](auto target, sequence::Pattern const &pattern, float value) {
+                    return action::set_weights(target, pattern, value);
+                },
+                invocation.input.pattern, weight);
             context.edit_project() = std::move(state);
             return unchanged_selection_result(minfo("Weights Set"), context.execution);
         }));
@@ -478,6 +411,18 @@ void append_set_and_shift_specs(std::vector<CommandSpec> &specs)
                         return sequence::modify::shift_gate(target, pattern, amount);
                     },
                     "Gate Shifted")));
+
+    specs.push_back(command(
+        {"shift", "weight"}, false, "Shift selected or parent cell weight.",
+        targeted_edit_policy, std::make_tuple(weight_offset_arg("amount", 0.1f)),
+        [](CommandHandlerContext &context, CommandInvocation const &, float amount) {
+            auto state = action::shift_selected_weight(
+                context.project(), context.execution.cursor,
+                require_selection(context.execution), amount);
+            context.edit_project() = std::move(state);
+            return unchanged_selection_result(minfo("Weight Shifted"),
+                                              context.execution);
+        }));
 
     specs.push_back(command(
         {"shift", "scale"}, false, "Shift loaded scale index.",

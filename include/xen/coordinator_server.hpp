@@ -47,6 +47,7 @@ class CoordinatorServer final : public juce::InterprocessConnectionServer
     std::atomic<int64_t> last_disconnect_ms_{0};
     std::atomic<bool> shutdown_requested_{false};
     mutable std::mutex coordinator_mutex_;
+    bool project_broadcast_pending_{false};
 
     auto createConnectionObject() -> juce::InterprocessConnection * override;
 };

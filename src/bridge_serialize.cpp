@@ -376,6 +376,11 @@ auto make_catalog_payload(std::vector<CatalogCommandMetadata> const &commands)
     };
 }
 
+auto make_modulation_catalog_payload() -> nlohmann::json
+{
+    return modulation_catalog_to_json();
+}
+
 auto make_keymap_payload(KeymapResource const &resource) -> nlohmann::json
 {
     return nlohmann::json{

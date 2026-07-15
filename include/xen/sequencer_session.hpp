@@ -37,6 +37,11 @@ class SequencerSession final : public SequencerSessionPort
         -> CommandApplicationResult override;
     [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto begin_modulation_preview(ProjectRevision expected_revision,
+                                                ModulationTarget target)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto update_modulation_preview(ModulationPreviewUpdate const &update)
+        -> ModulationPreviewUpdateResult override;
     [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
@@ -90,9 +95,18 @@ class SequencerSession final : public SequencerSessionPort
 
     struct ActivePreview
     {
+        enum class Kind : std::uint8_t
+        {
+            Command,
+            Modulation,
+        };
+
         PreviewId id{};
         ProjectSnapshot baseline{};
         CommandSessionState command_session{};
+        Kind kind{Kind::Command};
+        std::optional<ModulationTarget> modulation_target{};
+        std::uint64_t accepted_update_sequence{};
     };
     std::optional<ActivePreview> active_preview_{};
     std::optional<PersistedRecoveryState> recovery_candidate_{};

@@ -12,6 +12,7 @@
 #include <xen/coordinator_registry.hpp>
 #include <xen/ipc_protocol.hpp>
 #include <xen/message_level.hpp>
+#include <xen/selection.hpp>
 #include <xen/session_coordinator.hpp>
 
 using namespace xen;
@@ -450,6 +451,55 @@ TEST_CASE("SessionCoordinator owns and cancels shared previews",
     CHECK(coordinator.instances().size() == 1);
 }
 
+TEST_CASE("SessionCoordinator enforces modulation preview ownership",
+          "[sync][ipc][coordinator][modulation]")
+{
+    auto coordinator = ipc::SessionCoordinator{};
+    auto const hello_a = coordinator.connect({.binding = binding("instance-a")});
+    auto const hello_b = coordinator.connect({.binding = binding("instance-b")});
+    auto execute = [&](std::string command, SelectionPath selection) {
+        return coordinator.execute({
+            .request_id = "setup",
+            .source_instance_id = hello_a.binding.instance_id,
+            .command = std::move(command),
+            .context = {.selection = std::move(selection),
+                        .expected_project_revision =
+                            coordinator.snapshot().project_revision},
+        });
+    };
+    REQUIRE(execute("note 0", {}).result.status.first == MessageLevel::Info);
+    REQUIRE(execute("split 4", select_element_in_cell({}, 0)).result.status.first ==
+            MessageLevel::Info);
+
+    auto const started = coordinator.begin_modulation_preview({
+        .request_id = "modulation-begin",
+        .source_instance_id = hello_a.binding.instance_id,
+        .expected_project_revision = coordinator.snapshot().project_revision,
+        .target = {.selection = select_element_in_cell({}, 0)},
+    });
+    REQUIRE(started.result.preview_id.has_value());
+
+    auto const foreign = coordinator.update_modulation_preview({
+        .request_id = "modulation-foreign",
+        .source_instance_id = hello_b.binding.instance_id,
+        .update = {.preview_id = *started.result.preview_id,
+                   .update_sequence = 1,
+                   .expected_project_revision = coordinator.snapshot().project_revision,
+                   .modulation = {.waveforms = {{}}}},
+    });
+    CHECK(foreign.result.status.first == MessageLevel::Error);
+
+    auto const owner = coordinator.update_modulation_preview({
+        .request_id = "modulation-owner",
+        .source_instance_id = hello_a.binding.instance_id,
+        .update = {.preview_id = *started.result.preview_id,
+                   .update_sequence = 1,
+                   .expected_project_revision = coordinator.snapshot().project_revision,
+                   .modulation = {.waveforms = {{}}}},
+    });
+    CHECK(owner.result.accepted);
+}
+
 TEST_CASE("IPC protocol round-trips preview lifecycle messages", "[sync][ipc][preview]")
 {
     auto const begin =
@@ -491,6 +541,30 @@ TEST_CASE("IPC protocol round-trips preview lifecycle messages", "[sync][ipc][pr
     }));
     CHECK(response.result.preview_id == "token");
     CHECK(response.snapshot.preview_active);
+
+    auto const modulation_begin = ipc::decode_modulation_preview_begin_request(
+        ipc::encode_modulation_preview_begin_request({
+            .request_id = "modulation-1",
+            .source_instance_id = "instance-a",
+            .expected_project_revision = ProjectRevision{14},
+            .target = {.selection = select_element_in_cell({}, 0)},
+        }));
+    CHECK(modulation_begin.expected_project_revision.value() == 14);
+    CHECK(modulation_begin.target.selection == select_element_in_cell({}, 0));
+
+    auto const modulation_update = ipc::decode_modulation_preview_update_request(
+        ipc::encode_modulation_preview_update_request({
+            .request_id = "modulation-2",
+            .source_instance_id = "instance-a",
+            .update = {.preview_id = "token",
+                       .update_sequence = 8,
+                       .expected_project_revision = ProjectRevision{15},
+                       .destination = ModulationDestination::Velocity,
+                       .output_range = {.minimum = 0.0, .maximum = 1.0},
+                       .modulation = {.waveforms = {{}}}},
+        }));
+    CHECK(modulation_update.update.update_sequence == 8);
+    CHECK(modulation_update.update.modulation.waveforms.size() == 1);
 }
 
 TEST_CASE("SessionCoordinator accepts inactive composition row channels",

@@ -8,12 +8,13 @@
 
 #include <xen/command_catalog_types.hpp>
 #include <xen/document.hpp>
+#include <xen/modulation.hpp>
 #include <xen/state.hpp>
 
 namespace xen::ipc
 {
 
-inline constexpr auto protocol = "xen.ipc.v3";
+inline constexpr auto protocol = "xen.ipc.v4";
 
 struct ClientHello
 {
@@ -65,6 +66,27 @@ struct PreviewResponse
     std::string request_id{};
     PreviewControlResult result{};
     ProjectSnapshot snapshot{};
+};
+
+struct ModulationPreviewBeginRequest
+{
+    std::string request_id{};
+    InstanceId source_instance_id{};
+    ProjectRevision expected_project_revision{};
+    ModulationTarget target{};
+};
+
+struct ModulationPreviewUpdateRequest
+{
+    std::string request_id{};
+    InstanceId source_instance_id{};
+    ModulationPreviewUpdate update{};
+};
+
+struct ModulationPreviewUpdateResponse
+{
+    std::string request_id{};
+    ModulationPreviewUpdateResult result{};
 };
 
 struct DocumentRequest
@@ -173,6 +195,18 @@ struct IpcError
     -> nlohmann::json;
 [[nodiscard]] auto decode_preview_response(nlohmann::json const &message)
     -> PreviewResponse;
+[[nodiscard]] auto encode_modulation_preview_begin_request(
+    ModulationPreviewBeginRequest const &message) -> nlohmann::json;
+[[nodiscard]] auto decode_modulation_preview_begin_request(
+    nlohmann::json const &message) -> ModulationPreviewBeginRequest;
+[[nodiscard]] auto encode_modulation_preview_update_request(
+    ModulationPreviewUpdateRequest const &message) -> nlohmann::json;
+[[nodiscard]] auto decode_modulation_preview_update_request(
+    nlohmann::json const &message) -> ModulationPreviewUpdateRequest;
+[[nodiscard]] auto encode_modulation_preview_update_response(
+    ModulationPreviewUpdateResponse const &message) -> nlohmann::json;
+[[nodiscard]] auto decode_modulation_preview_update_response(
+    nlohmann::json const &message) -> ModulationPreviewUpdateResponse;
 
 [[nodiscard]] auto encode_document_request(DocumentRequest const &message)
     -> nlohmann::json;

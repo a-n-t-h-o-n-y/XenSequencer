@@ -59,6 +59,18 @@ constexpr auto MAX_IPC_MESSAGE_EVENTS = std::size_t{10'000'000};
     return {.status = {MessageLevel::Error, std::move(message)}};
 }
 
+[[nodiscard]] auto modulation_preview_error(std::string message,
+                                            ModulationPreviewUpdate const &update)
+    -> ModulationPreviewUpdateResult
+{
+    return {
+        .status = {MessageLevel::Error, std::move(message)},
+        .preview_id = update.preview_id,
+        .accepted_update_sequence = 0,
+        .accepted = false,
+    };
+}
+
 [[nodiscard]] auto error_matches(std::optional<IpcError> const &error,
                                  std::string_view request_id) -> bool
 {
@@ -177,6 +189,67 @@ auto IpcSequencerSessionClient::begin_preview(ProjectRevision expected_revision)
             .expected_project_revision = expected_revision,
         }),
         request_id);
+}
+
+auto IpcSequencerSessionClient::begin_modulation_preview(
+    ProjectRevision expected_revision, ModulationTarget target) -> PreviewControlResult
+{
+    auto const request_id = next_request_id();
+    return finish_preview_request(
+        encode_modulation_preview_begin_request({
+            .request_id = request_id,
+            .source_instance_id = instance_binding().instance_id,
+            .expected_project_revision = expected_revision,
+            .target = std::move(target),
+        }),
+        request_id);
+}
+
+auto IpcSequencerSessionClient::update_modulation_preview(
+    ModulationPreviewUpdate const &update) -> ModulationPreviewUpdateResult
+{
+    auto const request_lock = std::scoped_lock{request_mutex_};
+    auto const request_id = next_request_id();
+    {
+        auto const lock = std::scoped_lock{mutex_};
+        if (!online_)
+        {
+            return modulation_preview_error("XenSequencerCoordinator is offline.",
+                                            update);
+        }
+        pending_modulation_preview_update_response_.reset();
+        pending_error_.reset();
+    }
+
+    send_json(encode_modulation_preview_update_request({
+        .request_id = request_id,
+        .source_instance_id = instance_binding().instance_id,
+        .update = update,
+    }));
+    auto lock = std::unique_lock{mutex_};
+    auto const received = response_ready_.wait_for(lock, std::chrono::seconds{5}, [&] {
+        return (pending_modulation_preview_update_response_.has_value() &&
+                pending_modulation_preview_update_response_->request_id ==
+                    request_id) ||
+               error_matches(pending_error_, request_id) || !online_;
+    });
+    if (!received)
+    {
+        return modulation_preview_error(
+            "Timed out waiting for XenSequencerCoordinator.", update);
+    }
+    if (error_matches(pending_error_, request_id))
+    {
+        return modulation_preview_error(pending_error_->message, update);
+    }
+    if (!pending_modulation_preview_update_response_.has_value())
+    {
+        return modulation_preview_error("XenSequencerCoordinator disconnected.",
+                                        update);
+    }
+    auto response = std::move(*pending_modulation_preview_update_response_);
+    pending_modulation_preview_update_response_.reset();
+    return std::move(response.result);
 }
 
 auto IpcSequencerSessionClient::commit_preview(PreviewId const &preview_id,
@@ -571,7 +644,14 @@ auto IpcSequencerSessionClient::request_helper_shutdown_if_idle() -> bool
 
 void IpcSequencerSessionClient::submit_midi_compilation()
 {
+    if (last_midi_compilation_state_revision_ == project_snapshot_.state_revision &&
+        last_midi_compilation_channel_id_ == binding_.channel_id)
+    {
+        return;
+    }
     (void)midi_compilation_.submit(project_snapshot_.project, binding_.channel_id);
+    last_midi_compilation_state_revision_ = project_snapshot_.state_revision;
+    last_midi_compilation_channel_id_ = binding_.channel_id;
 }
 
 void IpcSequencerSessionClient::ingest_project_snapshot(ProjectSnapshot snapshot)
@@ -648,6 +728,13 @@ void IpcSequencerSessionClient::messageReceived(juce::MemoryBlock const &message
         if (type == "preview.result")
         {
             pending_preview_response_ = decode_preview_response(json);
+            response_ready_.notify_all();
+            return;
+        }
+        if (type == "modulation.preview.update.result")
+        {
+            pending_modulation_preview_update_response_ =
+                decode_modulation_preview_update_response(json);
             response_ready_.notify_all();
             return;
         }

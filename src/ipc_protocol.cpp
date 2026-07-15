@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include <xen/modulation_json.hpp>
 #include <xen/project_validation.hpp>
 #include <xen/serialize.hpp>
 
@@ -704,6 +705,102 @@ auto decode_preview_response(nlohmann::json const &message) -> PreviewResponse
         .request_id = payload.at("request_id").get<std::string>(),
         .result = std::move(result),
         .snapshot = snapshot_from_json(payload.at("snapshot")),
+    };
+}
+
+auto encode_modulation_preview_begin_request(
+    ModulationPreviewBeginRequest const &message) -> nlohmann::json
+{
+    return envelope(
+        "modulation.preview.begin",
+        {{"request_id", message.request_id},
+         {"source_instance_id", message.source_instance_id},
+         {"expected_project_revision", message.expected_project_revision.value()},
+         {"target", modulation_target_to_json(message.target)}});
+}
+
+auto decode_modulation_preview_begin_request(nlohmann::json const &message)
+    -> ModulationPreviewBeginRequest
+{
+    auto const &payload = require_protocol(message, "modulation.preview.begin");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .source_instance_id = payload.at("source_instance_id").get<InstanceId>(),
+        .expected_project_revision =
+            ProjectRevision{
+                payload.at("expected_project_revision").get<std::uint64_t>()},
+        .target = modulation_target_from_json(payload.at("target")),
+    };
+}
+
+auto encode_modulation_preview_update_request(
+    ModulationPreviewUpdateRequest const &message) -> nlohmann::json
+{
+    auto const &update = message.update;
+    return envelope(
+        "modulation.preview.update",
+        {{"request_id", message.request_id},
+         {"source_instance_id", message.source_instance_id},
+         {"preview_id", update.preview_id},
+         {"update_sequence", update.update_sequence},
+         {"expected_project_revision", update.expected_project_revision.value()},
+         {"destination", modulation_destination_to_json(update.destination)},
+         {"output_range", modulation_output_range_to_json(update.output_range)},
+         {"modulation", modulation_definition_to_json(update.modulation)}});
+}
+
+auto decode_modulation_preview_update_request(nlohmann::json const &message)
+    -> ModulationPreviewUpdateRequest
+{
+    auto const &payload = require_protocol(message, "modulation.preview.update");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .source_instance_id = payload.at("source_instance_id").get<InstanceId>(),
+        .update =
+            {.preview_id = payload.at("preview_id").get<PreviewId>(),
+             .update_sequence = payload.at("update_sequence").get<std::uint64_t>(),
+             .expected_project_revision =
+                 ProjectRevision{
+                     payload.at("expected_project_revision").get<std::uint64_t>()},
+             .destination = modulation_destination_from_json(payload.at("destination")),
+             .output_range =
+                 modulation_output_range_from_json(payload.at("output_range")),
+             .modulation = modulation_definition_from_json(payload.at("modulation"))},
+    };
+}
+
+auto encode_modulation_preview_update_response(
+    ModulationPreviewUpdateResponse const &message) -> nlohmann::json
+{
+    auto const &result = message.result;
+    return envelope("modulation.preview.update.result",
+                    {{"request_id", message.request_id},
+                     {"status", status_to_json(result.status)},
+                     {"preview_id", result.preview_id},
+                     {"accepted_update_sequence", result.accepted_update_sequence},
+                     {"accepted", result.accepted},
+                     {"project_changed", result.project_changed},
+                     {"project_revision", result.project_revision.value()},
+                     {"state_revision", result.state_revision.value()}});
+}
+
+auto decode_modulation_preview_update_response(nlohmann::json const &message)
+    -> ModulationPreviewUpdateResponse
+{
+    auto const &payload = require_protocol(message, "modulation.preview.update.result");
+    return {
+        .request_id = payload.at("request_id").get<std::string>(),
+        .result =
+            {.status = status_from_json(payload.at("status")),
+             .preview_id = payload.at("preview_id").get<PreviewId>(),
+             .accepted_update_sequence =
+                 payload.at("accepted_update_sequence").get<std::uint64_t>(),
+             .accepted = payload.at("accepted").get<bool>(),
+             .project_changed = payload.at("project_changed").get<bool>(),
+             .project_revision =
+                 ProjectRevision{payload.at("project_revision").get<std::uint64_t>()},
+             .state_revision =
+                 StateRevision{payload.at("state_revision").get<std::uint64_t>()}},
     };
 }
 

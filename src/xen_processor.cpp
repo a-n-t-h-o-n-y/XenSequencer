@@ -118,6 +118,23 @@ class OfflineSequencerSession final : public xen::ProcessorSessionPort
         return {.status = {xen::MessageLevel::Error, error_message_}};
     }
 
+    [[nodiscard]] auto begin_modulation_preview(xen::ProjectRevision,
+                                                xen::ModulationTarget)
+        -> xen::PreviewControlResult override
+    {
+        return {.status = {xen::MessageLevel::Error, error_message_}};
+    }
+
+    [[nodiscard]] auto update_modulation_preview(
+        xen::ModulationPreviewUpdate const &update)
+        -> xen::ModulationPreviewUpdateResult override
+    {
+        return {
+            .status = {xen::MessageLevel::Error, error_message_},
+            .preview_id = update.preview_id,
+        };
+    }
+
     [[nodiscard]] auto commit_preview(xen::PreviewId const &, xen::ProjectRevision)
         -> xen::PreviewControlResult override
     {

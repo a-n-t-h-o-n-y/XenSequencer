@@ -38,6 +38,11 @@ class ApplicationBridgeService
         -> CommandApplicationResult = 0;
     [[nodiscard]] virtual auto begin_preview(ProjectRevision expected_revision)
         -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto begin_modulation_preview(
+        ProjectRevision expected_revision, ModulationTarget target)
+        -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto update_modulation_preview(
+        ModulationPreviewUpdate const &update) -> ModulationPreviewUpdateResult = 0;
     [[nodiscard]] virtual auto commit_preview(PreviewId const &preview_id,
                                               ProjectRevision expected_revision)
         -> PreviewControlResult = 0;
@@ -155,6 +160,11 @@ class SequencerApplicationBridgeService final : public ApplicationBridgeService
         -> CommandApplicationResult override;
     [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto begin_modulation_preview(ProjectRevision expected_revision,
+                                                ModulationTarget target)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto update_modulation_preview(ModulationPreviewUpdate const &update)
+        -> ModulationPreviewUpdateResult override;
     [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
@@ -286,6 +296,14 @@ class BridgeRequestDispatcher
     [[nodiscard]] auto handle_preview_commit(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_preview_cancel(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_modulation_preview_begin(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_modulation_preview_update(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_modulation_preview_commit(ParsedRequest const &request)
+        -> nlohmann::json;
+    [[nodiscard]] auto handle_modulation_preview_cancel(ParsedRequest const &request)
         -> nlohmann::json;
     [[nodiscard]] auto handle_library_get(ParsedRequest const &request)
         -> nlohmann::json;

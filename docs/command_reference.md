@@ -34,19 +34,19 @@ note | `note [pitch: pitch=0] [velocity: velocity=0.787402] [delay: delay=0] [ga
 delete | `delete` | Delete the current selection.
 split | `split [repeat_count: count=2]` | Split the current selection.
 lift | `lift` | Lift the current selection up one level.
-set pitch | `[pattern] set pitch [pitch | modulator: pitch=0]` | Set selected note pitches.
+set pitch | `[pattern] set pitch [pitch: pitch=0]` | Set selected note pitches.
 set octave | `[pattern] set octave [octave: octave=0]` | Set selected note octaves.
-set velocity | `[pattern] set velocity [velocity | modulator: velocity=0.787402]` | Set selected note velocities.
-set delay | `[pattern] set delay [delay | modulator: delay=0]` | Set selected note delays.
-set gate | `[pattern] set gate [gate | modulator: gate=1]` | Set selected note gates.
+set velocity | `[pattern] set velocity [velocity: velocity=0.787402]` | Set selected note velocities.
+set delay | `[pattern] set delay [delay: delay=0]` | Set selected note delays.
+set gate | `[pattern] set gate [gate: gate=1]` | Set selected note gates.
 set duration | `set duration [time_signature: timesignature=4/4]` | Set selected column duration.
 set baseFrequency | `set baseFrequency [frequency_hz: freq=440]` | Set base frequency in Hz.
 set scale | `set scale [scale_id: source_id]` | Set the active scale by source ID.
 set mode | `set mode [scale_mode: mode_index]` | Set the active scale mode index.
 set translateDirection | `set translateDirection [translate_direction: direction]` | Set scale translate direction.
 set key | `set key [transpose_key: key=0]` | Set transposition key.
-set weight | `set weight [cell_weight: value]` | Set selected cell weight.
-set weights | `[pattern] set weights [cell_weight | modulator: weight]` | Set child weights in selected cell.
+set weight | `set weight [cell_weight: value]` | Set selected or parent cell weight.
+set weights | `[pattern] set weights [cell_weight: weight]` | Set child weights in selected cell.
 double duration | `double duration` | Double selected column duration.
 halve duration | `halve duration` | Halve selected column duration.
 shift pitch | `[pattern] shift pitch [pitch_offset: amount=1]` | Shift selected note pitches.
@@ -54,6 +54,7 @@ shift octave | `[pattern] shift octave [octave_offset: amount=1]` | Shift select
 shift velocity | `[pattern] shift velocity [velocity_offset: amount=0.1]` | Shift selected note velocities.
 shift delay | `[pattern] shift delay [delay_offset: amount=0.1]` | Shift selected note delays.
 shift gate | `[pattern] shift gate [gate_offset: amount=0.1]` | Shift selected note gates.
+shift weight | `shift weight [cell_weight_offset: amount=0.1]` | Shift selected or parent cell weight.
 shift scale | `shift scale [scale_offset: amount=1]` | Shift loaded scale index.
 shift scaleMode | `shift scaleMode [scale_mode_offset: amount=1]` | Shift scale mode.
 shift translateDirection | `shift translateDirection` | Flip translate direction.

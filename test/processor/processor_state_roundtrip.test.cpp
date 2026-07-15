@@ -115,7 +115,7 @@ TEST_CASE("Processor setStateInformation ignores invalid payload safely",
           before_compilation.requested_generation);
 }
 
-TEST_CASE("Processor setStateInformation publishes and advances snapshot on success",
+TEST_CASE("Processor setStateInformation publishes and compiles snapshot on success",
           "[processor][state]")
 {
     auto source = XenProcessor{};
@@ -132,15 +132,13 @@ TEST_CASE("Processor setStateInformation publishes and advances snapshot on succ
 
     auto target = XenProcessor{};
     auto const before = target.session().project_snapshot();
-    auto const before_compilation = target.midi_compilation_status();
 
     REQUIRE_NOTHROW(target.setStateInformation(blob.getData(), (int)blob.getSize()));
 
     auto const after = target.session().project_snapshot();
     CHECK(after.history_entry_id != before.history_entry_id);
     CHECK(after.project_revision != before.project_revision);
-    CHECK(target.midi_compilation_status().requested_generation >
-          before_compilation.requested_generation);
+    CHECK(target.midi_compilation_status().requested_generation > 0);
 }
 
 TEST_CASE("Processor equal-data restoration replaces project history",

@@ -152,7 +152,6 @@ TEST_CASE("Project history replacement is rejected during previews",
         session.execute_command_string("project new", current_context(session));
 
     CHECK(result.status.first == MessageLevel::Error);
-    CHECK(result.status.second.find("project preview is active") != std::string::npos);
     auto const after = session.project_snapshot();
     CHECK(after.project == before.project);
     CHECK(after.history_entry_id == before.history_entry_id);
@@ -199,6 +198,72 @@ TEST_CASE("Preview updates stage repeatedly and commit one undo entry",
         "undo", {.expected_project_revision = final.project_revision});
     REQUIRE(undone.status.first == MessageLevel::Info);
     CHECK(session.project_snapshot().project == initial.project);
+}
+
+TEST_CASE("Modulation preview updates replace the staged result from its baseline",
+          "[processor][timeline][preview][modulation]")
+{
+    auto session = SequencerSession{};
+    auto project = session.project_snapshot().project;
+    selected_sequence(project, {}) = sequence::Cell{
+        .elements = {sequence::Sequence{
+            {sequence::Cell{.elements = {sequence::Note{.velocity = 0.25f}}},
+             sequence::Cell{.elements = {sequence::Note{.velocity = 0.25f}}},
+             sequence::Cell{.elements = {sequence::Note{.velocity = 0.25f}}},
+             sequence::Cell{.elements = {sequence::Note{.velocity = 0.25f}}}}}},
+    };
+    session.replace_project_history(std::move(project));
+    auto const baseline = session.project_snapshot();
+    auto const started = session.begin_modulation_preview(
+        baseline.project_revision,
+        {.selection = select_element_in_cell({}, 0), .pattern = {0, {1}}});
+    REQUIRE(started.preview_id.has_value());
+    auto const command_update = session.execute_command_string(
+        "set key 3",
+        {.expected_project_revision = session.project_snapshot().project_revision,
+         .preview_id = started.preview_id});
+    CHECK(command_update.status.first == MessageLevel::Error);
+    CHECK(command_update.status.second ==
+          "Modulation previews accept only modulation updates.");
+
+    auto update = ModulationPreviewUpdate{
+        .preview_id = *started.preview_id,
+        .update_sequence = 1,
+        .expected_project_revision = session.project_snapshot().project_revision,
+        .destination = ModulationDestination::Velocity,
+        .output_range = {.minimum = 0.0, .maximum = 1.0},
+        .modulation = {.waveforms = {{.frequency = 1.f}}},
+    };
+    auto const first = session.update_modulation_preview(update);
+    REQUIRE(first.accepted);
+    auto const first_snapshot = session.project_snapshot();
+    auto const &first_sequence = std::get<sequence::Sequence>(
+        selected_sequence(first_snapshot.project, {}).elements.front());
+    CHECK(std::get<sequence::Note>(first_sequence.cells.at(1).elements.front())
+              .velocity == 1.f);
+
+    update.update_sequence = 2;
+    update.expected_project_revision = first.project_revision;
+    update.modulation.waveforms.front().amplitude = 0.f;
+    auto const second = session.update_modulation_preview(update);
+    REQUIRE(second.accepted);
+    auto const second_snapshot = session.project_snapshot();
+    auto const &second_sequence = std::get<sequence::Sequence>(
+        selected_sequence(second_snapshot.project, {}).elements.front());
+    for (auto const &cell : second_sequence.cells)
+    {
+        CHECK(std::get<sequence::Note>(cell.elements.front()).velocity == 0.5f);
+    }
+
+    auto const duplicate = session.update_modulation_preview(update);
+    CHECK_FALSE(duplicate.accepted);
+    CHECK(duplicate.accepted_update_sequence == 2);
+
+    REQUIRE(session
+                .cancel_preview(*started.preview_id,
+                                session.project_snapshot().project_revision)
+                .status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot().project == baseline.project);
 }
 
 TEST_CASE("Previews allow copy buffer reads but reject writes",

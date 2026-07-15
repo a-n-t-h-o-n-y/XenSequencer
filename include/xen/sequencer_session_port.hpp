@@ -8,6 +8,7 @@
 #include <xen/command.hpp>
 #include <xen/command_catalog_types.hpp>
 #include <xen/document.hpp>
+#include <xen/modulation.hpp>
 #include <xen/state.hpp>
 
 namespace xen
@@ -32,6 +33,11 @@ class SequencerSessionPort
 
     [[nodiscard]] virtual auto begin_preview(ProjectRevision expected_revision)
         -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto begin_modulation_preview(
+        ProjectRevision expected_revision, ModulationTarget target)
+        -> PreviewControlResult = 0;
+    [[nodiscard]] virtual auto update_modulation_preview(
+        ModulationPreviewUpdate const &update) -> ModulationPreviewUpdateResult = 0;
     [[nodiscard]] virtual auto commit_preview(PreviewId const &preview_id,
                                               ProjectRevision expected_revision)
         -> PreviewControlResult = 0;

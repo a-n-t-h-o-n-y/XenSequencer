@@ -17,6 +17,7 @@
 #include <xen/bridge_serialize.hpp>
 #include <xen/constants.hpp>
 #include <xen/document_storage.hpp>
+#include <xen/modulation_json.hpp>
 #include <xen/text_file.hpp>
 #include <xen/user_directory.hpp>
 
@@ -305,6 +306,18 @@ auto SequencerApplicationBridgeService::begin_preview(ProjectRevision expected_r
     -> PreviewControlResult
 {
     return session_.begin_preview(expected_revision);
+}
+
+auto SequencerApplicationBridgeService::begin_modulation_preview(
+    ProjectRevision expected_revision, ModulationTarget target) -> PreviewControlResult
+{
+    return session_.begin_modulation_preview(expected_revision, std::move(target));
+}
+
+auto SequencerApplicationBridgeService::update_modulation_preview(
+    ModulationPreviewUpdate const &update) -> ModulationPreviewUpdateResult
+{
+    return session_.update_modulation_preview(update);
 }
 
 auto SequencerApplicationBridgeService::commit_preview(
@@ -636,6 +649,22 @@ BridgeRequestDispatcher::BridgeRequestDispatcher(ApplicationBridgeService &appli
          [this](ParsedRequest const &request) {
              return handle_preview_cancel(request);
          }},
+        {"modulation.preview.begin",
+         [this](ParsedRequest const &request) {
+             return handle_modulation_preview_begin(request);
+         }},
+        {"modulation.preview.update",
+         [this](ParsedRequest const &request) {
+             return handle_modulation_preview_update(request);
+         }},
+        {"modulation.preview.commit",
+         [this](ParsedRequest const &request) {
+             return handle_modulation_preview_commit(request);
+         }},
+        {"modulation.preview.cancel",
+         [this](ParsedRequest const &request) {
+             return handle_modulation_preview_cancel(request);
+         }},
         {"library.get",
          [this](ParsedRequest const &request) { return handle_library_get(request); }},
         {"project.new",
@@ -839,6 +868,7 @@ auto BridgeRequestDispatcher::handle_session_hello(ParsedRequest const &request)
         {"project_schema_version", project_schema_version},
         {"library_schema_version", library_schema_version},
         {"catalog", make_catalog_payload(application_.command_catalog_metadata())},
+        {"modulation", make_modulation_catalog_payload()},
         {"binding", make_instance_binding(application_.instance_binding())},
         {"keymap", make_keymap_payload(keymap_.read())},
         {"preferences", make_preferences_payload(preferences_.read())},
@@ -947,6 +977,73 @@ auto BridgeRequestDispatcher::handle_preview_cancel(ParsedRequest const &request
           {"message", result.status.second}}},
         {"snapshot", make_project_snapshot(application_.project_snapshot())},
     };
+}
+
+auto BridgeRequestDispatcher::handle_modulation_preview_begin(
+    ParsedRequest const &request) -> nlohmann::json
+{
+    auto const revision = ProjectRevision{
+        require_resource_revision(request.payload, "expected_project_revision")};
+    auto const result = application_.begin_modulation_preview(
+        revision,
+        modulation_target_from_json(require_object(request.payload, "target")));
+    return {
+        {"status",
+         {{"level", to_string(result.status.first)},
+          {"message", result.status.second}}},
+        {"preview_id", result.preview_id.has_value()
+                           ? nlohmann::json(*result.preview_id)
+                           : nlohmann::json(nullptr)},
+        {"snapshot", make_project_snapshot(application_.project_snapshot())},
+    };
+}
+
+auto BridgeRequestDispatcher::handle_modulation_preview_update(
+    ParsedRequest const &request) -> nlohmann::json
+{
+    auto preview_id = require_string(request.payload, "preview_id");
+    if (preview_id.empty())
+    {
+        throw BridgeError{"invalid_request", "Field must not be empty: preview_id"};
+    }
+    auto update = ModulationPreviewUpdate{
+        .preview_id = std::move(preview_id),
+        .update_sequence =
+            require_resource_revision(request.payload, "update_sequence"),
+        .expected_project_revision = ProjectRevision{require_resource_revision(
+            request.payload, "expected_project_revision")},
+        .destination =
+            modulation_destination_from_json(request.payload.at("destination")),
+        .output_range = modulation_output_range_from_json(
+            require_object(request.payload, "output_range")),
+        .modulation = modulation_definition_from_json(
+            require_object(request.payload, "modulation")),
+    };
+    validate(update.destination, update.output_range);
+    auto const result = application_.update_modulation_preview(update);
+    return {
+        {"status",
+         {{"level", to_string(result.status.first)},
+          {"message", result.status.second}}},
+        {"preview_id", result.preview_id},
+        {"accepted_update_sequence", std::to_string(result.accepted_update_sequence)},
+        {"accepted", result.accepted},
+        {"project_changed", result.project_changed},
+        {"project_revision", std::to_string(result.project_revision.value())},
+        {"state_revision", std::to_string(result.state_revision.value())},
+    };
+}
+
+auto BridgeRequestDispatcher::handle_modulation_preview_commit(
+    ParsedRequest const &request) -> nlohmann::json
+{
+    return handle_preview_commit(request);
+}
+
+auto BridgeRequestDispatcher::handle_modulation_preview_cancel(
+    ParsedRequest const &request) -> nlohmann::json
+{
+    return handle_preview_cancel(request);
 }
 
 auto BridgeRequestDispatcher::handle_library_get(ParsedRequest const &request)

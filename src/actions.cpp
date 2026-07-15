@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -160,21 +161,44 @@ void validate_octave(sequence::MusicElement const &element,
     return sequence::modify::shift_pitch(std::move(element), pattern, amount);
 }
 
-[[nodiscard]] auto checked_modulator_pitch(Modulator const &mod, float t) -> int
+[[nodiscard]] auto modulation_value(float amount, ModulationOutputRange const &range)
+    -> double
 {
-    return numeric::floor_to_int(evaluate(mod, t),
-                                 "Modulator pitch must be finite and fit in int.");
+    auto const value =
+        range.minimum + static_cast<double>(amount) * (range.maximum - range.minimum);
+    if (!std::isfinite(value))
+    {
+        throw std::overflow_error{"Modulation destination value must be finite."};
+    }
+    return value;
 }
 
-[[nodiscard]] auto checked_modulator_weight(Modulator const &mod, float t) -> float
+[[nodiscard]] auto modulation_pitch(float amount, ModulationOutputRange const &range)
+    -> int
 {
-    auto const weight = evaluate(mod, t);
-    if (!std::isfinite(weight) || weight <= 0.f)
+    auto const rounded = std::round(modulation_value(amount, range));
+    if (rounded < static_cast<double>(std::numeric_limits<int>::min()) ||
+        rounded > static_cast<double>(std::numeric_limits<int>::max()))
     {
-        throw std::invalid_argument{
-            "Modulator weight must be finite and greater than 0."};
+        throw std::overflow_error{"Modulated pitch does not fit in int."};
     }
-    return weight;
+    return static_cast<int>(rounded);
+}
+
+[[nodiscard]] auto weight_target(ProjectState &state, CompositionCursor const &cursor,
+                                 SelectionPath const &selection) -> sequence::Cell &
+{
+    auto &root = selected_sequence(state, cursor);
+    if (selection_kind(selection) == SelectionKind::Element)
+    {
+        auto *parent = get_parent_cell_of_selection(root, selection);
+        if (parent == nullptr)
+        {
+            throw std::invalid_argument{"Selected MusicElement has no parent Cell."};
+        }
+        return *parent;
+    }
+    return get_selected_cell(root, selection);
 }
 
 } // namespace
@@ -568,44 +592,6 @@ auto chord(sequence::Cell cell, std::vector<int> const &intervals,
     return cell;
 }
 
-auto set_pitches(sequence::MusicElement element, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::MusicElement
-{
-    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &cell = sequence.cells[i];
-                cell = sequence::modify::set_pitch(
-                    cell, pattern,
-                    checked_modulator_pitch(
-                        mod, static_cast<float>(i) /
-                                 static_cast<float>(sequence.cells.size())));
-            }
-        }
-    });
-}
-
-auto set_pitches(sequence::Cell cell, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::Cell
-{
-    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &target_cell = sequence.cells[i];
-                target_cell = sequence::modify::set_pitch(
-                    target_cell, pattern,
-                    checked_modulator_pitch(
-                        mod, static_cast<float>(i) /
-                                 static_cast<float>(sequence.cells.size())));
-            }
-        }
-    });
-}
-
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
 {
     if (!std::isfinite(weight) || weight <= 0.f)
@@ -617,38 +603,25 @@ auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell
     return cell;
 }
 
-auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::MusicElement
+auto set_selected_weight(ProjectState state, CompositionCursor const &cursor,
+                         SelectionPath const &selection, float weight) -> ProjectState
 {
-    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &cell = sequence.cells[i];
-                cell.weight = checked_modulator_weight(
-                    mod,
-                    static_cast<float>(i) / static_cast<float>(sequence.cells.size()));
-            }
-        }
-    });
+    auto &cell = weight_target(state, cursor, selection);
+    cell = set_weight(std::move(cell), weight);
+    return state;
 }
 
-auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::Cell
+auto shift_selected_weight(ProjectState state, CompositionCursor const &cursor,
+                           SelectionPath const &selection, float amount) -> ProjectState
 {
-    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &target_cell = sequence.cells[i];
-                target_cell.weight = checked_modulator_weight(
-                    mod,
-                    static_cast<float>(i) / static_cast<float>(sequence.cells.size()));
-            }
-        }
-    });
+    if (!std::isfinite(amount))
+    {
+        throw std::invalid_argument{"Weight shift amount must be finite."};
+    }
+    auto &cell = weight_target(state, cursor, selection);
+    auto const shifted = cell.weight + amount;
+    cell = set_weight(std::move(cell), shifted);
+    return state;
 }
 
 auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
@@ -685,106 +658,77 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
     });
 }
 
-auto set_velocities(sequence::MusicElement element, sequence::Pattern const &pattern,
-                    Modulator const &mod) -> sequence::MusicElement
+auto apply_modulation(ProjectState state, ModulationTarget const &target,
+                      ModulationDestination destination,
+                      ModulationOutputRange const &output_range,
+                      ModulationDefinition const &modulation) -> ProjectState
 {
-    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
+    validate(destination, output_range);
+    validate(modulation);
+    auto applied = std::size_t{};
+    auto apply_to_sequence = [&](sequence::Sequence &sequence) {
+        auto const amounts = evaluate(modulation, sequence.cells.size());
         for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
         {
-            if (sequence::pattern_contains(pattern, i))
+            if (!sequence::pattern_contains(target.pattern, i))
             {
-                auto &cell = sequence.cells[i];
-                cell = sequence::modify::set_velocity(
-                    cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
+                continue;
             }
+            auto &cell = sequence.cells[i];
+            auto const value = modulation_value(amounts[i], output_range);
+            switch (destination)
+            {
+            case ModulationDestination::Pitch:
+                cell = sequence::modify::set_pitch(
+                    std::move(cell), target.pattern,
+                    modulation_pitch(amounts[i], output_range));
+                break;
+            case ModulationDestination::Velocity:
+                cell = sequence::modify::set_velocity(std::move(cell), target.pattern,
+                                                      static_cast<float>(value));
+                break;
+            case ModulationDestination::Delay:
+                cell = sequence::modify::set_delay(std::move(cell), target.pattern,
+                                                   static_cast<float>(value));
+                break;
+            case ModulationDestination::Gate:
+                cell = sequence::modify::set_gate(std::move(cell), target.pattern,
+                                                  static_cast<float>(value));
+                break;
+            case ModulationDestination::Weight:
+                cell.weight = static_cast<float>(value);
+                break;
+            }
+            ++applied;
         }
-    });
-}
+    };
 
-auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
-                    Modulator const &mod) -> sequence::Cell
-{
-    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
+    auto &selected = selected_sequence(state, target.cursor);
+    if (selection_kind(target.selection) == SelectionKind::Element)
+    {
+        auto &element = get_selected_element(selected, target.selection);
+        if (auto *sequence = std::get_if<sequence::Sequence>(&element))
         {
-            if (sequence::pattern_contains(pattern, i))
+            apply_to_sequence(*sequence);
+        }
+    }
+    else
+    {
+        auto &cell = get_selected_cell(selected, target.selection);
+        for (auto &element : cell.elements)
+        {
+            if (auto *sequence = std::get_if<sequence::Sequence>(&element))
             {
-                auto &target_cell = sequence.cells[i];
-                target_cell = sequence::modify::set_velocity(
-                    target_cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
+                apply_to_sequence(*sequence);
             }
         }
-    });
-}
-
-auto set_delays(sequence::MusicElement element, sequence::Pattern const &pattern,
-                Modulator const &mod) -> sequence::MusicElement
-{
-    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &cell = sequence.cells[i];
-                cell = sequence::modify::set_delay(
-                    cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
-            }
-        }
-    });
-}
-
-auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
-                Modulator const &mod) -> sequence::Cell
-{
-    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &target_cell = sequence.cells[i];
-                target_cell = sequence::modify::set_delay(
-                    target_cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
-            }
-        }
-    });
-}
-
-auto set_gates(sequence::MusicElement element, sequence::Pattern const &pattern,
-               Modulator const &mod) -> sequence::MusicElement
-{
-    return visit_sequence(std::move(element), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &cell = sequence.cells[i];
-                cell = sequence::modify::set_gate(
-                    cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
-            }
-        }
-    });
-}
-
-auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
-               Modulator const &mod) -> sequence::Cell
-{
-    return visit_sequence(std::move(cell), [&](sequence::Sequence &sequence) {
-        for (auto i = std::size_t{0}; i < sequence.cells.size(); ++i)
-        {
-            if (sequence::pattern_contains(pattern, i))
-            {
-                auto &target_cell = sequence.cells[i];
-                target_cell = sequence::modify::set_gate(
-                    target_cell, pattern,
-                    evaluate(mod, (float)i / (float)sequence.cells.size()));
-            }
-        }
-    });
+    }
+    if (applied == 0)
+    {
+        throw std::invalid_argument{
+            "Modulation target and pattern select no Sequence cells."};
+    }
+    return state;
 }
 
 } // namespace xen::action

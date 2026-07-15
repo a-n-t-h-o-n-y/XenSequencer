@@ -104,6 +104,57 @@ auto SessionCoordinator::begin_preview(PreviewBeginRequest request) -> PreviewRe
     };
 }
 
+auto SessionCoordinator::begin_modulation_preview(ModulationPreviewBeginRequest request)
+    -> PreviewResponse
+{
+    if (bindings_.find(request.source_instance_id) == bindings_.end())
+    {
+        throw std::invalid_argument{"Unknown source instance ID."};
+    }
+    auto result = session_.begin_modulation_preview(request.expected_project_revision,
+                                                    std::move(request.target));
+    if (result.preview_id.has_value())
+    {
+        live_edit_started_ = true;
+        preview_owner_ = PreviewOwner{
+            .preview_id = *result.preview_id,
+            .instance_id = request.source_instance_id,
+        };
+    }
+    return {
+        .request_id = std::move(request.request_id),
+        .result = std::move(result),
+        .snapshot = session_.project_snapshot(),
+    };
+}
+
+auto SessionCoordinator::update_modulation_preview(
+    ModulationPreviewUpdateRequest request) -> ModulationPreviewUpdateResponse
+{
+    if (bindings_.find(request.source_instance_id) == bindings_.end())
+    {
+        throw std::invalid_argument{"Unknown source instance ID."};
+    }
+    if (!preview_owner_.has_value() ||
+        preview_owner_->instance_id != request.source_instance_id ||
+        preview_owner_->preview_id != request.update.preview_id)
+    {
+        auto const snapshot = session_.project_snapshot();
+        return {
+            .request_id = std::move(request.request_id),
+            .result = {.status = {MessageLevel::Error,
+                                  "Project preview is owned by another instance."},
+                       .preview_id = request.update.preview_id,
+                       .project_revision = snapshot.project_revision,
+                       .state_revision = snapshot.state_revision},
+        };
+    }
+    return {
+        .request_id = std::move(request.request_id),
+        .result = session_.update_modulation_preview(request.update),
+    };
+}
+
 auto SessionCoordinator::commit_preview(PreviewEndRequest request) -> PreviewResponse
 {
     if (!preview_owner_.has_value() ||

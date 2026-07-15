@@ -11,9 +11,8 @@
 #include <sequence/sequence.hpp>
 #include <sequence/time_signature.hpp>
 
-#include <sequence/sequence.hpp>
 #include <xen/copy_paste.hpp>
-#include <xen/modulator.hpp>
+#include <xen/modulation.hpp>
 #include <xen/selection.hpp>
 #include <xen/state.hpp>
 
@@ -141,23 +140,16 @@ void flip_translate_direction(TranslateDirection &td);
                          std::size_t tuning_size) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_pitches(sequence::MusicElement element, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::MusicElement;
-
-[[nodiscard]]
-auto set_pitches(sequence::Cell cell, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::Cell;
-
-[[nodiscard]]
 auto set_weight(sequence::Cell cell, float weight) -> sequence::Cell;
 
 [[nodiscard]]
-auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::MusicElement;
+auto set_selected_weight(ProjectState state, CompositionCursor const &cursor,
+                         SelectionPath const &selection, float weight) -> ProjectState;
 
 [[nodiscard]]
-auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern,
-                 Modulator const &mod) -> sequence::Cell;
+auto shift_selected_weight(ProjectState state, CompositionCursor const &cursor,
+                           SelectionPath const &selection, float amount)
+    -> ProjectState;
 
 [[nodiscard]]
 auto set_weights(sequence::MusicElement element, sequence::Pattern const &pattern,
@@ -168,27 +160,9 @@ auto set_weights(sequence::Cell cell, sequence::Pattern const &pattern, float we
     -> sequence::Cell;
 
 [[nodiscard]]
-auto set_velocities(sequence::MusicElement element, sequence::Pattern const &pattern,
-                    Modulator const &mod) -> sequence::MusicElement;
-
-[[nodiscard]]
-auto set_velocities(sequence::Cell cell, sequence::Pattern const &pattern,
-                    Modulator const &mod) -> sequence::Cell;
-
-[[nodiscard]]
-auto set_delays(sequence::MusicElement element, sequence::Pattern const &pattern,
-                Modulator const &mod) -> sequence::MusicElement;
-
-[[nodiscard]]
-auto set_delays(sequence::Cell cell, sequence::Pattern const &pattern,
-                Modulator const &mod) -> sequence::Cell;
-
-[[nodiscard]]
-auto set_gates(sequence::MusicElement element, sequence::Pattern const &pattern,
-               Modulator const &mod) -> sequence::MusicElement;
-
-[[nodiscard]]
-auto set_gates(sequence::Cell cell, sequence::Pattern const &pattern,
-               Modulator const &mod) -> sequence::Cell;
+auto apply_modulation(ProjectState state, ModulationTarget const &target,
+                      ModulationDestination destination,
+                      ModulationOutputRange const &output_range,
+                      ModulationDefinition const &modulation) -> ProjectState;
 
 } // namespace xen::action

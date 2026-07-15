@@ -330,7 +330,7 @@ TEST_CASE("Catalog metadata exposes paths, arguments, and descriptions",
         });
     REQUIRE(set_pitch != metadata.end());
     REQUIRE(set_pitch->arguments.size() == 1);
-    CHECK(set_pitch->arguments[0].kind == "pitch | modulator");
+    CHECK(set_pitch->arguments[0].kind == "pitch");
 
     auto const set_velocity = std::find_if(
         metadata.begin(), metadata.end(), [](CatalogCommandMetadata const &entry) {
@@ -338,7 +338,7 @@ TEST_CASE("Catalog metadata exposes paths, arguments, and descriptions",
         });
     REQUIRE(set_velocity != metadata.end());
     REQUIRE(set_velocity->arguments.size() == 1);
-    CHECK(set_velocity->arguments[0].kind == "velocity | modulator");
+    CHECK(set_velocity->arguments[0].kind == "velocity");
     REQUIRE(set_velocity->arguments[0].constraints.size() == 1);
     CHECK(set_velocity->arguments[0].constraints[0].kind == "range");
     CHECK(set_velocity->arguments[0].constraints[0].minimum == 0.0);
@@ -424,7 +424,7 @@ TEST_CASE("Catalog bridge payload serializes schema version and keywords",
     CHECK(set_velocity->at("keywords") ==
           std::vector<std::string>{"volume", "gain", "level", "loudness"});
     REQUIRE(set_velocity->at("arguments").size() == 1);
-    CHECK(set_velocity->at("arguments")[0].at("kind") == "velocity | modulator");
+    CHECK(set_velocity->at("arguments")[0].at("kind") == "velocity");
     CHECK(set_velocity->at("arguments")[0]
               .at("constraints")[0]
               .at("minimum")

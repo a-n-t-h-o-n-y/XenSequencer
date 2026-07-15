@@ -10,7 +10,7 @@ JUCE exposes the native function `xenBridgeRequest` and event `xenBridgeEvent`.
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v6";
+  protocol: "xen.bridge.v7";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -31,11 +31,12 @@ type CatalogCommand = {
 };
 
 type SessionHello = {
-  protocol: "xen.bridge.v6";
+  protocol: "xen.bridge.v7";
   plugin_version: string;
   project_schema_version: 6;
   library_schema_version: 2;
-  catalog: { schema_version: 4; commands: CatalogCommand[] };
+  catalog: { schema_version: 5; commands: CatalogCommand[] };
+  modulation: ModulationCatalog;
   binding: { session_id: string; instance_id: string; channel_id: string };
   keymap: KeymapResource;
   preferences: PreferencesResource;
@@ -129,8 +130,9 @@ type DocumentOperationResult = {
 };
 ```
 
-`state.get`, `state.changed`, document responses, preview responses, and
-`command.execute.payload.snapshot` all carry this shape. Ingest snapshots by
+`state.get`, `state.changed`, document responses, generic preview responses,
+modulation begin/end responses, and `command.execute.payload.snapshot` all carry this
+shape. Ingest snapshots by
 `state_revision`; use `project_revision` for optimistic project edits. A document save
 can advance `state_revision` without changing `project_revision`.
 
@@ -248,6 +250,13 @@ Preview requests are `preview.begin`, `preview.commit`, and `preview.cancel`; ev
 `expected_project_revision` is a decimal string. Document operations are rejected while
 a preview is active. Processor/DAW persistence always saves the persistent baseline,
 not transient preview state.
+
+Modulation uses the separate `modulation.preview.begin`, `.update`, `.commit`, and
+`.cancel` lifecycle. The begin/commit/cancel responses contain snapshots. Update
+responses are small acknowledgements and intentionally omit the project snapshot;
+accepted updates publish coalesced `state.changed` events at the coordinator maintenance
+rate. See [Modulation frontend specification](modulation_frontend_spec.md) for the
+complete schema, validation rules, target semantics, and client flow.
 
 ## Library resource
 

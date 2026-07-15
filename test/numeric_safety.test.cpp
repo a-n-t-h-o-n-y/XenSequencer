@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
@@ -11,7 +12,7 @@
 
 #include <xen/actions.hpp>
 #include <xen/midi_compiler.hpp>
-#include <xen/modulator.hpp>
+#include <xen/modulation.hpp>
 #include <xen/scale.hpp>
 #include <xen/serialize.hpp>
 
@@ -137,41 +138,55 @@ TEST_CASE("Action pitch arithmetic rejects overflow and empty modulo inputs",
                     std::overflow_error);
 }
 
-TEST_CASE("Modulators reject invalid wavetable and action outputs",
-          "[numeric][modulator]")
+TEST_CASE("Modulation rejects invalid definitions and output ranges",
+          "[numeric][modulation]")
 {
     auto const nan = std::numeric_limits<float>::quiet_NaN();
-    auto const infinity = std::numeric_limits<float>::infinity();
-
-    CHECK_THROWS_AS(xen::evaluate(xen::modulator::Sine{.frequency = nan}, 0.f),
-                    std::invalid_argument);
-    CHECK_THROWS_AS(xen::evaluate(xen::modulator::Sine{.frequency = infinity},
-                                  std::numeric_limits<float>::max()),
-                    std::invalid_argument);
-    CHECK_THROWS_AS(xen::evaluate(
-                        xen::modulator::Sine{
-                            .frequency = std::numeric_limits<float>::max(),
-                            .amplitude = 1.f,
-                            .phase = 0.f,
-                        },
-                        std::numeric_limits<float>::max()),
-                    std::overflow_error);
-
-    auto const sequence_cell = sequence::Cell{
-        .elements = {sequence::Sequence{{one_note_cell(0)}}},
-        .weight = 1.f,
+    auto modulation = xen::ModulationDefinition{
+        .waveforms = {{.frequency = nan}},
     };
-    auto const all = sequence::Pattern{0, {1}};
+    CHECK_THROWS_AS(xen::evaluate(modulation, 16), std::invalid_argument);
+
+    modulation = {
+        .operation = xen::ModulationOperation::FrequencyModulation,
+        .waveforms = {{}, {}, {}},
+    };
+    CHECK_THROWS_AS(xen::evaluate(modulation, 16), std::invalid_argument);
+
     CHECK_THROWS_AS(
-        xen::action::set_pitches(sequence_cell, all,
-                                 xen::modulator::Constant{.value = infinity}),
+        xen::validate(xen::ModulationDestination::Weight,
+                      xen::ModulationOutputRange{.minimum = 0.0, .maximum = 1.0}),
         std::invalid_argument);
-    CHECK_THROWS_AS(xen::action::set_weights(sequence_cell, all,
-                                             xen::modulator::Constant{.value = nan}),
-                    std::invalid_argument);
-    CHECK_THROWS_AS(xen::action::set_weights(sequence_cell, all,
-                                             xen::modulator::Constant{.value = 0.f}),
-                    std::invalid_argument);
+    CHECK_THROWS_AS(
+        xen::validate(xen::ModulationDestination::Pitch,
+                      xen::ModulationOutputRange{.minimum = 0.5, .maximum = 12.0}),
+        std::invalid_argument);
+}
+
+TEST_CASE("Modulation evaluates normalized reducers and sampled FM",
+          "[numeric][modulation]")
+{
+    auto const sine = xen::ModulationDefinition{
+        .waveforms = {{.frequency = 1.f}},
+    };
+    auto const sine_output = xen::evaluate(sine, 4);
+    REQUIRE(sine_output.size() == 4);
+    CHECK(sine_output[0] == Catch::Approx(0.5f));
+    CHECK(sine_output[1] == Catch::Approx(1.f));
+    CHECK(sine_output[2] == Catch::Approx(0.5f));
+    CHECK(sine_output[3] == Catch::Approx(0.f));
+
+    auto const fm = xen::ModulationDefinition{
+        .operation = xen::ModulationOperation::FrequencyModulation,
+        .waveforms = {{.frequency = 0.f},
+                      {.frequency = 0.f, .amplitude = 0.f, .amplitude_offset = 1.f}},
+    };
+    auto const fm_output = xen::evaluate(fm, 4);
+    REQUIRE(fm_output.size() == 4);
+    CHECK(fm_output[0] == Catch::Approx(0.5f));
+    CHECK(fm_output[1] == Catch::Approx(1.f));
+    CHECK(fm_output[2] == Catch::Approx(0.5f));
+    CHECK(fm_output[3] == Catch::Approx(0.f));
 }
 
 TEST_CASE("MIDI compiler rejects unrepresentable composition timing", "[numeric][midi]")

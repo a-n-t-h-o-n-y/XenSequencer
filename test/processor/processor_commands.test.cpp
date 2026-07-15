@@ -73,15 +73,29 @@ TEST_CASE("Processor rejects missing and invalid targeted selections",
     CHECK(invalid.status.second == "selection path does not resolve");
 }
 
-TEST_CASE("Processor rejects wrong-kind targets", "[processor][commands][selection]")
+TEST_CASE("Processor weight command targets an element's parent cell",
+          "[processor][commands][selection]")
 {
     auto session = SequencerSession{};
     REQUIRE(execute(session, "note 5", SelectionPath{}).status.first ==
             MessageLevel::Info);
     auto const result =
         execute(session, "set weight 0.5", select_element_in_cell({}, 0));
-    CHECK(result.status.first == MessageLevel::Error);
-    CHECK(result.status.second == "selection must resolve to a cell");
+    CHECK(result.status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot()
+              .project.sequence_bank.sequences.front()
+              .cell.weight == 0.5f);
+
+    auto const shifted =
+        execute(session, "shift weight", select_element_in_cell({}, 0));
+    CHECK(shifted.status.first == MessageLevel::Info);
+    CHECK(session.project_snapshot()
+              .project.sequence_bank.sequences.front()
+              .cell.weight == 0.6f);
+
+    auto const invalid =
+        execute(session, "shift weight -1", select_element_in_cell({}, 0));
+    CHECK(invalid.status.first == MessageLevel::Error);
 }
 
 TEST_CASE("Processor distinguishes invalid composition cursors from selections",

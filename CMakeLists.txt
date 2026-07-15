@@ -239,7 +239,7 @@ set(XEN_DOMAIN_SOURCES
     src/message_level.cpp
     src/midi_compiler.cpp
     src/realtime_midi_player.cpp
-    src/modulator.cpp
+    src/modulation.cpp
     src/project_validation.cpp
     src/scale.cpp
     src/selection.cpp
@@ -269,6 +269,7 @@ set(XEN_APPLICATION_SOURCES
     src/keymap.cpp
     src/ipc_sequencer_session_client.cpp
     src/midi_compilation_service.cpp
+    src/modulation_json.cpp
     src/ipc_protocol.cpp
     src/parse_args.cpp
     src/preferences.cpp

@@ -91,18 +91,6 @@ struct ArgTraits<sequence::TimeSignature>
     static constexpr auto type_name = "time_signature";
 };
 
-template <>
-struct ArgTraits<std::variant<int, Modulator>>
-{
-    static constexpr auto type_name = "integer | modulator";
-};
-
-template <>
-struct ArgTraits<std::variant<float, Modulator>>
-{
-    static constexpr auto type_name = "number | modulator";
-};
-
 inline auto format_float(double value) -> std::string
 {
     auto stream = std::ostringstream{};
@@ -137,26 +125,6 @@ auto format_default_value(T const &value) -> std::string
     {
         return std::to_string(value.numerator) + "/" +
                std::to_string(value.denominator);
-    }
-    else if constexpr (std::is_same_v<T, Modulator>)
-    {
-        return "{}";
-    }
-    else if constexpr (std::is_same_v<T, std::variant<int, Modulator>>)
-    {
-        return std::visit(
-            [](auto const &variant_value) {
-                return format_default_value(variant_value);
-            },
-            value);
-    }
-    else if constexpr (std::is_same_v<T, std::variant<float, Modulator>>)
-    {
-        return std::visit(
-            [](auto const &variant_value) {
-                return format_default_value(variant_value);
-            },
-            value);
     }
     else
     {
@@ -285,60 +253,9 @@ auto one_of(ArgDef<T> argument, std::vector<T> values, std::string error_message
         std::move(error_message));
 }
 
-template <typename Scalar>
-auto scalar_or_modulator_range(ArgDef<std::variant<Scalar, Modulator>> argument,
-                               double minimum, double maximum,
-                               std::string error_message)
-    -> ArgDef<std::variant<Scalar, Modulator>>
-{
-    auto const min_value = static_cast<Scalar>(minimum);
-    auto const max_value = static_cast<Scalar>(maximum);
-    return constrained(
-        std::move(argument),
-        CatalogArgumentConstraint{
-            .kind = "range", .minimum = minimum, .maximum = maximum, .values = {}},
-        [min_value, max_value](std::variant<Scalar, Modulator> const &value) {
-            if (auto const scalar = std::get_if<Scalar>(&value); scalar != nullptr)
-            {
-                return *scalar >= min_value && *scalar <= max_value;
-            }
-            return true;
-        },
-        std::move(error_message));
-}
-
-template <typename Scalar>
-auto scalar_or_modulator_minimum(ArgDef<std::variant<Scalar, Modulator>> argument,
-                                 double minimum_value, std::string error_message)
-    -> ArgDef<std::variant<Scalar, Modulator>>
-{
-    auto const min_value = static_cast<Scalar>(minimum_value);
-    return constrained(
-        std::move(argument),
-        CatalogArgumentConstraint{.kind = "minimum",
-                                  .minimum = minimum_value,
-                                  .maximum = std::nullopt,
-                                  .values = {}},
-        [min_value](std::variant<Scalar, Modulator> const &value) {
-            if (auto const scalar = std::get_if<Scalar>(&value); scalar != nullptr)
-            {
-                return *scalar > min_value;
-            }
-            return true;
-        },
-        std::move(error_message));
-}
-
 inline auto note_pitch_arg(std::string name, int default_value)
 {
     return optional_arg<int>("pitch", std::move(name), default_value);
-}
-
-inline auto note_pitch_or_modulator_arg(std::string name,
-                                        std::variant<int, Modulator> default_value)
-{
-    return optional_arg<std::variant<int, Modulator>>(
-        "pitch | modulator", std::move(name), std::move(default_value));
 }
 
 inline auto pitch_offset_arg(std::string name, int default_value)
@@ -362,15 +279,6 @@ inline auto unit_interval_arg(std::string type, std::string name, float default_
                   0.0, 1.0, "Must be in range [0, 1].");
 }
 
-inline auto unit_interval_modulator_arg(std::string type, std::string name,
-                                        std::variant<float, Modulator> default_value)
-{
-    return scalar_or_modulator_range(
-        optional_arg<std::variant<float, Modulator>>(std::move(type), std::move(name),
-                                                     std::move(default_value)),
-        0.0, 1.0, "Must be in range [0, 1].");
-}
-
 inline auto unit_interval_delta_arg(std::string type, std::string name,
                                     float default_value)
 {
@@ -383,13 +291,6 @@ inline auto velocity_arg(std::string name, float default_value)
     return unit_interval_arg("velocity", std::move(name), default_value);
 }
 
-inline auto velocity_or_modulator_arg(std::string name,
-                                      std::variant<float, Modulator> default_value)
-{
-    return unit_interval_modulator_arg("velocity | modulator", std::move(name),
-                                       std::move(default_value));
-}
-
 inline auto velocity_offset_arg(std::string name, float default_value)
 {
     return unit_interval_delta_arg("velocity_offset", std::move(name), default_value);
@@ -400,13 +301,6 @@ inline auto delay_arg(std::string name, float default_value)
     return unit_interval_arg("delay", std::move(name), default_value);
 }
 
-inline auto delay_or_modulator_arg(std::string name,
-                                   std::variant<float, Modulator> default_value)
-{
-    return unit_interval_modulator_arg("delay | modulator", std::move(name),
-                                       std::move(default_value));
-}
-
 inline auto delay_offset_arg(std::string name, float default_value)
 {
     return unit_interval_delta_arg("delay_offset", std::move(name), default_value);
@@ -415,13 +309,6 @@ inline auto delay_offset_arg(std::string name, float default_value)
 inline auto gate_arg(std::string name, float default_value)
 {
     return unit_interval_arg("gate", std::move(name), default_value);
-}
-
-inline auto gate_or_modulator_arg(std::string name,
-                                  std::variant<float, Modulator> default_value)
-{
-    return unit_interval_modulator_arg("gate | modulator", std::move(name),
-                                       std::move(default_value));
 }
 
 inline auto gate_offset_arg(std::string name, float default_value)
@@ -447,11 +334,9 @@ inline auto positive_weight_arg(std::string type, std::string name)
                           "Must be greater than 0.");
 }
 
-inline auto positive_weight_or_modulator_arg(std::string name)
+inline auto weight_offset_arg(std::string name, float default_value)
 {
-    return scalar_or_modulator_minimum(required_arg<std::variant<float, Modulator>>(
-                                           "cell_weight | modulator", std::move(name)),
-                                       0.0, "Must be greater than 0.");
+    return optional_arg<float>("cell_weight_offset", std::move(name), default_value);
 }
 
 inline auto repeat_count_arg(std::string name, std::size_t default_value)

@@ -149,6 +149,32 @@ class FakeApplicationService final : public bridge::ApplicationBridgeService
         };
     }
 
+    [[nodiscard]] auto begin_modulation_preview(ProjectRevision, ModulationTarget)
+        -> PreviewControlResult override
+    {
+        project.preview_active = true;
+        return {
+            .status = {MessageLevel::Info, "Modulation preview started."},
+            .preview_id = "modulation-preview-test",
+        };
+    }
+
+    [[nodiscard]] auto update_modulation_preview(ModulationPreviewUpdate const &update)
+        -> ModulationPreviewUpdateResult override
+    {
+        project.project_revision = ProjectRevision{8};
+        project.state_revision = StateRevision{10};
+        return {
+            .status = {MessageLevel::Info, "Modulation preview updated."},
+            .preview_id = update.preview_id,
+            .accepted_update_sequence = update.update_sequence,
+            .accepted = true,
+            .project_changed = true,
+            .project_revision = project.project_revision,
+            .state_revision = project.state_revision,
+        };
+    }
+
     [[nodiscard]] auto commit_preview(PreviewId const &, ProjectRevision)
         -> PreviewControlResult override
     {
@@ -434,6 +460,7 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.at("library_schema_version") == bridge::library_schema_version);
     CHECK(payload.contains("catalog"));
     CHECK(payload.at("catalog").at("schema_version") == bridge::catalog_schema_version);
+    CHECK(payload.at("modulation").at("schema_version") == MODULATION_SCHEMA_VERSION);
     for (auto const &command : payload.at("catalog").at("commands"))
     {
         for (auto const &argument : command.at("arguments"))
@@ -549,6 +576,58 @@ TEST_CASE("Bridge exposes generic project preview lifecycle", "[core][bridge][pr
             .at("payload");
     CHECK(cancelled.at("snapshot").at("preview_active") == false);
     CHECK(session.project_snapshot().project == initial.project);
+}
+
+TEST_CASE("Bridge exposes snapshot-free modulation preview updates",
+          "[core][bridge][modulation]")
+{
+    auto application = FakeApplicationService{};
+    auto library = FakeLibraryService{};
+    auto keymap = FakeKeymapService{};
+    auto preferences = FakePreferencesService{};
+    auto dispatcher =
+        bridge::BridgeRequestDispatcher{application, library, keymap, preferences};
+
+    auto const target = nlohmann::json{
+        {"cursor",
+         {{"row_coordinate", 0}, {"column_coordinate", 0}, {"sequence_id", 1}}},
+        {"selection",
+         {{"path", nlohmann::json::array({{{"kind", "element"}, {"index", 0}}})}}},
+        {"pattern", {{"offset", 0}, {"intervals", {1}}}},
+    };
+    auto const begin =
+        fake_response(dispatcher, "modulation.preview.begin",
+                      {{"expected_project_revision", "7"}, {"target", target}})
+            .at("payload");
+    CHECK(begin.at("preview_id") == "modulation-preview-test");
+    CHECK(begin.at("snapshot").at("preview_active") == true);
+
+    auto const update =
+        fake_response(
+            dispatcher, "modulation.preview.update",
+            {{"preview_id", "modulation-preview-test"},
+             {"update_sequence", "1"},
+             {"expected_project_revision", "7"},
+             {"destination", "velocity"},
+             {"output_range", {{"minimum", 0.0}, {"maximum", 1.0}}},
+             {"modulation",
+              {{"operation", "average"},
+               {"waveforms", nlohmann::json::array({{{"enabled", true},
+                                                     {"shape", "sine"},
+                                                     {"frequency", 1.0},
+                                                     {"phase", 0.0},
+                                                     {"amplitude", 1.0},
+                                                     {"amplitude_offset", 0.0}}})}}}})
+            .at("payload");
+    CHECK(update.at("accepted") == true);
+    CHECK(update.at("accepted_update_sequence") == "1");
+    CHECK_FALSE(update.contains("snapshot"));
+
+    auto const cancelled = fake_response(dispatcher, "modulation.preview.cancel",
+                                         {{"preview_id", "modulation-preview-test"},
+                                          {"expected_project_revision", "8"}})
+                               .at("payload");
+    CHECK(cancelled.at("snapshot").at("preview_active") == false);
 }
 
 TEST_CASE("Bridge writes and deletes opaque keymap documents", "[core][bridge]")

@@ -23,6 +23,10 @@ class SessionCoordinator
     [[nodiscard]] auto connect(ClientHello hello) -> CoordinatorHello;
     [[nodiscard]] auto execute(CommandRequest request) -> CommandResponse;
     [[nodiscard]] auto begin_preview(PreviewBeginRequest request) -> PreviewResponse;
+    [[nodiscard]] auto begin_modulation_preview(ModulationPreviewBeginRequest request)
+        -> PreviewResponse;
+    [[nodiscard]] auto update_modulation_preview(ModulationPreviewUpdateRequest request)
+        -> ModulationPreviewUpdateResponse;
     [[nodiscard]] auto commit_preview(PreviewEndRequest request) -> PreviewResponse;
     [[nodiscard]] auto cancel_preview(PreviewEndRequest request) -> PreviewResponse;
     [[nodiscard]] auto execute_document(DocumentRequest request) -> DocumentResponse;

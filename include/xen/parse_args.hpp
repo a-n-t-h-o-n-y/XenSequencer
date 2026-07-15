@@ -6,12 +6,12 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 #include <juce_core/juce_core.h>
 
 #include <sequence/time_signature.hpp>
 
-#include <xen/modulator.hpp>
 #include <xen/string_manip.hpp>
 #include <xen/utility.hpp>
 
@@ -236,12 +236,6 @@ template <typename T>
     else if constexpr (std::is_same_v<T, std::string_view>)
     {
         return x;
-    }
-    else if constexpr (std::is_same_v<T, Modulator>)
-    {
-        auto mod = Modulator{};
-        from_json(nlohmann::json::parse(x), mod);
-        return mod;
     }
     else if constexpr (utility::is_variant_v<T>)
     {

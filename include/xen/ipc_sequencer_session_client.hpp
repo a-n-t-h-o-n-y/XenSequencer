@@ -42,6 +42,11 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
         -> CommandApplicationResult override;
     [[nodiscard]] auto begin_preview(ProjectRevision expected_revision)
         -> PreviewControlResult override;
+    [[nodiscard]] auto begin_modulation_preview(ProjectRevision expected_revision,
+                                                ModulationTarget target)
+        -> PreviewControlResult override;
+    [[nodiscard]] auto update_modulation_preview(ModulationPreviewUpdate const &update)
+        -> ModulationPreviewUpdateResult override;
     [[nodiscard]] auto commit_preview(PreviewId const &preview_id,
                                       ProjectRevision expected_revision)
         -> PreviewControlResult override;
@@ -98,11 +103,15 @@ class IpcSequencerSessionClient final : public ProcessorSessionPort,
     LibrarySnapshot library_snapshot_{};
     CommandCatalog command_catalog_;
     MidiCompilationService midi_compilation_;
+    std::optional<StateRevision> last_midi_compilation_state_revision_;
+    ChannelId last_midi_compilation_channel_id_{};
     bool online_{false};
     std::string last_error_{};
     std::uint64_t next_request_id_{1};
     std::optional<CommandResponse> pending_command_response_;
     std::optional<PreviewResponse> pending_preview_response_;
+    std::optional<ModulationPreviewUpdateResponse>
+        pending_modulation_preview_update_response_;
     std::optional<DocumentResponse> pending_document_response_;
     std::optional<BindingSetResponse> pending_binding_response_;
     std::optional<ShutdownIfIdleResponse> pending_shutdown_response_;
