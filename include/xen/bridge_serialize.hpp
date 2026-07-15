@@ -16,10 +16,10 @@
 namespace xen::bridge
 {
 
-inline constexpr std::string_view protocol = "xen.bridge.v7";
+inline constexpr std::string_view protocol = "xen.bridge.v8";
 inline constexpr int project_schema_version = 6;
 inline constexpr int library_schema_version = 2;
-inline constexpr int catalog_schema_version = 5;
+inline constexpr int catalog_schema_version = 6;
 
 [[nodiscard]] auto to_string(MessageLevel level) -> std::string;
 

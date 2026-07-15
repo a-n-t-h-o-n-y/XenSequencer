@@ -355,7 +355,7 @@ auto modulation_catalog_to_json() -> nlohmann::json
         {"waveform_shapes",
          {"sine", "triangle", "sawtooth_up", "sawtooth_down", "square"}},
         {"waveform_parameters",
-         {{"frequency", {{"minimum", 0.0}, {"maximum", 1.0}}},
+         {{"frequency", {{"minimum", 0.0}, {"maximum", MAX_MODULATION_FREQUENCY}}},
           {"phase", {{"minimum", 0.0}, {"maximum", 1.0}}},
           {"amplitude", {{"minimum", -1.0}, {"maximum", 1.0}}},
           {"amplitude_offset", {{"minimum", -1.0}, {"maximum", 1.0}}}}},

@@ -189,7 +189,8 @@ void validate(ModulationDefinition const &modulation)
     }
     for (auto const &waveform : modulation.waveforms)
     {
-        validate_parameter(waveform.frequency, 0.f, 1.f, "Waveform frequency");
+        validate_parameter(waveform.frequency, 0.f, MAX_MODULATION_FREQUENCY,
+                           "Waveform frequency");
         validate_parameter(waveform.phase, 0.f, 1.f, "Waveform phase");
         validate_parameter(waveform.amplitude, -1.f, 1.f, "Waveform amplitude");
         validate_parameter(waveform.amplitude_offset, -1.f, 1.f,

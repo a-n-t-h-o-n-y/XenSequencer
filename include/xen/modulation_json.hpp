@@ -7,7 +7,7 @@
 namespace xen
 {
 
-inline constexpr int MODULATION_SCHEMA_VERSION = 1;
+inline constexpr int MODULATION_SCHEMA_VERSION = 2;
 
 [[nodiscard]] auto modulation_definition_to_json(ModulationDefinition const &modulation)
     -> nlohmann::json;

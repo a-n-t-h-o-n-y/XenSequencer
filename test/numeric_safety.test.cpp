@@ -148,6 +148,14 @@ TEST_CASE("Modulation rejects invalid definitions and output ranges",
     CHECK_THROWS_AS(xen::evaluate(modulation, 16), std::invalid_argument);
 
     modulation = {
+        .waveforms = {{.frequency = xen::MAX_MODULATION_FREQUENCY}},
+    };
+    CHECK_NOTHROW(xen::validate(modulation));
+
+    modulation.waveforms.front().frequency = xen::MAX_MODULATION_FREQUENCY + 1.f;
+    CHECK_THROWS_AS(xen::validate(modulation), std::invalid_argument);
+
+    modulation = {
         .operation = xen::ModulationOperation::FrequencyModulation,
         .waveforms = {{}, {}, {}},
     };

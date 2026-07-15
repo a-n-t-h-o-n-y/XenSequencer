@@ -15,6 +15,7 @@ namespace xen
 {
 
 inline constexpr auto MAX_MODULATION_WAVEFORMS = std::size_t{64};
+inline constexpr auto MAX_MODULATION_FREQUENCY = 64.f;
 
 enum class WaveformShape : std::uint8_t
 {

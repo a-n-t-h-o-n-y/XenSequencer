@@ -461,6 +461,10 @@ TEST_CASE("Bridge session hello contains session resources only", "[core][bridge
     CHECK(payload.contains("catalog"));
     CHECK(payload.at("catalog").at("schema_version") == bridge::catalog_schema_version);
     CHECK(payload.at("modulation").at("schema_version") == MODULATION_SCHEMA_VERSION);
+    auto const &frequency =
+        payload.at("modulation").at("waveform_parameters").at("frequency");
+    CHECK(frequency.at("minimum") == 0.f);
+    CHECK(frequency.at("maximum") == MAX_MODULATION_FREQUENCY);
     for (auto const &command : payload.at("catalog").at("commands"))
     {
         for (auto const &argument : command.at("arguments"))

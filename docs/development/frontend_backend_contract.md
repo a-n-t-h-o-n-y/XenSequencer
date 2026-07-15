@@ -10,7 +10,7 @@ JUCE exposes the native function `xenBridgeRequest` and event `xenBridgeEvent`.
 
 ```ts
 type Envelope = {
-  protocol: "xen.bridge.v7";
+  protocol: "xen.bridge.v8";
   type: "request" | "response" | "event";
   name: string;
   request_id?: string;
@@ -30,12 +30,20 @@ type CatalogCommand = {
   description: string;
 };
 
+type ModulationCatalog = {
+  schema_version: 2;
+  waveform_parameters: {
+    frequency: { minimum: 0; maximum: 64 };
+  };
+  // Additional waveform, operation, and destination metadata omitted here.
+};
+
 type SessionHello = {
-  protocol: "xen.bridge.v7";
+  protocol: "xen.bridge.v8";
   plugin_version: string;
   project_schema_version: 6;
   library_schema_version: 2;
-  catalog: { schema_version: 5; commands: CatalogCommand[] };
+  catalog: { schema_version: 6; commands: CatalogCommand[] };
   modulation: ModulationCatalog;
   binding: { session_id: string; instance_id: string; channel_id: string };
   keymap: KeymapResource;
